@@ -3,7 +3,7 @@ services:
     name: elemes
     env: python
     plan: free
-    buildCommand: pip install -r ELMS1.3/requirements.txt
+    buildCommand: pip install --no-cache-dir gunicorn -r ELMS1.3/requirements.txt
     startCommand: gunicorn --chdir ELMS1.3 run:app -b 0.0.0.0:$PORT
     envVars:
       - key: SECRET_KEY
@@ -15,4 +15,5 @@ services:
       #   fromDatabase:
       #     name: your-postgres
       #     property: connectionString
+
 
