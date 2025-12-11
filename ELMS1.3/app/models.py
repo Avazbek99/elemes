@@ -388,20 +388,7 @@ class GradeScale(db.Model):
 # ==================== DEMO MA'LUMOTLAR ====================
 def create_demo_data():
     """Demo ma'lumotlarni yaratish"""
-    # Accounting accountini har doim yaratish/yangilash
-    accounting = User.query.filter_by(email='accounting@university.uz').first()
-    if not accounting:
-        accounting = User(
-            email='accounting@university.uz',
-            full_name='Buxgalteriya Bo\'limi',
-            role='accounting',
-            phone='+998 90 123 45 68'
-        )
-        accounting.set_password('accounting123')
-        db.session.add(accounting)
-        db.session.commit()
-    
-    # Agar database'da allaqachon ma'lumotlar bo'lsa, qolganini yaratmaymiz
+    # Agar allaqachon admin mavjud bo'lsa, demo ma'lumotlarni qayta yaratmaymiz
     if User.query.filter_by(role='admin').first() is not None:
         return
     
@@ -429,15 +416,16 @@ def create_demo_data():
     admin.set_password('admin123')
     db.session.add(admin)
     
-    # ===== BUXGALTERIYA =====
-    accounting = User(
-        email='accounting@university.uz',
-        full_name='Buxgalteriya Bo\'limi',
-        role='accounting',
-        phone='+998 90 123 45 68'
-    )
-    accounting.set_password('accounting123')
-    db.session.add(accounting)
+    # ===== BUXGALTERIYA ===== (agar yo'q bo'lsa)
+    if not User.query.filter_by(email='accounting@university.uz').first():
+        accounting = User(
+            email='accounting@university.uz',
+            full_name='Buxgalteriya Bo\'limi',
+            role='accounting',
+            phone='+998 90 123 45 68'
+        )
+        accounting.set_password('accounting123')
+        db.session.add(accounting)
     
     # ===== DEKANLAR =====
     deans_data = [
