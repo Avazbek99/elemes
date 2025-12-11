@@ -614,11 +614,11 @@ def create_demo_data():
     
     # ===== DARS JADVALI =====
     schedule_data = [
-        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 0, 'start': '09:00', 'end': '10:30', 'room': '301-xona', 'type': 'lecture'},
-        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 2, 'start': '14:00', 'end': '16:00', 'room': 'Lab-1', 'type': 'lab'},
-        {'subject': 'WD201', 'group': 'DI-21', 'teacher': teachers[0], 'day': 1, 'start': '09:00', 'end': '10:30', 'room': '205-xona', 'type': 'lecture'},
-        {'subject': 'MB301', 'group': 'DI-21', 'teacher': teachers[2], 'day': 3, 'start': '11:00', 'end': '12:30', 'room': '302-xona', 'type': 'lecture'},
-        {'subject': 'AL201', 'group': 'DI-22', 'teacher': teachers[1], 'day': 1, 'start': '14:00', 'end': '15:30', 'room': '201-xona', 'type': 'lecture'},
+        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 0, 'start': '09:00', 'end': '10:30', 'type': 'lecture'},
+        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 2, 'start': '14:00', 'end': '16:00', 'type': 'lab'},
+        {'subject': 'WD201', 'group': 'DI-21', 'teacher': teachers[0], 'day': 1, 'start': '09:00', 'end': '10:30', 'type': 'lecture'},
+        {'subject': 'MB301', 'group': 'DI-21', 'teacher': teachers[2], 'day': 3, 'start': '11:00', 'end': '12:30', 'type': 'lecture'},
+        {'subject': 'AL201', 'group': 'DI-22', 'teacher': teachers[1], 'day': 1, 'start': '14:00', 'end': '15:30', 'type': 'lecture'},
     ]
     
     for s in schedule_data:
@@ -629,7 +629,6 @@ def create_demo_data():
             day_of_week=s['day'],
             start_time=s['start'],
             end_time=s['end'],
-            room=s['room'],
             lesson_type=s['type']
         )
         db.session.add(schedule)
