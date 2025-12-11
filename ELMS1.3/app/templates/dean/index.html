@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Dekan paneli{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Xush kelibsiz, {{ current_user.full_name }}!</h1>
+    {% if faculty %}
+    <p class="text-gray-600">{{ faculty.name }} - Dekanat boshqaruv paneli</p>
+    {% endif %}
+</div>
+
+{% if faculty %}
+<!-- Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">Guruhlar</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_groups }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">Talabalar</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_students }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">Fanlar</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_subjects }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">O'qituvchilar</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_teachers }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <a href="{{ url_for('dean.create_group') }}" class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            </div>
+            <div>
+                <h3 class="font-semibold text-lg">Guruh yaratish</h3>
+                <p class="text-blue-100 text-sm">Yangi guruh qo'shish</p>
+            </div>
+        </div>
+    </a>
+    
+    <a href="{{ url_for('dean.create_assignment') }}" class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </div>
+            <div>
+                <h3 class="font-semibold text-lg">Fan biriktirish</h3>
+                <p class="text-emerald-100 text-sm">O'qituvchini fanga biriktirish</p>
+            </div>
+        </div>
+    </a>
+    
+    <a href="{{ url_for('dean.create_schedule') }}" class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+                <h3 class="font-semibold text-lg">Jadval qo'shish</h3>
+                <p class="text-purple-100 text-sm">Dars jadvalini boshqarish</p>
+            </div>
+        </div>
+    </a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Groups -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-gray-900">Guruhlar</h2>
+            <a href="{{ url_for('dean.groups') }}" class="text-primary-600 text-sm hover:underline">Barchasini ko'rish</a>
+        </div>
+        <div class="divide-y divide-gray-100">
+            {% for group in groups[:5] %}
+            <a href="{{ url_for('dean.group_students', id=group.id) }}" class="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <span class="text-blue-600 font-semibold text-sm">{{ group.name[:2] }}</span>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900">{{ group.name }}</p>
+                        <p class="text-sm text-gray-500">{{ group.course_year }}-kurs • {{ group.education_type }}</p>
+                    </div>
+                </div>
+                <span class="text-sm text-gray-500">{{ group.get_students_count() }} talaba</span>
+            </a>
+            {% else %}
+            <div class="p-8 text-center text-gray-500">
+                <p>Guruhlar mavjud emas</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Subjects -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-gray-900">Fanlar</h2>
+            <a href="{{ url_for('dean.teacher_assignments') }}" class="text-primary-600 text-sm hover:underline">Biriktirmalar</a>
+        </div>
+        <div class="divide-y divide-gray-100">
+            {% for subject in subjects[:5] %}
+            {% set has_issue = subject.has_lessons_without_content() %}
+            <div class="flex items-center justify-between p-4 {% if has_issue %}bg-red-50 border-l-4 border-red-500{% endif %}">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg {% if has_issue %}bg-red-100{% else %}bg-purple-100{% endif %} flex items-center justify-center">
+                        <span class="{% if has_issue %}text-red-600{% else %}text-purple-600{% endif %} font-semibold text-xs">{{ subject.code[:3] }}</span>
+                    </div>
+                    <div>
+                        <p class="font-medium {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</p>
+                        <p class="text-sm {% if has_issue %}text-red-500{% else %}text-gray-500{% endif %}">{{ subject.code }} • {{ subject.credits }} kredit</p>
+                        {% if has_issue %}
+                        <p class="text-xs text-red-600 font-medium mt-1">⚠️ Videolar/fayllar yo'q</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="text-xs px-2 py-1 {% if has_issue %}bg-red-100 text-red-600{% else %}bg-gray-100 text-gray-600{% endif %} rounded-full">{{ subject.semester }}-semestr</span>
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-gray-500">
+                <p>Fanlar mavjud emas</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+    <svg class="w-12 h-12 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    <h3 class="text-lg font-semibold text-yellow-800 mb-2">Fakultet biriktirilmagan</h3>
+    <p class="text-yellow-600">Sizga hali fakultet biriktirilmagan. Administrator bilan bog'laning.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+
+

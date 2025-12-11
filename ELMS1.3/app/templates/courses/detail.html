@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}{{ subject.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="relative h-48 bg-gradient-to-br from-primary-500 to-primary-600">
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span class="text-6xl font-bold text-white/20">{{ subject.code }}</span>
+            </div>
+            <div class="absolute bottom-0 left-0 right-0 p-6">
+                <div class="flex gap-2 mb-3">
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits }} kredit</span>
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.semester }}-semestr</span>
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.faculty.code }}</span>
+                </div>
+                <h1 class="text-2xl font-bold text-white">{{ subject.name }}</h1>
+            </div>
+        </div>
+        
+        <div class="p-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-6 text-sm text-gray-500">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    {{ lessons|length }} dars
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    {{ assignments|length }} topshiriq
+                </div>
+            </div>
+            
+            {% if is_teacher %}
+            <div class="flex gap-2">
+                <a href="{{ url_for('courses.create_lesson', id=subject.id) }}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                    + Dars qo'shish
+                </a>
+                <a href="{{ url_for('courses.create_assignment', id=subject.id) }}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+                    + Topshiriq
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Description -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Fan haqida</h2>
+                <p class="text-gray-600">{{ subject.description or 'Tavsif mavjud emas' }}</p>
+            </div>
+            
+            <!-- Lessons -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6">Darslar</h2>
+                
+                <!-- Tabs -->
+                <div class="flex gap-2 mb-6 border-b border-gray-200">
+                    <button onclick="showTab('maruza')" id="tab-maruza" class="flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 border-blue-600 text-blue-600 transition-colors">
+                        <div class="flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                            <span>Maruza</span>
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{{ maruza_lessons|length }}</span>
+                        </div>
+                    </button>
+                    <button onclick="showTab('amaliyot')" id="tab-amaliyot" class="flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 border-transparent text-gray-500 hover:text-green-600 transition-colors">
+                        <div class="flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                            <span>Amaliyot</span>
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">{{ amaliyot_lessons|length }}</span>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- Maruza darslari -->
+                <div id="content-maruza" class="tab-content">
+                    <div class="space-y-3">
+                        {% for lesson in maruza_lessons %}
+                        {% set is_locked = lesson_locked_status.get(lesson.id, False) if lesson_locked_status else False %}
+                        {% if current_user.role == 'student' and is_locked %}
+                        <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl opacity-60 cursor-not-allowed">
+                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 font-semibold">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-sm font-medium text-gray-500">{{ lesson.title }}</h3>
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Qulflangan</span>
+                                    <span>Avval oldingi videolarni to'liq ko'rib chiqing</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
+                            <div class="w-10 h-10 {% if lesson.video_file or lesson.video_url %}bg-purple-100{% else %}bg-blue-100{% endif %} rounded-lg flex items-center justify-center {% if lesson.video_file or lesson.video_url %}text-purple-600{% else %}text-blue-600{% endif %} font-semibold">
+                                {% if lesson.video_file or lesson.video_url %}
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                {% else %}
+                                {{ lesson.order }}
+                                {% endif %}
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-sm font-medium text-gray-900 group-hover:text-primary-600">{{ lesson.title }}</h3>
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    {% if lesson.duration %}
+                                    <span>{{ lesson.duration }} daqiqa</span>
+                                    {% endif %}
+                                    {% if lesson.video_file or lesson.video_url %}
+                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">Video dars</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <svg class="w-5 h-5 text-gray-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                        {% endif %}
+                        {% else %}
+                        <p class="text-gray-500 text-center py-8 text-sm">Maruza darslari hali qo'shilmagan</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Amaliyot darslari -->
+                <div id="content-amaliyot" class="tab-content hidden">
+                    <div class="space-y-3">
+                        {% for lesson in amaliyot_lessons %}
+                        {% set is_locked = lesson_locked_status.get(lesson.id, False) if lesson_locked_status else False %}
+                        {% if current_user.role == 'student' and is_locked %}
+                        <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl opacity-60 cursor-not-allowed">
+                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 font-semibold">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-sm font-medium text-gray-500">{{ lesson.title }}</h3>
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Qulflangan</span>
+                                    <span>Avval oldingi videolarni to'liq ko'rib chiqing</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
+                            <div class="w-10 h-10 {% if lesson.video_file or lesson.video_url %}bg-purple-100{% else %}bg-green-100{% endif %} rounded-lg flex items-center justify-center {% if lesson.video_file or lesson.video_url %}text-purple-600{% else %}text-green-600{% endif %} font-semibold">
+                                {% if lesson.video_file or lesson.video_url %}
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                {% else %}
+                                {{ lesson.order }}
+                                {% endif %}
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-sm font-medium text-gray-900 group-hover:text-primary-600">{{ lesson.title }}</h3>
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    {% if lesson.duration %}
+                                    <span>{{ lesson.duration }} daqiqa</span>
+                                    {% endif %}
+                                    {% if lesson.video_file or lesson.video_url %}
+                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">Video dars</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <svg class="w-5 h-5 text-gray-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                        {% endif %}
+                        {% else %}
+                        <p class="text-gray-500 text-center py-8 text-sm">Amaliyot darslari hali qo'shilmagan</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+            function showTab(tabName) {
+                // Barcha tab kontentlarini yashirish
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                // Barcha tab tugmalarini reset qilish
+                const maruzaTab = document.getElementById('tab-maruza');
+                const amaliyotTab = document.getElementById('tab-amaliyot');
+                
+                if (tabName === 'maruza') {
+                    // Maruza tabni aktiv qilish
+                    maruzaTab.classList.remove('border-transparent', 'text-gray-500');
+                    maruzaTab.classList.add('border-blue-600', 'text-blue-600');
+                    maruzaTab.querySelector('span:last-child').classList.remove('bg-gray-100', 'text-gray-600');
+                    maruzaTab.querySelector('span:last-child').classList.add('bg-blue-100', 'text-blue-700');
+                    
+                    // Amaliyot tabni deaktiv qilish
+                    amaliyotTab.classList.remove('border-green-600', 'text-green-600');
+                    amaliyotTab.classList.add('border-transparent', 'text-gray-500');
+                    amaliyotTab.querySelector('span:last-child').classList.remove('bg-green-100', 'text-green-700');
+                    amaliyotTab.querySelector('span:last-child').classList.add('bg-gray-100', 'text-gray-600');
+                } else {
+                    // Amaliyot tabni aktiv qilish
+                    amaliyotTab.classList.remove('border-transparent', 'text-gray-500');
+                    amaliyotTab.classList.add('border-green-600', 'text-green-600');
+                    amaliyotTab.querySelector('span:last-child').classList.remove('bg-gray-100', 'text-gray-600');
+                    amaliyotTab.querySelector('span:last-child').classList.add('bg-green-100', 'text-green-700');
+                    
+                    // Maruza tabni deaktiv qilish
+                    maruzaTab.classList.remove('border-blue-600', 'text-blue-600');
+                    maruzaTab.classList.add('border-transparent', 'text-gray-500');
+                    maruzaTab.querySelector('span:last-child').classList.remove('bg-blue-100', 'text-blue-700');
+                    maruzaTab.querySelector('span:last-child').classList.add('bg-gray-100', 'text-gray-600');
+                }
+                
+                // Tanlangan tab kontentini ko'rsatish
+                document.getElementById('content-' + tabName).classList.remove('hidden');
+            }
+            
+            // Dastlabki tabni ko'rsatish
+            showTab('maruza');
+            </script>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            {% if current_user.role == 'student' and student_grades %}
+            <!-- Student Grades -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Ballar</h2>
+                <div class="space-y-4">
+                    <!-- Maruza balli -->
+                    <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                                <span class="text-sm font-medium text-blue-900">Maruza</span>
+                            </div>
+                            <span class="text-lg font-bold text-blue-600">
+                                {% if student_grades.maruza.max > 0 %}
+                                {{ student_grades.maruza.score }}/{{ student_grades.maruza.max }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if student_grades.maruza.max > 0 %}
+                        {% set maruza_percent = ((student_grades.maruza.score / student_grades.maruza.max) * 100)|round|int %}
+                        <div class="w-full bg-blue-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{ maruza_percent }}%"></div>
+                        </div>
+                        <p class="text-xs text-blue-600 mt-1">{{ maruza_percent }}%</p>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Amaliyot balli -->
+                    <div class="p-4 bg-green-50 rounded-xl border border-green-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                                <span class="text-sm font-medium text-green-900">Amaliyot</span>
+                            </div>
+                            <span class="text-lg font-bold text-green-600">
+                                {% if student_grades.amaliyot.max > 0 %}
+                                {{ student_grades.amaliyot.score }}/{{ student_grades.amaliyot.max }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if student_grades.amaliyot.max > 0 %}
+                        {% set amaliyot_percent = ((student_grades.amaliyot.score / student_grades.amaliyot.max) * 100)|round|int %}
+                        <div class="w-full bg-green-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full" style="width: {{ amaliyot_percent }}%"></div>
+                        </div>
+                        <p class="text-xs text-green-600 mt-1">{{ amaliyot_percent }}%</p>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Jami ball -->
+                    <div class="p-4 bg-gradient-to-r from-primary-50 to-indigo-50 rounded-xl border-2 border-primary-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                <span class="text-sm font-medium text-primary-900">Jami</span>
+                            </div>
+                            <span class="text-xl font-bold text-primary-600">
+                                {% if student_grades.total.max > 0 %}
+                                {{ student_grades.total.score }}/{{ student_grades.total.max }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if student_grades.total.max > 0 %}
+                        {% set total_percent = ((student_grades.total.score / student_grades.total.max) * 100)|round|int %}
+                        <div class="w-full bg-primary-200 rounded-full h-2.5">
+                            <div class="bg-primary-600 h-2.5 rounded-full" style="width: {{ total_percent }}%"></div>
+                        </div>
+                        <p class="text-xs text-primary-600 mt-1 font-medium">{{ total_percent }}%</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Assignments -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Topshiriqlar</h2>
+                <div class="space-y-3">
+                    {% for assignment in assignments %}
+                    <a href="{{ url_for('courses.assignment_detail', id=assignment.id) }}" class="block p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-900">{{ assignment.title }}</h3>
+                                {% if assignment.due_date %}
+                                <p class="text-xs text-gray-500">Muddat: {{ assignment.due_date.strftime('%d.%m.%Y') }}</p>
+                                {% endif %}
+                                {% if assignment.group %}
+                                <p class="text-xs text-gray-400">{{ assignment.group.name }}</p>
+                                {% endif %}
+                            </div>
+                            {% if current_user.role == 'student' %}
+                                {% if assignment_status.get(assignment.id) %}
+                                    {% if assignment_status[assignment.id].score is not none %}
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">{{ assignment_status[assignment.id].score }}/{{ assignment.max_score }}</span>
+                                    {% else %}
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Yuborilgan</span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Kutilmoqda</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="text-xs text-gray-400">{{ assignment.get_submission_count() }} javob</span>
+                            {% endif %}
+                        </div>
+                    </a>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4">Topshiriqlar yo'q</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Teachers -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">O'qituvchilar</h2>
+                <div class="space-y-4">
+                    {% if maruza_teachers %}
+                    <div>
+                        <h3 class="text-sm font-medium text-blue-700 mb-2 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                            Maruza
+                        </h3>
+                        <div class="space-y-2">
+                            {% if current_user.role == 'student' %}
+                            {% for teacher in maruza_teachers %}
+                            <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                    {{ teacher.full_name[0] }}
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900">{{ teacher.full_name }}</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            {% for ta in maruza_teachers %}
+                            <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                    {{ ta.teacher.full_name[0] }}
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900">{{ ta.teacher.full_name }}</p>
+                                    <p class="text-xs text-gray-500">{{ ta.group.name }} guruhi</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if amaliyot_teachers %}
+                    <div>
+                        <h3 class="text-sm font-medium text-green-700 mb-2 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                            Amaliyot
+                        </h3>
+                        <div class="space-y-2">
+                            {% if current_user.role == 'student' %}
+                            {% for teacher in amaliyot_teachers %}
+                            <div class="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                    {{ teacher.full_name[0] }}
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900">{{ teacher.full_name }}</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            {% for ta in amaliyot_teachers %}
+                            <div class="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                    {{ ta.teacher.full_name[0] }}
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900">{{ ta.teacher.full_name }}</p>
+                                    <p class="text-xs text-gray-500">{{ ta.group.name }} guruhi</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if not maruza_teachers and not amaliyot_teachers %}
+                    <p class="text-gray-500 text-center py-2">O'qituvchi biriktirilmagan</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,865 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lesson.title }} - Video{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-4">
+    <!-- Sarlavha -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm text-gray-500">
+            <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="hover:text-primary-600">← Darsga qaytish</a>
+        </div>
+        {% if current_user.role == 'student' %}
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                <span id="check-counter">{{ lesson_view.attention_checks_passed if lesson_view else 0 }}/3</span> tekshiruv
+            </div>
+            <div id="completion-badge" class="{% if lesson_view and lesson_view.is_completed %}flex{% else %}hidden{% endif %} items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                To'liq ko'rilgan
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Video player -->
+    <div class="relative bg-black rounded-2xl overflow-hidden shadow-2xl" id="video-container">
+        {% if lesson.video_file %}
+        <video id="video-player" class="w-full aspect-video" {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}controlsList="nodownload nofullscreen noremoteplayback" oncontextmenu="return false;"{% else %}controls{% endif %}>
+            <source src="{{ url_for('courses.serve_video', filename=lesson.video_file) }}" type="video/mp4">
+            Brauzeringiz video tegini qo'llab-quvvatlamaydi.
+        </video>
+        {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}
+        <!-- Custom controls for first-time viewing -->
+        <div id="custom-controls" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+            <div class="flex items-center gap-4">
+                <button id="play-pause-btn" class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors">
+                    <svg id="play-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pause-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                </button>
+                <div class="flex-1">
+                    <div class="text-white text-sm mb-1">
+                        <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+                    </div>
+                    <div class="w-full bg-white/20 rounded-full h-2">
+                        <div id="progress-bar" class="bg-primary-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                </div>
+                <button id="volume-btn" class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors">
+                    <svg id="volume-on-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    <svg id="volume-off-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+        {% elif lesson.video_url %}
+        <!-- YouTube yoki boshqa embed -->
+        {% if 'youtube.com' in lesson.video_url or 'youtu.be' in lesson.video_url %}
+        {% set video_id = lesson.video_url.split('v=')[-1].split('&')[0] if 'v=' in lesson.video_url else lesson.video_url.split('/')[-1] %}
+        <div class="aspect-video relative">
+            <iframe id="youtube-player" class="w-full h-full" 
+                    src="https://www.youtube.com/embed/{{ video_id }}?enablejsapi=1{% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}&controls=0&modestbranding=1&rel=0{% endif %}" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}allowfullscreen="false"{% else %}allowfullscreen{% endif %}></iframe>
+            {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}
+            <!-- Custom controls for YouTube first-time viewing -->
+            <div id="youtube-custom-controls" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                <div class="flex items-center gap-4">
+                    <button id="youtube-play-pause-btn" class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors">
+                        <svg id="youtube-play-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="youtube-pause-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                    </button>
+                    <div class="flex-1">
+                        <div class="text-white text-sm mb-1">
+                            <span id="youtube-current-time">0:00</span> / <span id="youtube-total-time">0:00</span>
+                        </div>
+                        <div class="w-full bg-white/20 rounded-full h-2">
+                            <div id="youtube-progress-bar" class="bg-primary-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <button id="youtube-volume-btn" class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors">
+                        <svg id="youtube-volume-on-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                        <svg id="youtube-volume-off-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <video id="video-player" class="w-full aspect-video" {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}controlsList="nodownload nofullscreen noremoteplayback" oncontextmenu="return false;"{% else %}controls{% endif %}>
+            <source src="{{ lesson.video_url }}">
+            Brauzeringiz video tegini qo'llab-quvvatlamaydi.
+        </video>
+        {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}
+        <!-- Custom controls for first-time viewing -->
+        <div id="custom-controls" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+            <div class="flex items-center gap-4">
+                <button id="play-pause-btn" class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors">
+                    <svg id="play-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pause-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                </button>
+                <div class="flex-1">
+                    <div class="text-white text-sm mb-1">
+                        <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+                    </div>
+                    <div class="w-full bg-white/20 rounded-full h-2">
+                        <div id="progress-bar" class="bg-primary-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                </div>
+                <button id="volume-btn" class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors">
+                    <svg id="volume-on-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    <svg id="volume-off-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+        {% endif %}
+    </div>
+    
+    <!-- Dars nomi -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <h1 class="text-xl font-bold text-gray-900">{{ lesson.title }}</h1>
+        <p class="text-gray-500 text-sm">{{ subject.name }}</p>
+    </div>
+</div>
+
+<!-- Diqqat tekshiruvi modal -->
+<div id="attention-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4 transform scale-100 animate-bounce-in">
+        <div class="text-center">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center animate-pulse">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">Shu yerdasizmi?</h2>
+            <p class="text-gray-500 mb-6">Darsni davom ettirish uchun "Ha, bu yerdaman" tugmasini bosing</p>
+            <p class="text-sm text-gray-400 mb-4" id="attention-timer">Javob vaqti: <span id="timer-seconds">30</span> soniya</p>
+            <button onclick="confirmAttention()" class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-lg font-semibold rounded-2xl transition-all transform hover:scale-105 shadow-lg">
+                ✓ Ha, bu yerdaman
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Muvaffaqiyat modal -->
+<div id="success-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4">
+        <div class="text-center">
+            <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">Tabriklaymiz! 🎉</h2>
+            <p class="text-gray-500 mb-6">Siz darsni muvaffaqiyatli tamomladingiz va barcha tekshiruvlardan o'tdingiz</p>
+            <div id="success-modal-next-lesson" class="hidden mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <p class="text-sm text-blue-700 mb-2">Keyingi video ochildi!</p>
+                <p class="text-sm font-medium text-blue-900" id="next-lesson-title"></p>
+                <p class="text-xs text-blue-600 mt-2">2 soniyadan keyin avtomatik o'tiladi...</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeSuccessModal()" class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+                    Davom ettirish
+                </button>
+                <a href="{{ url_for('courses.detail', id=subject.id) }}" class="flex-1 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors text-center">
+                    Fanga qaytish
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes bounce-in {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.animate-bounce-in {
+    animation: bounce-in 0.4s ease-out;
+}
+
+/* Video player cheklovlari */
+#video-container {
+    position: relative;
+}
+
+#video-player::-webkit-media-controls {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-panel {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-play-button {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-timeline {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-current-time-display {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-time-remaining-display {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-mute-button {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-volume-slider {
+    display: none !important;
+}
+
+#video-player::-webkit-media-controls-fullscreen-button {
+    display: none !important;
+}
+
+/* Custom controls */
+#custom-controls {
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+#video-container:hover #custom-controls {
+    opacity: 1;
+}
+
+#custom-controls button {
+    cursor: pointer;
+}
+
+#custom-controls button:hover {
+    transform: scale(1.1);
+}
+
+/* YouTube custom controls */
+#youtube-custom-controls {
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 10;
+}
+
+.aspect-video:hover #youtube-custom-controls {
+    opacity: 1;
+}
+
+#youtube-custom-controls button {
+    cursor: pointer;
+}
+
+#youtube-custom-controls button:hover {
+    transform: scale(1.1);
+}
+</style>
+
+{% if current_user.role == 'student' %}
+<script>
+const lessonId = {{ lesson.id }};
+let checksPassedFromServer = {{ lesson_view.attention_checks_passed if lesson_view else 0 }};
+let isCompleted = {{ 'true' if lesson_view and lesson_view.is_completed else 'false' }};
+let videoDuration = 0;
+let checkTimes = []; // Video vaqtlarida tekshiruv qilinadigan vaqtlar
+let checksTriggered = [false, false, false];
+let attentionTimer = null;
+let timerSeconds = 30;
+let currentWatchTime = 0;
+
+// Video elementini olish
+const videoPlayer = document.getElementById('video-player');
+const youtubePlayer = document.getElementById('youtube-player');
+
+function initializeChecks() {
+    // Video davomiyligiga qarab 3 ta tekshiruv vaqtini aniqlash
+    // 25%, 50%, 75% pozitsiyalarda
+    if (videoDuration > 0) {
+        checkTimes = [
+            videoDuration * 0.25,
+            videoDuration * 0.50,
+            videoDuration * 0.75
+        ];
+        console.log('Tekshiruv vaqtlari:', checkTimes);
+    }
+}
+
+function showAttentionModal() {
+    const modal = document.getElementById('attention-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    
+    // Video to'xtatish
+    if (videoPlayer) {
+        videoPlayer.pause();
+    }
+    
+    // Timer boshlash
+    timerSeconds = 30;
+    updateTimerDisplay();
+    attentionTimer = setInterval(() => {
+        timerSeconds--;
+        updateTimerDisplay();
+        if (timerSeconds <= 0) {
+            clearInterval(attentionTimer);
+            // Vaqt tugadi - videoni boshiga qaytarish mumkin
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    document.getElementById('timer-seconds').textContent = timerSeconds;
+}
+
+function confirmAttention() {
+    clearInterval(attentionTimer);
+    
+    // Modalni yopish
+    const modal = document.getElementById('attention-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    
+    // Serverga yuborish
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    fetch(`/subjects/lessons/${lessonId}/attention-check`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            checksPassedFromServer = data.checks_passed;
+            document.getElementById('check-counter').textContent = `${checksPassedFromServer}/3`;
+            
+            if (data.is_completed) {
+                isCompleted = true;
+                document.getElementById('completion-badge').classList.remove('hidden');
+                document.getElementById('completion-badge').classList.add('flex');
+                
+                // Keyingi dars mavjud bo'lsa, avtomatik o'tish
+                if (data.next_lesson) {
+                    setTimeout(() => {
+                        window.location.href = data.next_lesson.url;
+                    }, 2000); // 2 soniyadan keyin o'tish
+                    showSuccessModalWithNext(data.next_lesson);
+                } else {
+                    showSuccessModal();
+                }
+            }
+        }
+    })
+    .catch(error => console.error('Xatolik:', error));
+    
+    // Video davom ettirish
+    if (videoPlayer) {
+        videoPlayer.play();
+    }
+}
+
+function showSuccessModal() {
+    document.getElementById('success-modal').classList.remove('hidden');
+    document.getElementById('success-modal').classList.add('flex');
+    document.getElementById('success-modal-next-lesson').classList.add('hidden');
+}
+
+function showSuccessModalWithNext(nextLesson) {
+    document.getElementById('success-modal').classList.remove('hidden');
+    document.getElementById('success-modal').classList.add('flex');
+    document.getElementById('success-modal-next-lesson').classList.remove('hidden');
+    document.getElementById('next-lesson-title').textContent = nextLesson.title;
+}
+
+function closeSuccessModal() {
+    document.getElementById('success-modal').classList.add('hidden');
+    document.getElementById('success-modal').classList.remove('flex');
+}
+
+// Video hodisalarini tinglash
+if (videoPlayer) {
+    let maxWatchedTime = {{ lesson_view.watch_duration if lesson_view else 0 }}; // Serverdan kelgan maksimal ko'rilgan vaqt
+    let lastValidTime = 0; // Oxirgi to'g'ri vaqt
+    let isFirstView = !isCompleted; // Birinchi ko'rish ekanligi
+    let customControls = document.getElementById('custom-controls');
+    
+    // Agar birinchi ko'rish bo'lsa, standart controls'ni o'chirish
+    if (isFirstView && customControls) {
+        // Standart controls'ni to'liq o'chirish
+        videoPlayer.removeAttribute('controls');
+        videoPlayer.controls = false;
+        videoPlayer.setAttribute('controlsList', 'nodownload nofullscreen noremoteplayback');
+        
+        // Video player'ga bosilganda ham seek cheklash
+        videoPlayer.style.pointerEvents = 'auto';
+        
+        // Custom controls funksiyalari
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const volumeBtn = document.getElementById('volume-btn');
+        const volumeOnIcon = document.getElementById('volume-on-icon');
+        const volumeOffIcon = document.getElementById('volume-off-icon');
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeSpan = document.getElementById('current-time');
+        const totalTimeSpan = document.getElementById('total-time');
+        
+        // Play/Pause tugmasi
+        playPauseBtn.addEventListener('click', function() {
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            } else {
+                videoPlayer.pause();
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        });
+        
+        // Volume tugmasi
+        let isMuted = false;
+        volumeBtn.addEventListener('click', function() {
+            if (isMuted) {
+                videoPlayer.muted = false;
+                volumeOnIcon.classList.remove('hidden');
+                volumeOffIcon.classList.add('hidden');
+                isMuted = false;
+            } else {
+                videoPlayer.muted = true;
+                volumeOnIcon.classList.add('hidden');
+                volumeOffIcon.classList.remove('hidden');
+                isMuted = true;
+            }
+        });
+        
+        // Progress bar yangilash (faqat ko'rsatish, bosib bo'lmaydi)
+        videoPlayer.addEventListener('timeupdate', function() {
+            if (videoDuration > 0) {
+                const percent = (videoPlayer.currentTime / videoDuration) * 100;
+                // Faqat ko'rilgan qismni ko'rsatish
+                const watchedPercent = (maxWatchedTime / videoDuration) * 100;
+                progressBar.style.width = Math.min(percent, watchedPercent) + '%';
+                currentTimeSpan.textContent = formatTime(videoPlayer.currentTime);
+            }
+        });
+    }
+    
+    // Vaqtni formatlash funksiyasi (global)
+    function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    
+    videoPlayer.addEventListener('loadedmetadata', function() {
+        videoDuration = videoPlayer.duration;
+        initializeChecks();
+        
+        // Total time ko'rsatish
+        if (customControls && isFirstView) {
+            const totalTimeEl = document.getElementById('total-time');
+            if (totalTimeEl) {
+                totalTimeEl.textContent = formatTime(videoDuration);
+            }
+        }
+        
+        // Agar dars to'liq ko'rilgan bo'lsa, cheklovlarni olib tashlash
+        if (isCompleted) {
+            maxWatchedTime = videoDuration;
+            if (customControls) {
+                customControls.remove();
+                videoPlayer.setAttribute('controls', '');
+            }
+        }
+    });
+    
+    // Video vaqtini o'zgartirishga urinishni kuzatish (faqat birinchi ko'rishda)
+    if (isFirstView) {
+        videoPlayer.addEventListener('seeked', function() {
+            // Agar birinchi ko'rish bo'lsa va dars to'liq ko'rilmagan bo'lsa
+            if (videoPlayer.currentTime > maxWatchedTime + 2) {
+                // 2 soniya ruxsat beriladi (network lag uchun)
+                videoPlayer.currentTime = Math.min(maxWatchedTime, lastValidTime);
+                
+                // Ogohlantirish ko'rsatish
+                const warning = document.createElement('div');
+                warning.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2';
+                warning.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg><span>Video o\'tkazib bo\'lmaydi! Darsni ketma-ket ko\'ring.</span>';
+                document.body.appendChild(warning);
+                
+                setTimeout(() => {
+                    warning.remove();
+                }, 3000);
+            } else {
+                lastValidTime = videoPlayer.currentTime;
+            }
+        });
+        
+        // Video vaqtini o'zgartirishga urinishni oldini olish
+        videoPlayer.addEventListener('seeking', function() {
+            if (videoPlayer.currentTime > maxWatchedTime + 2) {
+                // Oldinga o'tishga urinishni to'xtatish
+                videoPlayer.currentTime = Math.min(maxWatchedTime, lastValidTime);
+            }
+        });
+        
+        // Progress bar'ga bosilganda cheklash
+        if (customControls) {
+            const progressContainer = progressBar.parentElement;
+            progressContainer.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Progress bar'ga bosishga ruxsat berilmaydi
+                return false;
+            });
+        }
+    }
+    
+    videoPlayer.addEventListener('timeupdate', function() {
+        const newTime = videoPlayer.currentTime;
+        
+        // Agar birinchi ko'rish bo'lsa va dars to'liq ko'rilmagan bo'lsa
+        if (!isCompleted && newTime > maxWatchedTime + 5) {
+            // 5 soniya ruxsat beriladi (network lag uchun)
+            videoPlayer.currentTime = Math.min(maxWatchedTime, lastValidTime);
+        } else {
+            currentWatchTime = newTime;
+            lastValidTime = newTime;
+            
+            // Maksimal ko'rilgan vaqtni yangilash
+            if (newTime > maxWatchedTime) {
+                maxWatchedTime = newTime;
+            }
+        }
+        
+        // Tekshiruvlarni trigger qilish
+        if (!isCompleted) {
+            for (let i = 0; i < 3; i++) {
+                // Faqat server tomonidan hali o'tilmagan tekshiruvlarni ko'rsatish
+                if (i >= checksPassedFromServer && !checksTriggered[i] && checkTimes[i] && currentWatchTime >= checkTimes[i]) {
+                    checksTriggered[i] = true;
+                    showAttentionModal();
+                    break;
+                }
+            }
+        }
+    });
+    
+    // Har 30 sekundda ko'rish vaqtini saqlash
+    setInterval(() => {
+        if (videoPlayer && !videoPlayer.paused) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            fetch(`/subjects/lessons/${lessonId}/update-watch-time`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ watch_duration: Math.floor(currentWatchTime) })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.watch_duration) {
+                    // Serverdan kelgan yangi maksimal vaqtni yangilash
+                    maxWatchedTime = Math.max(maxWatchedTime, data.watch_duration);
+                }
+            });
+        }
+    }, 30000);
+    
+    // Klaviatura shortcut'larni cheklash (faqat birinchi ko'rishda)
+    if (isFirstView) {
+        document.addEventListener('keydown', function(e) {
+            // Video player focus bo'lsa
+            if (document.activeElement === videoPlayer || videoPlayer.contains(document.activeElement) || e.target === videoPlayer) {
+                // Right arrow (forward) - to'liq cheklash
+                if (e.key === 'ArrowRight' || e.keyCode === 39) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Faqat 2 soniyaga ruxsat berish
+                    if (videoPlayer.currentTime + 2 <= maxWatchedTime + 2) {
+                        videoPlayer.currentTime = Math.min(videoPlayer.currentTime + 2, maxWatchedTime);
+                    } else {
+                        videoPlayer.currentTime = maxWatchedTime;
+                    }
+                    return false;
+                }
+                // Left arrow (backward) - ruxsat beriladi (5 soniya)
+                if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+                    videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5);
+                }
+                // Space (play/pause) - ruxsat beriladi
+            }
+        });
+        
+        // Video player'da o'ng tugma bosilganda context menu'ni o'chirish
+        videoPlayer.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            return false;
+        });
+        
+        // Video player'ga bosilganda ham seek cheklash
+        videoPlayer.addEventListener('click', function(e) {
+            // Agar progress bar'ga bosilgan bo'lsa
+            const rect = videoPlayer.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickPercent = clickX / rect.width;
+            const seekTime = clickPercent * videoDuration;
+            
+            if (seekTime > maxWatchedTime + 2) {
+                e.preventDefault();
+                e.stopPropagation();
+                videoPlayer.currentTime = maxWatchedTime;
+                return false;
+            }
+        });
+    }
+}
+
+// YouTube uchun
+if (youtubePlayer) {
+    let youtubeAPI = null;
+    let youtubeMaxWatchedTime = {{ lesson_view.watch_duration if lesson_view else 0 }};
+    let youtubeIsFirstView = !isCompleted;
+    let youtubeCustomControls = document.getElementById('youtube-custom-controls');
+    let youtubeWatchTime = 0;
+    let youtubeDuration = 0;
+    let youtubeLastValidTime = 0;
+    
+    // YouTube IFrame API yuklash
+    if (!window.YT) {
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+    
+    // YouTube API tayyor bo'lganda
+    function onYouTubeIframeAPIReady() {
+        youtubeAPI = new YT.Player('youtube-player', {
+            events: {
+                'onReady': onYouTubePlayerReady,
+                'onStateChange': onYouTubePlayerStateChange
+            }
+        });
+    }
+    
+    // Agar API allaqachon yuklangan bo'lsa
+    if (window.YT && window.YT.Player) {
+        youtubeAPI = new YT.Player('youtube-player', {
+            events: {
+                'onReady': onYouTubePlayerReady,
+                'onStateChange': onYouTubePlayerStateChange
+            }
+        });
+    } else {
+        window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    }
+    
+    function onYouTubePlayerReady(event) {
+        youtubeDuration = event.target.getDuration();
+        
+        if (youtubeCustomControls && youtubeIsFirstView) {
+            // Total time ko'rsatish
+            const totalTimeEl = document.getElementById('youtube-total-time');
+            if (totalTimeEl) {
+                totalTimeEl.textContent = formatTime(youtubeDuration);
+            }
+            
+            // Custom controls funksiyalari
+            const playPauseBtn = document.getElementById('youtube-play-pause-btn');
+            const playIcon = document.getElementById('youtube-play-icon');
+            const pauseIcon = document.getElementById('youtube-pause-icon');
+            const volumeBtn = document.getElementById('youtube-volume-btn');
+            const volumeOnIcon = document.getElementById('youtube-volume-on-icon');
+            const volumeOffIcon = document.getElementById('youtube-volume-off-icon');
+            const progressBar = document.getElementById('youtube-progress-bar');
+            const currentTimeSpan = document.getElementById('youtube-current-time');
+            
+            // Play/Pause tugmasi
+            if (playPauseBtn) {
+                playPauseBtn.addEventListener('click', function() {
+                    const state = youtubeAPI.getPlayerState();
+                    if (state === YT.PlayerState.PLAYING) {
+                        youtubeAPI.pauseVideo();
+                        if (playIcon) playIcon.classList.remove('hidden');
+                        if (pauseIcon) pauseIcon.classList.add('hidden');
+                    } else {
+                        youtubeAPI.playVideo();
+                        if (playIcon) playIcon.classList.add('hidden');
+                        if (pauseIcon) pauseIcon.classList.remove('hidden');
+                    }
+                });
+            }
+            
+            // Volume tugmasi
+            if (volumeBtn) {
+                let isMuted = false;
+                volumeBtn.addEventListener('click', function() {
+                    if (isMuted) {
+                        youtubeAPI.unMute();
+                        if (volumeOnIcon) volumeOnIcon.classList.remove('hidden');
+                        if (volumeOffIcon) volumeOffIcon.classList.add('hidden');
+                        isMuted = false;
+                    } else {
+                        youtubeAPI.mute();
+                        if (volumeOnIcon) volumeOnIcon.classList.add('hidden');
+                        if (volumeOffIcon) volumeOffIcon.classList.remove('hidden');
+                        isMuted = true;
+                    }
+                });
+            }
+            
+            // Progress bar yangilash va seek cheklovi
+            setInterval(() => {
+                if (youtubeAPI && youtubeDuration > 0) {
+                    try {
+                        const currentTime = youtubeAPI.getCurrentTime();
+                        const percent = (currentTime / youtubeDuration) * 100;
+                        const watchedPercent = (youtubeMaxWatchedTime / youtubeDuration) * 100;
+                        if (progressBar) {
+                            progressBar.style.width = Math.min(percent, watchedPercent) + '%';
+                        }
+                        if (currentTimeSpan) {
+                            currentTimeSpan.textContent = formatTime(currentTime);
+                        }
+                        
+                        // Seek cheklovi
+                        if (youtubeIsFirstView && currentTime > youtubeMaxWatchedTime + 2) {
+                            youtubeAPI.seekTo(youtubeMaxWatchedTime, true);
+                            youtubeLastValidTime = youtubeMaxWatchedTime;
+                            
+                            // Ogohlantirish
+                            const warning = document.createElement('div');
+                            warning.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2';
+                            warning.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg><span>Video o\'tkazib bo\'lmaydi! Darsni ketma-ket ko\'ring.</span>';
+                            document.body.appendChild(warning);
+                            setTimeout(() => warning.remove(), 3000);
+                        } else {
+                            youtubeLastValidTime = currentTime;
+                            youtubeWatchTime = currentTime;
+                            
+                            // Maksimal ko'rilgan vaqtni yangilash
+                            if (currentTime > youtubeMaxWatchedTime) {
+                                youtubeMaxWatchedTime = currentTime;
+                                
+                                // Serverga yuborish (har 30 sekundda)
+                                if (Math.floor(currentTime) % 30 === 0) {
+                                    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                                    fetch(`/subjects/lessons/${lessonId}/update-watch-time`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRFToken': csrfToken
+                                        },
+                                        body: JSON.stringify({ watch_duration: Math.floor(currentTime) })
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success && data.watch_duration) {
+                                            youtubeMaxWatchedTime = Math.max(youtubeMaxWatchedTime, data.watch_duration);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('YouTube API xatolik:', e);
+                    }
+                }
+            }, 1000);
+            
+            // Tekshiruvlar
+            if (!isCompleted) {
+                setInterval(() => {
+                    if (youtubeAPI && youtubeWatchTime > 0 && youtubeDuration > 0) {
+                        const checkAt = [
+                            youtubeDuration * 0.25,
+                            youtubeDuration * 0.50,
+                            youtubeDuration * 0.75
+                        ];
+                        
+                        for (let i = 0; i < 3; i++) {
+                            if (i >= checksPassedFromServer && !checksTriggered[i] && youtubeWatchTime >= checkAt[i]) {
+                                checksTriggered[i] = true;
+                                youtubeAPI.pauseVideo();
+                                showAttentionModal();
+                                break;
+                            }
+                        }
+                    }
+                }, 5000);
+            }
+        }
+    }
+    
+    function onYouTubePlayerStateChange(event) {
+        const playPauseBtn = document.getElementById('youtube-play-pause-btn');
+        const playIcon = document.getElementById('youtube-play-icon');
+        const pauseIcon = document.getElementById('youtube-pause-icon');
+        
+        if (playPauseBtn && playIcon && pauseIcon) {
+            if (event.data === YT.PlayerState.PLAYING) {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            } else {
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        }
+    }
+    
+    // Klaviatura shortcut cheklovi (YouTube uchun)
+    if (youtubeIsFirstView) {
+        document.addEventListener('keydown', function(e) {
+            if (e.target === youtubePlayer || youtubePlayer.contains(e.target)) {
+                // Right arrow (forward) - cheklash
+                if (e.key === 'ArrowRight' || e.keyCode === 39) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (youtubeAPI) {
+                        try {
+                            const currentTime = youtubeAPI.getCurrentTime();
+                            if (currentTime + 2 <= youtubeMaxWatchedTime + 2) {
+                                youtubeAPI.seekTo(Math.min(currentTime + 2, youtubeMaxWatchedTime), true);
+                            } else {
+                                youtubeAPI.seekTo(youtubeMaxWatchedTime, true);
+                            }
+                        } catch (err) {
+                            console.error('YouTube seek xatolik:', err);
+                        }
+                    }
+                    return false;
+                }
+                // Left arrow (backward) - ruxsat beriladi
+                if ((e.key === 'ArrowLeft' || e.keyCode === 37) && youtubeAPI) {
+                    try {
+                        const currentTime = youtubeAPI.getCurrentTime();
+                        youtubeAPI.seekTo(Math.max(0, currentTime - 5), true);
+                    } catch (err) {
+                        console.error('YouTube seek xatolik:', err);
+                    }
+                }
+            }
+        });
+    }
+}
+</script>
+{% endif %}
+{% endblock %}
+
+
+

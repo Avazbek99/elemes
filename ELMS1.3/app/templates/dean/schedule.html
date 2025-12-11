@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Dars jadvali{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Dars jadvali</h1>
+        <p class="text-gray-600">{{ faculty.name }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{{ url_for('dean.export_schedule', group_id=request.args.get('group')) }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Excel yuklab olish
+        </a>
+        <a href="{{ url_for('dean.create_schedule') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Dars qo'shish
+        </a>
+    </div>
+</div>
+
+<!-- Group filter -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" class="flex gap-4 items-center">
+        <label class="text-sm font-medium text-gray-700">Guruh:</label>
+        <select name="group" onchange="this.form.submit()" class="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <option value="">Barcha guruhlar</option>
+            {% for group in groups %}
+            <option value="{{ group.id }}" {% if current_group == group.id %}selected{% endif %}>{{ group.name }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<!-- Schedule -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="grid grid-cols-6 border-b border-gray-100">
+        {% for day in week_days %}
+        <div class="p-4 text-center {% if not loop.first %}border-l border-gray-100{% endif %}">
+            <p class="font-semibold text-gray-900">{{ day }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="grid grid-cols-6 min-h-[400px]">
+        {% for i in range(6) %}
+        <div class="p-2 {% if i > 0 %}border-l border-gray-100{% endif %} space-y-2">
+            {% for schedule in schedule_by_day[i] %}
+            <div class="bg-gradient-to-br from-primary-50 to-primary-100 rounded-lg p-3 border border-primary-200">
+                <p class="font-medium text-primary-900 text-sm">{{ schedule.subject.name }}</p>
+                <p class="text-xs text-primary-700">{{ schedule.start_time }} - {{ schedule.end_time }}</p>
+                <p class="text-xs text-primary-600">{{ schedule.group.name }}</p>
+                {% if schedule.link %}
+                <a href="{{ schedule.link }}" target="_blank" class="text-xs text-primary-600 hover:text-primary-800 underline flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    Link
+                </a>
+                {% endif %}
+                {% if schedule.teacher %}
+                <p class="text-xs text-primary-500">{{ schedule.teacher.full_name }}</p>
+                {% endif %}
+                <div class="mt-2 flex gap-1">
+                    <span class="px-2 py-0.5 bg-white/50 rounded text-xs text-primary-700 capitalize">{{ schedule.lesson_type }}</span>
+                    <form action="{{ url_for('dean.delete_schedule', id=schedule.id) }}" method="POST" class="inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200">×</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Foydalanuvchini tahrirlash{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.users') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Orqaga
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">Foydalanuvchini tahrirlash</h1>
+        <p class="text-gray-600">{{ user.full_name }}</p>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <!-- Asosiy ma'lumotlar -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Asosiy ma'lumotlar</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
+                    <input type="text" name="full_name" required value="{{ user.full_name }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                    <input type="email" name="email" required value="{{ user.email }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
+                    <input type="text" name="phone" value="{{ user.phone or '' }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rol *</label>
+                    <select name="role" id="roleSelect" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrator</option>
+                        <option value="dean" {% if user.role == 'dean' %}selected{% endif %}>Dekan</option>
+                        <option value="teacher" {% if user.role == 'teacher' %}selected{% endif %}>O'qituvchi</option>
+                        <option value="student" {% if user.role == 'student' %}selected{% endif %}>Talaba</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" name="is_active" id="is_active" {% if user.is_active %}checked{% endif %}
+                        class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                    <label for="is_active" class="text-sm text-gray-700">Faol holat</label>
+                </div>
+            </div>
+            
+            <!-- Talaba uchun -->
+            <div id="studentFields" class="space-y-4 {% if user.role != 'student' %}hidden{% endif %}">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Talaba ma'lumotlari</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID</label>
+                    <input type="text" name="student_id" value="{{ user.student_id or '' }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Guruh</label>
+                    <select name="group_id" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">Guruhni tanlang...</option>
+                        {% for group in groups %}
+                        <option value="{{ group.id }}" {% if user.group_id == group.id %}selected{% endif %}>{{ group.name }} ({{ group.faculty.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Qabul yili</label>
+                    <input type="number" name="enrollment_year" value="{{ user.enrollment_year or '' }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            
+            <!-- O'qituvchi uchun -->
+            <div id="teacherFields" class="space-y-4 {% if user.role != 'teacher' %}hidden{% endif %}">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">O'qituvchi ma'lumotlari</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Kafedra</label>
+                    <input type="text" name="department" value="{{ user.department or '' }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lavozim</label>
+                    <input type="text" name="position" value="{{ user.position or '' }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            
+            <!-- Dekan uchun -->
+            <div id="deanFields" class="space-y-4 {% if user.role != 'dean' %}hidden{% endif %}">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Dekan ma'lumotlari</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet</label>
+                    <select name="faculty_id" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">Fakultetni tanlang...</option>
+                        {% for faculty in faculties %}
+                        <option value="{{ faculty.id }}" {% if user.faculty_id == faculty.id %}selected{% endif %}>{{ faculty.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Parol o'zgartirish -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Parolni o'zgartirish</h3>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Yangi parol</label>
+                    <input type="password" name="new_password" minlength="6" placeholder="Bo'sh qoldiring agar o'zgartirmoqchi bo'lmasangiz"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    Saqlash
+                </button>
+                <a href="{{ url_for('admin.users') }}" class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('roleSelect').addEventListener('change', function() {
+    const role = this.value;
+    
+    document.getElementById('studentFields').classList.add('hidden');
+    document.getElementById('teacherFields').classList.add('hidden');
+    document.getElementById('deanFields').classList.add('hidden');
+    
+    if (role === 'student') {
+        document.getElementById('studentFields').classList.remove('hidden');
+    } else if (role === 'teacher') {
+        document.getElementById('teacherFields').classList.remove('hidden');
+    } else if (role === 'dean') {
+        document.getElementById('deanFields').classList.remove('hidden');
+    }
+});
+</script>
+{% endblock %}

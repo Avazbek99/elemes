@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Darsni tahrirlash{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="text-sm text-gray-500 hover:text-primary-600">← {{ lesson.title }}ga qaytish</a>
+        <h1 class="text-2xl font-bold text-gray-900 mt-2">Darsni tahrirlash</h1>
+        <p class="text-gray-500 mt-1">{{ subject.name }} fanidagi darsni tahrirlash</p>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Dars nomi *</label>
+                <input type="text" name="title" required value="{{ lesson.title }}" placeholder="Masalan: 1-mavzu: Kirish" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Dars turi *</label>
+                <select name="lesson_type" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="maruza" {% if lesson.lesson_type == 'maruza' %}selected{% endif %}>Maruza</option>
+                    <option value="amaliyot" {% if lesson.lesson_type == 'amaliyot' %}selected{% endif %}>Amaliyot</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Dars mazmuni</label>
+                <textarea name="content" rows="6" placeholder="Dars mazmunini yozing..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ lesson.content or '' }}</textarea>
+            </div>
+            
+            <!-- Video yuklash -->
+            <div class="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-100">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    Video dars
+                </h3>
+                
+                {% if lesson.video_file or lesson.video_url %}
+                <div class="mb-4 p-3 bg-white rounded-xl border border-purple-200">
+                    <p class="text-sm text-gray-600 mb-2">Joriy video:</p>
+                    {% if lesson.video_file %}
+                    <p class="text-xs text-gray-500">Yuklangan fayl: {{ lesson.video_file }}</p>
+                    {% elif lesson.video_url %}
+                    <p class="text-xs text-gray-500">URL: {{ lesson.video_url }}</p>
+                    {% endif %}
+                    <p class="text-xs text-amber-600 mt-1">⚠️ Yangi video yuklasangiz, eski video o'chiriladi</p>
+                </div>
+                {% endif %}
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Video fayl yuklash (maksimum 200 MB)
+                            <span class="text-gray-400 text-xs">(ixtiyoriy - almashtirish uchun)</span>
+                        </label>
+                        <div class="relative">
+                            <input type="file" name="video_file" accept="video/mp4,video/webm,video/ogg,video/quicktime" 
+                                   class="hidden" id="video_file" onchange="updateFileName(this)">
+                            <label for="video_file" class="flex items-center justify-center w-full px-4 py-8 bg-white border-2 border-dashed border-purple-300 rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
+                                <div class="text-center">
+                                    <svg class="w-12 h-12 text-purple-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                    <p class="text-sm text-gray-600" id="file_label">Yangi video faylni tanlang yoki bu yerga tashlang</p>
+                                    <p class="text-xs text-gray-400 mt-1">MP4, WebM, OGG formatlarida</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center text-sm text-gray-500">— yoki —</div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Video URL (faqat YouTube)</label>
+                        <input type="url" name="video_url" value="{{ lesson.video_url or '' }}" placeholder="https://youtube.com/watch?v=... yoki https://youtu.be/..." class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <p class="mt-1 text-xs text-gray-500">Faqat YouTube videolar qo'llab-quvvatlanadi</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Davomiyligi (daqiqa)</label>
+                    <input type="number" name="duration" value="{{ lesson.duration or '' }}" placeholder="80" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            
+            <!-- Mavzu fayli -->
+            <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Mavzu fayli
+                    {% if current_user.role == 'teacher' or current_user.role == 'admin' %}
+                    <span class="text-red-600">*</span>
+                    {% endif %}
+                </h3>
+                
+                {% if lesson.file_url %}
+                <div class="mb-4 p-3 bg-white rounded-xl border border-blue-200">
+                    <p class="text-sm text-gray-600 mb-2">Joriy fayl:</p>
+                    {% if lesson.file_url and ('http://' in lesson.file_url or 'https://' in lesson.file_url) %}
+                    <p class="text-xs text-gray-500">URL: {{ lesson.file_url }}</p>
+                    {% else %}
+                    <p class="text-xs text-gray-500">Yuklangan fayl: {{ lesson.file_url }}</p>
+                    {% endif %}
+                    <p class="text-xs text-amber-600 mt-1">⚠️ Yangi fayl yuklasangiz, eski fayl o'chiriladi</p>
+                </div>
+                {% endif %}
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Fayl yuklash
+                            {% if current_user.role == 'teacher' or current_user.role == 'admin' %}
+                            <span class="text-red-600">*</span>
+                            <span class="text-gray-400 text-xs">(almashtirish uchun)</span>
+                            {% else %}
+                            <span class="text-gray-400">(ixtiyoriy)</span>
+                            {% endif %}
+                        </label>
+                        <div class="relative">
+                            <input type="file" name="lesson_file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" 
+                                   class="hidden" id="lesson_file" onchange="updateLessonFileName(this)">
+                            <label for="lesson_file" class="flex items-center justify-center w-full px-4 py-8 bg-white border-2 border-dashed border-blue-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                                <div class="text-center">
+                                    <svg class="w-12 h-12 text-blue-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                    <p class="text-sm text-gray-600" id="lesson_file_label">Yangi faylni tanlang yoki bu yerga tashlang</p>
+                                    <p class="text-xs text-gray-400 mt-1">PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, ZIP, RAR</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center text-sm text-gray-500">— yoki —</div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Fayl URL
+                            {% if current_user.role == 'teacher' or current_user.role == 'admin' %}
+                            <span class="text-red-600">*</span>
+                            {% else %}
+                            <span class="text-gray-400">(ixtiyoriy)</span>
+                            {% endif %}
+                        </label>
+                        <input type="url" name="file_url" value="{{ lesson.file_url if (lesson.file_url and ('http://' in lesson.file_url or 'https://' in lesson.file_url)) else '' }}" placeholder="https://..." 
+                               class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <p class="mt-1 text-xs text-gray-500">Agar fayl yuklamasangiz, URL orqali kiriting</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-3 pt-4">
+                <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Bekor qilish</a>
+                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function updateFileName(input) {
+    const label = document.getElementById('file_label');
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        if (file.size > 200 * 1024 * 1024) {
+            alert('Fayl hajmi 200 MB dan oshmasligi kerak!');
+            input.value = '';
+            label.textContent = 'Yangi video faylni tanlang yoki bu yerga tashlang';
+        } else {
+            label.innerHTML = `<span class="text-green-600 font-medium">${file.name}</span> <span class="text-gray-400">(${sizeMB} MB)</span>`;
+        }
+    }
+}
+
+function updateLessonFileName(input) {
+    const label = document.getElementById('lesson_file_label');
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        label.innerHTML = `<span class="text-green-600 font-medium">${file.name}</span> <span class="text-gray-400">(${sizeMB} MB)</span>`;
+    }
+}
+
+// Form validation - fayl yoki URL bo'lishi kerak
+document.querySelector('form').addEventListener('submit', function(e) {
+    {% if current_user.role == 'teacher' or current_user.role == 'admin' %}
+    const fileInput = document.getElementById('lesson_file');
+    const urlInput = document.querySelector('input[name="file_url"]');
+    const hasCurrentFile = {{ 'true' if lesson.file_url else 'false' }};
+    
+    // Agar joriy fayl bo'lsa yoki yangi fayl/URL kiritilgan bo'lsa, ruxsat berish
+    if (!hasCurrentFile && !fileInput.files.length && !urlInput.value.trim()) {
+        e.preventDefault();
+        alert('Iltimos, mavzu faylini yuklang yoki URL kiriting!');
+        return false;
+    }
+    {% endif %}
+});
+</script>
+{% endblock %}
+

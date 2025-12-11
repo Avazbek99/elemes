@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block full_content %}
+<div class="min-h-screen flex">
+    <!-- Left side - Branding -->
+    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 relative overflow-hidden">
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-red-500/10 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div class="relative z-10 flex flex-col justify-between p-12 w-full">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14v7"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-white">{{ t('site_name_short') }}</h1>
+                    <p class="text-sm text-dark-400">{{ t('site_tagline') }}</p>
+                </div>
+            </div>
+            
+            <div class="space-y-8">
+                <div>
+                    <h2 class="text-4xl lg:text-5xl font-bold text-white leading-tight">
+                        {% if current_lang == 'uz' %}
+                        Ta'limda yangi<br>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">imkoniyatlar</span>
+                        {% elif current_lang == 'ru' %}
+                        Новые возможности<br>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">в образовании</span>
+                        {% else %}
+                        New opportunities<br>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">in education</span>
+                        {% endif %}
+                    </h2>
+                    <p class="mt-4 text-lg text-dark-300 max-w-md">
+                        {% if current_lang == 'uz' %}
+                        Zamonaviy ta'lim platformasi orqali bilim oling, o'qiting va rivojlaning.
+                        {% elif current_lang == 'ru' %}
+                        Получайте знания, учитесь и развивайтесь через современную образовательную платформу.
+                        {% else %}
+                        Gain knowledge, learn and grow through a modern educational platform.
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
+                        <svg class="w-8 h-8 text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        <h3 class="text-sm font-semibold text-white">{% if current_lang == 'uz' %}Online darslar{% elif current_lang == 'ru' %}Онлайн уроки{% else %}Online lessons{% endif %}</h3>
+                        <p class="text-xs text-dark-400">{% if current_lang == 'uz' %}Istalgan joydan{% elif current_lang == 'ru' %}Из любого места{% else %}From anywhere{% endif %}</p>
+                    </div>
+                    <div class="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
+                        <svg class="w-8 h-8 text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <h3 class="text-sm font-semibold text-white">{% if current_lang == 'uz' %}Interaktiv{% elif current_lang == 'ru' %}Интерактивный{% else %}Interactive{% endif %}</h3>
+                        <p class="text-xs text-dark-400">{% if current_lang == 'uz' %}O'qituvchi bilan{% elif current_lang == 'ru' %}С преподавателем{% else %}With teacher{% endif %}</p>
+                    </div>
+                    <div class="bg-white/5 backdrop-blur rounded-xl p-4 border border-white/10">
+                        <svg class="w-8 h-8 text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                        <h3 class="text-sm font-semibold text-white">{% if current_lang == 'uz' %}Sertifikatlar{% elif current_lang == 'ru' %}Сертификаты{% else %}Certificates{% endif %}</h3>
+                        <p class="text-xs text-dark-400">{% if current_lang == 'uz' %}Rasmiy hujjatlar{% elif current_lang == 'ru' %}Официальные документы{% else %}Official documents{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-8">
+                <div>
+                    <p class="text-3xl font-bold text-white">5,000+</p>
+                    <p class="text-sm text-dark-400">{% if current_lang == 'uz' %}Talabalar{% elif current_lang == 'ru' %}Студенты{% else %}Students{% endif %}</p>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold text-white">200+</p>
+                    <p class="text-sm text-dark-400">{% if current_lang == 'uz' %}Kurslar{% elif current_lang == 'ru' %}Курсы{% else %}Courses{% endif %}</p>
+                </div>
+                <div>
+                    <p class="text-3xl font-bold text-white">50+</p>
+                    <p class="text-sm text-dark-400">{% if current_lang == 'uz' %}O'qituvchilar{% elif current_lang == 'ru' %}Преподаватели{% else %}Teachers{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right side - Login form -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-white relative">
+        <!-- Language selector -->
+        <div class="absolute top-4 right-4 sm:top-6 sm:right-6 lg:top-8 lg:right-8">
+            <div class="relative group">
+                <button class="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-100 transition-colors text-gray-700 border border-gray-200">
+                    <span class="text-lg">{{ languages[current_lang].flag }}</span>
+                    <span class="text-sm font-medium">{{ languages[current_lang].name }}</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    {% for lang_code, lang_info in languages.items() %}
+                    <a href="{{ url_for('main.set_language', lang=lang_code) }}" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors {% if current_lang == lang_code %}bg-primary-50{% endif %}">
+                        <span class="text-xl">{{ lang_info.flag }}</span>
+                        <span class="text-sm font-medium text-gray-900">{{ lang_info.name }}</span>
+                        {% if current_lang == lang_code %}
+                        <svg class="w-4 h-4 text-primary-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="w-full max-w-md">
+            <div class="lg:hidden flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/>
+                    </svg>
+                </div>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">{{ t('site_name_short') }}</h1>
+            </div>
+            
+            <h2 class="text-2xl sm:text-3xl font-bold text-gray-900">{% if current_lang == 'uz' %}Xush kelibsiz!{% elif current_lang == 'ru' %}Добро пожаловать!{% else %}Welcome!{% endif %}</h2>
+            <p class="mt-2 text-sm sm:text-base text-gray-500">{% if current_lang == 'uz' %}Hisobingizga kiring{% elif current_lang == 'ru' %}Войдите в свой аккаунт{% else %}Sign in to your account{% endif %}</p>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="mt-4 p-4 rounded-xl {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+            
+            <form method="POST" class="mt-6 sm:mt-8 space-y-4 sm:space-y-5">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('email') }}</label>
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
+                        <input type="email" name="email" placeholder="email@example.com" required class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('password') }}</label>
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        <input type="password" name="password" placeholder="••••••••" required class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                        <span class="ml-2 text-xs sm:text-sm text-gray-600">{% if current_lang == 'uz' %}Eslab qolish{% elif current_lang == 'ru' %}Запомнить{% else %}Remember me{% endif %}</span>
+                    </label>
+                    <a href="{{ url_for('auth.forgot_password') }}" class="text-xs sm:text-sm text-primary-600 hover:text-primary-700 font-medium">
+                        {% if current_lang == 'uz' %}Parolni unutdingizmi?{% elif current_lang == 'ru' %}Забыли пароль?{% else %}Forgot password?{% endif %}
+                    </a>
+                </div>
+                
+                <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 sm:py-3 px-4 rounded-xl transition-colors shadow-lg shadow-primary-500/25 text-sm sm:text-base">
+                    {{ t('login') }}
+                </button>
+            </form>
+            
+            <div class="mt-6 sm:mt-8">
+                <p class="text-xs sm:text-sm text-gray-500 text-center mb-3 sm:mb-4">{% if current_lang == 'uz' %}Demo hisoblar:{% elif current_lang == 'ru' %}Демо аккаунты:{% else %}Demo accounts:{% endif %}</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="fillDemo('admin@university.uz', 'admin123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                        <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('admin') }}</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">admin@university.uz</p>
+                    </button>
+                    <button onclick="fillDemo('a.karimov@university.uz', 'teacher123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                        <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('teacher') }}</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">a.karimov@university.uz</p>
+                    </button>
+                    <button onclick="fillDemo('student1@university.uz', 'student123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                        <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('student') }}</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">student1@university.uz</p>
+                    </button>
+                    <button onclick="fillDemo('dean.it@university.uz', 'dean123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                        <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('dean') }}</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">dean.it@university.uz</p>
+                    </button>
+                    <button onclick="fillDemo('accounting@university.uz', 'accounting123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                        <p class="text-xs sm:text-sm font-medium text-gray-900">Buxgalteriya</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">accounting@university.uz</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function fillDemo(email, password) {
+    document.querySelector('input[name="email"]').value = email;
+    document.querySelector('input[name="password"]').value = password;
+}
+</script>
+{% endblock %}
+

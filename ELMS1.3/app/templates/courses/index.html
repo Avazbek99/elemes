@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Fanlar{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Fanlar</h1>
+            <p class="text-gray-500 mt-1">
+                {% if current_user.role == 'student' %}
+                    Sizning guruhingizga biriktirilgan fanlar
+                {% elif current_user.role == 'teacher' %}
+                    Sizga biriktirilgan fanlar
+                {% else %}
+                    Barcha fanlar ro'yxati
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- Search -->
+    <div class="flex flex-col md:flex-row gap-4">
+        <form class="flex-1 flex gap-4" method="GET">
+            <div class="flex-1 relative">
+                <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" name="search" value="{{ search }}" placeholder="Fan qidirish..." class="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500">
+            </div>
+            <button type="submit" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+                Qidirish
+            </button>
+        </form>
+    </div>
+    
+    <!-- Subjects grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for subject in subjects.items %}
+        {% set has_issue = (current_user.role in ['teacher', 'dean', 'admin']) and subject.has_lessons_without_content() %}
+        <a href="{{ url_for('courses.detail', id=subject.id) }}" class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="relative h-36 overflow-hidden {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %} flex items-center justify-center">
+                <div class="text-center">
+                    <span class="text-4xl font-bold text-white/30">{{ subject.code }}</span>
+                </div>
+                <div class="absolute bottom-3 left-3 flex gap-2">
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits }} kredit</span>
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.semester }}-semestr</span>
+                </div>
+            </div>
+            <div class="p-5">
+                <div class="flex items-start justify-between mb-2">
+                    <h3 class="text-lg font-semibold {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</h3>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full {% if has_issue %}bg-red-100 text-red-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">{{ subject.faculty.code }}</span>
+                </div>
+                {% if has_issue %}
+                <div class="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-xs text-red-700 font-medium">⚠️ Darslar mavjud, lekin videolar/fayllar yo'q</p>
+                </div>
+                {% endif %}
+                <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ subject.description or 'Tavsif mavjud emas' }}</p>
+                
+                {% if current_user.role == 'student' and subject_grades and subject_grades[subject.id] %}
+                <!-- Ballar ko'rsatish -->
+                <div class="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Maruza</p>
+                            <p class="text-sm font-bold text-blue-600">
+                                {% if subject_grades[subject.id].maruza.max > 0 %}
+                                {{ subject_grades[subject.id].maruza.score }}/{{ subject_grades[subject.id].maruza.max }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Amaliyot</p>
+                            <p class="text-sm font-bold text-green-600">
+                                {% if subject_grades[subject.id].amaliyot.max > 0 %}
+                                {{ subject_grades[subject.id].amaliyot.score }}/{{ subject_grades[subject.id].amaliyot.max }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">Jami</p>
+                            <p class="text-sm font-bold text-primary-600">
+                                {% if subject_grades[subject.id].total.max > 0 %}
+                                {{ subject_grades[subject.id].total.score }}/{{ subject_grades[subject.id].total.max }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="flex items-center gap-4 text-sm text-gray-500">
+                    <div class="flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        {{ subject.lessons.count() }} dars
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        {{ subject.assignments.count() }} topshiriq
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% else %}
+        <div class="col-span-full text-center py-12">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            <h3 class="text-lg font-medium text-gray-600">Fanlar topilmadi</h3>
+            {% if current_user.role == 'student' and not current_user.group_id %}
+            <p class="text-gray-400">Sizga hali guruh biriktirilmagan</p>
+            {% else %}
+            <p class="text-gray-400">Qidiruv so'zini o'zgartiring</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if subjects.pages > 1 %}
+    <div class="flex justify-center gap-2">
+        {% if subjects.has_prev %}
+        <a href="{{ url_for('courses.index', page=subjects.prev_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Oldingi</a>
+        {% endif %}
+        
+        <span class="px-4 py-2 bg-primary-600 text-white rounded-xl">{{ subjects.page }} / {{ subjects.pages }}</span>
+        
+        {% if subjects.has_next %}
+        <a href="{{ url_for('courses.index', page=subjects.next_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Keyingi</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

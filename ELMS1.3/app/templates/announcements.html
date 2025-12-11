@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}E'lonlar{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">E'lonlar</h1>
+            <p class="text-gray-500 mt-1">Muhim xabarlar va yangiliklar</p>
+        </div>
+        {% if current_user.has_permission('create_announcement') %}
+        <a href="{{ url_for('main.create_announcement') }}" class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Yangi e'lon
+        </a>
+        {% endif %}
+    </div>
+    
+    <div class="space-y-4">
+        {% for announcement in announcements.items %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 {% if announcement.is_important %}border-l-4 border-l-red-500{% endif %}">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        {% if announcement.is_important %}
+                        <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Muhim</span>
+                        {% endif %}
+                        <h3 class="text-lg font-semibold text-gray-900">{{ announcement.title }}</h3>
+                    </div>
+                    <p class="text-gray-600 mb-4">{{ announcement.content }}</p>
+                    <div class="flex items-center gap-4 text-sm text-gray-500">
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            {{ announcement.author.full_name }}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{{ announcement.author.get_role_display() }}</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            {{ announcement.created_at.strftime('%d.%m.%Y') }}
+                        </div>
+                    </div>
+                </div>
+                <div class="p-3 bg-primary-100 rounded-xl">
+                    <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <h3 class="text-lg font-medium text-gray-600">E'lonlar yo'q</h3>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if announcements.pages > 1 %}
+    <div class="flex justify-center gap-2">
+        {% if announcements.has_prev %}
+        <a href="{{ url_for('main.announcements', page=announcements.prev_num) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Oldingi</a>
+        {% endif %}
+        <span class="px-4 py-2 bg-primary-600 text-white rounded-xl">{{ announcements.page }} / {{ announcements.pages }}</span>
+        {% if announcements.has_next %}
+        <a href="{{ url_for('main.announcements', page=announcements.next_num) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Keyingi</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

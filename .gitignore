@@ -1,0 +1,23 @@
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# Virtual env
+.venv/
+venv/
+
+# Local data/logs/uploads
+ELMS1.3/instance/
+ELMS1.3/server.log
+ELMS1.3/uploads/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Yangi foydalanuvchi{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.users') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Orqaga
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">Yangi foydalanuvchi yaratish</h1>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6" id="userForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <!-- Asosiy ma'lumotlar -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Asosiy ma'lumotlar</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
+                    <input type="text" name="full_name" required placeholder="Ism Familiya"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                    <input type="email" name="email" required placeholder="email@university.uz"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Parol *</label>
+                    <input type="password" name="password" required minlength="6" placeholder="Kamida 6 belgi"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
+                    <input type="text" name="phone" placeholder="+998 90 123 45 67"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rol *</label>
+                    <select name="role" id="roleSelect" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">Rolni tanlang...</option>
+                        <option value="admin">Administrator</option>
+                        <option value="dean">Dekan</option>
+                        <option value="teacher">O'qituvchi</option>
+                        <option value="student">Talaba</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Talaba uchun -->
+            <div id="studentFields" class="space-y-4 hidden">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Talaba ma'lumotlari</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID</label>
+                    <input type="text" name="student_id" placeholder="ST2024001"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Guruh</label>
+                    <select name="group_id" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">Guruhni tanlang...</option>
+                        {% for group in groups %}
+                        <option value="{{ group.id }}">{{ group.name }} ({{ group.faculty.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Qabul yili</label>
+                    <input type="number" name="enrollment_year" placeholder="2024" min="2000" max="2030"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            
+            <!-- O'qituvchi uchun -->
+            <div id="teacherFields" class="space-y-4 hidden">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">O'qituvchi ma'lumotlari</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Kafedra</label>
+                    <input type="text" name="department" placeholder="Dasturiy injiniring"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lavozim</label>
+                    <input type="text" name="position" placeholder="Dotsent"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            
+            <!-- Dekan uchun -->
+            <div id="deanFields" class="space-y-4 hidden">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Dekan ma'lumotlari</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
+                    <select name="faculty_id" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">Fakultetni tanlang...</option>
+                        {% for faculty in faculties %}
+                        <option value="{{ faculty.id }}">{{ faculty.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    Foydalanuvchi yaratish
+                </button>
+                <a href="{{ url_for('admin.users') }}" class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('roleSelect').addEventListener('change', function() {
+    const role = this.value;
+    
+    // Barcha maxsus maydonlarni yashirish
+    document.getElementById('studentFields').classList.add('hidden');
+    document.getElementById('teacherFields').classList.add('hidden');
+    document.getElementById('deanFields').classList.add('hidden');
+    
+    // Rolga qarab kerakli maydonlarni ko'rsatish
+    if (role === 'student') {
+        document.getElementById('studentFields').classList.remove('hidden');
+    } else if (role === 'teacher') {
+        document.getElementById('teacherFields').classList.remove('hidden');
+    } else if (role === 'dean') {
+        document.getElementById('deanFields').classList.remove('hidden');
+    }
+});
+</script>
+{% endblock %}

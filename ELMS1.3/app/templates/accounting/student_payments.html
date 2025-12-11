@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}To'lov ma'lumotlari{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{% if current_user.role == 'student' %}{{ url_for('main.dashboard') }}{% else %}{{ url_for('accounting.index') }}{% endif %}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Orqaga
+    </a>
+    <h1 class="text-2xl font-bold text-gray-900">To'lov ma'lumotlari</h1>
+    <p class="text-gray-500 mt-1">{{ student.full_name }}</p>
+</div>
+
+{% if payments %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">Kontrakt miqdori</p>
+                <p class="text-2xl font-bold text-gray-900">{{ "{:,.0f}".format(total_contract|default(0)) }} so'm</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">To'lagan</p>
+                <p class="text-2xl font-bold text-green-600">{{ "{:,.0f}".format(total_paid|default(0)) }} so'm</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">Qolgan to'lov</p>
+                <p class="text-2xl font-bold text-red-600">{{ "{:,.0f}".format(total_remaining|default(0)) }} so'm</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress bar -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-semibold text-gray-900">To'lov holati</h3>
+        <span class="text-2xl font-bold {% if (percentage|default(0)) == 100 %}text-green-600{% elif (percentage|default(0)) >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">
+            {{ "{:.1f}".format(percentage|default(0)) }}%
+        </span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-4">
+        <div class="h-4 rounded-full {% if (percentage|default(0)) == 100 %}bg-green-600{% elif (percentage|default(0)) >= 50 %}bg-yellow-500{% else %}bg-red-500{% endif %}" style="width: {{ percentage|default(0) }}%"></div>
+    </div>
+</div>
+
+<!-- Payments list -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="p-6 border-b border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-900">To'lov tarixi</h3>
+    </div>
+    <div class="divide-y divide-gray-100">
+        {% for payment in payments %}
+        <div class="p-6 hover:bg-gray-50 transition-colors">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-4 mb-2">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold">
+                            {{ payment.student.full_name[0] }}
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900">{{ payment.student.full_name }}</h4>
+                            <p class="text-sm text-gray-500">
+                                {% if payment.academic_year %}{{ payment.academic_year }}{% endif %}
+                                {% if payment.semester %}- {{ payment.semester }}-semestr{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% if payment.notes %}
+                    <p class="text-sm text-gray-600 mt-2">{{ payment.notes }}</p>
+                    {% endif %}
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500 mb-1">Kontrakt</p>
+                    <p class="text-lg font-bold text-gray-900">{{ "{:,.0f}".format(payment.contract_amount) }} so'm</p>
+                    <p class="text-sm text-gray-500 mt-2 mb-1">To'lagan</p>
+                    <p class="text-lg font-bold text-green-600">{{ "{:,.0f}".format(payment.paid_amount) }} so'm</p>
+                    <p class="text-sm text-gray-500 mt-2 mb-1">Qolgan</p>
+                    <p class="text-lg font-bold text-red-600">{{ "{:,.0f}".format(payment.get_remaining_amount()) }} so'm</p>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center justify-between">
+                <span class="text-xs text-gray-400">
+                    Yangilangan: {{ payment.updated_at.strftime('%d.%m.%Y %H:%M') if payment.updated_at else payment.created_at.strftime('%d.%m.%Y %H:%M') }}
+                </span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium {% if payment.get_payment_percentage() == 100 %}bg-green-100 text-green-700{% elif payment.get_payment_percentage() >= 50 %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">
+                    {{ payment.get_payment_percentage() }}% to'langan
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <h3 class="text-lg font-semibold text-gray-900 mb-2">To'lov ma'lumotlari mavjud emas</h3>
+    <p class="text-gray-500">Buxgalteriya bo'limi to'lov ma'lumotlarini qo'shishi kerak</p>
+</div>
+{% endif %}
+{% endblock %}
+

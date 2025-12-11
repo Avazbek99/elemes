@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Talabalar{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Talabalar</h1>
+        <p class="text-gray-600">{{ faculty.name }}</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        <a href="{{ url_for('dean.create_student') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Talaba qo'shish
+        </a>
+        <a href="{{ url_for('dean.import_students') }}" class="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            Excel dan import
+        </a>
+        <a href="{{ url_for('dean.export_students', group_id=request.args.get('group')) }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Excel yuklab olish
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" class="flex flex-wrap gap-4">
+        <div class="flex-1 min-w-[200px]">
+            <input type="text" name="search" value="{{ search }}" placeholder="Qidirish (ism, email, ID)..."
+                class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        </div>
+        <div class="w-48">
+            <select name="group" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <option value="">Barcha guruhlar</option>
+                {% for group in groups %}
+                <option value="{{ group.id }}" {% if current_group == group.id %}selected{% endif %}>{{ group.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+            Qidirish
+        </button>
+        {% if search or current_group %}
+        <a href="{{ url_for('dean.students') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+            Tozalash
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Students table -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    {% if students.items %}
+    <table class="w-full">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Talaba</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">ID raqam</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Guruh</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Qabul yili</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Holat</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for student in students.items %}
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
+                            {{ student.full_name[0] }}
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-900">{{ student.full_name }}</p>
+                            <p class="text-sm text-gray-500">{{ student.email }}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="font-mono text-gray-600">{{ student.student_id or '-' }}</span>
+                </td>
+                <td class="px-6 py-4">
+                    {% if student.group %}
+                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">{{ student.group.name }}</span>
+                    {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-gray-600">
+                    {{ student.enrollment_year or '-' }}
+                </td>
+                <td class="px-6 py-4">
+                    {% if student.is_active %}
+                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Faol</span>
+                    {% else %}
+                    <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Bloklangan</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {% if students.pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-100 flex justify-center gap-2">
+        {% for page_num in students.iter_pages() %}
+            {% if page_num %}
+                <a href="{{ url_for('dean.students', page=page_num, search=search, group=current_group) }}" 
+                   class="px-3 py-1 rounded-lg {% if page_num == students.page %}bg-primary-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                    {{ page_num }}
+                </a>
+            {% else %}
+                <span class="px-2">...</span>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Talabalar topilmadi</h3>
+        <p class="text-gray-500">Qidiruv natijasi bo'sh</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

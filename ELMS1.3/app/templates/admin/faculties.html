@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Fakultetlar{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Fakultetlar</h1>
+        <p class="text-gray-600">Barcha fakultetlar ro'yxati</p>
+    </div>
+    <a href="{{ url_for('admin.create_faculty') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        Yangi fakultet
+    </a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for faculty in faculties %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">{{ faculty.code }}</span>
+                </div>
+            </div>
+            
+            <h3 class="text-lg font-bold text-gray-900 mb-2">{{ faculty.name }}</h3>
+            <p class="text-sm text-gray-500 mb-4">{{ faculty.description or 'Tavsif yo\'q' }}</p>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <p class="text-2xl font-bold text-gray-900">{{ faculty.groups.count() }}</p>
+                    <p class="text-xs text-gray-500">Guruhlar</p>
+                </div>
+                <div class="text-center p-3 bg-gray-50 rounded-lg">
+                    <p class="text-2xl font-bold text-gray-900">{{ faculty.subjects.count() }}</p>
+                    <p class="text-xs text-gray-500">Fanlar</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <a href="{{ url_for('admin.edit_faculty', id=faculty.id) }}" class="flex-1 px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium text-center hover:bg-gray-200 transition-colors">
+                    Tahrirlash
+                </a>
+                <form action="{{ url_for('admin.delete_faculty', id=faculty.id) }}" method="POST" onsubmit="return confirm('Bu fakultetni o\'chirmoqchimisiz?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" class="px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-span-full bg-white rounded-2xl p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Fakultetlar mavjud emas</h3>
+        <p class="text-gray-500 mb-4">Yangi fakultet yaratishni boshlang</p>
+        <a href="{{ url_for('admin.create_faculty') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Fakultet yaratish
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+
+

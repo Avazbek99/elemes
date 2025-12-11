@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Fanlar{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Fanlar</h1>
+        <p class="text-gray-600">Barcha fanlar ro'yxati</p>
+    </div>
+    <a href="{{ url_for('admin.create_subject') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        Yangi fan
+    </a>
+</div>
+
+<!-- Filter -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" class="flex gap-4 items-center">
+        <label class="text-sm font-medium text-gray-700">Fakultet:</label>
+        <select name="faculty" onchange="this.form.submit()" class="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <option value="">Barcha fakultetlar</option>
+            {% for faculty in faculties %}
+            <option value="{{ faculty.id }}" {% if current_faculty == faculty.id %}selected{% endif %}>{{ faculty.name }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    {% if subjects %}
+    <table class="w-full">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Kod</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Fan nomi</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Fakultet</th>
+                <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">Kredit</th>
+                <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">Semestr</th>
+                <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for subject in subjects %}
+            {% set has_issue = subject.has_lessons_without_content() %}
+            <tr class="hover:bg-gray-50 transition-colors {% if has_issue %}bg-red-50{% endif %}">
+                <td class="px-6 py-4">
+                    <span class="font-mono font-medium {% if has_issue %}text-red-600{% else %}text-primary-600{% endif %}">{{ subject.code }}</span>
+                </td>
+                <td class="px-6 py-4">
+                    <p class="font-medium {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</p>
+                    {% if has_issue %}
+                    <p class="text-xs text-red-600 font-medium mt-1">⚠️ Darslar mavjud, lekin videolar/fayllar yo'q</p>
+                    {% elif subject.description %}
+                    <p class="text-sm text-gray-500 truncate max-w-xs">{{ subject.description }}</p>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-medium">{{ subject.faculty.code }}</span>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="font-semibold text-gray-900">{{ subject.credits }}</span>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <span class="text-gray-600">{{ subject.semester }}-semestr</span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex justify-end gap-2">
+                        <a href="{{ url_for('admin.edit_subject', id=subject.id) }}" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </a>
+                        <form action="{{ url_for('admin.delete_subject', id=subject.id) }}" method="POST" class="inline" onsubmit="return confirm('Bu fanni o\'chirmoqchimisiz?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Fanlar mavjud emas</h3>
+        <p class="text-gray-500 mb-4">Yangi fan yaratishni boshlang</p>
+        <a href="{{ url_for('admin.create_subject') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Fan yaratish
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+
+
