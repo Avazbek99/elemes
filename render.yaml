@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: elemes
+    env: python
+    plan: free
+    buildCommand: pip install -r ELMS1.3/requirements.txt
+    startCommand: gunicorn --chdir ELMS1.3 run:app -b 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+      # Agar Postgres ishlatmoqchi bo'lsangiz, Render Postgresni ulab DATABASE_URL ni shu yerda berasiz.
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: your-postgres
+      #     property: connectionString
+
