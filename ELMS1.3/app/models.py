@@ -388,7 +388,20 @@ class GradeScale(db.Model):
 # ==================== DEMO MA'LUMOTLAR ====================
 def create_demo_data():
     """Demo ma'lumotlarni yaratish"""
-    # Agar allaqachon admin mavjud bo'lsa, demo ma'lumotlarni qayta yaratmaymiz
+    # Accounting accountini har doim yaratish/yangilash
+    accounting = User.query.filter_by(email='accounting@university.uz').first()
+    if not accounting:
+        accounting = User(
+            email='accounting@university.uz',
+            full_name='Buxgalteriya Bo\'limi',
+            role='accounting',
+            phone='+998 90 123 45 68'
+        )
+        accounting.set_password('accounting123')
+        db.session.add(accounting)
+        db.session.commit()
+    
+    # Agar database'da allaqachon ma'lumotlar bo'lsa, qolganini yaratmaymiz
     if User.query.filter_by(role='admin').first() is not None:
         return
     
@@ -416,16 +429,15 @@ def create_demo_data():
     admin.set_password('admin123')
     db.session.add(admin)
     
-    # ===== BUXGALTERIYA ===== (agar yo'q bo'lsa)
-    if not User.query.filter_by(email='accounting@university.uz').first():
-        accounting = User(
-            email='accounting@university.uz',
-            full_name='Buxgalteriya Bo\'limi',
-            role='accounting',
-            phone='+998 90 123 45 68'
-        )
-        accounting.set_password('accounting123')
-        db.session.add(accounting)
+    # ===== BUXGALTERIYA =====
+    accounting = User(
+        email='accounting@university.uz',
+        full_name='Buxgalteriya Bo\'limi',
+        role='accounting',
+        phone='+998 90 123 45 68'
+    )
+    accounting.set_password('accounting123')
+    db.session.add(accounting)
     
     # ===== DEKANLAR =====
     deans_data = [
@@ -614,11 +626,11 @@ def create_demo_data():
     
     # ===== DARS JADVALI =====
     schedule_data = [
-        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 0, 'start': '09:00', 'end': '10:30', 'type': 'lecture'},
-        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 2, 'start': '14:00', 'end': '16:00', 'type': 'lab'},
-        {'subject': 'WD201', 'group': 'DI-21', 'teacher': teachers[0], 'day': 1, 'start': '09:00', 'end': '10:30', 'type': 'lecture'},
-        {'subject': 'MB301', 'group': 'DI-21', 'teacher': teachers[2], 'day': 3, 'start': '11:00', 'end': '12:30', 'type': 'lecture'},
-        {'subject': 'AL201', 'group': 'DI-22', 'teacher': teachers[1], 'day': 1, 'start': '14:00', 'end': '15:30', 'type': 'lecture'},
+        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 0, 'start': '09:00', 'end': '10:30', 'room': '301-xona', 'type': 'lecture'},
+        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 2, 'start': '14:00', 'end': '16:00', 'room': 'Lab-1', 'type': 'lab'},
+        {'subject': 'WD201', 'group': 'DI-21', 'teacher': teachers[0], 'day': 1, 'start': '09:00', 'end': '10:30', 'room': '205-xona', 'type': 'lecture'},
+        {'subject': 'MB301', 'group': 'DI-21', 'teacher': teachers[2], 'day': 3, 'start': '11:00', 'end': '12:30', 'room': '302-xona', 'type': 'lecture'},
+        {'subject': 'AL201', 'group': 'DI-22', 'teacher': teachers[1], 'day': 1, 'start': '14:00', 'end': '15:30', 'room': '201-xona', 'type': 'lecture'},
     ]
     
     for s in schedule_data:
@@ -629,6 +641,7 @@ def create_demo_data():
             day_of_week=s['day'],
             start_time=s['start'],
             end_time=s['end'],
+            room=s['room'],
             lesson_type=s['type']
         )
         db.session.add(schedule)

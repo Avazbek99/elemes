@@ -1,2 +1,0 @@
-web: gunicorn --chdir ELMS1.3 run:app -b 0.0.0.0:$PORT
-
