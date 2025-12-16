@@ -122,7 +122,7 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
     ws['A2'].alignment = Alignment(horizontal='center')
     
     # Jadval sarlavhalari
-    headers = ['№', 'Hafta kuni', 'Vaqt', 'Fan', 'O\'qituvchi', 'Xona', 'Dars turi']
+    headers = ['№', 'Sana', 'Vaqt', 'Fan', 'O\'qituvchi', 'Video link', 'Dars turi']
     header_row = 3
     
     for col_num, header in enumerate(headers, 1):
@@ -138,20 +138,18 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
             bottom=Side(style='thin')
         )
     
-    # Hafta kunlari
-    week_days = {
-        0: 'Dushanba',
-        1: 'Seshanba',
-        2: 'Chorshanba',
-        3: 'Payshanba',
-        4: 'Juma',
-        5: 'Shanba'
-    }
-    
     # Ma'lumotlar
     for row_num, schedule in enumerate(schedules, start=header_row + 1):
         ws.cell(row=row_num, column=1, value=row_num - header_row)
-        ws.cell(row=row_num, column=2, value=week_days.get(schedule.day_of_week, ''))
+        if schedule.day_of_week:
+            code_str = str(schedule.day_of_week)
+            if len(code_str) == 8:
+                day_value = f"{code_str[6:8]}.{code_str[4:6]}.{code_str[0:4]}"
+            else:
+                day_value = code_str
+        else:
+            day_value = ''
+        ws.cell(row=row_num, column=2, value=day_value)
         ws.cell(row=row_num, column=3, value=f"{schedule.start_time} - {schedule.end_time}")
         ws.cell(row=row_num, column=4, value=schedule.subject.name if schedule.subject else '')
         ws.cell(row=row_num, column=5, value=schedule.teacher.full_name if schedule.teacher else '')

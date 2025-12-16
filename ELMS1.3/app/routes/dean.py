@@ -5,6 +5,7 @@ from app import db
 from functools import wraps
 from sqlalchemy import func
 from datetime import datetime
+import calendar
 
 bp = Blueprint('dean', __name__, url_prefix='/dean')
 
@@ -485,34 +486,83 @@ def schedule():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
+    today = datetime.now()
+    year = request.args.get('year', type=int) or today.year
+    month = request.args.get('month', type=int) or today.month
+    if month < 1:
+        month = 12
+        year -= 1
+    elif month > 12:
+        month = 1
+        year += 1
+    days_in_month = calendar.monthrange(year, month)[1]
+    start_weekday = calendar.monthrange(year, month)[0]  # 0=Monday
+    # Oldingi va keyingi oylar
+    if month == 1:
+        prev_month, prev_year = 12, year - 1
+    else:
+        prev_month, prev_year = month - 1, year
+    if month == 12:
+        next_month, next_year = 1, year + 1
+    else:
+        next_month, next_year = month + 1, year
+    
+    current_date = datetime(year, month, 1)
+    today_year = today.year
+    today_month = today.month
+    today_day = today.day
+    
+    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
+    start_code = int(f"{year}{month:02d}01")
+    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    
     group_id = request.args.get('group', type=int)
     
     groups = faculty.groups.order_by(Group.name).all()
     
     if group_id:
-        schedules = Schedule.query.filter_by(group_id=group_id).order_by(
-            Schedule.day_of_week, Schedule.start_time
-        ).all()
+        schedules = Schedule.query.filter(
+            Schedule.group_id == group_id,
+            Schedule.day_of_week.between(start_code, end_code)
+        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
     else:
         group_ids = [g.id for g in groups]
-        schedules = Schedule.query.filter(Schedule.group_id.in_(group_ids)).order_by(
-            Schedule.day_of_week, Schedule.start_time
-        ).all()
+        schedules = Schedule.query.filter(
+            Schedule.group_id.in_(group_ids),
+            Schedule.day_of_week.between(start_code, end_code)
+        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    week_days = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba']
-    
-    # Hafta kunlariga bo'lish
-    schedule_by_day = {i: [] for i in range(6)}
+    # Oy kunlari bo'yicha guruhlash (har bir dars aniq sana bo'yicha)
+    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
     for s in schedules:
-        if s.day_of_week in schedule_by_day:
-            schedule_by_day[s.day_of_week].append(s)
+        try:
+            code_str = str(s.day_of_week)
+            day = int(code_str[-2:])
+        except (TypeError, ValueError):
+            continue
+        if 1 <= day <= days_in_month:
+            schedule_by_day[day].append(s)
+    
+    for day in schedule_by_day:
+        schedule_by_day[day].sort(key=lambda x: x.start_time or '')
     
     return render_template('dean/schedule.html', 
                          faculty=faculty,
                          groups=groups,
                          current_group=group_id,
-                         week_days=week_days,
-                         schedule_by_day=schedule_by_day)
+                         schedule_by_day=schedule_by_day,
+                         days_in_month=days_in_month,
+                         start_weekday=start_weekday,
+                         current_date=current_date,
+                         year=year,
+                         month=month,
+                         today_year=today_year,
+                         today_month=today_month,
+                         today_day=today_day,
+                         prev_year=prev_year,
+                         prev_month=prev_month,
+                         next_year=next_year,
+                         next_month=next_month)
 
 
 @bp.route('/schedule/create', methods=['GET', 'POST'])
@@ -528,14 +578,33 @@ def create_schedule():
     subjects = faculty.subjects.order_by(Subject.code).all()
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
+    # GET parametrlar orqali kelgan default sana va guruh
+    default_date = request.args.get('date')
+    default_group_id = request.args.get('group', type=int)
+    
     if request.method == 'POST':
+        # Sana (kalendardan) -> YYYYMMDD formatida int
+        date_str = request.form.get('schedule_date')
+        date_code = None
+        if date_str:
+            try:
+                parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
+                date_code = int(parsed_date.strftime("%Y%m%d"))
+            except ValueError:
+                flash("Sana noto'g'ri formatda. Iltimos, kalendardan tanlang.", 'error')
+                return redirect(url_for('dean.create_schedule'))
+        
+        if not date_code:
+            flash("Sana tanlanishi shart.", 'error')
+            return redirect(url_for('dean.create_schedule'))
+        
         schedule = Schedule(
             subject_id=request.form.get('subject_id', type=int),
             group_id=request.form.get('group_id', type=int),
             teacher_id=request.form.get('teacher_id', type=int),
-            day_of_week=request.form.get('day_of_week', type=int),
+            day_of_week=date_code,
             start_time=request.form.get('start_time'),
-            end_time=request.form.get('end_time'),
+            end_time=request.form.get('end_time') or None,
             link=request.form.get('link'),
             lesson_type=request.form.get('lesson_type')
         )
@@ -543,13 +612,21 @@ def create_schedule():
         db.session.commit()
         
         flash("Dars jadvalga qo'shildi", 'success')
-        return redirect(url_for('dean.schedule'))
+        # Sana bo'yicha qayta ochish (shu oy/yil)
+        return redirect(url_for(
+            'dean.schedule',
+            year=parsed_date.year,
+            month=parsed_date.month,
+            group=schedule.group_id
+        ))
     
     return render_template('dean/create_schedule.html',
                          faculty=faculty,
                          groups=groups,
                          subjects=subjects,
-                         teachers=teachers)
+                         teachers=teachers,
+                         default_date=default_date,
+                         default_group_id=default_group_id)
 
 
 @bp.route('/schedule/<int:id>/delete', methods=['POST'])
@@ -568,6 +645,80 @@ def delete_schedule(id):
     flash("Jadval o'chirildi", 'success')
     
     return redirect(url_for('dean.schedule'))
+
+
+@bp.route('/schedule/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@dean_required
+def edit_schedule(id):
+    schedule = Schedule.query.get_or_404(id)
+    
+    # Faqat o'z fakultetidagi jadvallarni tahrirlashi mumkin
+    if schedule.subject.faculty_id != current_user.faculty_id:
+        flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
+        return redirect(url_for('dean.schedule'))
+    
+    faculty = Faculty.query.get(current_user.faculty_id)
+    groups = faculty.groups.order_by(Group.name).all()
+    subjects = faculty.subjects.order_by(Subject.code).all()
+    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
+    
+    # Eski sana
+    try:
+        code_str = str(schedule.day_of_week)
+        existing_date = datetime.strptime(code_str, "%Y%m%d")
+    except (ValueError, TypeError):
+        existing_date = datetime.now()
+    
+    if request.method == 'POST':
+        date_str = request.form.get('schedule_date')
+        date_code = None
+        if date_str:
+            try:
+                parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
+                date_code = int(parsed_date.strftime("%Y%m%d"))
+            except ValueError:
+                flash("Sana noto'g'ri formatda. Iltimos, kalendardan tanlang.", 'error')
+                return redirect(url_for('dean.edit_schedule', id=id))
+        
+        if not date_code:
+            flash("Sana tanlanishi shart.", 'error')
+            return redirect(url_for('dean.edit_schedule', id=id))
+        
+        schedule.subject_id = request.form.get('subject_id', type=int)
+        schedule.group_id = request.form.get('group_id', type=int)
+        schedule.teacher_id = request.form.get('teacher_id', type=int)
+        schedule.day_of_week = date_code
+        schedule.start_time = request.form.get('start_time')
+        schedule.end_time = request.form.get('end_time') or None
+        schedule.link = request.form.get('link')
+        schedule.lesson_type = request.form.get('lesson_type')
+        
+        db.session.commit()
+        
+        flash("Dars jadvali yangilandi", 'success')
+        return redirect(url_for(
+            'dean.schedule',
+            year=parsed_date.year,
+            month=parsed_date.month,
+            group=schedule.group_id
+        ))
+    
+    schedule_date = existing_date.strftime("%Y-%m-%d")
+    year = existing_date.year
+    month = existing_date.month
+    
+    return render_template(
+        'dean/edit_schedule.html',
+        faculty=faculty,
+        groups=groups,
+        subjects=subjects,
+        teachers=teachers,
+        schedule=schedule,
+        schedule_date=schedule_date,
+        year=year,
+        month=month
+    )
 
 
 # ==================== HISOBOTLAR ====================

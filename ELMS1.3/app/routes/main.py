@@ -5,6 +5,7 @@ from app import db
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from app.utils.translations import get_translation, get_current_language
+import calendar
 
 bp = Blueprint('main', __name__)
 
@@ -115,32 +116,92 @@ def dashboard():
 @bp.route('/schedule')
 @login_required
 def schedule():
-    week_days = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba']
+    """Oylik konsultatsiyalar jadvali (online video chat) - barcha rollar uchun."""
+    today = datetime.now()
+    year = request.args.get('year', type=int) or today.year
+    month = request.args.get('month', type=int) or today.month
+    if month < 1:
+        month = 12
+        year -= 1
+    elif month > 12:
+        month = 1
+        year += 1
+    
+    days_in_month = calendar.monthrange(year, month)[1]
+    start_weekday = calendar.monthrange(year, month)[0]  # 0=Monday
+    
+    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
+    start_code = int(f"{year}{month:02d}01")
+    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
     
     if current_user.role == 'teacher':
-        schedules = Schedule.query.filter_by(teacher_id=current_user.id).all()
+        schedules = Schedule.query.filter(
+            Schedule.teacher_id == current_user.id,
+            Schedule.day_of_week.between(start_code, end_code)
+        ).all()
     elif current_user.role == 'student' and current_user.group_id:
-        schedules = Schedule.query.filter_by(group_id=current_user.group_id).all()
+        schedules = Schedule.query.filter(
+            Schedule.group_id == current_user.group_id,
+            Schedule.day_of_week.between(start_code, end_code)
+        ).all()
     elif current_user.role == 'dean' and current_user.faculty_id:
         faculty = Faculty.query.get(current_user.faculty_id)
         group_ids = [g.id for g in faculty.groups.all()]
-        schedules = Schedule.query.filter(Schedule.group_id.in_(group_ids)).all()
+        schedules = Schedule.query.filter(
+            Schedule.group_id.in_(group_ids),
+            Schedule.day_of_week.between(start_code, end_code)
+        ).all()
     else:
-        schedules = Schedule.query.all()
+        schedules = Schedule.query.filter(
+            Schedule.day_of_week.between(start_code, end_code)
+        ).all()
     
-    # Hafta kunlariga bo'lish
-    schedule_by_day = {i: [] for i in range(6)}
+    # Oy kunlari bo'yicha guruhlash (aniq sana bo'yicha)
+    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
     for s in schedules:
-        if s.day_of_week in schedule_by_day:
-            schedule_by_day[s.day_of_week].append(s)
+        try:
+            code_str = str(s.day_of_week)
+            day = int(code_str[-2:])
+        except (TypeError, ValueError):
+            continue
+        if 1 <= day <= days_in_month:
+            schedule_by_day[day].append(s)
     
     # Har bir kun uchun vaqt bo'yicha tartiblash
     for day in schedule_by_day:
-        schedule_by_day[day].sort(key=lambda x: x.start_time)
+        schedule_by_day[day].sort(key=lambda x: x.start_time or '')
     
-    return render_template('schedule.html', 
-                         week_days=week_days, 
-                         schedule_by_day=schedule_by_day)
+    # Oldingi va keyingi oylar
+    if month == 1:
+        prev_month, prev_year = 12, year - 1
+    else:
+        prev_month, prev_year = month - 1, year
+    if month == 12:
+        next_month, next_year = 1, year + 1
+    else:
+        next_month, next_year = month + 1, year
+    
+    current_date = datetime(year, month, 1)
+    today_year = today.year
+    today_month = today.month
+    today_day = today.day
+    
+    return render_template(
+        'schedule.html',
+        schedule_by_day=schedule_by_day,
+        days_in_month=days_in_month,
+        start_weekday=start_weekday,
+        current_date=current_date,
+        year=year,
+        month=month,
+        today_year=today_year,
+        today_month=today_month,
+        today_day=today_day,
+        prev_year=prev_year,
+        prev_month=prev_month,
+        next_year=next_year,
+        next_month=next_month
+    )
 
 @bp.route('/announcements')
 @login_required

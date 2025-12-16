@@ -265,12 +265,14 @@ class Announcement(db.Model):
 
 # ==================== DARS JADVALI ====================
 class Schedule(db.Model):
-    """Dars jadvali"""
+    """Dars jadvali (onlayn konsultatsiyalar)"""
     id = db.Column(db.Integer, primary_key=True)
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
     teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    day_of_week = db.Column(db.Integer)  # 0=Monday, 6=Sunday
+    # Sana: YYYYMMDD formatida butun son ko'rinishida saqlanadi, masalan 20251210
+    # Eski ma'lumotlarda bu maydon hafta kuni sifatida ishlatilgan bo'lishi mumkin.
+    day_of_week = db.Column(db.Integer)
     start_time = db.Column(db.String(5))  # HH:MM
     end_time = db.Column(db.String(5))
     link = db.Column(db.String(500))  # Meeting link (Zoom, Teams, etc.)
