@@ -121,6 +121,22 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
+    # Agar darslar bo'lmasa
+    if not schedules:
+        ws['A3'] = "Darslar yo'q"
+        ws.merge_cells('A3:G3')
+        ws['A3'].font = Font(size=12, italic=True, color="666666")
+        ws['A3'].alignment = Alignment(horizontal='center', vertical='center')
+        # Ustun kengliklarini sozlash
+        column_widths = [5, 15, 20, 30, 25, 15, 15]
+        for col_num, width in enumerate(column_widths, 1):
+            ws.column_dimensions[get_column_letter(col_num)].width = width
+        # Excel faylni qaytarish
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return output
+    
     # Jadval sarlavhalari
     headers = ['№', 'Sana', 'Vaqt', 'Fan', 'O\'qituvchi', 'Video link', 'Dars turi']
     header_row = 3
