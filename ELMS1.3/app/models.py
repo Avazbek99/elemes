@@ -22,6 +22,31 @@ class Faculty(db.Model):
     subjects = db.relationship('Subject', backref='faculty', lazy='dynamic', cascade='all, delete-orphan')
 
 
+# ==================== YO'NALISH ====================
+class Direction(db.Model):
+    """Akademik yo'nalish (masalan, Dasturiy injiniring, Axborot xavfsizligi)"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)  # Yo'nalish nomi
+    code = db.Column(db.String(50), nullable=False)   # Masalan: DI, AX, MB
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    faculty = db.relationship('Faculty', backref='directions')
+    
+
+# ==================== YO'NALISH-GURUH BOG'LANISHI ====================
+class DirectionGroup(db.Model):
+    """Guruhni yo'nalishga biriktirish"""
+    id = db.Column(db.Integer, primary_key=True)
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    direction = db.relationship('Direction', backref=db.backref('direction_groups', cascade='all, delete-orphan'))
+    group = db.relationship('Group', backref=db.backref('direction_links', cascade='all, delete-orphan'))
+
+
 # ==================== GURUH ====================
 class Group(db.Model):
     """Guruh modeli"""
@@ -34,6 +59,7 @@ class Group(db.Model):
     
     # Relationships
     students = db.relationship('User', backref='group', lazy='dynamic', foreign_keys='User.group_id')
+    directions = db.relationship('Direction', secondary='direction_group', backref='groups')
     
     def get_students_count(self):
         return self.students.count()

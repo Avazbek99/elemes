@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction, DirectionGroup
 from app import db
 from functools import wraps
 from sqlalchemy import func
@@ -476,6 +476,109 @@ def teachers():
                          teacher_subjects=teacher_subjects)
 
 
+# ==================== YO'NALISHLAR ====================
+@bp.route('/directions', methods=['GET', 'POST'])
+@login_required
+@dean_required
+def directions():
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    edit_id = request.args.get('edit_id', type=int)
+    edit_direction = None
+    if edit_id:
+        edit_direction = Direction.query.filter_by(id=edit_id, faculty_id=faculty.id).first()
+    
+    if request.method == 'POST':
+        direction_id = request.form.get('direction_id', type=int)
+        name = request.form.get('name')
+        code = request.form.get('code')
+        description = request.form.get('description')
+        if not name or not code:
+            flash("Yo'nalish nomi va kodi majburiy", 'error')
+        else:
+            if direction_id:
+                direction = Direction.query.filter_by(id=direction_id, faculty_id=faculty.id).first()
+                if not direction:
+                    flash("Yo'nalish topilmadi yoki sizga tegishli emas", 'error')
+                    return redirect(url_for('dean.directions'))
+                direction.name = name
+                direction.code = code
+                direction.description = description
+                db.session.commit()
+                flash("Yo'nalish yangilandi", 'success')
+            else:
+                direction = Direction(name=name, code=code, description=description, faculty_id=faculty.id)
+                db.session.add(direction)
+                db.session.commit()
+                flash("Yo'nalish yaratildi", 'success')
+            return redirect(url_for('dean.directions'))
+    
+    directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+    groups = faculty.groups.order_by(Group.name).all()
+    
+    # Har bir yo'nalish uchun biriktirilgan guruhlar
+    direction_groups = {}
+    for d in directions:
+        direction_groups[d.id] = [dg.group for dg in DirectionGroup.query.filter_by(direction_id=d.id).join(Group).order_by(Group.name).all()]
+    
+    return render_template('dean/directions.html',
+                           faculty=faculty,
+                           directions=directions,
+                           groups=groups,
+                           direction_groups=direction_groups,
+                           edit_direction=edit_direction)
+
+
+@bp.route('/directions/<int:id>/assign-groups', methods=['POST'])
+@login_required
+@dean_required
+def assign_direction_groups(id):
+    direction = Direction.query.get_or_404(id)
+    
+    if direction.faculty_id != current_user.faculty_id:
+        flash("Siz bu yo'nalish uchun guruhlarni boshqara olmaysiz", 'error')
+        return redirect(url_for('dean.directions'))
+    
+    selected_group_ids = request.form.getlist('group_ids')
+    
+    # Avval eski bog'lanishlarni o'chiramiz
+    DirectionGroup.query.filter_by(direction_id=direction.id).delete(synchronize_session=False)
+    
+    # Yangi bog'lanishlar
+    for gid in selected_group_ids:
+        try:
+            gid_int = int(gid)
+        except ValueError:
+            continue
+        group = Group.query.get(gid_int)
+        if group and group.faculty_id == direction.faculty_id:
+            dg = DirectionGroup(direction_id=direction.id, group_id=gid_int)
+            db.session.add(dg)
+    
+    db.session.commit()
+    flash("Guruhlar yo'nalishga biriktirildi", 'success')
+    return redirect(url_for('dean.directions'))
+
+
+@bp.route('/directions/<int:id>/delete', methods=['POST'])
+@login_required
+@dean_required
+def delete_direction(id):
+    direction = Direction.query.get_or_404(id)
+    if direction.faculty_id != current_user.faculty_id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('dean.directions'))
+    
+    # Bog'lanishlar bilan birga o'chiriladi (cascade)
+    db.session.delete(direction)
+    db.session.commit()
+    flash("Yo'nalish o'chirildi", 'success')
+    return redirect(url_for('dean.directions'))
+
+
 # ==================== DARS JADVALI ====================
 @bp.route('/schedule')
 @login_required
@@ -512,35 +615,44 @@ def schedule():
     today_month = today.month
     today_day = today.day
     
-    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
-    start_code = int(f"{year}{month:02d}01")
-    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
-    
     group_id = request.args.get('group', type=int)
     
     groups = faculty.groups.order_by(Group.name).all()
     
     if group_id:
         schedules = Schedule.query.filter(
-            Schedule.group_id == group_id,
-            Schedule.day_of_week.between(start_code, end_code)
+            Schedule.group_id == group_id
         ).order_by(Schedule.day_of_week, Schedule.start_time).all()
     else:
         group_ids = [g.id for g in groups]
         schedules = Schedule.query.filter(
-            Schedule.group_id.in_(group_ids),
-            Schedule.day_of_week.between(start_code, end_code)
+            Schedule.group_id.in_(group_ids)
         ).order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    # Oy kunlari bo'yicha guruhlash (har bir dars aniq sana bo'yicha)
+    # Oy kunlari bo'yicha guruhlash (har bir dars aniq sana bo'yicha, eski va yangi formatlarni qo'llab-quvvatlash)
     schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
     for s in schedules:
+        if not s.day_of_week:
+            continue
+        code_str = str(s.day_of_week)
+        day = None
         try:
-            code_str = str(s.day_of_week)
-            day = int(code_str[-2:])
+            # Yangi format: YYYYMMDD
+            if len(code_str) == 8:
+                y = int(code_str[0:4])
+                m = int(code_str[4:6])
+                d = int(code_str[6:8])
+                if y == year and m == month and 1 <= d <= days_in_month:
+                    day = d
+            else:
+                # Eski format: faqat oy kuni (1-31)
+                d = int(code_str)
+                if 1 <= d <= days_in_month:
+                    day = d
         except (TypeError, ValueError):
             continue
-        if 1 <= day <= days_in_month:
+        
+        if day:
             schedule_by_day[day].append(s)
     
     for day in schedule_by_day:
