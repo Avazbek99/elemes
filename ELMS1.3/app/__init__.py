@@ -53,7 +53,8 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         from app.models import create_demo_data, GradeScale
-        create_demo_data()
-        GradeScale.init_default_grades()
+        if not os.environ.get('FLASK_SKIP_DEMO_DATA'):
+            create_demo_data()
+            GradeScale.init_default_grades()
     
     return app

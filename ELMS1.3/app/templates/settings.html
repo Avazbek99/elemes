@@ -77,16 +77,41 @@
             </div>
             <div class="p-3 bg-gray-50 rounded-xl">
                 <p class="text-gray-500">Guruh</p>
-                <p class="font-medium text-gray-900">{{ current_user.group_name or '-' }}</p>
+                <p class="font-medium text-gray-900">{{ current_user.group.name if current_user.group else '-' }}</p>
             </div>
             <div class="p-3 bg-gray-50 rounded-xl">
                 <p class="text-gray-500">Fakultet</p>
-                <p class="font-medium text-gray-900">{{ current_user.faculty or '-' }}</p>
+                <p class="font-medium text-gray-900">{{ current_user.group.faculty.name if current_user.group and current_user.group.faculty else '-' }}</p>
             </div>
             <div class="p-3 bg-gray-50 rounded-xl">
                 <p class="text-gray-500">Kurs</p>
-                <p class="font-medium text-gray-900">{{ current_user.year }}-kurs</p>
+                <p class="font-medium text-gray-900">{{ current_user.group.course_year if current_user.group else '-' }}-kurs</p>
             </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Yo'nalish (Nomi)</p>
+                <p class="font-medium text-gray-900">{{ current_user.specialty or (current_user.group.direction.name if current_user.group and current_user.group.direction else '-') }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Yo'nalish (Kodi)</p>
+                <p class="font-medium text-gray-900">{{ current_user.specialty_code or (current_user.group.direction.code if current_user.group and current_user.group.direction else '-') }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Ta'lim shakli</p>
+                <p class="font-medium text-gray-900">{{ current_user.education_type or (current_user.group.education_type if current_user.group else '-') }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Pasport</p>
+                <p class="font-medium text-gray-900">{{ current_user.passport_number or '-' }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">JSHSHIR (PINFL)</p>
+                <p class="font-medium text-gray-900">{{ current_user.pinfl or '-' }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Tug'ilgan sana</p>
+                <p class="font-medium text-gray-900">{{ current_user.birth_date.strftime('%d.%m.%Y') if current_user.birth_date else '-' }}</p>
+            </div>
+
             {% elif current_user.role == 'teacher' %}
             <div class="p-3 bg-gray-50 rounded-xl">
                 <p class="text-gray-500">Kafedra</p>
@@ -96,7 +121,18 @@
                 <p class="text-gray-500">Lavozim</p>
                 <p class="font-medium text-gray-900">{{ current_user.position or '-' }}</p>
             </div>
+            
+            {% elif current_user.role == 'dean' %}
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Fakultet</p>
+                <p class="font-medium text-gray-900">{{ current_user.managed_faculty.name if current_user.managed_faculty else '-' }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Lavozim</p>
+                <p class="font-medium text-gray-900">{{ current_user.position or '-' }}</p>
+            </div>
             {% endif %}
+            
             <div class="p-3 bg-gray-50 rounded-xl">
                 <p class="text-gray-500">Ro'yxatdan o'tgan</p>
                 <p class="font-medium text-gray-900">{{ current_user.created_at.strftime('%d.%m.%Y') }}</p>

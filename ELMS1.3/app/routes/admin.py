@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Announcement, GradeScale, Schedule
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Announcement, GradeScale, Schedule, Direction
 from app import db
 from functools import wraps
 from datetime import datetime
@@ -613,3 +613,160 @@ def export_schedule():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={'Content-Disposition': f'attachment; filename={filename}'}
     )
+
+
+# ==================== GURUHLAR BOSHQARUVI ====================
+@bp.route('/groups')
+@login_required
+@admin_required
+def groups():
+    faculty_id = request.args.get('faculty_id', type=int)
+    search = request.args.get('search', '')
+    
+    query = Group.query
+    if faculty_id:
+        query = query.filter_by(faculty_id=faculty_id)
+        
+    if search:
+        query = query.filter(Group.name.ilike(f'%{search}%'))
+        
+    groups_list = query.order_by(Group.name).all()
+    faculties = Faculty.query.all()
+    
+    return render_template('admin/groups.html', groups=groups_list, faculties=faculties, current_faculty=faculty_id, search=search)
+
+
+@bp.route('/groups/create', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def create_group():
+    if request.method == 'POST':
+        name = request.form.get('name').upper()
+        faculty_id = request.form.get('faculty_id', type=int)
+        
+        if Group.query.filter_by(name=name).first():
+            flash("Bu guruh nomi allaqachon mavjud", 'error')
+            return render_template('admin/create_group.html', faculties=Faculty.query.all(), directions=Direction.query.all())
+            
+        group = Group(
+            name=name,
+            faculty_id=faculty_id,
+            course_year=request.form.get('course_year', 1, type=int),
+            education_type=request.form.get('education_type', 'kunduzgi'),
+            direction_id=request.form.get('direction_id', type=int)
+        )
+        db.session.add(group)
+        db.session.commit()
+        
+        flash("Guruh muvaffaqiyatli yaratildi", 'success')
+        return redirect(url_for('admin.groups'))
+        
+    return render_template('admin/create_group.html', faculties=Faculty.query.all(), directions=Direction.query.all())
+
+
+@bp.route('/groups/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_group(id):
+    group = Group.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        group.name = request.form.get('name').upper()
+        group.faculty_id = request.form.get('faculty_id', type=int)
+        group.course_year = request.form.get('course_year', 1, type=int)
+        group.education_type = request.form.get('education_type')
+        group.direction_id = request.form.get('direction_id', type=int)
+        
+        db.session.commit()
+        flash("Guruh yangilandi", 'success')
+        return redirect(url_for('admin.groups'))
+        
+    return render_template('admin/edit_group.html', group=group, faculties=Faculty.query.all(), directions=Direction.query.all())
+
+
+@bp.route('/groups/<int:id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_group(id):
+    group = Group.query.get_or_404(id)
+    if group.students.count() > 0:
+        flash("Guruhda talabalar bor. O'chirish mumkin emas", 'error')
+    else:
+        db.session.delete(group)
+        db.session.commit()
+        flash("Guruh o'chirildi", 'success')
+    return redirect(url_for('admin.groups'))
+
+
+# ==================== O'QITUVCHI BIRIKTIRISH ====================
+@bp.route('/assignments')
+@login_required
+@admin_required
+def assignments():
+    faculty_id = request.args.get('faculty_id', type=int)
+    search = request.args.get('search', '')
+    
+    query = TeacherSubject.query
+    if faculty_id:
+        query = query.join(Group).filter(Group.faculty_id == faculty_id)
+        
+    if search:
+        query = query.join(User, TeacherSubject.teacher_id == User.id)\
+                     .filter(User.full_name.ilike(f'%{search}%'))
+        
+    assignments_list = query.all()
+    faculties = Faculty.query.all()
+    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
+    
+    return render_template('admin/assignments.html', assignments=assignments_list, faculties=faculties, teachers=teachers, current_faculty=faculty_id, search=search)
+
+
+@bp.route('/assignments/create', methods=['POST'])
+@login_required
+@admin_required
+def create_assignment():
+    try:
+        teacher_id = request.form.get('teacher_id', type=int)
+        group_id = request.form.get('group_id', type=int)
+        subject_id = request.form.get('subject_id', type=int)
+        lesson_type = request.form.get('lesson_type', 'maruza')
+        
+        # Check if already exists
+        exists = TeacherSubject.query.filter_by(
+            teacher_id=teacher_id,
+            group_id=group_id,
+            subject_id=subject_id,
+            lesson_type=lesson_type
+        ).first()
+        
+        if exists:
+            flash("Bu o'qituvchi ushbu guruh va fanga allaqachon biriktirilgan", 'error')
+        else:
+            assignment = TeacherSubject(
+                teacher_id=teacher_id,
+                group_id=group_id,
+                subject_id=subject_id,
+                lesson_type=lesson_type,
+                assigned_by=current_user.id,
+                semester=1 # Default
+            )
+            db.session.add(assignment)
+            db.session.commit()
+            flash("O'qituvchi muvaffaqiyatli biriktirildi", 'success')
+            
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Xatolik yuz berdi: {str(e)}", 'error')
+        
+    return redirect(request.referrer or url_for('admin.assignments'))
+
+
+@bp.route('/assignments/<int:id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_assignment(id):
+    assignment = TeacherSubject.query.get_or_404(id)
+    db.session.delete(assignment)
+    db.session.commit()
+    flash("Biriktirish o'chirildi", 'success')
+    return redirect(url_for('admin.assignments'))
