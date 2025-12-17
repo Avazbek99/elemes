@@ -7,153 +7,115 @@
     <div class="flex justify-between items-center">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Yo'nalishlar</h1>
-            <p class="text-gray-500 text-sm">{{ faculty.name }} uchun akademik yo'nalishlar va guruhlar biriktirish</p>
+            <p class="text-gray-500 mt-1">{{ faculty.name }} uchun akademik yo'nalishlar va guruhlar biriktirish</p>
         </div>
-        <a href="#create-direction"
-           class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700">
-            + Yo'nalish yaratish
-        </a>
+        <button onclick="toggleCreateForm()" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Yo'nalish yaratish
+        </button>
     </div>
     
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Create direction -->
-        <div class="lg:col-span-1" id="create-direction">
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">
-                    {% if edit_direction %}
-                        Yo'nalishni tahrirlash
-                    {% else %}
-                        Yangi yo'nalish yaratish
-                    {% endif %}
-                </h2>
-                <form method="POST" action="{{ url_for('dean.directions') }}" class="space-y-4">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    {% if edit_direction %}
-                    <input type="hidden" name="direction_id" value="{{ edit_direction.id }}"/>
-                    {% endif %}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Yo'nalish nomi *</label>
-                        <input type="text" name="name" required
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                               placeholder="Dasturiy injiniring"
-                               value="{{ edit_direction.name if edit_direction else '' }}">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Kod *</label>
-                        <input type="text" name="code" required
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                               placeholder="DI"
-                               value="{{ edit_direction.code if edit_direction else '' }}">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Izoh</label>
-                        <textarea name="description" rows="3"
-                                  class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                  placeholder="Yo'nalish haqida qisqacha izoh">{{ edit_direction.description if edit_direction else '' }}</textarea>
-                    </div>
-                    <button type="submit"
-                            class="w-full px-4 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors text-sm font-medium">
-                        {% if edit_direction %}
-                            O'zgarishlarni saqlash
-                        {% else %}
-                            Saqlash
-                        {% endif %}
-                    </button>
-                </form>
-            </div>
+    <!-- Yangi yo'nalish yaratish (yashirin) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hidden" id="create-direction-form">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Yangi yo'nalish yaratish</h2>
+            <button onclick="toggleCreateForm()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
-        
-        <!-- Directions list + group assignment -->
-        <div class="lg:col-span-2">
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">Mavjud yo'nalishlar</h2>
-                </div>
-                
-                {% if directions %}
-                <div class="divide-y divide-gray-100">
-                    {% for direction in directions %}
-                    <div class="p-4">
-                        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 flex flex-col md:flex-row gap-4 md:items-start md:justify-between">
-                            <div class="space-y-2">
-                                <div class="flex items-start justify-between gap-2">
-                                    <div>
-                                        <p class="text-sm font-semibold text-gray-900">
-                                            {{ direction.name }}
-                                            <span class="ml-2 inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-primary-50 text-primary-700">
-                                                {{ direction.code }}
-                                            </span>
-                                        </p>
-                                        {% if direction.description %}
-                                        <p class="text-sm text-gray-500 mt-1">{{ direction.description }}</p>
-                                        {% endif %}
-                                    </div>
-                                    <div class="flex flex-col gap-1">
-                                        <a href="{{ url_for('dean.directions', edit_id=direction.id) }}"
-                                           class="px-3 py-1.5 bg-white border border-primary-200 text-primary-700 rounded-lg text-xs font-semibold hover:bg-primary-50 text-center">
-                                            Tahrirlash
-                                        </a>
-                                        <a href="#groups-{{ direction.id }}"
-                                           class="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700 text-center">
-                                            Guruh qo'shish
-                                        </a>
-                                    </div>
-                                </div>
-                                <p class="text-xs text-gray-400">
-                                    Biriktirilgan guruhlar:
-                                    {% set d_groups = direction_groups.get(direction.id, []) %}
-                                    {% if d_groups %}
-                                        {% for g in d_groups %}
-                                        <span class="inline-flex items-center px-2 py-0.5 text-[11px] rounded-full bg-gray-100 text-gray-700 mr-1 mt-1">{{ g.name }}</span>
-                                        {% endfor %}
-                                    {% else %}
-                                        <span class="text-red-500 font-medium">Hali guruh biriktirilmagan</span>
-                                    {% endif %}
-                                </p>
-                            </div>
-                            
-                            <div class="w-full md:w-80" id="groups-{{ direction.id }}">
-                                <form method="POST" action="{{ url_for('dean.assign_direction_groups', id=direction.id) }}" class="space-y-2">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <label class="block text-xs font-medium text-gray-700 mb-1">Guruhlarni biriktirish</label>
-                                    <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-xl p-2 space-y-1">
-                                        {% set assigned_ids = direction_groups.get(direction.id, []) | map(attribute='id') | list %}
-                                        {% for group in groups %}
-                                        <label class="flex items-center gap-2 text-xs text-gray-700">
-                                            <input type="checkbox" name="group_ids" value="{{ group.id }}"
-                                                   {% if group.id in assigned_ids %}checked{% endif %}
-                                                   class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
-                                            <span>{{ group.name }}</span>
-                                        </label>
-                                        {% endfor %}
-                                    </div>
-                                    <div class="flex items-center justify-between gap-2">
-                                        <button type="submit"
-                                                class="flex-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs font-semibold hover:bg-primary-700">
-                                            Saqlash
-                                        </button>
-                                        <form method="POST" action="{{ url_for('dean.delete_direction', id=direction.id) }}"
-                                              onsubmit="return confirm('Yo\\'nalishni o\\'chirmoqchimisiz?');">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                            <button type="submit"
-                                                    class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-100">
-                                                O'chirish
-                                            </button>
-                                        </form>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
+        <form method="POST" action="{{ url_for('dean.create_direction') }}" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Yo'nalish nomi *</label>
+                <input type="text" name="name" required placeholder="Dasturiy injiniring"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Kod *</label>
+                <input type="text" name="code" required placeholder="DI" maxlength="10"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Izoh</label>
+                <textarea name="description" rows="3" placeholder="Yo'nalish haqida qisqacha izoh"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"></textarea>
+            </div>
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    Saqlash
+                </button>
+                <button type="button" onclick="toggleCreateForm()" class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    Bekor qilish
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Mavjud yo'nalishlar -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% if directions %}
+            {% for direction in directions %}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-gray-900 text-lg mb-2">{{ direction.name }}</h3>
+                        <span class="inline-block px-2 py-1 bg-primary-100 text-primary-700 rounded text-xs font-medium">{{ direction.code }}</span>
                     </div>
-                    {% endfor %}
+                    <div class="flex gap-1 ml-2">
+                        <a href="{{ url_for('dean.edit_direction', id=direction.id) }}" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Tahrirlash">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </a>
+                        <form action="{{ url_for('dean.delete_direction', id=direction.id) }}" method="POST" class="inline" onsubmit="return confirm('Yo\'nalishni o\'chirmoqchimisiz? Biriktirilgan guruhlar yo\'nalishsiz qoladi.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="O'chirish">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
                 </div>
-                {% else %}
-                <p class="px-4 py-6 text-center text-sm text-gray-400">Hali yo'nalishlar yaratilmagan.</p>
+                {% if direction.description %}
+                <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ direction.description }}</p>
                 {% endif %}
+                <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <span class="text-sm text-gray-500">{{ direction_groups.get(direction.id, [])|length }} guruh</span>
+                    <a href="{{ url_for('dean.direction_detail', id=direction.id) }}" class="flex items-center gap-1 text-primary-600 hover:text-primary-700 text-sm font-medium">
+                        Batafsil
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="col-span-full">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p class="text-gray-400 text-lg mb-2">Yo'nalishlar hali yaratilmagan</p>
+                <p class="text-gray-500 text-sm mb-4">Birinchi yo'nalishni yaratish uchun "Yo'nalish yaratish" tugmasini bosing</p>
+                <button onclick="toggleCreateForm()" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                    Yo'nalish yaratish
+                </button>
             </div>
         </div>
+        {% endif %}
     </div>
 </div>
-{% endblock %}
 
+<script>
+function toggleCreateForm() {
+    const form = document.getElementById('create-direction-form');
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) {
+        form.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    }
+}
+</script>
+{% endblock %}
 

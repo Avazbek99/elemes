@@ -64,14 +64,14 @@
 
 <!-- Quick Actions -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <a href="{{ url_for('dean.create_group') }}" class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow">
+    <a href="{{ url_for('dean.directions') }}" class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow">
         <div class="flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
             </div>
             <div>
-                <h3 class="font-semibold text-lg">Guruh yaratish</h3>
-                <p class="text-blue-100 text-sm">Yangi guruh qo'shish</p>
+                <h3 class="font-semibold text-lg">Yo'nalishlar</h3>
+                <p class="text-blue-100 text-sm">Yo'nalishlar va guruhlarni boshqarish</p>
             </div>
         </div>
     </a>
@@ -102,31 +102,38 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Groups -->
+    <!-- Yo'nalishlar -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
         <div class="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h2 class="text-lg font-semibold text-gray-900">Guruhlar</h2>
-            <a href="{{ url_for('dean.groups') }}" class="text-primary-600 text-sm hover:underline">Barchasini ko'rish</a>
+            <h2 class="text-lg font-semibold text-gray-900">Yo'nalishlar</h2>
+            <a href="{{ url_for('dean.directions') }}" class="text-primary-600 text-sm hover:underline">Barchasini ko'rish</a>
         </div>
-        <div class="divide-y divide-gray-100">
-            {% for group in groups[:5] %}
-            <a href="{{ url_for('dean.group_students', id=group.id) }}" class="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <span class="text-blue-600 font-semibold text-sm">{{ group.name[:2] }}</span>
+        <div class="p-6">
+            {% if directions %}
+            <div class="grid grid-cols-1 gap-4">
+                {% for direction in directions[:6] %}
+                <a href="{{ url_for('dean.direction_detail', id=direction.id) }}" class="block p-4 border border-gray-200 rounded-xl hover:shadow-md hover:border-primary-300 transition-all">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-gray-900 mb-1">{{ direction.name }}</h3>
+                            <div class="flex items-center gap-3">
+                                <span class="inline-block px-2 py-1 bg-primary-100 text-primary-700 rounded text-xs font-medium">{{ direction.code }}</span>
+                                <span class="text-sm text-gray-500">{{ direction_stats.get(direction.id, {}).get('groups_count', 0) }} guruh</span>
+                            </div>
+                        </div>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
                     </div>
-                    <div>
-                        <p class="font-medium text-gray-900">{{ group.name }}</p>
-                        <p class="text-sm text-gray-500">{{ group.course_year }}-kurs • {{ group.education_type }}</p>
-                    </div>
-                </div>
-                <span class="text-sm text-gray-500">{{ group.get_students_count() }} talaba</span>
-            </a>
+                </a>
+                {% endfor %}
+            </div>
             {% else %}
             <div class="p-8 text-center text-gray-500">
-                <p>Guruhlar mavjud emas</p>
+                <p>Yo'nalishlar mavjud emas</p>
+                <a href="{{ url_for('dean.directions') }}" class="text-primary-600 hover:underline mt-2 inline-block">Yangi yo'nalish yaratish</a>
             </div>
-            {% endfor %}
+            {% endif %}
         </div>
     </div>
     

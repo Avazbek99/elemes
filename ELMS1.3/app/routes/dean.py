@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction, DirectionGroup
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction
 from app import db
 from functools import wraps
 from sqlalchemy import func
@@ -36,13 +36,22 @@ def index():
             'total_students': User.query.join(Group).filter(Group.faculty_id == faculty.id).count(),
             'total_teachers': TeacherSubject.query.join(Subject).filter(Subject.faculty_id == faculty.id).distinct(TeacherSubject.teacher_id).count(),
         }
-        groups = faculty.groups.order_by(Group.name).all()
+        # Yo'nalishlar ro'yxati
+        directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+        # Har bir yo'nalish uchun guruhlar soni
+        direction_stats = {}
+        for direction in directions:
+            direction_stats[direction.id] = {
+                'groups_count': Group.query.filter_by(direction_id=direction.id).count(),
+                'groups': Group.query.filter_by(direction_id=direction.id).order_by(Group.name).all()
+            }
         subjects = faculty.subjects.order_by(Subject.code).all()
     else:
-        groups = []
+        directions = []
+        direction_stats = {}
         subjects = []
     
-    return render_template('dean/index.html', faculty=faculty, stats=stats, groups=groups, subjects=subjects)
+    return render_template('dean/index.html', faculty=faculty, stats=stats, directions=directions, direction_stats=direction_stats, subjects=subjects)
 
 
 # ==================== GURUHLAR ====================
@@ -68,26 +77,36 @@ def create_group():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
+    # GET parametrlar orqali kelgan default yo'nalish
+    default_direction_id = request.args.get('direction_id', type=int)
+    
+    directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+    
     if request.method == 'POST':
         name = request.form.get('name').upper()
+        direction_id = request.form.get('direction_id', type=int)
         
         if Group.query.filter_by(name=name, faculty_id=faculty.id).first():
             flash("Bu guruh nomi allaqachon mavjud", 'error')
-            return render_template('dean/create_group.html', faculty=faculty)
+            return render_template('dean/create_group.html', faculty=faculty, directions=directions, default_direction_id=direction_id)
         
         group = Group(
             name=name,
             faculty_id=faculty.id,
             course_year=request.form.get('course_year', 1, type=int),
-            education_type=request.form.get('education_type', 'kunduzgi')
+            education_type=request.form.get('education_type', 'kunduzgi'),
+            direction_id=direction_id if direction_id else None
         )
         db.session.add(group)
         db.session.commit()
         
         flash("Guruh muvaffaqiyatli yaratildi", 'success')
+        # Agar yo'nalish bo'lsa, yo'nalish detail sahifasiga qaytish
+        if direction_id:
+            return redirect(url_for('dean.direction_detail', id=direction_id))
         return redirect(url_for('dean.groups'))
     
-    return render_template('dean/create_group.html', faculty=faculty)
+    return render_template('dean/create_group.html', faculty=faculty, directions=directions, default_direction_id=default_direction_id)
 
 
 @bp.route('/groups/<int:id>/edit', methods=['GET', 'POST'])
@@ -164,15 +183,27 @@ def add_student_to_group(id):
         flash("Sizda bu guruhga talaba qo'shish huquqi yo'q", 'error')
         return redirect(url_for('dean.groups'))
     
-    student_id = request.form.get('student_id', type=int)
-    student = User.query.get_or_404(student_id)
+    # Bir nechta talabani qo'shish
+    student_ids = request.form.getlist('student_ids')
+    student_ids = [int(sid) for sid in student_ids if sid]
     
-    if student.role != 'student':
-        flash("Faqat talabalarni guruhga qo'shish mumkin", 'error')
+    if not student_ids:
+        flash("Hech qanday talaba tanlanmagan", 'error')
+        return redirect(url_for('dean.group_students', id=id))
+    
+    added_count = 0
+    for student_id in student_ids:
+        student = User.query.get(student_id)
+        if student and student.role == 'student' and student.group_id is None:
+            student.group_id = group.id
+            added_count += 1
+    
+    db.session.commit()
+    
+    if added_count > 0:
+        flash(f"{added_count} ta talaba guruhga qo'shildi", 'success')
     else:
-        student.group_id = group.id
-        db.session.commit()
-        flash(f"{student.full_name} guruhga qo'shildi", 'success')
+        flash("Hech qanday talaba qo'shilmadi. Tanlangan talabalar allaqachon boshqa guruhga biriktirilgan bo'lishi mumkin", 'warning')
     
     return redirect(url_for('dean.group_students', id=id))
 
@@ -477,7 +508,7 @@ def teachers():
 
 
 # ==================== YO'NALISHLAR ====================
-@bp.route('/directions', methods=['GET', 'POST'])
+@bp.route('/directions')
 @login_required
 @dean_required
 def directions():
@@ -486,81 +517,160 @@ def directions():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    edit_id = request.args.get('edit_id', type=int)
-    edit_direction = None
-    if edit_id:
-        edit_direction = Direction.query.filter_by(id=edit_id, faculty_id=faculty.id).first()
-    
-    if request.method == 'POST':
-        direction_id = request.form.get('direction_id', type=int)
-        name = request.form.get('name')
-        code = request.form.get('code')
-        description = request.form.get('description')
-        if not name or not code:
-            flash("Yo'nalish nomi va kodi majburiy", 'error')
-        else:
-            if direction_id:
-                direction = Direction.query.filter_by(id=direction_id, faculty_id=faculty.id).first()
-                if not direction:
-                    flash("Yo'nalish topilmadi yoki sizga tegishli emas", 'error')
-                    return redirect(url_for('dean.directions'))
-                direction.name = name
-                direction.code = code
-                direction.description = description
-                db.session.commit()
-                flash("Yo'nalish yangilandi", 'success')
-            else:
-                direction = Direction(name=name, code=code, description=description, faculty_id=faculty.id)
-                db.session.add(direction)
-                db.session.commit()
-                flash("Yo'nalish yaratildi", 'success')
-            return redirect(url_for('dean.directions'))
-    
-    directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
-    groups = faculty.groups.order_by(Group.name).all()
+    directions_list = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+    # Faqat biriktirilmagan guruhlar (yo'nalishlarga qo'shish uchun)
+    unassigned_groups = Group.query.filter_by(faculty_id=faculty.id, direction_id=None).order_by(Group.name).all()
     
     # Har bir yo'nalish uchun biriktirilgan guruhlar
     direction_groups = {}
-    for d in directions:
-        direction_groups[d.id] = [dg.group for dg in DirectionGroup.query.filter_by(direction_id=d.id).join(Group).order_by(Group.name).all()]
+    for direction in directions_list:
+        direction_groups[direction.id] = Group.query.filter_by(direction_id=direction.id).all()
     
     return render_template('dean/directions.html',
-                           faculty=faculty,
-                           directions=directions,
-                           groups=groups,
-                           direction_groups=direction_groups,
-                           edit_direction=edit_direction)
+                         faculty=faculty,
+                         directions=directions_list,
+                         unassigned_groups=unassigned_groups,
+                         direction_groups=direction_groups)
+
+
+@bp.route('/directions/create', methods=['POST'])
+@login_required
+@dean_required
+def create_direction():
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    name = request.form.get('name')
+    code = request.form.get('code')
+    description = request.form.get('description', '')
+    
+    if not name or not code:
+        flash("Yo'nalish nomi va kodi to'ldirilishi shart", 'error')
+        return redirect(url_for('dean.directions'))
+    
+    # Kod takrorlanmasligini tekshirish
+    existing = Direction.query.filter_by(faculty_id=faculty.id, code=code).first()
+    if existing:
+        flash("Bu kod allaqachon mavjud", 'error')
+        return redirect(url_for('dean.directions'))
+    
+    direction = Direction(
+        name=name,
+        code=code,
+        description=description,
+        faculty_id=faculty.id
+    )
+    db.session.add(direction)
+    db.session.commit()
+    
+    flash("Yo'nalish muvaffaqiyatli yaratildi", 'success')
+    return redirect(url_for('dean.directions'))
+
+
+@bp.route('/directions/<int:id>')
+@login_required
+@dean_required
+def direction_detail(id):
+    """Yo'nalish detail sahifasi - ichidagi guruhlar"""
+    direction = Direction.query.get_or_404(id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id:
+        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        return redirect(url_for('dean.index'))
+    
+    # Bu yo'nalishga biriktirilgan guruhlar
+    groups = Group.query.filter_by(direction_id=direction.id).order_by(Group.course_year, Group.name).all()
+    
+    # Har bir guruh uchun talabalar soni
+    group_stats = {}
+    for group in groups:
+        group_stats[group.id] = group.students.count()
+    
+    # Biriktirilmagan guruhlar (yo'nalishga qo'shish uchun)
+    faculty = Faculty.query.get(current_user.faculty_id)
+    unassigned_groups = Group.query.filter_by(faculty_id=faculty.id, direction_id=None).order_by(Group.name).all()
+    
+    return render_template('dean/direction_detail.html',
+                         direction=direction,
+                         groups=groups,
+                         group_stats=group_stats,
+                         unassigned_groups=unassigned_groups)
 
 
 @bp.route('/directions/<int:id>/assign-groups', methods=['POST'])
 @login_required
 @dean_required
-def assign_direction_groups(id):
+def assign_groups_to_direction(id):
     direction = Direction.query.get_or_404(id)
     
+    # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Siz bu yo'nalish uchun guruhlarni boshqara olmaysiz", 'error')
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
         return redirect(url_for('dean.directions'))
     
+    # Tanlangan guruhlar
     selected_group_ids = request.form.getlist('group_ids')
+    selected_group_ids = [int(gid) for gid in selected_group_ids if gid]
     
-    # Avval eski bog'lanishlarni o'chiramiz
-    DirectionGroup.query.filter_by(direction_id=direction.id).delete(synchronize_session=False)
+    # Faqat biriktirilmagan guruhlar (direction_id == None)
+    faculty = Faculty.query.get(current_user.faculty_id)
+    unassigned_groups = Group.query.filter_by(faculty_id=faculty.id, direction_id=None).all()
+    unassigned_group_ids = [g.id for g in unassigned_groups]
     
-    # Yangi bog'lanishlar
-    for gid in selected_group_ids:
-        try:
-            gid_int = int(gid)
-        except ValueError:
-            continue
-        group = Group.query.get(gid_int)
-        if group and group.faculty_id == direction.faculty_id:
-            dg = DirectionGroup(direction_id=direction.id, group_id=gid_int)
-            db.session.add(dg)
+    # Tanlangan guruhlarni yo'nalishga biriktirish
+    for group_id in unassigned_group_ids:
+        if group_id in selected_group_ids:
+            group = Group.query.get(group_id)
+            group.direction_id = direction.id
     
     db.session.commit()
     flash("Guruhlar yo'nalishga biriktirildi", 'success')
-    return redirect(url_for('dean.directions'))
+    return redirect(url_for('dean.direction_detail', id=id))
+
+
+@bp.route('/directions/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@dean_required
+def edit_direction(id):
+    direction = Direction.query.get_or_404(id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('dean.directions'))
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        code = request.form.get('code')
+        description = request.form.get('description', '')
+        
+        if not name or not code:
+            flash("Yo'nalish nomi va kodi to'ldirilishi shart", 'error')
+            return render_template('dean/edit_direction.html', direction=direction)
+        
+        # Kod takrorlanmasligini tekshirish (o'z kodini hisobga olmasdan)
+        existing = Direction.query.filter(
+            Direction.faculty_id == current_user.faculty_id,
+            Direction.code == code,
+            Direction.id != id
+        ).first()
+        if existing:
+            flash("Bu kod allaqachon mavjud", 'error')
+            return render_template('dean/edit_direction.html', direction=direction)
+        
+        direction.name = name
+        direction.code = code
+        direction.description = description
+        
+        db.session.commit()
+        
+        flash("Yo'nalish yangilandi", 'success')
+        return redirect(url_for('dean.directions'))
+    
+    return render_template('dean/edit_direction.html', direction=direction)
 
 
 @bp.route('/directions/<int:id>/delete', methods=['POST'])
@@ -568,13 +678,18 @@ def assign_direction_groups(id):
 @dean_required
 def delete_direction(id):
     direction = Direction.query.get_or_404(id)
+    
+    # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
         flash("Sizda bu amal uchun ruxsat yo'q", 'error')
         return redirect(url_for('dean.directions'))
     
-    # Bog'lanishlar bilan birga o'chiriladi (cascade)
+    # Biriktirilgan guruhlardan yo'nalishni olib tashlash
+    Group.query.filter_by(direction_id=direction.id).update({'direction_id': None})
+    
     db.session.delete(direction)
     db.session.commit()
+    
     flash("Yo'nalish o'chirildi", 'success')
     return redirect(url_for('dean.directions'))
 
@@ -615,44 +730,35 @@ def schedule():
     today_month = today.month
     today_day = today.day
     
+    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
+    start_code = int(f"{year}{month:02d}01")
+    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    
     group_id = request.args.get('group', type=int)
     
     groups = faculty.groups.order_by(Group.name).all()
     
     if group_id:
         schedules = Schedule.query.filter(
-            Schedule.group_id == group_id
+            Schedule.group_id == group_id,
+            Schedule.day_of_week.between(start_code, end_code)
         ).order_by(Schedule.day_of_week, Schedule.start_time).all()
     else:
         group_ids = [g.id for g in groups]
         schedules = Schedule.query.filter(
-            Schedule.group_id.in_(group_ids)
+            Schedule.group_id.in_(group_ids),
+            Schedule.day_of_week.between(start_code, end_code)
         ).order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    # Oy kunlari bo'yicha guruhlash (har bir dars aniq sana bo'yicha, eski va yangi formatlarni qo'llab-quvvatlash)
+    # Oy kunlari bo'yicha guruhlash (har bir dars aniq sana bo'yicha)
     schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
     for s in schedules:
-        if not s.day_of_week:
-            continue
-        code_str = str(s.day_of_week)
-        day = None
         try:
-            # Yangi format: YYYYMMDD
-            if len(code_str) == 8:
-                y = int(code_str[0:4])
-                m = int(code_str[4:6])
-                d = int(code_str[6:8])
-                if y == year and m == month and 1 <= d <= days_in_month:
-                    day = d
-            else:
-                # Eski format: faqat oy kuni (1-31)
-                d = int(code_str)
-                if 1 <= d <= days_in_month:
-                    day = d
+            code_str = str(s.day_of_week)
+            day = int(code_str[-2:])
         except (TypeError, ValueError):
             continue
-        
-        if day:
+        if 1 <= day <= days_in_month:
             schedule_by_day[day].append(s)
     
     for day in schedule_by_day:
@@ -928,18 +1034,39 @@ def export_schedule():
         flash("Fakultet topilmadi", 'error')
         return redirect(url_for('dean.index'))
     
-    group_id = request.args.get('group_id', type=int)
+    # Oy/yil parametrlari (jadval sahifasidagi kabi)
+    today = datetime.now()
+    year = request.args.get('year', type=int) or today.year
+    month = request.args.get('month', type=int) or today.month
+    if month < 1:
+        month = 12
+        year -= 1
+    elif month > 12:
+        month = 1
+        year += 1
+    
+    days_in_month = calendar.monthrange(year, month)[1]
+    start_code = int(f"{year}{month:02d}01")
+    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    
+    group_id = request.args.get('group', type=int)
     
     if group_id:
         group = Group.query.filter_by(id=group_id, faculty_id=faculty.id).first_or_404()
-        schedules = Schedule.query.filter_by(group_id=group_id).order_by(Schedule.day_of_week, Schedule.start_time).all()
+        schedules = Schedule.query.filter(
+            Schedule.group_id == group_id,
+            Schedule.day_of_week.between(start_code, end_code)
+        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
         excel_file = create_schedule_excel(schedules, group.name, None)
-        filename = f"dars_jadvali_{group.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"dars_jadvali_{group.name}_{year}_{month:02d}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     else:
         group_ids = [g.id for g in faculty.groups.all()]
-        schedules = Schedule.query.filter(Schedule.group_id.in_(group_ids)).order_by(Schedule.day_of_week, Schedule.start_time).all()
+        schedules = Schedule.query.filter(
+            Schedule.group_id.in_(group_ids),
+            Schedule.day_of_week.between(start_code, end_code)
+        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
         excel_file = create_schedule_excel(schedules, None, faculty.name)
-        filename = f"dars_jadvali_{faculty.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"dars_jadvali_{faculty.name.replace(' ', '_')}_{year}_{month:02d}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     
     return Response(
         excel_file,

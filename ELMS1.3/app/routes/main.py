@@ -130,48 +130,41 @@ def schedule():
     days_in_month = calendar.monthrange(year, month)[1]
     start_weekday = calendar.monthrange(year, month)[0]  # 0=Monday
     
-    # Foydalanuvchiga tegishli barcha jadval yozuvlari (oy bo'yicha filtrni quyida qo'llaymiz)
+    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
+    start_code = int(f"{year}{month:02d}01")
+    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    
     if current_user.role == 'teacher':
         schedules = Schedule.query.filter(
-            Schedule.teacher_id == current_user.id
+            Schedule.teacher_id == current_user.id,
+            Schedule.day_of_week.between(start_code, end_code)
         ).all()
     elif current_user.role == 'student' and current_user.group_id:
         schedules = Schedule.query.filter(
-            Schedule.group_id == current_user.group_id
+            Schedule.group_id == current_user.group_id,
+            Schedule.day_of_week.between(start_code, end_code)
         ).all()
     elif current_user.role == 'dean' and current_user.faculty_id:
         faculty = Faculty.query.get(current_user.faculty_id)
         group_ids = [g.id for g in faculty.groups.all()]
         schedules = Schedule.query.filter(
-            Schedule.group_id.in_(group_ids)
+            Schedule.group_id.in_(group_ids),
+            Schedule.day_of_week.between(start_code, end_code)
         ).all()
     else:
-        schedules = Schedule.query.all()
+        schedules = Schedule.query.filter(
+            Schedule.day_of_week.between(start_code, end_code)
+        ).all()
     
-    # Oy kunlari bo'yicha guruhlash (aniq sana bo'yicha, eski va yangi ma'lumotlarni qo'llab-quvvatlash)
+    # Oy kunlari bo'yicha guruhlash (aniq sana bo'yicha)
     schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
     for s in schedules:
-        if not s.day_of_week:
-            continue
-        code_str = str(s.day_of_week)
-        day = None
         try:
-            # Yangi format: YYYYMMDD (masalan, 20251203)
-            if len(code_str) == 8:
-                y = int(code_str[0:4])
-                m = int(code_str[4:6])
-                d = int(code_str[6:8])
-                if y == year and m == month and 1 <= d <= days_in_month:
-                    day = d
-            else:
-                # Eski format: faqat oy kuni (1-31) - har oyda shu kun deb qabul qilamiz
-                d = int(code_str)
-                if 1 <= d <= days_in_month:
-                    day = d
+            code_str = str(s.day_of_week)
+            day = int(code_str[-2:])
         except (TypeError, ValueError):
             continue
-        
-        if day:
+        if 1 <= day <= days_in_month:
             schedule_by_day[day].append(s)
     
     # Har bir kun uchun vaqt bo'yicha tartiblash
