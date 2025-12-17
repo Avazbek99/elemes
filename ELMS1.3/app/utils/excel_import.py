@@ -162,6 +162,154 @@ def import_students_from_excel(file, faculty_id=None):
         }
 
 
+def import_directions_from_excel(file, faculty_id):
+    """Excel fayldan yo'nalishlar va ularga tegishli guruhlarni import qilish"""
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+
+    from app.models import Direction, Group, Faculty
+    from app import db
+
+    try:
+        # Excel faylni o'qish
+        wb = load_workbook(filename=io.BytesIO(file.read()))
+        ws = wb.active
+
+        imported_directions = 0
+        imported_groups = 0
+        errors = []
+
+        faculty = Faculty.query.get(faculty_id)
+        if not faculty:
+            return {
+                'success': False,
+                'imported_directions': 0,
+                'imported_groups': 0,
+                'errors': ["Fakultet topilmadi"]
+            }
+
+        # Sarlavha qatorini 1-qatordan olamiz
+        header_row = 1
+        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[header_row]]
+
+        # Ustun indekslarini aniqlash
+        col_indices = {}
+        for idx, header in enumerate(headers, 1):
+            h = header.lower()
+            if 'yo' in h and 'nalish' in h or 'direction' in h:
+                col_indices['direction_name'] = idx
+            elif 'kod' in h or 'code' in h:
+                col_indices['direction_code'] = idx
+            elif 'guruh' in h or 'group' in h:
+                col_indices['group_name'] = idx
+            elif 'kurs' in h or 'course' in h:
+                col_indices['course_year'] = idx
+            elif 'ta\'lim' in h or 'education' in h:
+                col_indices['education_type'] = idx
+
+        if 'direction_name' not in col_indices and 'direction_code' not in col_indices:
+            return {
+                'success': False,
+                'imported_directions': 0,
+                'imported_groups': 0,
+                'errors': ["Excel faylda yo'nalish nomi yoki kodi ustuni topilmadi"]
+            }
+
+        # Ma'lumotlarni o'qish
+        for row_idx in range(header_row + 1, ws.max_row + 1):
+            row = ws[row_idx]
+
+            # Bo'sh qatorni o'tkazib yuborish
+            if not any(cell.value for cell in row):
+                continue
+
+            try:
+                name = ''
+                code = ''
+
+                if 'direction_name' in col_indices:
+                    name = str(row[col_indices['direction_name'] - 1].value or '').strip()
+                if 'direction_code' in col_indices:
+                    code = str(row[col_indices['direction_code'] - 1].value or '').strip()
+
+                if not name and not code:
+                    continue
+
+                if not code:
+                    # Agar kod bo'lmasa, nomdan qisqa kod yasaymiz
+                    code = ''.join([word[0] for word in name.split()[:2]]).upper()
+
+                # Yo'nalishni topish yoki yaratish
+                direction = Direction.query.filter_by(faculty_id=faculty.id, code=code).first()
+                if not direction:
+                    direction = Direction(name=name or code, code=code, faculty_id=faculty.id)
+                    db.session.add(direction)
+                    db.session.flush()  # id olish uchun
+                    imported_directions += 1
+                else:
+                    # Nom bo'sh bo'lmasa, yangilash
+                    if name and direction.name != name:
+                        direction.name = name
+
+                # Guruh
+                if 'group_name' in col_indices:
+                    group_name = str(row[col_indices['group_name'] - 1].value or '').strip()
+                    if group_name:
+                        group_name_upper = group_name.upper()
+                        group = Group.query.filter_by(name=group_name_upper, faculty_id=faculty.id).first()
+                        if not group:
+                            # Kurs va ta'lim shakli
+                            course_year = 1
+                            education_type = 'kunduzgi'
+                            if 'course_year' in col_indices:
+                                year_val = row[col_indices['course_year'] - 1].value
+                                try:
+                                    course_year = int(year_val) if year_val else 1
+                                except (TypeError, ValueError):
+                                    course_year = 1
+                            if 'education_type' in col_indices:
+                                edu_val = str(row[col_indices['education_type'] - 1].value or '').strip().lower()
+                                if edu_val in ['kunduzgi', 'sirtqi', 'kechki']:
+                                    education_type = edu_val
+
+                            group = Group(
+                                name=group_name_upper,
+                                faculty_id=faculty.id,
+                                course_year=course_year,
+                                education_type=education_type,
+                                direction_id=direction.id
+                            )
+                            db.session.add(group)
+                            imported_groups += 1
+                        else:
+                            # Mavjud guruhni yo'nalishga biriktirish (agar hali biriktirilmagan bo'lsa)
+                            if group.direction_id is None:
+                                group.direction_id = direction.id
+
+            except Exception as e:
+                errors.append(f"Qator {row_idx}: Xatolik - {str(e)}")
+                continue
+
+        db.session.commit()
+
+        return {
+            'success': True,
+            'imported_directions': imported_directions,
+            'imported_groups': imported_groups,
+            'errors': errors
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'imported_directions': 0,
+            'imported_groups': 0,
+            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
+        }
+
+
 def import_payments_from_excel(file):
     """Excel fayldan to'lov ma'lumotlarini import qilish"""
     try:

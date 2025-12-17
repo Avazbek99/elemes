@@ -533,6 +533,62 @@ def directions():
                          direction_groups=direction_groups)
 
 
+@bp.route('/directions/import', methods=['GET', 'POST'])
+@login_required
+@dean_required
+def import_directions():
+    """Excel fayldan yo'nalish va guruhlarni import qilish"""
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    if request.method == 'POST':
+        if 'excel_file' not in request.files:
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('dean.import_directions'))
+        
+        file = request.files['excel_file']
+        if file.filename == '':
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('dean.import_directions'))
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            return redirect(url_for('dean.import_directions'))
+        
+        try:
+            from app.utils.excel_import import import_directions_from_excel
+            result = import_directions_from_excel(file, faculty_id=faculty.id)
+            
+            if result['success']:
+                d_count = result.get('imported_directions', 0)
+                g_count = result.get('imported_groups', 0)
+                if d_count or g_count:
+                    flash(f"{d_count} ta yo'nalish va {g_count} ta guruh import qilindi", 'success')
+                else:
+                    flash("Hech qanday yo'nalish yoki guruh import qilinmadi", 'warning')
+                
+                errors = result.get('errors', [])
+                if errors:
+                    msg = f"Xatolar ({len(errors)}): " + "; ".join(errors[:5])
+                    if len(errors) > 5:
+                        msg += f" va yana {len(errors) - 5} ta xato"
+                    flash(msg, 'warning')
+            else:
+                errors = result.get('errors', [])
+                flash(errors[0] if errors else "Import xatosi", 'error')
+        
+        except ImportError as e:
+            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+        except Exception as e:
+            flash(f"Import xatosi: {str(e)}", 'error')
+        
+        return redirect(url_for('dean.directions'))
+    
+    return render_template('dean/import_directions.html', faculty=faculty)
+
+
 @bp.route('/directions/create', methods=['POST'])
 @login_required
 @dean_required
