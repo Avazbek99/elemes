@@ -1,9 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Announcement, GradeScale, Schedule, Direction
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule
 from app import db
 from functools import wraps
 from datetime import datetime
+
+from app.utils.excel_import import import_students_from_excel, import_directions_from_excel, generate_sample_file
+from werkzeug.security import generate_password_hash
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -274,6 +277,22 @@ def subjects():
     
     return render_template('admin/subjects.html', subjects=subjects, faculties=faculties, current_faculty=faculty_id)
 
+
+@bp.route('/students/import/sample')
+@login_required
+@admin_required
+def download_sample_import():
+    try:
+        file_stream = generate_sample_file()
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name='talabalar_import_namuna.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        flash(f"Namuna fayl yaratishda xatolik: {str(e)}", 'error')
+        return redirect(url_for('admin.import_students'))
 
 @bp.route('/subjects/create', methods=['GET', 'POST'])
 @login_required
@@ -770,3 +789,177 @@ def delete_assignment(id):
     db.session.commit()
     flash("Biriktirish o'chirildi", 'success')
     return redirect(url_for('admin.assignments'))
+
+
+# ==================== ADMIN UCHUN DEKAN FUNKSIYALARI ====================
+# Admin uchun barcha fakultetlar bo'yicha ishlaydi
+
+@bp.route('/directions')
+@login_required
+@admin_required
+def directions():
+    """Admin uchun barcha yo'nalishlar"""
+    directions_list = Direction.query.order_by(Direction.name).all()
+    faculties = Faculty.query.order_by(Faculty.name).all()
+    unassigned_groups = Group.query.filter_by(direction_id=None).order_by(Group.name).all()
+    
+    direction_groups = {}
+    for direction in directions_list:
+        direction_groups[direction.id] = Group.query.filter_by(direction_id=direction.id).all()
+    
+    return render_template('dean/directions.html',
+                         faculty=None,
+                         directions=directions_list,
+                         unassigned_groups=unassigned_groups,
+                         direction_groups=direction_groups,
+                         is_admin=True)
+
+@bp.route('/students')
+@login_required
+@admin_required
+def students():
+    """Admin uchun barcha talabalar"""
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '')
+    group_id = request.args.get('group', type=int)
+    faculty_id = request.args.get('faculty', type=int)
+    
+    query = User.query.filter(User.role == 'student')
+    
+    if search:
+        query = query.filter(
+            (User.full_name.ilike(f'%{search}%')) |
+            (User.email.ilike(f'%{search}%')) |
+            (User.student_id.ilike(f'%{search}%'))
+        )
+    
+    if group_id:
+        query = query.filter(User.group_id == group_id)
+    elif faculty_id:
+        group_ids = [g.id for g in Group.query.filter_by(faculty_id=faculty_id).all()]
+        query = query.filter(User.group_id.in_(group_ids))
+    
+    students = query.order_by(User.full_name).paginate(page=page, per_page=20)
+    groups = Group.query.order_by(Group.name).all()
+    faculties = Faculty.query.order_by(Faculty.name).all()
+    
+    return render_template('dean/students.html', 
+                         faculty=None,
+                         students=students,
+                         groups=groups,
+                         faculties=faculties,
+                         current_group=group_id,
+                         current_faculty=faculty_id,
+                         search=search,
+                         is_admin=True)
+
+@bp.route('/students/<int:id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_student(id):
+    """Admin uchun talabani o'chirish"""
+    student = User.query.get_or_404(id)
+    if student.role != 'student':
+        flash("Bu foydalanuvchi talaba emas", 'error')
+        return redirect(url_for('admin.students'))
+    
+    student_name = student.full_name
+    db.session.delete(student)
+    db.session.commit()
+    flash(f"{student_name} o'chirildi", 'success')
+    return redirect(url_for('admin.students'))
+
+@bp.route('/students/<int:id>/reset-password', methods=['POST'])
+@login_required
+@admin_required
+def reset_student_password(id):
+    """Admin uchun talaba parolini boshlang'ich holatga qaytarish"""
+    student = User.query.get_or_404(id)
+    if student.role != 'student':
+        flash("Bu foydalanuvchi talaba emas", 'error')
+        return redirect(url_for('admin.students'))
+    
+    student.set_password('student123')
+    db.session.commit()
+    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi (student123)", 'success')
+    return redirect(url_for('admin.students'))
+
+@bp.route('/schedule')
+@login_required
+@admin_required
+def schedule():
+    """Admin uchun dars jadvali"""
+    from datetime import datetime
+    import calendar
+    
+    today = datetime.now()
+    year = request.args.get('year', type=int) or today.year
+    month = request.args.get('month', type=int) or today.month
+    if month < 1:
+        month = 12
+        year -= 1
+    elif month > 12:
+        month = 1
+        year += 1
+    days_in_month = calendar.monthrange(year, month)[1]
+    start_weekday = calendar.monthrange(year, month)[0]
+    
+    if month == 1:
+        prev_month, prev_year = 12, year - 1
+    else:
+        prev_month, prev_year = month - 1, year
+    if month == 12:
+        next_month, next_year = 1, year + 1
+    else:
+        next_month, next_year = month + 1, year
+    
+    today_year = today.year
+    today_month = today.month
+    today_day = today.day
+    
+    start_code = int(f"{year}{month:02d}01")
+    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    
+    group_id = request.args.get('group', type=int)
+    groups = Group.query.order_by(Group.name).all()
+    
+    if group_id:
+        schedules = Schedule.query.filter(
+            Schedule.group_id == group_id,
+            Schedule.day_of_week.between(start_code, end_code)
+        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
+    else:
+        schedules = Schedule.query.filter(
+            Schedule.day_of_week.between(start_code, end_code)
+        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
+    
+    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
+    for s in schedules:
+        try:
+            code_str = str(s.day_of_week)
+            day = int(code_str[-2:])
+        except (TypeError, ValueError):
+            continue
+        if 1 <= day <= days_in_month:
+            schedule_by_day[day].append(s)
+    
+    for day in schedule_by_day:
+        schedule_by_day[day].sort(key=lambda x: x.start_time or '')
+    
+    return render_template('dean/schedule.html', 
+                         faculty=None,
+                         groups=groups,
+                         current_group=group_id,
+                         schedule_by_day=schedule_by_day,
+                         days_in_month=days_in_month,
+                         start_weekday=start_weekday,
+                         year=year,
+                         month=month,
+                         today_year=today_year,
+                         today_month=today_month,
+                         today_day=today_day,
+                         prev_year=prev_year,
+                         prev_month=prev_month,
+                         next_year=next_year,
+                         next_month=next_month,
+                         is_admin=True)

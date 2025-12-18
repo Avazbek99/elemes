@@ -25,32 +25,45 @@
     <!-- Students list -->
     <div class="lg:col-span-2">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
-            <div class="p-4 border-b border-gray-100">
+            <div class="p-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 class="font-semibold text-gray-900">Talabalar ro'yxati</h2>
+                {% if students %}
+                <div class="flex items-center gap-3 text-xs">
+                    <button type="button" onclick="selectAllInGroup()" class="text-primary-600 hover:text-primary-700">
+                        Barchasini tanlash
+                    </button>
+                    <span class="text-gray-500">
+                        Tanlangan: <span id="remove-selected-count">0</span>
+                    </span>
+                </div>
+                {% endif %}
             </div>
             
             {% if students %}
-            <div class="divide-y divide-gray-100">
-                {% for student in students %}
-                <div class="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
-                            {{ student.full_name[0] }}
-                        </div>
-                        <div>
-                            <p class="font-medium text-gray-900">{{ student.full_name }}</p>
-                            <p class="text-sm text-gray-500">{{ student.student_id }} • {{ student.email }}</p>
+            <form action="{{ url_for('dean.remove_students_from_group', id=group.id) }}" method="POST" onsubmit="return confirm('Tanlangan talabalarni guruhdan chiqarmoqchimisiz?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="p-4 border-b border-gray-100 flex justify-end">
+                    <button type="submit" id="remove-selected-btn" class="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                        Tanlangan talabalarni guruhdan chiqarish
+                    </button>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    {% for student in students %}
+                    <div class="p-4 flex items-center hover:bg-gray-50 transition-colors">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" name="remove_student_ids" value="{{ student.id }}" class="rounded border-gray-300 text-red-600 focus:ring-red-500" onchange="updateRemoveButton()">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
+                                {{ student.full_name[0] }}
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-900">{{ student.full_name }}</p>
+                                <p class="text-sm text-gray-500">{{ student.student_id }} • {{ student.email }}</p>
+                            </div>
                         </div>
                     </div>
-                    <form action="{{ url_for('dean.remove_student_from_group', id=group.id, student_id=student.id) }}" method="POST" onsubmit="return confirm('Bu talabani guruhdan chiqarmoqchimisiz?')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg text-sm transition-colors">
-                            Chiqarish
-                        </button>
-                    </form>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
+            </form>
             {% else %}
             <div class="p-8 text-center text-gray-500">
                 <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -101,6 +114,24 @@
     </div>
     
     <script>
+    // Guruh ichidagi talabalar uchun
+    function selectAllInGroup() {
+        const checkboxes = document.querySelectorAll('input[name="remove_student_ids"]');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = !allChecked);
+        updateRemoveButton();
+    }
+
+    function updateRemoveButton() {
+        const checked = document.querySelectorAll('input[name="remove_student_ids"]:checked');
+        const count = checked.length;
+        const btn = document.getElementById('remove-selected-btn');
+        const countSpan = document.getElementById('remove-selected-count');
+        if (countSpan) countSpan.textContent = count;
+        if (btn) btn.disabled = count === 0;
+    }
+
+    // Guruhga qo'shiladigan talabalar uchun
     function selectAll() {
         const checkboxes = document.querySelectorAll('input[name="student_ids"]');
         const allChecked = Array.from(checkboxes).every(cb => cb.checked);

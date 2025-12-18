@@ -3,6 +3,86 @@ import io
 import re
 
 
+def generate_sample_file():
+    """Talabalarni import qilish uchun namuna Excel fayl (A–M ustunlari bilan)"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Talabalar import"
+
+    # Sarlavha
+    ws.merge_cells('A1:M1')
+    title_cell = ws['A1']
+    title_cell.value = "Talabalar import uchun namuna fayl"
+    title_cell.font = Font(size=14, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+
+    # Jadval sarlavhalari (A–M)
+    headers = [
+        "Talaba ID",              # A
+        "To'liq ismi",            # B
+        "Pasport raqami",         # C
+        "JSHSHIR-kod",            # D
+        "Tug‘ilgan sana (YYYY-MM-DD)",  # E
+        "Telefon",                # F
+        "Ta'lim shakli",          # G
+        "Shifr (mutaxassislik kodi)",  # H
+        "Mutaxassislik",          # I
+        "Talaba kursi",           # J
+        "Guruh",                  # K
+        "Fakultet",               # L (ixtiyoriy, dekanda odatda kerak emas)
+        "Email"                   # M
+    ]
+
+    header_row = 3
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+    # 1–2 ta namunaviy qator
+    sample_rows = [
+        ["STU0001", "Aliyev Anvar Anvar o'g'li", "AB1234567", "12345678901234", "2003-05-12",
+         "+998 90 123 45 67", "kunduzgi", "5330200", "Dasturiy injiniring", 1, "DI-21", "Informatika fakulteti",
+         "anvar.aliyev@example.com"],
+        ["STU0002", "Karimova Dilnoza Sobir qizi", "AA7654321", "43210987654321", "2004-09-01",
+         "+998 90 765 43 21", "sirtqi", "5330200", "Dasturiy injiniring", 2, "DI-22", "Informatika fakulteti",
+         "dilnoza.karimova@example.com"],
+    ]
+
+    for row_idx, row_values in enumerate(sample_rows, start=header_row + 1):
+        for col_num, value in enumerate(row_values, 1):
+            cell = ws.cell(row=row_idx, column=col_num)
+            cell.value = value
+            cell.alignment = Alignment(horizontal='left', vertical='center')
+
+    # Ustun kengliklari
+    column_widths = [15, 30, 16, 16, 18, 16, 14, 18, 24, 12, 14, 22, 28]
+    from openpyxl.utils import get_column_letter
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
 def import_students_from_excel(file, faculty_id=None):
     """Excel fayldan talabalar ro'yxatini import qilish"""
     try:
@@ -36,11 +116,11 @@ def import_students_from_excel(file, faculty_id=None):
         # Ustunlar indekslarini topish
         headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[header_row]]
         
-        # Ustunlar indekslarini aniqlash
+        # Ustunlar indekslarini aniqlash (A–M formatini ham qo'llab-quvvatlaydi)
         col_indices = {}
         for idx, header in enumerate(headers, 1):
             header_lower = header.lower()
-            if 'id' in header_lower and 'talaba' in header_lower:
+            if ('id' in header_lower and 'talaba' in header_lower) or header_lower.startswith('talaba id'):
                 col_indices['student_id'] = idx
             elif 'ism' in header_lower or 'name' in header_lower or 'to\'liq' in header_lower:
                 col_indices['full_name'] = idx
@@ -52,6 +132,22 @@ def import_students_from_excel(file, faculty_id=None):
                 col_indices['group'] = idx
             elif 'qabul' in header_lower or 'enrollment' in header_lower or 'yil' in header_lower:
                 col_indices['enrollment_year'] = idx
+            elif 'pasport' in header_lower:
+                col_indices['passport'] = idx
+            elif 'jshshir' in header_lower or 'pinfl' in header_lower:
+                col_indices['pinfl'] = idx
+            elif 'tug' in header_lower and 'sana' in header_lower:
+                col_indices['birth_date'] = idx
+            elif 'ta\'lim' in header_lower or 'education' in header_lower:
+                col_indices['education_type'] = idx
+            elif 'shifr' in header_lower or 'mutaxassislik kodi' in header_lower or 'specialty code' in header_lower:
+                col_indices['specialty_code'] = idx
+            elif 'mutaxassislik' in header_lower or 'specialty' in header_lower:
+                col_indices['specialty'] = idx
+            elif 'kurs' in header_lower or 'course' in header_lower:
+                col_indices['course_year'] = idx
+            elif 'fakultet' in header_lower or 'faculty' in header_lower:
+                col_indices['faculty_name'] = idx
         
         # Ma'lumotlarni o'qish
         for row_idx in range(header_row + 1, ws.max_row + 1):
@@ -114,7 +210,7 @@ def import_students_from_excel(file, faculty_id=None):
                             errors.append(f"Qator {row_idx}: Guruh topilmadi - {group_name}")
                             continue
                 
-                # Qabul yili
+                # Qabul yili / kurs
                 enrollment_year = None
                 if 'enrollment_year' in col_indices:
                     year_val = row[col_indices['enrollment_year'] - 1].value
@@ -124,6 +220,41 @@ def import_students_from_excel(file, faculty_id=None):
                         except (ValueError, TypeError):
                             pass
                 
+                # Qo'shimcha talaba ma'lumotlari (agar ustunlar bo'lsa)
+                extra_kwargs = {}
+                if 'passport' in col_indices:
+                    p_val = row[col_indices['passport'] - 1].value
+                    if p_val:
+                        extra_kwargs['passport_number'] = str(p_val).strip()
+                if 'pinfl' in col_indices:
+                    pin_val = row[col_indices['pinfl'] - 1].value
+                    if pin_val:
+                        extra_kwargs['pinfl'] = str(pin_val).strip()
+                if 'birth_date' in col_indices:
+                    b_val = row[col_indices['birth_date'] - 1].value
+                    if b_val:
+                        # Excel date obyekt bo'lishi yoki matn bo'lishi mumkin
+                        from datetime import datetime
+                        try:
+                            if hasattr(b_val, 'strftime'):
+                                extra_kwargs['birth_date'] = b_val
+                            else:
+                                extra_kwargs['birth_date'] = datetime.strptime(str(b_val), '%Y-%m-%d')
+                        except Exception:
+                            pass
+                if 'education_type' in col_indices:
+                    e_val = row[col_indices['education_type'] - 1].value
+                    if e_val:
+                        extra_kwargs['education_type'] = str(e_val).strip()
+                if 'specialty_code' in col_indices:
+                    sc_val = row[col_indices['specialty_code'] - 1].value
+                    if sc_val:
+                        extra_kwargs['specialty_code'] = str(sc_val).strip()
+                if 'specialty' in col_indices:
+                    s_val = row[col_indices['specialty'] - 1].value
+                    if s_val:
+                        extra_kwargs['specialty'] = str(s_val).strip()
+                
                 # Talaba yaratish
                 student = User(
                     email=email,
@@ -132,7 +263,8 @@ def import_students_from_excel(file, faculty_id=None):
                     student_id=student_id,
                     group_id=group_id,
                     enrollment_year=enrollment_year,
-                    phone=phone
+                    phone=phone,
+                    **extra_kwargs
                 )
                 
                 # Standart parol (foydalanuvchi keyinchalik o'zgartirishi mumkin)

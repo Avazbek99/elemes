@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, send_file
 from flask_login import login_required, current_user
 from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction
 from app import db
@@ -6,6 +6,7 @@ from functools import wraps
 from sqlalchemy import func
 from datetime import datetime
 import calendar
+from werkzeug.security import generate_password_hash
 
 bp = Blueprint('dean', __name__, url_prefix='/dean')
 
@@ -52,6 +53,8 @@ def index():
         subjects = []
     
     return render_template('dean/index.html', faculty=faculty, stats=stats, directions=directions, direction_stats=direction_stats, subjects=subjects)
+
+
 
 
 # ==================== GURUHLAR ====================
@@ -222,6 +225,45 @@ def remove_student_from_group(id, student_id):
     student.group_id = None
     db.session.commit()
     flash(f"{student.full_name} guruhdan chiqarildi", 'success')
+    
+    return redirect(url_for('dean.group_students', id=id))
+
+
+@bp.route('/groups/<int:id>/remove-students', methods=['POST'])
+@login_required
+@dean_required
+def remove_students_from_group(id):
+    """Bir nechta talabani bir vaqtning o'zida guruhdan chiqarish"""
+    group = Group.query.get_or_404(id)
+    
+    if group.faculty_id != current_user.faculty_id:
+        flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
+        return redirect(url_for('dean.groups'))
+    
+    ids = request.form.getlist('remove_student_ids')
+    student_ids = [int(sid) for sid in ids if sid]
+    
+    if not student_ids:
+        flash("Hech qanday talaba tanlanmagan", 'error')
+        return redirect(url_for('dean.group_students', id=id))
+    
+    students = User.query.filter(
+        User.id.in_(student_ids),
+        User.group_id == group.id,
+        User.role == 'student'
+    ).all()
+    
+    count = 0
+    for student in students:
+        student.group_id = None
+        count += 1
+    
+    db.session.commit()
+    
+    if count:
+        flash(f"{count} ta talaba guruhdan chiqarildi", 'success')
+    else:
+        flash("Hech qanday talaba guruhdan chiqarilmadi", 'warning')
     
     return redirect(url_for('dean.group_students', id=id))
 
@@ -417,6 +459,25 @@ def import_students():
     return render_template('dean/import_students.html', faculty=faculty)
 
 
+@bp.route('/students/import/sample')
+@login_required
+@dean_required
+def download_sample_import():
+    """Talabalar import qilish uchun namuna Excel faylni yuklab berish (dekan)"""
+    try:
+        from app.utils.excel_import import generate_sample_file
+        file_stream = generate_sample_file()
+        return send_file(
+            file_stream,
+            as_attachment=True,
+            download_name='talabalar_import_namuna.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        flash(f"Namuna fayl yaratishda xatolik: {str(e)}", 'error')
+        return redirect(url_for('dean.import_students'))
+
+
 @bp.route('/students/create', methods=['GET', 'POST'])
 @login_required
 @dean_required
@@ -473,6 +534,136 @@ def create_student():
         return redirect(url_for('dean.students'))
     
     return render_template('dean/create_student.html', faculty=faculty, groups=groups)
+
+
+@bp.route('/students/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@dean_required
+def edit_student(id):
+    """Dekan uchun talaba ma'lumotlarini tahrirlash (faqat o'z fakulteti doirasida)"""
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    student = User.query.get_or_404(id)
+    
+    # Faqat talaba va shu fakultetga tegishli guruhda bo'lishi kerak
+    if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
+        flash("Sizda bu talabani tahrirlash huquqi yo'q", 'error')
+        return redirect(url_for('dean.students'))
+    
+    groups = faculty.groups.order_by(Group.name).all()
+    
+    if request.method == 'POST':
+        full_name = request.form.get('full_name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        student_id_val = request.form.get('student_id')
+        group_id = request.form.get('group_id', type=int)
+        enrollment_year = request.form.get('enrollment_year', type=int)
+        
+        # Email unikalligi
+        existing_email = User.query.filter(User.email == email, User.id != student.id).first()
+        if existing_email:
+            flash("Bu email boshqa foydalanuvchida mavjud", 'error')
+            return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
+        
+        # Talaba ID unikalligi
+        if student_id_val:
+            existing_sid = User.query.filter(
+                User.student_id == student_id_val,
+                User.id != student.id
+            ).first()
+            if existing_sid:
+                flash("Bu talaba ID boshqa talabada mavjud", 'error')
+                return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
+        
+        # Guruh tekshiruvi
+        if group_id:
+            group = Group.query.get(group_id)
+            if not group or group.faculty_id != faculty.id:
+                flash("Noto'g'ri guruh tanlandi", 'error')
+                return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
+            student.group_id = group_id
+        
+        student.full_name = full_name
+        student.email = email
+        student.phone = phone
+        student.student_id = student_id_val or None
+        student.enrollment_year = enrollment_year
+        
+        db.session.commit()
+        flash("Talaba ma'lumotlari yangilandi", 'success')
+        return redirect(url_for('dean.students'))
+    
+    return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
+
+
+@bp.route('/students/<int:id>/toggle', methods=['POST'])
+@login_required
+@dean_required
+def toggle_student_status(id):
+    """Talabani bloklash / blokdan chiqarish (dekan faqat o'z fakulteti bo'yicha)"""
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    student = User.query.get_or_404(id)
+    if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
+        flash("Sizda bu amal uchun huquq yo'q", 'error')
+        return redirect(url_for('dean.students'))
+    
+    student.is_active = not student.is_active
+    db.session.commit()
+    
+    status = "faollashtirildi" if student.is_active else "bloklandi"
+    flash(f"Talaba {student.full_name} {status}", 'success')
+    return redirect(url_for('dean.students'))
+
+
+@bp.route('/students/<int:id>/reset-password', methods=['POST'])
+@login_required
+@dean_required
+def reset_student_password(id):
+    """Talaba parolini boshlang'ich holatga qaytarish (student123)"""
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    student = User.query.get_or_404(id)
+    if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
+        flash("Sizda bu amal uchun huquq yo'q", 'error')
+        return redirect(url_for('dean.students'))
+    
+    student.set_password('student123')
+    db.session.commit()
+    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi (student123)", 'success')
+    return redirect(url_for('dean.students'))
+
+
+@bp.route('/students/<int:id>/delete', methods=['POST'])
+@login_required
+@dean_required
+def delete_student(id):
+    """Talabani o'chirish"""
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    student = User.query.get_or_404(id)
+    if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
+        flash("Sizda bu amal uchun huquq yo'q", 'error')
+        return redirect(url_for('dean.students'))
+    
+    student_name = student.full_name
+    db.session.delete(student)
+    db.session.commit()
+    flash(f"{student_name} o'chirildi", 'success')
+    return redirect(url_for('dean.students'))
 
 
 # ==================== O'QITUVCHILAR ====================

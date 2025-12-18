@@ -61,6 +61,7 @@
                 <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Guruh</th>
                 <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Qabul yili</th>
                 <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Holat</th>
+                <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
@@ -96,6 +97,49 @@
                     {% else %}
                     <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Bloklangan</span>
                     {% endif %}
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="inline-flex items-center gap-1">
+                        <!-- Tahrirlash -->
+                        <a href="{% if is_admin %}{{ url_for('admin.edit_user', id=student.id) }}{% else %}{{ url_for('dean.edit_student', id=student.id) }}{% endif %}" class="p-2 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ma'lumotlarni tahrirlash">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </a>
+                        <!-- Bloklash / blokdan chiqarish -->
+                        <form action="{% if is_admin %}{{ url_for('admin.toggle_user', id=student.id) }}{% else %}{{ url_for('dean.toggle_student_status', id=student.id) }}{% endif %}" method="POST" class="inline" onsubmit="return confirm('{% if student.is_active %}Talabani bloklashni{% else %}Talabani faollashtirishni{% endif %} tasdiqlaysizmi?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="p-2 rounded-lg hover:bg-gray-50 {% if student.is_active %}text-red-600 hover:text-red-700{% else %}text-green-600 hover:text-green-700{% endif %} transition-colors" title="{% if student.is_active %}Bloklash{% else %}Blokdan chiqarish{% endif %}">
+                                {% if student.is_active %}
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                </svg>
+                                {% else %}
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                {% endif %}
+                            </button>
+                        </form>
+                        <!-- Parolni reset qilish -->
+                        <form action="{% if is_admin %}{{ url_for('admin.reset_student_password', id=student.id) }}{% else %}{{ url_for('dean.reset_student_password', id=student.id) }}{% endif %}" method="POST" class="inline" onsubmit="return confirm('Parolni boshlang\\'ich holatga (student123) qaytarilsinmi?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="p-2 rounded-lg hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors" title="Parolni boshlang'ich holatga qaytarish">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                                </svg>
+                            </button>
+                        </form>
+                        <!-- Talabani o'chirish -->
+                        <form action="{% if is_admin %}{{ url_for('admin.delete_student', id=student.id) }}{% else %}{{ url_for('dean.delete_student', id=student.id) }}{% endif %}" method="POST" class="inline" onsubmit="return confirm('Talabani o\\'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo\\'lmaydi.')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="Talabani o'chirish">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% endfor %}

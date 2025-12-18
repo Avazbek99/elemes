@@ -191,6 +191,83 @@ def index():
                              total_paid=float(total_paid),
                              payment_stats_by_course=payment_stats_by_course)
     
+    elif current_user.role == 'admin':
+        # Admin barcha fakultetlarning to'lov ma'lumotlarini ko'radi
+        query = StudentPayment.query
+        
+        if search:
+            query = query.join(User).filter(
+                (User.full_name.ilike(f'%{search}%')) |
+                (User.student_id.ilike(f'%{search}%'))
+            )
+        
+        if group_id:
+            group_student_ids = [s.id for s in User.query.filter_by(role='student', group_id=group_id).all()]
+            query = query.filter(StudentPayment.student_id.in_(group_student_ids))
+        
+        if faculty_id:
+            faculty = Faculty.query.get(faculty_id)
+            if faculty:
+                faculty_group_ids = [g.id for g in faculty.groups.all()]
+                faculty_student_ids = [s.id for s in User.query.filter(
+                    User.role == 'student',
+                    User.group_id.in_(faculty_group_ids)
+                ).all()]
+                query = query.filter(StudentPayment.student_id.in_(faculty_student_ids))
+        
+        payments = query.order_by(StudentPayment.created_at.desc()).paginate(page=page, per_page=20)
+        groups = Group.query.order_by(Group.name).all()
+        faculties = Faculty.query.all()
+        
+        # Statistika
+        total_contract = db.session.query(func.sum(StudentPayment.contract_amount)).scalar() or 0
+        total_paid = db.session.query(func.sum(StudentPayment.paid_amount)).scalar() or 0
+        
+        # Kurs bo'yicha to'lov foizi statistikasi
+        from collections import defaultdict
+        payment_stats_by_course = defaultdict(lambda: {
+            '0%': 0, '25%': 0, '50%': 0, '75%': 0, '100%': 0, 'total': 0
+        })
+        
+        # Barcha to'lov ma'lumotlarini olish
+        all_payments = StudentPayment.query.join(User).join(Group).all()
+        
+        for payment in all_payments:
+            if payment.student and payment.student.group:
+                course_year = payment.student.group.course_year
+                percentage = payment.get_payment_percentage()
+                
+                # To'lov foiziga qarab guruhlash
+                if percentage == 0:
+                    payment_stats_by_course[course_year]['0%'] += 1
+                elif 0 < percentage <= 25:
+                    payment_stats_by_course[course_year]['0%'] += 1
+                elif 25 < percentage <= 50:
+                    payment_stats_by_course[course_year]['25%'] += 1
+                elif 50 < percentage <= 75:
+                    payment_stats_by_course[course_year]['50%'] += 1
+                elif 75 < percentage < 100:
+                    payment_stats_by_course[course_year]['75%'] += 1
+                else:  # 100% va yuqori
+                    payment_stats_by_course[course_year]['100%'] += 1
+                
+                payment_stats_by_course[course_year]['total'] += 1
+        
+        # Kurs bo'yicha tartiblash
+        payment_stats_by_course = dict(sorted(payment_stats_by_course.items()))
+        
+        return render_template('accounting/index.html', 
+                             payments=payments, 
+                             groups=groups,
+                             faculties=faculties,
+                             current_group=group_id,
+                             current_faculty=faculty_id,
+                             search=search,
+                             total_contract=float(total_contract),
+                             total_paid=float(total_paid),
+                             payment_stats_by_course=payment_stats_by_course,
+                             is_admin=True)
+    
     else:
         # Boshqa rollar uchun ruxsat yo'q
         flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
@@ -282,6 +359,8 @@ def student_payments(student_id):
             flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
             return redirect(url_for('main.dashboard'))
     
+    # Admin va accounting barcha ma'lumotlarni ko'radi
+    
     payments = StudentPayment.query.filter_by(student_id=student_id).order_by(StudentPayment.created_at.desc()).all()
     
     # Statistika hisoblash
@@ -366,4 +445,37 @@ def export_contracts():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers={'Content-Disposition': f'attachment; filename={filename}'}
     )
+
+
+@bp.route('/payment/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_payment(id):
+    """To'lov ma'lumotlarini tahrirlash"""
+    payment = StudentPayment.query.get_or_404(id)
+    student = payment.student
+    
+    # Ruxsat tekshiruvi
+    if current_user.role == 'student':
+        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    if current_user.role == 'dean':
+        if not student.group or student.group.faculty_id != current_user.faculty_id:
+            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            return redirect(url_for('main.dashboard'))
+    
+    # Admin va accounting barcha ma'lumotlarni tahrirlashi mumkin
+    
+    if request.method == 'POST':
+        payment.contract_amount = request.form.get('contract_amount', type=float)
+        payment.paid_amount = request.form.get('paid_amount', type=float)
+        payment.academic_year = request.form.get('academic_year')
+        payment.semester = request.form.get('semester', type=int)
+        payment.notes = request.form.get('notes', '')
+        
+        db.session.commit()
+        flash("To'lov ma'lumotlari yangilandi", 'success')
+        return redirect(url_for('accounting.student_payments', student_id=student.id))
+    
+    return render_template('accounting/edit_payment.html', payment=payment, student=student)
 
