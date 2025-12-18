@@ -2,7 +2,10 @@ import os
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'eduspace-secret-key-2024'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///eduspace.db'
+    SQLALCHEMY_DATABASE_URI = (
+    "mysql+pymysql://elemesuz_admin:Avazbek.99@localhost/elemesuz_elemesdb"
+)
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # File upload settings
