@@ -116,6 +116,14 @@ class TeacherSubject(db.Model):
     assigner = db.relationship('User', foreign_keys=[assigned_by])
 
 
+# ==================== FOYDALANUVCHI ROLI ====================
+class UserRole(db.Model):
+    """Foydalanuvchi rollari (bir nechta rol qo'llab-quvvatlash uchun)"""
+    __tablename__ = 'user_roles'
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    role = db.Column(db.String(20), primary_key=True)  # admin, teacher, student, dean, accounting
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # ==================== FOYDALANUVCHI ====================
 class User(UserMixin, db.Model):
     """Foydalanuvchi modeli"""
@@ -150,6 +158,8 @@ class User(UserMixin, db.Model):
     submissions = db.relationship('Submission', backref='student', lazy='dynamic', foreign_keys='Submission.student_id')
     announcements = db.relationship('Announcement', backref='author', lazy='dynamic')
     managed_faculty = db.relationship('Faculty', foreign_keys=[faculty_id], uselist=False)
+    # Bir nechta rollar
+    roles_list = db.relationship('UserRole', backref='user', lazy='dynamic', cascade='all, delete-orphan', foreign_keys='UserRole.user_id')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -157,7 +167,41 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
     
+    def get_roles(self):
+        """Foydalanuvchining barcha rollarini olish"""
+        if self.roles_list.count() > 0:
+            return [r.role for r in self.roles_list]
+        # Agar roles_list bo'sh bo'lsa, eski role maydonini qaytaramiz
+        return [self.role] if self.role else []
+    
+    def has_role(self, role_name):
+        """Foydalanuvchida bunday rol bormi?"""
+        return role_name in self.get_roles()
+    
+    def add_role(self, role_name):
+        """Foydalanuvchiga rol qo'shish"""
+        if not self.has_role(role_name):
+            user_role = UserRole(user_id=self.id, role=role_name)
+            db.session.add(user_role)
+            db.session.commit()
+    
+    def remove_role(self, role_name):
+        """Foydalanuvchidan rol olib tashlash"""
+        UserRole.query.filter_by(user_id=self.id, role=role_name).delete()
+        db.session.commit()
+    
+    def set_roles(self, role_list):
+        """Foydalanuvchiga bir nechta rol biriktirish (eski rollarni o'chirib, yangilarini qo'shish)"""
+        # Eski rollarni o'chirish
+        UserRole.query.filter_by(user_id=self.id).delete()
+        # Yangi rollarni qo'shish
+        for role in role_list:
+            user_role = UserRole(user_id=self.id, role=role)
+            db.session.add(user_role)
+        db.session.commit()
+    
     def get_role_display(self):
+        """Asosiy rol nomini olish (eski kodlar bilan mosligi uchun)"""
         roles = {
             'admin': 'Administrator',
             'teacher': "O'qituvchi",
@@ -166,6 +210,18 @@ class User(UserMixin, db.Model):
             'accounting': 'Buxgalteriya'
         }
         return roles.get(self.role, self.role)
+    
+    def get_all_roles_display(self):
+        """Barcha rollarni ko'rinishda olish"""
+        roles = {
+            'admin': 'Administrator',
+            'teacher': "O'qituvchi",
+            'student': 'Talaba',
+            'dean': 'Dekan',
+            'accounting': 'Buxgalteriya'
+        }
+        user_roles = self.get_roles()
+        return [roles.get(r, r) for r in user_roles]
     
     def has_permission(self, permission):
         permissions = {

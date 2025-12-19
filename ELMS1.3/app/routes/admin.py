@@ -1,11 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole
 from app import db
 from functools import wraps
 from datetime import datetime
 
-from app.utils.excel_import import import_students_from_excel, import_directions_from_excel, generate_sample_file
+from app.utils.excel_import import import_students_from_excel, import_directions_from_excel, generate_sample_file, import_all_users_from_excel
+from app.utils.excel_export import create_all_users_excel
 from werkzeug.security import generate_password_hash
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -176,6 +177,12 @@ def toggle_user(id):
         status = "faollashtirildi" if user.is_active else "bloklandi"
         flash(f"Foydalanuvchi {status}", 'success')
     
+    # Qaysi sahifadan kelganini aniqlash
+    referer = request.referrer or url_for('admin.users')
+    if 'staff' in referer:
+        return redirect(url_for('admin.staff'))
+    elif 'students' in referer:
+        return redirect(url_for('admin.students'))
     return redirect(url_for('admin.users'))
 
 
@@ -192,7 +199,142 @@ def delete_user(id):
         db.session.commit()
         flash("Foydalanuvchi o'chirildi", 'success')
     
+    # Qaysi sahifadan kelganini aniqlash
+    referer = request.referrer or url_for('admin.users')
+    if 'staff' in referer:
+        return redirect(url_for('admin.staff'))
+    elif 'students' in referer:
+        return redirect(url_for('admin.students'))
     return redirect(url_for('admin.users'))
+
+
+@bp.route('/users/<int:id>/reset_password', methods=['POST'])
+@login_required
+@admin_required
+def reset_user_password(id):
+    """Parolni boshlang'ich holatga qaytarish (pasport raqami)"""
+    user = User.query.get_or_404(id)
+    
+    if not user.passport_number:
+        flash("Bu foydalanuvchida pasport raqami mavjud emas", 'error')
+    else:
+        user.set_password(user.passport_number)
+        db.session.commit()
+        flash("Parol boshlang'ich holatga qaytarildi", 'success')
+    
+    # Qaysi sahifadan kelganini aniqlash
+    referer = request.referrer or url_for('admin.users')
+    if 'staff' in referer:
+        return redirect(url_for('admin.staff'))
+    elif 'students' in referer:
+        return redirect(url_for('admin.students'))
+    return redirect(url_for('admin.users'))
+# ==================== XODIMLAR BAZASI ====================
+@bp.route('/staff')
+@login_required
+@admin_required
+def staff():
+    """Xodimlar bazasi (talabalar bo'lmagan barcha foydalanuvchilar)"""
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '')
+    
+    # Talabalar bo'lmagan barcha foydalanuvchilar
+    query = User.query.filter(User.role != 'student')
+    
+    if search:
+        query = query.filter(
+            (User.full_name.ilike(f'%{search}%')) |
+            (User.email.ilike(f'%{search}%')) |
+            (User.phone.ilike(f'%{search}%'))
+        )
+    
+    users = query.order_by(User.created_at.desc()).paginate(page=page, per_page=20)
+    
+    return render_template('admin/staff.html', users=users, search=search)
+
+
+@bp.route('/staff/create', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def create_staff():
+    """Yangi xodim yaratish (bir nechta rol bilan)"""
+    faculties = Faculty.query.all()
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        full_name = request.form.get('full_name')
+        phone = request.form.get('phone')
+        passport_number = request.form.get('passport_number')
+        pinfl = request.form.get('pinfl')
+        birth_date_str = request.form.get('birth_date')
+        department = request.form.get('department')
+        position = request.form.get('position')
+        faculty_id = request.form.get('faculty_id', type=int)
+        
+        # Bir nechta rol tanlash
+        selected_roles = request.form.getlist('roles')  # ['admin', 'dean', 'teacher']
+        
+        if not selected_roles:
+            flash("Kamida bitta rol tanlanishi kerak", 'error')
+            return render_template('admin/create_staff.html', faculties=faculties)
+        
+        if User.query.filter_by(email=email).first():
+            flash("Bu email allaqachon mavjud", 'error')
+            return render_template('admin/create_staff.html', faculties=faculties)
+        
+        # Pasport raqami parol sifatida ishlatiladi
+        if not passport_number:
+            flash("Pasport seriyasi va raqami majburiy", 'error')
+            return render_template('admin/create_staff.html', faculties=faculties)
+        
+        password = passport_number  # Pasport raqami parol
+        
+        # Tug'ilgan sanani parse qilish (dd-mm-yyyy)
+        birth_date = None
+        if birth_date_str:
+            try:
+                birth_date = datetime.strptime(birth_date_str, '%d-%m-%Y').date()
+            except ValueError:
+                flash("Tug'ilgan sana noto'g'ri formatda (dd-mm-yyyy)", 'error')
+                return render_template('admin/create_staff.html', faculties=faculties)
+        
+        # Asosiy rol (birinchisi yoki eng yuqori darajali)
+        main_role = selected_roles[0]
+        if 'admin' in selected_roles:
+            main_role = 'admin'
+        elif 'dean' in selected_roles:
+            main_role = 'dean'
+        elif 'teacher' in selected_roles:
+            main_role = 'teacher'
+        
+        user = User(
+            email=email,
+            full_name=full_name,
+            role=main_role,  # Asosiy rol (eski kodlar bilan mosligi uchun)
+            phone=phone,
+            passport_number=passport_number,
+            pinfl=pinfl,
+            birth_date=birth_date,
+            department=department,
+            position=position,
+            faculty_id=faculty_id if main_role == 'dean' else None
+        )
+        
+        user.set_password(password)
+        db.session.add(user)
+        db.session.flush()  # ID olish uchun
+        
+        # Bir nechta rol qo'shish
+        for role in selected_roles:
+            user_role = UserRole(user_id=user.id, role=role)
+            db.session.add(user_role)
+        
+        db.session.commit()
+        
+        flash(f"Xodim {user.full_name} muvaffaqiyatli yaratildi", 'success')
+        return redirect(url_for('admin.staff'))
+    
+    return render_template('admin/create_staff.html', faculties=faculties)
 
 
 # ==================== FAKULTETLAR ====================
@@ -201,7 +343,12 @@ def delete_user(id):
 @admin_required
 def faculties():
     faculties = Faculty.query.all()
-    return render_template('admin/faculties.html', faculties=faculties)
+    # Har bir fakultet uchun masul dekan
+    faculty_deans = {}
+    for faculty in faculties:
+        dean = User.query.filter_by(role='dean', faculty_id=faculty.id).first()
+        faculty_deans[faculty.id] = dean
+    return render_template('admin/faculties.html', faculties=faculties, faculty_deans=faculty_deans)
 
 
 @bp.route('/faculties/create', methods=['GET', 'POST'])
@@ -589,6 +736,77 @@ def export_students():
     )
 
 
+@bp.route('/export/all_users')
+@login_required
+@admin_required
+def export_all_users():
+    """Barcha foydalanuvchilarni Excel formatida yuklab olish (rol bo'yicha guruhlash)"""
+    try:
+        from app.utils.excel_export import create_all_users_excel
+    except ImportError:
+        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
+        return redirect(url_for('admin.staff'))
+    
+    users = User.query.all()
+    excel_file = create_all_users_excel(users)
+    
+    filename = f"barcha_foydalanuvchilar_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    return Response(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
+
+
+@bp.route('/import/all_users', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def import_all_users():
+    """Excel fayldan barcha foydalanuvchilarni import qilish (rol bo'yicha ajratish)"""
+    if request.method == 'POST':
+        if 'excel_file' not in request.files:
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('admin.staff'))
+        
+        file = request.files['excel_file']
+        if file.filename == '':
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('admin.staff'))
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            return redirect(url_for('admin.staff'))
+        
+        try:
+            from app.utils.excel_import import import_all_users_from_excel
+            
+            result = import_all_users_from_excel(file)
+            
+            if result['success']:
+                if result['imported'] > 0:
+                    flash(f"{result['imported']} ta foydalanuvchi muvaffaqiyatli import qilindi", 'success')
+                else:
+                    flash("Hech qanday foydalanuvchi import qilinmadi", 'warning')
+                
+                if result['errors']:
+                    error_msg = f"Xatolar ({len(result['errors'])}): " + "; ".join(result['errors'][:5])
+                    if len(result['errors']) > 5:
+                        error_msg += f" va yana {len(result['errors']) - 5} ta xato"
+                    flash(error_msg, 'warning')
+            else:
+                flash(f"Import xatosi: {result['errors'][0] if result['errors'] else 'Noma`lum xatolik'}", 'error')
+                
+        except ImportError as e:
+            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+        except Exception as e:
+            flash(f"Import xatosi: {str(e)}", 'error')
+        
+        return redirect(url_for('admin.staff'))
+    
+    return render_template('admin/import_all_users.html')
+
+
 @bp.route('/export/schedule')
 @login_required
 @admin_required
@@ -873,15 +1091,18 @@ def delete_student(id):
 @login_required
 @admin_required
 def reset_student_password(id):
-    """Admin uchun talaba parolini boshlang'ich holatga qaytarish"""
+    """Admin uchun talaba parolini boshlang'ich holatga qaytarish (pasport raqami)"""
     student = User.query.get_or_404(id)
     if student.role != 'student':
         flash("Bu foydalanuvchi talaba emas", 'error')
         return redirect(url_for('admin.students'))
     
-    student.set_password('student123')
-    db.session.commit()
-    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi (student123)", 'success')
+    if not student.passport_number:
+        flash("Bu talabada pasport raqami mavjud emas", 'error')
+    else:
+        student.set_password(student.passport_number)
+        db.session.commit()
+        flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi", 'success')
     return redirect(url_for('admin.students'))
 
 @bp.route('/schedule')

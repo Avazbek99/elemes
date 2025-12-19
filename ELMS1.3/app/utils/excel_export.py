@@ -488,6 +488,137 @@ def create_group_grades_excel(subject, group, student_rows):
     return output
 
 
+def create_all_users_excel(users):
+    """Barcha foydalanuvchilarni Excel formatida yaratish (rol bo'yicha guruhlash)"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+    
+    wb = Workbook()
+    
+    # Rol bo'yicha guruhlash
+    from collections import defaultdict
+    users_by_role = defaultdict(list)
+    
+    for user in users:
+        # Bir nechta rol bo'lsa, har bir rol uchun alohida qo'shish
+        roles = user.get_roles() if hasattr(user, 'get_roles') else [user.role]
+        for role in roles:
+            users_by_role[role].append(user)
+    
+    # Har bir rol uchun alohida worksheet
+    role_names = {
+        'admin': 'Administratorlar',
+        'dean': 'Dekanlar',
+        'teacher': "O'qituvchilar",
+        'student': 'Talabalar',
+        'accounting': 'Buxgalteriya'
+    }
+    
+    for role in ['admin', 'dean', 'teacher', 'student', 'accounting']:
+        if role not in users_by_role:
+            continue
+        
+        ws = wb.create_sheet(title=role_names.get(role, role))
+        
+        # Sarlavha
+        title = f"{role_names.get(role, role)} ro'yxati"
+        ws.merge_cells('A1:K1')
+        title_cell = ws['A1']
+        title_cell.value = title
+        title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+        title_cell.alignment = Alignment(horizontal='center', vertical='center')
+        title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        
+        # Sana
+        ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        ws.merge_cells('A2:K2')
+        ws['A2'].font = Font(size=10, italic=True)
+        ws['A2'].alignment = Alignment(horizontal='center')
+        
+        # Jadval sarlavhalari
+        if role == 'student':
+            headers = ['№', "To'liq ism", 'Email', 'Telefon', 'Talaba ID', 'Pasport raqami', 'JSHSHIR', 'Tug\'ilgan sana', 'Guruh', 'Kurs', 'Fakultet']
+        else:
+            headers = ['№', "To'liq ism", 'Email', 'Telefon', 'Pasport raqami', 'JSHSHIR', 'Tug\'ilgan sana', 'Kafedra', 'Lavozim', 'Fakultet', 'Holat']
+        
+        header_row = 3
+        
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=header_row, column=col_num)
+            cell.value = header
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+        
+        # Ma'lumotlar
+        role_users = users_by_role[role]
+        for row_num, user in enumerate(role_users, start=header_row + 1):
+            ws.cell(row=row_num, column=1, value=row_num - header_row)
+            ws.cell(row=row_num, column=2, value=user.full_name)
+            ws.cell(row=row_num, column=3, value=user.email)
+            ws.cell(row=row_num, column=4, value=user.phone or '')
+            
+            if role == 'student':
+                ws.cell(row=row_num, column=5, value=user.student_id or '')
+                ws.cell(row=row_num, column=6, value=getattr(user, 'passport_number', None) or '')
+                ws.cell(row=row_num, column=7, value=getattr(user, 'pinfl', None) or '')
+                birth_date = getattr(user, 'birth_date', None)
+                ws.cell(row=row_num, column=8, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
+                ws.cell(row=row_num, column=9, value=user.group.name if user.group else '')
+                ws.cell(row=row_num, column=10, value=user.group.course_year if user.group else '')
+                ws.cell(row=row_num, column=11, value=user.group.faculty.name if user.group and user.group.faculty else '')
+            else:
+                ws.cell(row=row_num, column=5, value=getattr(user, 'passport_number', None) or '')
+                ws.cell(row=row_num, column=6, value=getattr(user, 'pinfl', None) or '')
+                birth_date = getattr(user, 'birth_date', None)
+                ws.cell(row=row_num, column=7, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
+                ws.cell(row=row_num, column=8, value=user.department or '')
+                ws.cell(row=row_num, column=9, value=user.position or '')
+                ws.cell(row=row_num, column=10, value=user.faculty.name if user.faculty else '')
+                ws.cell(row=row_num, column=11, value='Faol' if user.is_active else 'Bloklangan')
+            
+            # Stil
+            for col_num in range(1, len(headers) + 1):
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.alignment = Alignment(horizontal='left', vertical='center')
+                cell.border = Border(
+                    left=Side(style='thin'),
+                    right=Side(style='thin'),
+                    top=Side(style='thin'),
+                    bottom=Side(style='thin')
+                )
+                if row_num % 2 == 0:
+                    cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+        
+        # Ustun kengliklarini sozlash
+        if role == 'student':
+            column_widths = [5, 30, 25, 16, 15, 18, 16, 14, 14, 8, 20]
+        else:
+            column_widths = [5, 30, 25, 16, 18, 16, 14, 20, 15, 20, 12]
+        for col_num, width in enumerate(column_widths, 1):
+            ws.column_dimensions[get_column_letter(col_num)].width = width
+    
+    # Bosh worksheet'ni o'chirish
+    if 'Sheet' in wb.sheetnames:
+        wb.remove(wb['Sheet'])
+    
+    # Excel faylni qaytarish
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
 def create_sample_contracts_excel():
     """Kontrakt import uchun namuna Excel fayl yaratish"""
     try:

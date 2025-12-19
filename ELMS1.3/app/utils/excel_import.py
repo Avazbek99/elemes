@@ -591,3 +591,229 @@ def import_payments_from_excel(file):
             'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
         }
 
+
+def import_all_users_from_excel(file):
+    """Excel fayldan barcha foydalanuvchilarni import qilish (rol bo'yicha ajratish)"""
+    try:
+        from openpyxl import load_workbook
+        from app.models import User, Faculty, Group, UserRole
+        from app import db
+        from werkzeug.security import generate_password_hash
+        from datetime import datetime
+    except ImportError:
+        return {
+            'success': False,
+            'imported': 0,
+            'updated': 0,
+            'errors': ["openpyxl kutubxonasi o'rnatilmagan"]
+        }
+    
+    try:
+        wb = load_workbook(file)
+        imported = 0
+        updated = 0
+        errors = []
+        
+        # Har bir worksheet (rol) uchun
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            
+            # Rolni aniqlash
+            role = None
+            role_mapping = {
+                'Administratorlar': 'admin',
+                'Dekanlar': 'dean',
+                "O'qituvchilar": 'teacher',
+                'Talabalar': 'student',
+                'Buxgalteriya': 'accounting'
+            }
+            role = role_mapping.get(sheet_name, sheet_name.lower())
+            
+            # Sarlavha qatorini topish (3-qator)
+            header_row = 3
+            headers = []
+            for col in range(1, ws.max_column + 1):
+                cell_value = ws.cell(row=header_row, column=col).value
+                if cell_value:
+                    headers.append(str(cell_value).strip())
+            
+            # Ma'lumotlarni o'qish
+            for row_num in range(header_row + 1, ws.max_row + 1):
+                try:
+                    row_data = {}
+                    for col_num, header in enumerate(headers, 1):
+                        cell_value = ws.cell(row=row_num, column=col_num).value
+                        row_data[header] = str(cell_value).strip() if cell_value else ''
+                    
+                    # Bo'sh qatorlarni o'tkazib yuborish
+                    if not row_data.get("To'liq ism") and not row_data.get('Email'):
+                        continue
+                    
+                    full_name = row_data.get("To'liq ism", '').strip()
+                    email = row_data.get('Email', '').strip()
+                    
+                    if not full_name or not email:
+                        errors.append(f"Qator {row_num}: Ism yoki email kiritilmagan")
+                        continue
+                    
+                    # Foydalanuvchini topish yoki yaratish
+                    user = User.query.filter_by(email=email).first()
+                    
+                    if role == 'student':
+                        # Talaba uchun
+                        passport_number = row_data.get('Pasport raqami', '').strip()
+                        if not passport_number:
+                            errors.append(f"Qator {row_num}: Pasport raqami kiritilmagan")
+                            continue
+                        
+                        if user:
+                            # Yangilash
+                            user.full_name = full_name
+                            user.phone = row_data.get('Telefon', '').strip() or None
+                            user.student_id = row_data.get('Talaba ID', '').strip() or None
+                            user.passport_number = passport_number
+                            user.pinfl = row_data.get('JSHSHIR', '').strip() or None
+                            
+                            # Tug'ilgan sana
+                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
+                            if birth_date_str:
+                                try:
+                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                                except:
+                                    pass
+                            
+                            # Guruh
+                            group_name = row_data.get('Guruh', '').strip()
+                            if group_name:
+                                group = Group.query.filter_by(name=group_name).first()
+                                if group:
+                                    user.group_id = group.id
+                            
+                            user.set_password(passport_number)
+                            updated += 1
+                        else:
+                            # Yaratish
+                            user = User(
+                                email=email,
+                                full_name=full_name,
+                                role='student',
+                                phone=row_data.get('Telefon', '').strip() or None,
+                                student_id=row_data.get('Talaba ID', '').strip() or None,
+                                passport_number=passport_number,
+                                pinfl=row_data.get('JSHSHIR', '').strip() or None
+                            )
+                            
+                            # Tug'ilgan sana
+                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
+                            if birth_date_str:
+                                try:
+                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                                except:
+                                    pass
+                            
+                            # Guruh
+                            group_name = row_data.get('Guruh', '').strip()
+                            if group_name:
+                                group = Group.query.filter_by(name=group_name).first()
+                                if group:
+                                    user.group_id = group.id
+                            
+                            user.set_password(passport_number)
+                            db.session.add(user)
+                            db.session.flush()
+                            
+                            # Rol qo'shish
+                            user_role = UserRole(user_id=user.id, role='student')
+                            db.session.add(user_role)
+                            imported += 1
+                    else:
+                        # Xodim uchun
+                        passport_number = row_data.get('Pasport raqami', '').strip()
+                        if not passport_number:
+                            errors.append(f"Qator {row_num}: Pasport raqami kiritilmagan")
+                            continue
+                        
+                        if user:
+                            # Yangilash
+                            user.full_name = full_name
+                            user.phone = row_data.get('Telefon', '').strip() or None
+                            user.passport_number = passport_number
+                            user.pinfl = row_data.get('JSHSHIR', '').strip() or None
+                            user.department = row_data.get('Kafedra', '').strip() or None
+                            user.position = row_data.get('Lavozim', '').strip() or None
+                            
+                            # Tug'ilgan sana
+                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
+                            if birth_date_str:
+                                try:
+                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                                except:
+                                    pass
+                            
+                            # Fakultet (dekan uchun)
+                            if role == 'dean':
+                                faculty_name = row_data.get('Fakultet', '').strip()
+                                if faculty_name:
+                                    faculty = Faculty.query.filter_by(name=faculty_name).first()
+                                    if faculty:
+                                        user.faculty_id = faculty.id
+                            
+                            user.set_password(passport_number)
+                            updated += 1
+                        else:
+                            # Yaratish
+                            user = User(
+                                email=email,
+                                full_name=full_name,
+                                role=role,
+                                phone=row_data.get('Telefon', '').strip() or None,
+                                passport_number=passport_number,
+                                pinfl=row_data.get('JSHSHIR', '').strip() or None,
+                                department=row_data.get('Kafedra', '').strip() or None,
+                                position=row_data.get('Lavozim', '').strip() or None
+                            )
+                            
+                            # Tug'ilgan sana
+                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
+                            if birth_date_str:
+                                try:
+                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                                except:
+                                    pass
+                            
+                            # Fakultet (dekan uchun)
+                            if role == 'dean':
+                                faculty_name = row_data.get('Fakultet', '').strip()
+                                if faculty_name:
+                                    faculty = Faculty.query.filter_by(name=faculty_name).first()
+                                    if faculty:
+                                        user.faculty_id = faculty.id
+                            
+                            user.set_password(passport_number)
+                            db.session.add(user)
+                            db.session.flush()
+                            
+                            # Rol qo'shish
+                            user_role = UserRole(user_id=user.id, role=role)
+                            db.session.add(user_role)
+                            imported += 1
+                    
+                except Exception as e:
+                    errors.append(f"Qator {row_num}: Xatolik - {str(e)}")
+        
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'imported': imported,
+            'updated': updated,
+            'errors': errors
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'imported': 0,
+            'updated': 0,
+            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
+        }
