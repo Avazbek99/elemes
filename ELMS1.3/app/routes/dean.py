@@ -95,31 +95,46 @@ def create_group():
     # GET parametrlar orqali kelgan default yo'nalish
     default_direction_id = request.args.get('direction_id', type=int)
     
-    directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+    # Faqat shu fakultetdagi yo'nalishlar
+    directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.course_year, Direction.semester, Direction.name).all()
     
     if request.method == 'POST':
-        name = request.form.get('name').upper()
+        name = request.form.get('name')
         direction_id = request.form.get('direction_id', type=int)
+        
+        # Validatsiya
+        if not name:
+            flash("Guruh nomi majburiy", 'error')
+            return render_template('dean/create_group.html', faculty=faculty, directions=directions, default_direction_id=direction_id)
+        
+        if not direction_id:
+            flash("Yo'nalish tanlash majburiy", 'error')
+            return render_template('dean/create_group.html', faculty=faculty, directions=directions, default_direction_id=direction_id)
+        
+        # Yo'nalish tekshiruvi - faqat shu fakultetga tegishli bo'lishi kerak
+        direction = Direction.query.get(direction_id)
+        if not direction or direction.faculty_id != faculty.id:
+            flash("Noto'g'ri yo'nalish tanlandi", 'error')
+            return render_template('dean/create_group.html', faculty=faculty, directions=directions, default_direction_id=direction_id)
         
         if Group.query.filter_by(name=name, faculty_id=faculty.id).first():
             flash("Bu guruh nomi allaqachon mavjud", 'error')
             return render_template('dean/create_group.html', faculty=faculty, directions=directions, default_direction_id=direction_id)
         
+        # Yo'nalishdan kurs, semestr va ta'lim shaklini olish
         group = Group(
-            name=name,
+            name=name.upper(),
             faculty_id=faculty.id,
-            course_year=request.form.get('course_year', 1, type=int),
-            education_type=request.form.get('education_type', 'kunduzgi'),
-            direction_id=direction_id if direction_id else None
+            course_year=direction.course_year,
+            education_type=direction.education_type,  # Yo'nalishdan olinadi
+            direction_id=direction_id
         )
         db.session.add(group)
         db.session.commit()
         
         flash("Guruh muvaffaqiyatli yaratildi", 'success')
-        # Agar yo'nalish bo'lsa, yo'nalish detail sahifasiga qaytish
-        if direction_id:
-            return redirect(url_for('dean.direction_detail', id=direction_id))
-        return redirect(url_for('dean.groups'))
+        # Yo'nalish detail sahifasiga qaytish
+        return redirect(url_for('dean.direction_detail', id=direction_id))
     
     return render_template('dean/create_group.html', faculty=faculty, directions=directions, default_direction_id=default_direction_id)
 
@@ -137,9 +152,15 @@ def edit_group(id):
         return redirect(url_for('dean.groups'))
     
     if request.method == 'POST':
+        # Faqat guruh nomini o'zgartirish mumkin
         group.name = request.form.get('name').upper()
-        group.course_year = request.form.get('course_year', 1, type=int)
-        group.education_type = request.form.get('education_type')
+        
+        # Agar guruhga yo'nalish biriktirilgan bo'lsa, kurs va ta'lim shaklini yo'nalishdan olish
+        if group.direction_id:
+            direction = Direction.query.get(group.direction_id)
+            if direction:
+                group.course_year = direction.course_year
+                group.education_type = direction.education_type
         
         db.session.commit()
         flash("Guruh yangilandi", 'success')
@@ -291,35 +312,136 @@ def courses():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    # Fakultetdagi barcha guruhlarni kurs bo'yicha guruhlash
+    # Fakultetdagi barcha yo'nalishlarni olish va kurs va semestr bo'yicha tartiblash
+    all_directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(
+        Direction.course_year, 
+        Direction.semester, 
+        Direction.name
+    ).all()
+    
+    # Fakultetdagi barcha guruhlarni olish
     all_groups = faculty.groups.order_by(Group.course_year, Group.name).all()
     
-    # Kurslar bo'yicha guruhlash
+    # Kurslar bo'yicha guruhlash (yo'nalishlarning course_year bo'yicha)
     courses_dict = {}
-    for group in all_groups:
-        course_year = group.course_year
+    
+    # Barcha yo'nalishlarni kurs va semestr bo'yicha guruhlash
+    for direction in all_directions:
+        course_year = direction.course_year
+        semester = direction.semester
+        
+        # Kurs yaratish
         if course_year not in courses_dict:
             courses_dict[course_year] = {}
         
-        # Yo'nalish bo'yicha guruhlash
-        direction_id = group.direction_id if group.direction_id else None
-        direction_name = "Biriktirilmagan" if not direction_id else group.direction.name
+        # Semestr bo'yicha guruhlash (1-semestr, 2-semestr, ...)
+        if semester not in courses_dict[course_year]:
+            courses_dict[course_year][semester] = {}
         
-        if direction_id not in courses_dict[course_year]:
-            courses_dict[course_year][direction_id] = {
-                'direction': group.direction if group.direction_id else None,
-                'direction_name': direction_name,
-                'groups': []
+        # Bu yo'nalishga tegishli guruhlarni topish
+        direction_groups = [g for g in all_groups if g.direction_id == direction.id]
+        
+        # Yo'nalishni semestr ichiga qo'shish
+        direction_id = direction.id
+        if direction_id not in courses_dict[course_year][semester]:
+            courses_dict[course_year][semester][direction_id] = {
+                'direction': direction,
+                'direction_name': direction.name,
+                'groups': direction_groups
             }
+    
+    # Biriktirilmagan guruhlarni qo'shish
+    for group in all_groups:
+        if not group.direction_id:
+            course_year = group.course_year
+            if course_year not in courses_dict:
+                courses_dict[course_year] = {}
+            
+            # Biriktirilmagan guruhlar uchun 1-semestr bo'limiga qo'shish
+            if 1 not in courses_dict[course_year]:
+                courses_dict[course_year][1] = {}
+            
+            direction_id = None
+            if direction_id not in courses_dict[course_year][1]:
+                courses_dict[course_year][1][direction_id] = {
+                    'direction': None,
+                    'direction_name': "Biriktirilmagan",
+                    'groups': []
+                }
+            
+            courses_dict[course_year][1][direction_id]['groups'].append(group)
+    
+    # Har bir kurs uchun statistika hisoblash
+    for course_year, course_data in courses_dict.items():
+        # course_data endi semestrlar bo'yicha guruhlangan {1: {direction_id: {...}}, 2: {...}}
+        total_directions = 0
+        total_groups = 0
+        total_students = 0
         
-        courses_dict[course_year][direction_id]['groups'].append(group)
+        # Har bir semestr uchun statistika
+        for semester, semester_data in course_data.items():
+            # Har bir yo'nalish uchun statistika
+            for direction_id, direction_data in semester_data.items():
+                direction_data['students_count'] = User.query.filter(
+                    User.group_id.in_([g.id for g in direction_data['groups']]),
+                    User.role == 'student'
+                ).count() if direction_data['groups'] else 0
+                
+                if direction_data['direction']:
+                    # Fanlar yo'nalishga to'g'ridan-to'g'ri biriktirilmagan, fakultetga biriktirilgan
+                    # Shuning uchun faqat fakultetdagi fanlarni hisoblaymiz
+                    direction_data['subjects_count'] = Subject.query.filter_by(
+                        faculty_id=faculty.id
+                    ).count()
+                else:
+                    direction_data['subjects_count'] = 0
+                
+                total_directions += 1
+                total_groups += len(direction_data['groups'])
+                total_students += direction_data['students_count']
+        
+        course_data['total_directions'] = total_directions
+        course_data['total_groups'] = total_groups
+        course_data['total_students'] = total_students
     
     # Kurslarni tartiblash
     sorted_courses = sorted(courses_dict.items())
     
+    # Template uchun courses_dict'ni to'g'rilash
+    # courses_dict strukturasini template'ga moslashtirish
+    # course_data endi {semester: {direction_id: {...}}} formatida
+    # Template uchun {semester: {direction_id: {...}}} formatini {direction_id: {...}} formatiga o'zgartirish
+    formatted_courses_dict = {}
+    for course_year, course_data in dict(sorted_courses).items():
+        # Semestrlar bo'yicha guruhlangan yo'nalishlarni birlashtirish
+        # Avval 1-semestr, keyin 2-semestr va hokazo
+        all_directions = {}
+        
+        # Semestrlar ro'yxatini tartiblash (faqat int bo'lganlar)
+        semesters_list = sorted([s for s in course_data.keys() if isinstance(s, int)])
+        
+        # Semestrlar bo'yicha yo'nalishlarni birlashtirish
+        for semester in semesters_list:
+            for direction_id, direction_data in course_data[semester].items():
+                all_directions[direction_id] = direction_data
+        
+        # Semestrlar bo'yicha ajratilgan struktura (template uchun)
+        semesters_dict = {}
+        for semester in semesters_list:
+            semesters_dict[semester] = course_data[semester]
+        
+        formatted_courses_dict[course_year] = {
+            'directions': all_directions,  # Barcha semestrlar birlashtirilgan
+            'semesters': semesters_dict,  # Semestrlar bo'yicha ajratilgan (template uchun)
+            'semesters_list': semesters_list,  # Tartiblangan semestrlar ro'yxati
+            'total_directions': course_data.get('total_directions', len(all_directions)),
+            'total_groups': course_data.get('total_groups', 0),
+            'total_students': course_data.get('total_students', 0)
+        }
+    
     return render_template('dean/courses.html', 
                          faculty=faculty,
-                         courses_dict=dict(sorted_courses))
+                         courses_dict=formatted_courses_dict)
 
 
 # ==================== O'QITUVCHI-FAN BIRIKTIRISH ====================
@@ -536,58 +658,103 @@ def download_sample_import():
 @login_required
 @dean_required
 def create_student():
-    """Dekan uchun talaba yaratish"""
+    """Dekan uchun talaba yaratish (admin versiyasiga o'xshash)"""
+    from datetime import datetime
+    
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    # Faqat o'z fakultetidagi guruhlar
+    # Faqat o'z fakultetidagi yo'nalishlar va guruhlar
+    directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
     groups = faculty.groups.order_by(Group.name).all()
     
     if request.method == 'POST':
         email = request.form.get('email')
         full_name = request.form.get('full_name')
-        password = request.form.get('password')
+        passport_number = request.form.get('passport_number')
+        phone = request.form.get('phone')
         student_id = request.form.get('student_id')
+        direction_id = request.form.get('direction_id', type=int)
         group_id = request.form.get('group_id', type=int)
         enrollment_year = request.form.get('enrollment_year', type=int)
-        phone = request.form.get('phone')
+        pinfl = request.form.get('pinfl')
+        birth_date = request.form.get('birth_date')
+        specialty = request.form.get('specialty')
+        specialty_code = request.form.get('specialty_code')
+        education_type = request.form.get('education_type')
         
-        # Email tekshiruvi
-        if User.query.filter_by(email=email).first():
+        # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
+        if email and User.query.filter_by(email=email).first():
             flash("Bu email allaqachon mavjud", 'error')
-            return render_template('dean/create_student.html', faculty=faculty, groups=groups)
+            return render_template('dean/create_student.html', 
+                                 directions=directions, groups=groups, faculty=faculty)
         
-        # Talaba ID tekshiruvi
-        if student_id and User.query.filter_by(student_id=student_id).first():
+        # Talaba ID majburiy (talabalar uchun)
+        if not student_id:
+            flash("Talaba ID majburiy maydon", 'error')
+            return render_template('dean/create_student.html', 
+                                 directions=directions, groups=groups, faculty=faculty)
+        
+        if User.query.filter_by(student_id=student_id).first():
             flash("Bu talaba ID allaqachon mavjud", 'error')
-            return render_template('dean/create_student.html', faculty=faculty, groups=groups)
+            return render_template('dean/create_student.html', 
+                                 directions=directions, groups=groups, faculty=faculty)
+        
+        if not passport_number:
+            flash("Pasport seriyasi va raqami majburiy", 'error')
+            return render_template('dean/create_student.html', 
+                                 directions=directions, groups=groups, faculty=faculty)
+        
+        # Pasport raqamini katta harfga o'zgartirish
+        passport_number = passport_number.upper()
+        
+        # Tug'ilgan sanani parse qilish (yyyy-mm-dd)
+        parsed_birth_date = None
+        if birth_date:
+            try:
+                parsed_birth_date = datetime.strptime(birth_date, '%Y-%m-%d').date()
+            except ValueError:
+                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                return render_template('dean/create_student.html', 
+                                     directions=directions, groups=groups, faculty=faculty)
         
         # Guruh tekshiruvi - faqat o'z fakultetidagi guruhlarga
         if group_id:
             group = Group.query.get(group_id)
             if not group or group.faculty_id != faculty.id:
                 flash("Noto'g'ri guruh tanlandi", 'error')
-                return render_template('dean/create_student.html', faculty=faculty, groups=groups)
+                return render_template('dean/create_student.html', 
+                                     directions=directions, groups=groups, faculty=faculty)
         
-        user = User(
-            email=email,
+        student = User(
+            email=email if email else None,  # Email ixtiyoriy
             full_name=full_name,
             role='student',
+            phone=phone,
             student_id=student_id,
             group_id=group_id,
             enrollment_year=enrollment_year,
-            phone=phone
+            passport_number=passport_number,
+            pinfl=pinfl,
+            birth_date=parsed_birth_date,
+            specialty=specialty,
+            specialty_code=specialty_code,
+            education_type=education_type
         )
-        user.set_password(password)
-        db.session.add(user)
+        
+        # Parolni pasport raqamiga o'rnatish
+        student.set_password(passport_number)
+        
+        db.session.add(student)
         db.session.commit()
         
-        flash(f"Talaba {user.full_name} muvaffaqiyatli yaratildi", 'success')
+        flash(f"{student.full_name} muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('dean.students'))
     
-    return render_template('dean/create_student.html', faculty=faculty, groups=groups)
+    return render_template('dean/create_student.html', 
+                         directions=directions, groups=groups, faculty=faculty)
 
 
 @bp.route('/students/<int:id>/edit', methods=['GET', 'POST'])
@@ -758,25 +925,8 @@ def teachers():
 @login_required
 @dean_required
 def directions():
-    faculty = Faculty.query.get(current_user.faculty_id)
-    if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
-        return redirect(url_for('main.dashboard'))
-    
-    directions_list = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
-    # Faqat biriktirilmagan guruhlar (yo'nalishlarga qo'shish uchun)
-    unassigned_groups = Group.query.filter_by(faculty_id=faculty.id, direction_id=None).order_by(Group.name).all()
-    
-    # Har bir yo'nalish uchun biriktirilgan guruhlar
-    direction_groups = {}
-    for direction in directions_list:
-        direction_groups[direction.id] = Group.query.filter_by(direction_id=direction.id).all()
-    
-    return render_template('dean/directions.html',
-                         faculty=faculty,
-                         directions=directions_list,
-                         unassigned_groups=unassigned_groups,
-                         direction_groups=direction_groups)
+    """Yo'nalishlar sahifasi - courses sahifasiga yo'naltiradi"""
+    return redirect(url_for('dean.courses'))
 
 
 @bp.route('/directions/import', methods=['GET', 'POST'])
@@ -835,7 +985,7 @@ def import_directions():
     return render_template('dean/import_directions.html', faculty=faculty)
 
 
-@bp.route('/directions/create', methods=['POST'])
+@bp.route('/directions/create', methods=['GET', 'POST'])
 @login_required
 @dean_required
 def create_direction():
@@ -844,31 +994,62 @@ def create_direction():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    name = request.form.get('name')
-    code = request.form.get('code')
-    description = request.form.get('description', '')
+    if request.method == 'POST':
+        name = request.form.get('name')
+        code = request.form.get('code', '').upper()
+        description = request.form.get('description', '')
+        course_year = request.form.get('course_year', type=int)
+        semester = request.form.get('semester', type=int)
+        education_type = request.form.get('education_type', 'kunduzgi')
+        
+        # Validatsiya
+        if not name or not code:
+            flash("Yo'nalish nomi va kodi majburiy", 'error')
+            return render_template('dean/create_direction.html', faculty=faculty)
+        
+        if not course_year or course_year < 1 or course_year > 5:
+            flash("Kurs 1-5 oralig'ida bo'lishi kerak", 'error')
+            return render_template('dean/create_direction.html', faculty=faculty)
+        
+        if not semester or semester < 1 or semester > 10:
+            flash("Semestr 1-10 oralig'ida bo'lishi kerak", 'error')
+            return render_template('dean/create_direction.html', faculty=faculty)
+        
+        # Ta'lim shakli validatsiyasi
+        valid_education_types = ['kunduzgi', 'sirtqi', 'masofaviy', 'kechki']
+        if education_type not in valid_education_types:
+            flash("Noto'g'ri ta'lim shakli tanlandi", 'error')
+            return render_template('dean/create_direction.html', faculty=faculty)
+        
+        # Kod takrorlanmasligini tekshirish (fakultet, kurs, semestr va ta'lim shakli bo'yicha)
+        existing = Direction.query.filter_by(
+            code=code,
+            faculty_id=faculty.id,
+            course_year=course_year,
+            semester=semester,
+            education_type=education_type
+        ).first()
+        
+        if existing:
+            flash("Bu kod, kurs, semestr va ta'lim shakli bilan yo'nalish allaqachon mavjud", 'error')
+            return render_template('dean/create_direction.html', faculty=faculty)
+        
+        direction = Direction(
+            name=name,
+            code=code,
+            description=description,
+            faculty_id=faculty.id,
+            course_year=course_year,
+            semester=semester,
+            education_type=education_type
+        )
+        db.session.add(direction)
+        db.session.commit()
+        
+        flash("Yo'nalish muvaffaqiyatli yaratildi", 'success')
+        return redirect(url_for('dean.courses'))
     
-    if not name or not code:
-        flash("Yo'nalish nomi va kodi to'ldirilishi shart", 'error')
-        return redirect(url_for('dean.directions'))
-    
-    # Kod takrorlanmasligini tekshirish
-    existing = Direction.query.filter_by(faculty_id=faculty.id, code=code).first()
-    if existing:
-        flash("Bu kod allaqachon mavjud", 'error')
-        return redirect(url_for('dean.directions'))
-    
-    direction = Direction(
-        name=name,
-        code=code,
-        description=description,
-        faculty_id=faculty.id
-    )
-    db.session.add(direction)
-    db.session.commit()
-    
-    flash("Yo'nalish muvaffaqiyatli yaratildi", 'success')
-    return redirect(url_for('dean.directions'))
+    return render_template('dean/create_direction.html', faculty=faculty)
 
 
 @bp.route('/directions/<int:id>')
@@ -946,31 +1127,54 @@ def edit_direction(id):
     
     if request.method == 'POST':
         name = request.form.get('name')
-        code = request.form.get('code')
+        code = request.form.get('code', '').upper()
         description = request.form.get('description', '')
+        course_year = request.form.get('course_year', type=int)
+        semester = request.form.get('semester', type=int)
+        education_type = request.form.get('education_type', 'kunduzgi')
         
         if not name or not code:
             flash("Yo'nalish nomi va kodi to'ldirilishi shart", 'error')
             return render_template('dean/edit_direction.html', direction=direction)
         
-        # Kod takrorlanmasligini tekshirish (o'z kodini hisobga olmasdan)
+        if not course_year or course_year < 1 or course_year > 5:
+            flash("Kurs 1-5 oralig'ida bo'lishi kerak", 'error')
+            return render_template('dean/edit_direction.html', direction=direction)
+        
+        if not semester or semester < 1 or semester > 10:
+            flash("Semestr 1-10 oralig'ida bo'lishi kerak", 'error')
+            return render_template('dean/edit_direction.html', direction=direction)
+        
+        # Ta'lim shakli validatsiyasi
+        valid_education_types = ['kunduzgi', 'sirtqi', 'masofaviy', 'kechki']
+        if education_type not in valid_education_types:
+            flash("Noto'g'ri ta'lim shakli tanlandi", 'error')
+            return render_template('dean/edit_direction.html', direction=direction)
+        
+        # Kod takrorlanmasligini tekshirish (o'z kodini, kurs, semestr va ta'lim shaklini hisobga olmasdan)
         existing = Direction.query.filter(
             Direction.faculty_id == current_user.faculty_id,
             Direction.code == code,
+            Direction.course_year == course_year,
+            Direction.semester == semester,
+            Direction.education_type == education_type,
             Direction.id != id
         ).first()
         if existing:
-            flash("Bu kod allaqachon mavjud", 'error')
+            flash("Bu kod, kurs, semestr va ta'lim shakli bilan yo'nalish allaqachon mavjud", 'error')
             return render_template('dean/edit_direction.html', direction=direction)
         
         direction.name = name
         direction.code = code
         direction.description = description
+        direction.course_year = course_year
+        direction.semester = semester
+        direction.education_type = education_type
         
         db.session.commit()
         
         flash("Yo'nalish yangilandi", 'success')
-        return redirect(url_for('dean.directions'))
+        return redirect(url_for('dean.courses'))
     
     return render_template('dean/edit_direction.html', direction=direction)
 
@@ -984,16 +1188,26 @@ def delete_direction(id):
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
         flash("Sizda bu amal uchun ruxsat yo'q", 'error')
-        return redirect(url_for('dean.directions'))
+        return redirect(url_for('dean.courses'))
     
-    # Biriktirilgan guruhlardan yo'nalishni olib tashlash
-    Group.query.filter_by(direction_id=direction.id).update({'direction_id': None})
+    # Guruhlar borligini tekshirish
+    groups = direction.groups.all()
+    if groups:
+        # Har bir guruhda talabalar borligini tekshirish
+        total_students = 0
+        for group in groups:
+            total_students += group.students.count()
+        
+        if total_students > 0:
+            flash(f"Yo'nalishda {len(groups)} ta guruh va {total_students} ta talaba mavjud. O'chirish mumkin emas", 'error')
+        else:
+            flash(f"Yo'nalishda {len(groups)} ta guruh mavjud. Avval guruhlarni o'chiring yoki boshqa yo'nalishga o'tkazing", 'error')
+    else:
+        db.session.delete(direction)
+        db.session.commit()
+        flash("Yo'nalish o'chirildi", 'success')
     
-    db.session.delete(direction)
-    db.session.commit()
-    
-    flash("Yo'nalish o'chirildi", 'success')
-    return redirect(url_for('dean.directions'))
+    return redirect(url_for('dean.courses'))
 
 
 # ==================== DARS JADVALI ====================

@@ -19,26 +19,36 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Guruh nomi *</label>
                 <input type="text" name="name" required value="{{ group.name }}"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase">
             </div>
-            
+
+            {% if group.direction %}
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Kurs *</label>
-                <select name="course_year" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    {% for i in range(1, 5) %}
-                    <option value="{{ i }}" {% if group.course_year == i %}selected{% endif %}>{{ i }}-kurs</option>
-                    {% endfor %}
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Yo'nalish</label>
+                <input type="text" value="{{ group.direction.code }} - {{ group.direction.name }}" disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                <p class="text-xs text-gray-500 mt-1">Yo'nalish o'zgartirib bo'lmaydi</p>
             </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim shakli *</label>
-                <select name="education_type" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <option value="kunduzgi" {% if group.education_type == 'kunduzgi' %}selected{% endif %}>Kunduzgi</option>
-                    <option value="sirtqi" {% if group.education_type == 'sirtqi' %}selected{% endif %}>Sirtqi</option>
-                    <option value="kechki" {% if group.education_type == 'kechki' %}selected{% endif %}>Kechki</option>
-                </select>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Kurs</label>
+                    <input type="text" value="{{ group.direction.course_year }}-kurs" disabled
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                    <p class="text-xs text-gray-500 mt-1">Yo'nalishdan olinadi</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim shakli</label>
+                    <input type="text" value="{% if group.direction.education_type == 'kunduzgi' %}Kunduzgi{% elif group.direction.education_type == 'sirtqi' %}Sirtqi{% elif group.direction.education_type == 'masofaviy' %}Masofaviy{% elif group.direction.education_type == 'kechki' %}Kechki{% endif %}" disabled
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                    <p class="text-xs text-gray-500 mt-1">Yo'nalishdan olinadi</p>
+                </div>
             </div>
+            {% else %}
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p class="text-sm text-yellow-800">Bu guruhga yo'nalish biriktirilmagan. Guruh nomini o'zgartirish mumkin.</p>
+            </div>
+            {% endif %}
             
             <div class="pt-4 border-t border-gray-100 flex gap-3">
                 <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
@@ -52,53 +62,8 @@
     </div>
 </div>
 
-<script>
-// Fakultet → Kurs → Yo'nalish dinamik yuklash (edit uchun)
-const facultyId = document.getElementById('facultyId').value;
-const editCourseSelect = document.getElementById('editGroupCourseSelect');
-const editDirectionSelect = document.getElementById('editGroupDirectionSelect');
-
-const currentCourseYear = {{ group.course_year }};
-const currentDirectionId = {{ current_direction_id if current_direction_id else 'null' }};
-
-// Sahifa yuklanganda mavjud ma'lumotlarni yuklash
-if (currentCourseYear) {
-    loadEditDirections(facultyId, currentCourseYear, currentDirectionId);
-}
-
-// Kurs o'zgarganda
-if (editCourseSelect) {
-    editCourseSelect.addEventListener('change', function() {
-        const courseYear = this.value;
-        editDirectionSelect.innerHTML = '<option value="">Avval kursni tanlang</option>';
-        if (courseYear) {
-            loadEditDirections(facultyId, courseYear);
-        }
-    });
-}
-
-function loadEditDirections(facultyId, courseYear, selectedDirectionId = null) {
-    fetch(`/dean/api/directions?faculty_id=${facultyId}&course_year=${courseYear}`)
-        .then(response => response.json())
-        .then(data => {
-            editDirectionSelect.innerHTML = '<option value="">Yo\'nalishni tanlang...</option>';
-            data.directions.forEach(direction => {
-                const option = document.createElement('option');
-                option.value = direction.id;
-                option.textContent = direction.name + ' (' + direction.code + ')';
-                if (selectedDirectionId && direction.id == selectedDirectionId) {
-                    option.selected = true;
-                }
-                editDirectionSelect.appendChild(option);
-            });
-        })
-        .catch(error => {
-            console.error('Error loading directions:', error);
-            editDirectionSelect.innerHTML = '<option value="">Xatolik yuz berdi</option>';
-        });
-}
-</script>
 {% endblock %}
+
 
 
 

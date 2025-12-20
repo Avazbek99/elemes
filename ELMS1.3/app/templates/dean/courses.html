@@ -10,6 +10,22 @@
             <h1 class="text-2xl font-bold text-gray-900">Kurslar</h1>
             <p class="text-gray-500">{{ faculty.name }}</p>
         </div>
+        <div class="flex gap-3">
+            <a href="{{ url_for('dean.create_direction') }}" 
+               class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Yo'nalish yaratish
+            </a>
+            <a href="{{ url_for('dean.create_group') }}" 
+               class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Guruh yaratish
+            </a>
+        </div>
     </div>
     
     <!-- Kurslar ro'yxati (List view) -->
@@ -59,18 +75,22 @@
                     <!-- Kurs ichidagi yo'nalishlar (yashirin) -->
                     <tr id="course-{{ course_year }}" class="hidden">
                         <td colspan="4" class="px-6 py-4 bg-gray-50">
-                            <div class="space-y-3">
-                                {% if course_data.directions %}
-                                    {% for direction_id, direction_data in course_data.directions.items() %}
-                                    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <div class="space-y-4">
+                                {% if course_data.semesters_list %}
+                                    {% for semester in course_data.semesters_list %}
+                                        <!-- Semestr bo'limi -->
+                                        <div class="mb-4">
+                                            <h4 class="text-sm font-semibold text-gray-700 mb-2 px-2">{{ semester }}-semestr</h4>
+                                            <div class="space-y-3">
+                                                {% for direction_id, direction_data in course_data.semesters[semester].items() %}
+                                                    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
                                         <!-- Yo'nalish header -->
-                                        <div class="px-4 py-3 hover:bg-gray-50 transition-colors">
+                                        <div class="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer" onclick="toggleDirectionGroups({{ course_year }}, {{ direction_id or 'null' }})">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex items-center gap-3 flex-1">
                                                     <h3 class="text-sm font-semibold text-gray-900">
                                                         {% if direction_data.direction %}
-                                                            {{ direction_data.direction.name }}
-                                                            <span class="text-xs font-normal text-gray-500">({{ direction_data.direction.code }})</span>
+                                                            {{ direction_data.direction.code }} - {{ direction_data.direction.name }}
                                                         {% else %}
                                                             <span class="text-gray-500">Biriktirilmagan guruhlar</span>
                                                         {% endif %}
@@ -141,42 +161,57 @@
                                         <!-- Yo'nalish ichidagi guruhlar (yashirin) -->
                                         <div id="direction-groups-{{ course_year }}-{{ direction_id or 'null' }}" class="hidden border-t border-gray-200 bg-gray-50">
                                             <div class="p-4">
+                                                <!-- Guruh yaratish tugmasi -->
+                                                {% if direction_data.direction %}
+                                                <div class="mb-4 flex justify-end">
+                                                    <a href="{{ url_for('dean.create_group', direction_id=direction_data.direction.id) }}" 
+                                                       class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                                        </svg>
+                                                        Guruh yaratish
+                                                    </a>
+                                                </div>
+                                                {% endif %}
+                                                
                                                 <!-- Guruhlar ro'yxati -->
                                                 {% if direction_data.groups %}
                                                 <div class="space-y-2">
                                                     {% for group in direction_data.groups %}
-                                                    <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                                                        <div class="flex items-center gap-4 flex-1">
-                                                            <div>
-                                                                <p class="font-medium text-gray-900 text-sm">{{ group.name }}</p>
-                                                                <p class="text-xs text-gray-500 mt-1">
-                                                                    {{ group.students.count() }} talaba
-                                                                </p>
+                                                    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                                        <div class="p-3 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.location.href='{{ url_for('dean.group_students', id=group.id) }}'">
+                                                            <div class="flex items-center gap-4 flex-1">
+                                                                <div>
+                                                                    <p class="font-medium text-gray-900 text-sm">{{ group.name }}</p>
+                                                                    <p class="text-xs text-gray-500 mt-1">
+                                                                        {{ group.students.count() }} talaba
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <div class="flex items-center gap-2">
-                                                            <a href="{{ url_for('dean.group_students', id=group.id) }}" 
-                                                               class="px-3 py-1 text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors">
-                                                                Talabalar
-                                                            </a>
-                                                            <a href="{{ url_for('dean.edit_group', id=group.id) }}" 
-                                                               class="p-2 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
-                                                               title="Tahrirlash">
-                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                                                </svg>
-                                                            </a>
-                                                            <form action="{{ url_for('dean.delete_group', id=group.id) }}" 
-                                                                  method="POST" 
-                                                                  class="inline" 
-                                                                  onsubmit="return confirm('Bu guruhni o\'chirmoqchimisiz?');">
-                                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                                <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="O'chirish">
+                                                            <div class="flex items-center gap-2" onclick="event.stopPropagation();">
+                                                                <a href="{{ url_for('dean.group_students', id=group.id) }}" 
+                                                                   class="px-3 py-1 text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors">
+                                                                    Batafsil
+                                                                </a>
+                                                                <a href="{{ url_for('dean.edit_group', id=group.id) }}" 
+                                                                   class="p-2 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" 
+                                                                   title="Tahrirlash">
                                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                                                     </svg>
-                                                                </button>
-                                                            </form>
+                                                                </a>
+                                                                <form action="{{ url_for('dean.delete_group', id=group.id) }}" 
+                                                                      method="POST" 
+                                                                      class="inline" 
+                                                                      onsubmit="return confirm('Bu guruhni o\'chirmoqchimisiz?');">
+                                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                                    <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="O'chirish">
+                                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                                        </svg>
+                                                                    </button>
+                                                                </form>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     {% endfor %}
@@ -188,7 +223,10 @@
                                                 {% endif %}
                                             </div>
                                         </div>
-                                    </div>
+                                                    </div>
+                                                    {% endfor %}
+                                            </div>
+                                        </div>
                                     {% endfor %}
                                 {% else %}
                                 <div class="text-center py-4 text-gray-500 text-sm">

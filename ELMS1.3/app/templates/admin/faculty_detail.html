@@ -110,8 +110,7 @@
                                                 <div class="flex items-center gap-3 flex-1">
                                                     <h3 class="text-sm font-semibold text-gray-900">
                                                         {% if direction_data.direction %}
-                                                            {{ direction_data.direction.name }}
-                                                            <span class="text-xs font-normal text-gray-500">({{ direction_data.direction.code }})</span>
+                                                            {{ direction_data.direction.code }} - {{ direction_data.direction.name }}
                                                         {% else %}
                                                             <span class="text-gray-500">Biriktirilmagan guruhlar</span>
                                                         {% endif %}
@@ -182,24 +181,11 @@
                                         <!-- Yo'nalish ichidagi guruhlar (yashirin) -->
                                         <div id="direction-groups-{{ course_year }}-{{ direction_id or 'null' }}" class="hidden border-t border-gray-200 bg-gray-50">
                                             <div class="p-4">
-                                                <!-- Guruh yaratish tugmasi -->
-                                                {% if direction_data.direction %}
-                                                <div class="mb-4 flex justify-end">
-                                                    <a href="{{ url_for('admin.create_group', faculty_id=faculty.id, course_year=course_year, direction_id=direction_data.direction.id, from_faculty=1) }}" 
-                                                       class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                                                        </svg>
-                                                        Guruh yaratish
-                                                    </a>
-                                                </div>
-                                                {% endif %}
-                                                
                                                 <!-- Guruhlar ro'yxati -->
                                                 {% if direction_data.groups %}
                                                 <div class="space-y-2">
                                                     {% for group in direction_data.groups %}
-                                                    <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                                    <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.location.href='{{ url_for('admin.group_students', id=group.id) }}'">
                                                         <div class="flex items-center gap-4 flex-1">
                                                             <div>
                                                                 <p class="font-medium text-gray-900 text-sm">{{ group.name }}</p>
@@ -208,7 +194,7 @@
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        <div class="flex items-center gap-2">
+                                                        <div class="flex items-center gap-2" onclick="event.stopPropagation();">
                                                             <a href="{{ url_for('admin.group_students', id=group.id) }}" 
                                                                class="px-3 py-1 text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors">
                                                                 Talabalar

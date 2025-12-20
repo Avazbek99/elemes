@@ -27,9 +27,12 @@ class Direction(db.Model):
     """Akademik yo'nalish modeli"""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)  # Dasturiy injiniring
-    code = db.Column(db.String(20), nullable=False)  # DI
+    code = db.Column(db.String(20), nullable=False)  # DI (15 tagacha belgi)
     description = db.Column(db.Text)
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    course_year = db.Column(db.Integer, nullable=False)  # 1, 2, 3, 4, 5-kurs
+    semester = db.Column(db.Integer, nullable=False)  # 1-10 semestr
+    education_type = db.Column(db.String(20), nullable=False, default='kunduzgi')  # kunduzgi, sirtqi, masofaviy, kechki
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships

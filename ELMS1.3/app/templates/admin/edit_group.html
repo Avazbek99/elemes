@@ -20,53 +20,38 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Guruh nomi</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Guruh nomi *</label>
                 <input type="text" name="name" value="{{ group.name }}" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase">
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet</label>
-                <select name="faculty_id" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    {% for faculty in faculties %}
-                    <option value="{{ faculty.id }}" {% if group.faculty_id==faculty.id %}selected{% endif %}>{{
-                        faculty.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
+            {% if group.direction %}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Yo'nalish</label>
-                <select name="direction_id"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <option value="">Tanlang...</option>
-                    {% for direction in directions %}
-                    <option value="{{ direction.id }}" {% if group.direction_id==direction.id %}selected{% endif %}>{{
-                        direction.name }}</option>
-                    {% endfor %}
-                </select>
+                <input type="text" value="{{ group.direction.code }} - {{ group.direction.name }}" disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                <p class="text-xs text-gray-500 mt-1">Yo'nalish o'zgartirib bo'lmaydi</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Kurs</label>
-                    <input type="number" name="course_year" min="1" max="4" value="{{ group.course_year }}" required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <input type="text" value="{{ group.direction.course_year }}-kurs" disabled
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                    <p class="text-xs text-gray-500 mt-1">Yo'nalishdan olinadi</p>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim turi</label>
-                    <select name="education_type"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <option value="kunduzgi" {% if group.education_type=='kunduzgi' %}selected{% endif %}>Kunduzgi
-                        </option>
-                        <option value="sirtqi" {% if group.education_type=='sirtqi' %}selected{% endif %}>Sirtqi
-                        </option>
-                        <option value="kechki" {% if group.education_type=='kechki' %}selected{% endif %}>Kechki
-                        </option>
-                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim shakli</label>
+                    <input type="text" value="{% if group.direction.education_type == 'kunduzgi' %}Kunduzgi{% elif group.direction.education_type == 'sirtqi' %}Sirtqi{% elif group.direction.education_type == 'masofaviy' %}Masofaviy{% elif group.direction.education_type == 'kechki' %}Kechki{% endif %}" disabled
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                    <p class="text-xs text-gray-500 mt-1">Yo'nalishdan olinadi</p>
                 </div>
             </div>
+            {% else %}
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p class="text-sm text-yellow-800">Bu guruhga yo'nalish biriktirilmagan. Guruh nomini o'zgartirish mumkin.</p>
+            </div>
+            {% endif %}
 
             <div class="pt-4 border-t border-gray-100 flex gap-3">
                 <button type="submit"
@@ -81,4 +66,6 @@
         </form>
     </div>
 </div>
+
+{% endblock %}
 {% endblock %}
