@@ -322,7 +322,7 @@ def reset_user_password(id):
     
     user.set_password(new_password)
     db.session.commit()
-    flash("Parol boshlang'ich holatga qaytarildi", 'success')
+    flash(f"{user.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
     
     # Qaysi sahifadan kelganini aniqlash
     referer = request.referrer or url_for('admin.users')
@@ -1918,11 +1918,16 @@ def reset_student_password(id):
         return redirect(url_for('admin.students'))
     
     if not student.passport_number:
-        flash("Bu talabada pasport raqami mavjud emas", 'error')
-    else:
-        student.set_password(student.passport_number)
+        # Pasport raqami yo'q bo'lsa, default parol
+        new_password = 'student123'
+        student.set_password(new_password)
         db.session.commit()
-        flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi", 'success')
+        flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
+    else:
+        new_password = student.passport_number
+        student.set_password(new_password)
+        db.session.commit()
+        flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
     return redirect(url_for('admin.students'))
 
 @bp.route('/schedule')

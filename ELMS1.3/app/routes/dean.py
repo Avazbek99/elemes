@@ -692,9 +692,10 @@ def reset_student_password(id):
         flash("Sizda bu amal uchun huquq yo'q", 'error')
         return redirect(url_for('dean.students'))
     
-    student.set_password('student123')
+    new_password = 'student123'
+    student.set_password(new_password)
     db.session.commit()
-    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi (student123)", 'success')
+    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
     return redirect(url_for('dean.students'))
 
 

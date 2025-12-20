@@ -23,13 +23,23 @@ def switch_role(role):
     # Foydalanuvchining mavjud rollarini tekshirish
     user_roles = current_user.get_roles()
     
+    # Rol nomlarini o'zbek tilida
+    role_names = {
+        'admin': 'Administrator',
+        'dean': 'Dekan',
+        'teacher': "O'qituvchi",
+        'student': 'Talaba',
+        'accounting': 'Buxgalter'
+    }
+    
     if role in user_roles:
         session['current_role'] = role
-        flash(f"Rol {role} ga o'zgartirildi", 'success')
+        role_name = role_names.get(role, role)
+        flash(f"Profil {role_name} roliga o'zgartirildi. Endi siz {role_name} sifatida ishlayapsiz.", 'success')
+        return redirect(url_for('main.dashboard'))
     else:
         flash("Sizda bu rolga kirish huquqi yo'q", 'error')
-    
-    return redirect(request.referrer or url_for('main.dashboard'))
+        return redirect(url_for('main.dashboard'))
 
 @bp.route('/')
 def index():
@@ -153,6 +163,7 @@ def dashboard():
 def announcements():
     """E'lonlar sahifasi"""
     user = current_user
+    page = request.args.get('page', 1, type=int)
     
     # Foydalanuvchi roliga qarab e'lonlarni filtrlash
     query = Announcement.query
@@ -174,9 +185,104 @@ def announcements():
                 (Announcement.faculty_id == user.faculty_id) | (Announcement.faculty_id == None)
             )
     
-    announcements = query.order_by(Announcement.created_at.desc()).all()
+    announcements = query.order_by(Announcement.created_at.desc()).paginate(
+        page=page,
+        per_page=10,
+        error_out=False
+    )
     
     return render_template('announcements.html', announcements=announcements)
+
+@bp.route('/announcements/create', methods=['GET', 'POST'])
+@login_required
+def create_announcement():
+    """Yangi e'lon yaratish"""
+    if not current_user.has_permission('create_announcement'):
+        flash("Sizda e'lon yaratish huquqi yo'q", 'error')
+        return redirect(url_for('main.announcements'))
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        target_roles = request.form.getlist('target_roles')
+        is_important = request.form.get('is_important') == 'on'
+        
+        if not title or not content:
+            flash("Sarlavha va matn majburiy", 'error')
+            return render_template('create_announcement.html')
+        
+        # Target roles ni string sifatida saqlash
+        target_roles_str = ','.join(target_roles) if target_roles else None
+        
+        announcement = Announcement(
+            title=title,
+            content=content,
+            target_roles=target_roles_str,
+            is_important=is_important,
+            author_id=current_user.id,
+            faculty_id=current_user.faculty_id if current_user.role == 'dean' else None
+        )
+        
+        db.session.add(announcement)
+        db.session.commit()
+        
+        flash("E'lon muvaffaqiyatli yaratildi", 'success')
+        return redirect(url_for('main.announcements'))
+    
+    return render_template('create_announcement.html')
+
+@bp.route('/announcements/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_announcement(id):
+    """E'lonni tahrirlash"""
+    announcement = Announcement.query.get_or_404(id)
+    
+    # Ruxsat tekshiruvi
+    if current_user.role != 'admin' and announcement.author_id != current_user.id:
+        flash("Sizda bu e'lonni tahrirlash huquqi yo'q", 'error')
+        return redirect(url_for('main.announcements'))
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        target_roles = request.form.getlist('target_roles')
+        is_important = request.form.get('is_important') == 'on'
+        
+        if not title or not content:
+            flash("Sarlavha va matn majburiy", 'error')
+            return render_template('edit_announcement.html', announcement=announcement)
+        
+        # Target roles ni string sifatida saqlash
+        target_roles_str = ','.join(target_roles) if target_roles else None
+        
+        announcement.title = title
+        announcement.content = content
+        announcement.target_roles = target_roles_str
+        announcement.is_important = is_important
+        
+        db.session.commit()
+        
+        flash("E'lon muvaffaqiyatli yangilandi", 'success')
+        return redirect(url_for('main.announcements'))
+    
+    return render_template('edit_announcement.html', announcement=announcement)
+
+@bp.route('/announcements/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_announcement(id):
+    """E'lonni o'chirish"""
+    announcement = Announcement.query.get_or_404(id)
+    
+    # Ruxsat tekshiruvi
+    if current_user.role != 'admin' and announcement.author_id != current_user.id:
+        flash("Sizda bu e'lonni o'chirish huquqi yo'q", 'error')
+        return redirect(url_for('main.announcements'))
+    
+    db.session.delete(announcement)
+    db.session.commit()
+    
+    flash("E'lon o'chirildi", 'success')
+    return redirect(url_for('main.announcements'))
 
 @bp.route('/messages')
 @login_required
@@ -224,3 +330,97 @@ def settings():
         return redirect(url_for('main.settings'))
     
     return render_template('settings.html')
+
+@bp.route('/schedule')
+@login_required
+def schedule():
+    """Dars jadvali sahifasi (talaba va o'qituvchilar uchun)"""
+    from datetime import datetime, timedelta
+    import calendar
+    
+    # Joriy sana
+    today = datetime.now()
+    today_year = today.year
+    today_month = today.month
+    today_day = today.day
+    
+    # URL parametrlaridan oy va yilni olish
+    year = request.args.get('year', today_year, type=int)
+    month = request.args.get('month', today_month, type=int)
+    
+    # Oy va yilni tekshirish
+    if month < 1:
+        month = 12
+        year -= 1
+    elif month > 12:
+        month = 1
+        year += 1
+    
+    # Oldingi va keyingi oylar
+    if month == 1:
+        prev_month = 12
+        prev_year = year - 1
+    else:
+        prev_month = month - 1
+        prev_year = year
+    
+    if month == 12:
+        next_month = 1
+        next_year = year + 1
+    else:
+        next_month = month + 1
+        next_year = year
+    
+    # Oyning birinchi kuni va kunlar soni
+    first_day = datetime(year, month, 1)
+    days_in_month = calendar.monthrange(year, month)[1]
+    start_weekday = first_day.weekday()  # 0 = Monday, 6 = Sunday
+    
+    # Jadvalni olish
+    user = current_user
+    query = Schedule.query
+    
+    if user.role == 'student':
+        # Talaba uchun - faqat o'z guruhidagi darslar
+        if user.group_id:
+            query = query.filter_by(group_id=user.group_id)
+        else:
+            query = query.filter_by(id=None)  # Guruh yo'q bo'lsa, hech narsa ko'rsatma
+    elif user.role == 'teacher':
+        # O'qituvchi uchun - o'z o'qitayotgan guruhlardagi darslar
+        teacher_groups = Group.query.join(TeacherSubject).filter(
+            TeacherSubject.teacher_id == user.id
+        ).all()
+        if teacher_groups:
+            group_ids = [g.id for g in teacher_groups]
+            query = query.filter(Schedule.group_id.in_(group_ids))
+        else:
+            query = query.filter_by(id=None)  # Guruhlar yo'q bo'lsa, hech narsa ko'rsatma
+    
+    # Barcha darslarni olish (day_of_week asosida)
+    schedules = query.all()
+    
+    # Kunlar bo'yicha guruhlash (oyning har bir kunida shu hafta kuniga to'g'ri keladigan darslar)
+    schedule_by_day = {}
+    for day in range(1, days_in_month + 1):
+        current_date = datetime(year, month, day)
+        weekday = current_date.weekday()  # 0 = Monday, 6 = Sunday
+        
+        # Bu kunda bo'ladigan darslar (day_of_week mos keladiganlar)
+        day_schedules = [s for s in schedules if s.day_of_week == weekday]
+        if day_schedules:
+            schedule_by_day[day] = day_schedules
+    
+    return render_template('schedule.html',
+                          year=year,
+                          month=month,
+                          today_year=today_year,
+                          today_month=today_month,
+                          today_day=today_day,
+                          prev_year=prev_year,
+                          prev_month=prev_month,
+                          next_year=next_year,
+                          next_month=next_month,
+                          days_in_month=days_in_month,
+                          start_weekday=start_weekday,
+                          schedule_by_day=schedule_by_day)
