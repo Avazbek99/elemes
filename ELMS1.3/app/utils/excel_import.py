@@ -30,7 +30,7 @@ def generate_sample_file():
         "To'liq ismi",            # B
         "Pasport raqami",         # C
         "JSHSHIR-kod",            # D
-        "Tug‘ilgan sana (YYYY-MM-DD)",  # E
+        "Tug'ilgan sana (YYYY-MM-DD)",  # E
         "Telefon",                # F
         "Ta'lim shakli",          # G
         "Shifr (mutaxassislik kodi)",  # H
@@ -55,25 +55,25 @@ def generate_sample_file():
             bottom=Side(style='thin')
         )
 
-    # 1–2 ta namunaviy qator
-    sample_rows = [
-        ["STU0001", "Aliyev Anvar Anvar o'g'li", "AB1234567", "12345678901234", "2003-05-12",
-         "+998 90 123 45 67", "kunduzgi", "5330200", "Dasturiy injiniring", 1, "DI-21", "Informatika fakulteti",
-         "anvar.aliyev@example.com"],
-        ["STU0002", "Karimova Dilnoza Sobir qizi", "AA7654321", "43210987654321", "2004-09-01",
-         "+998 90 765 43 21", "sirtqi", "5330200", "Dasturiy injiniring", 2, "DI-22", "Informatika fakulteti",
-         "dilnoza.karimova@example.com"],
+    # Namuna ma'lumotlar
+    sample_data = [
+        ["ST2024001", "Aliyev Vali", "AB1234567", "30202020200021", "2000-01-15", "+998901234567", "kunduzgi", "5230100", "Dasturiy injiniring", "1", "DI-21", "IT", "vali@example.com"],
+        ["ST2024002", "Karimova Zuhra", "AC2345678", "30202020200022", "2001-03-20", "+998901234568", "kunduzgi", "5230100", "Dasturiy injiniring", "1", "DI-21", "IT", "zuhra@example.com"]
     ]
 
-    for row_idx, row_values in enumerate(sample_rows, start=header_row + 1):
-        for col_num, value in enumerate(row_values, 1):
-            cell = ws.cell(row=row_idx, column=col_num)
+    for row_num, row_data in enumerate(sample_data, start=header_row + 1):
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num)
             cell.value = value
-            cell.alignment = Alignment(horizontal='left', vertical='center')
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
 
-    # Ustun kengliklari
-    column_widths = [15, 30, 16, 16, 18, 16, 14, 18, 24, 12, 14, 22, 28]
-    from openpyxl.utils import get_column_letter
+    # Ustun kengliklarini sozlash
+    column_widths = [15, 25, 18, 18, 20, 16, 15, 25, 25, 12, 12, 15, 25]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
 
@@ -83,522 +83,337 @@ def generate_sample_file():
     return output
 
 
-def import_students_from_excel(file, faculty_id=None):
-    """Excel fayldan talabalar ro'yxatini import qilish"""
+def generate_staff_sample_file():
+    """Xodimlarni import qilish uchun namuna Excel fayl (bitta sheet'da)"""
     try:
-        from openpyxl import load_workbook
-    except ImportError:
-        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
-    
-    from app.models import User, Group
-    from app import db
-    
-    try:
-        # Excel faylni o'qish
-        wb = load_workbook(filename=io.BytesIO(file.read()))
-        ws = wb.active
-        
-        imported_count = 0
-        errors = []
-        
-        # Sarlavha qatorini topish (3-qator yoki 1-qator)
-        header_row = None
-        for row_idx in range(1, min(5, ws.max_row + 1)):
-            row_values = [str(cell.value).strip() if cell.value else '' for cell in ws[row_idx]]
-            # Sarlavhalarni tekshirish
-            if any('ism' in val.lower() or 'name' in val.lower() for val in row_values):
-                header_row = row_idx
-                break
-        
-        if header_row is None:
-            header_row = 1  # Agar topilmasa, 1-qatordan boshlash
-        
-        # Ustunlar indekslarini topish
-        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[header_row]]
-        
-        # Ustunlar indekslarini aniqlash (A–M formatini ham qo'llab-quvvatlaydi)
-        col_indices = {}
-        for idx, header in enumerate(headers, 1):
-            header_lower = header.lower()
-            if ('id' in header_lower and 'talaba' in header_lower) or header_lower.startswith('talaba id'):
-                col_indices['student_id'] = idx
-            elif 'ism' in header_lower or 'name' in header_lower or 'to\'liq' in header_lower:
-                col_indices['full_name'] = idx
-            elif 'email' in header_lower:
-                col_indices['email'] = idx
-            elif 'telefon' in header_lower or 'phone' in header_lower:
-                col_indices['phone'] = idx
-            elif 'guruh' in header_lower or 'group' in header_lower:
-                col_indices['group'] = idx
-            elif 'qabul' in header_lower or 'enrollment' in header_lower or 'yil' in header_lower:
-                col_indices['enrollment_year'] = idx
-            elif 'pasport' in header_lower:
-                col_indices['passport'] = idx
-            elif 'jshshir' in header_lower or 'pinfl' in header_lower:
-                col_indices['pinfl'] = idx
-            elif 'tug' in header_lower and 'sana' in header_lower:
-                col_indices['birth_date'] = idx
-            elif 'ta\'lim' in header_lower or 'education' in header_lower:
-                col_indices['education_type'] = idx
-            elif 'shifr' in header_lower or 'mutaxassislik kodi' in header_lower or 'specialty code' in header_lower:
-                col_indices['specialty_code'] = idx
-            elif 'mutaxassislik' in header_lower or 'specialty' in header_lower:
-                col_indices['specialty'] = idx
-            elif 'kurs' in header_lower or 'course' in header_lower:
-                col_indices['course_year'] = idx
-            elif 'fakultet' in header_lower or 'faculty' in header_lower:
-                col_indices['faculty_name'] = idx
-        
-        # Ma'lumotlarni o'qish
-        for row_idx in range(header_row + 1, ws.max_row + 1):
-            row = ws[row_idx]
-            
-            # Bo'sh qatorni o'tkazib yuborish
-            if not any(cell.value for cell in row):
-                continue
-            
-            try:
-                # Ma'lumotlarni olish
-                full_name = str(row[col_indices.get('full_name', 1) - 1].value or '').strip()
-                email = str(row[col_indices.get('email', 1) - 1].value or '').strip()
-                
-                # Minimal tekshiruvlar
-                if not full_name or not email:
-                    continue
-                
-                if '@' not in email:
-                    errors.append(f"Qator {row_idx}: Noto'g'ri email format - {email}")
-                    continue
-                
-                # Email takrorlanmasligini tekshirish
-                if User.query.filter_by(email=email).first():
-                    errors.append(f"Qator {row_idx}: Email allaqachon mavjud - {email}")
-                    continue
-                
-                # Talaba ID
-                student_id = None
-                if 'student_id' in col_indices:
-                    student_id_val = row[col_indices['student_id'] - 1].value
-                    if student_id_val:
-                        student_id = str(student_id_val).strip()
-                        # Talaba ID takrorlanmasligini tekshirish
-                        if student_id and User.query.filter_by(student_id=student_id).first():
-                            errors.append(f"Qator {row_idx}: Talaba ID allaqachon mavjud - {student_id}")
-                            continue
-                
-                # Telefon
-                phone = None
-                if 'phone' in col_indices:
-                    phone_val = row[col_indices['phone'] - 1].value
-                    if phone_val:
-                        phone = str(phone_val).strip()
-                
-                # Guruh
-                group_id = None
-                if 'group' in col_indices:
-                    group_name = str(row[col_indices['group'] - 1].value or '').strip()
-                    if group_name:
-                        # Guruh nomini topish
-                        group = Group.query.filter_by(name=group_name.upper()).first()
-                        if group:
-                            # Fakultet tekshiruvi
-                            if faculty_id and group.faculty_id != faculty_id:
-                                errors.append(f"Qator {row_idx}: Guruh boshqa fakultetga tegishli - {group_name}")
-                                continue
-                            group_id = group.id
-                        else:
-                            errors.append(f"Qator {row_idx}: Guruh topilmadi - {group_name}")
-                            continue
-                
-                # Qabul yili / kurs
-                enrollment_year = None
-                if 'enrollment_year' in col_indices:
-                    year_val = row[col_indices['enrollment_year'] - 1].value
-                    if year_val:
-                        try:
-                            enrollment_year = int(year_val)
-                        except (ValueError, TypeError):
-                            pass
-                
-                # Qo'shimcha talaba ma'lumotlari (agar ustunlar bo'lsa)
-                extra_kwargs = {}
-                if 'passport' in col_indices:
-                    p_val = row[col_indices['passport'] - 1].value
-                    if p_val:
-                        extra_kwargs['passport_number'] = str(p_val).strip()
-                if 'pinfl' in col_indices:
-                    pin_val = row[col_indices['pinfl'] - 1].value
-                    if pin_val:
-                        extra_kwargs['pinfl'] = str(pin_val).strip()
-                if 'birth_date' in col_indices:
-                    b_val = row[col_indices['birth_date'] - 1].value
-                    if b_val:
-                        # Excel date obyekt bo'lishi yoki matn bo'lishi mumkin
-                        from datetime import datetime
-                        try:
-                            if hasattr(b_val, 'strftime'):
-                                extra_kwargs['birth_date'] = b_val
-                            else:
-                                extra_kwargs['birth_date'] = datetime.strptime(str(b_val), '%Y-%m-%d')
-                        except Exception:
-                            pass
-                if 'education_type' in col_indices:
-                    e_val = row[col_indices['education_type'] - 1].value
-                    if e_val:
-                        extra_kwargs['education_type'] = str(e_val).strip()
-                if 'specialty_code' in col_indices:
-                    sc_val = row[col_indices['specialty_code'] - 1].value
-                    if sc_val:
-                        extra_kwargs['specialty_code'] = str(sc_val).strip()
-                if 'specialty' in col_indices:
-                    s_val = row[col_indices['specialty'] - 1].value
-                    if s_val:
-                        extra_kwargs['specialty'] = str(s_val).strip()
-                
-                # Talaba yaratish
-                student = User(
-                    email=email,
-                    full_name=full_name,
-                    role='student',
-                    student_id=student_id,
-                    group_id=group_id,
-                    enrollment_year=enrollment_year,
-                    phone=phone,
-                    **extra_kwargs
-                )
-                
-                # Standart parol (foydalanuvchi keyinchalik o'zgartirishi mumkin)
-                student.set_password('student123')
-                
-                db.session.add(student)
-                imported_count += 1
-                
-            except Exception as e:
-                errors.append(f"Qator {row_idx}: Xatolik - {str(e)}")
-                continue
-        
-        # Ma'lumotlarni saqlash
-        db.session.commit()
-        
-        return {
-            'success': True,
-            'imported': imported_count,
-            'errors': errors
-        }
-        
-    except Exception as e:
-        return {
-            'success': False,
-            'imported': 0,
-            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
-        }
-
-
-def import_directions_from_excel(file, faculty_id):
-    """Excel fayldan yo'nalishlar va ularga tegishli guruhlarni import qilish"""
-    try:
-        from openpyxl import load_workbook
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
     except ImportError:
         raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
 
-    from app.models import Direction, Group, Faculty
-    from app import db
-
-    try:
-        # Excel faylni o'qish
-        wb = load_workbook(filename=io.BytesIO(file.read()))
-        ws = wb.active
-
-        imported_directions = 0
-        imported_groups = 0
-        errors = []
-
-        faculty = Faculty.query.get(faculty_id)
-        if not faculty:
-            return {
-                'success': False,
-                'imported_directions': 0,
-                'imported_groups': 0,
-                'errors': ["Fakultet topilmadi"]
-            }
-
-        # Sarlavha qatorini 1-qatordan olamiz
-        header_row = 1
-        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[header_row]]
-
-        # Ustun indekslarini aniqlash
-        col_indices = {}
-        for idx, header in enumerate(headers, 1):
-            h = header.lower()
-            if 'yo' in h and 'nalish' in h or 'direction' in h:
-                col_indices['direction_name'] = idx
-            elif 'kod' in h or 'code' in h:
-                col_indices['direction_code'] = idx
-            elif 'guruh' in h or 'group' in h:
-                col_indices['group_name'] = idx
-            elif 'kurs' in h or 'course' in h:
-                col_indices['course_year'] = idx
-            elif 'ta\'lim' in h or 'education' in h:
-                col_indices['education_type'] = idx
-
-        if 'direction_name' not in col_indices and 'direction_code' not in col_indices:
-            return {
-                'success': False,
-                'imported_directions': 0,
-                'imported_groups': 0,
-                'errors': ["Excel faylda yo'nalish nomi yoki kodi ustuni topilmadi"]
-            }
-
-        # Ma'lumotlarni o'qish
-        for row_idx in range(header_row + 1, ws.max_row + 1):
-            row = ws[row_idx]
-
-            # Bo'sh qatorni o'tkazib yuborish
-            if not any(cell.value for cell in row):
-                continue
-
-            try:
-                name = ''
-                code = ''
-
-                if 'direction_name' in col_indices:
-                    name = str(row[col_indices['direction_name'] - 1].value or '').strip()
-                if 'direction_code' in col_indices:
-                    code = str(row[col_indices['direction_code'] - 1].value or '').strip()
-
-                if not name and not code:
-                    continue
-
-                if not code:
-                    # Agar kod bo'lmasa, nomdan qisqa kod yasaymiz
-                    code = ''.join([word[0] for word in name.split()[:2]]).upper()
-
-                # Yo'nalishni topish yoki yaratish
-                direction = Direction.query.filter_by(faculty_id=faculty.id, code=code).first()
-                if not direction:
-                    direction = Direction(name=name or code, code=code, faculty_id=faculty.id)
-                    db.session.add(direction)
-                    db.session.flush()  # id olish uchun
-                    imported_directions += 1
-                else:
-                    # Nom bo'sh bo'lmasa, yangilash
-                    if name and direction.name != name:
-                        direction.name = name
-
-                # Guruh
-                if 'group_name' in col_indices:
-                    group_name = str(row[col_indices['group_name'] - 1].value or '').strip()
-                    if group_name:
-                        group_name_upper = group_name.upper()
-                        group = Group.query.filter_by(name=group_name_upper, faculty_id=faculty.id).first()
-                        if not group:
-                            # Kurs va ta'lim shakli
-                            course_year = 1
-                            education_type = 'kunduzgi'
-                            if 'course_year' in col_indices:
-                                year_val = row[col_indices['course_year'] - 1].value
-                                try:
-                                    course_year = int(year_val) if year_val else 1
-                                except (TypeError, ValueError):
-                                    course_year = 1
-                            if 'education_type' in col_indices:
-                                edu_val = str(row[col_indices['education_type'] - 1].value or '').strip().lower()
-                                if edu_val in ['kunduzgi', 'sirtqi', 'kechki']:
-                                    education_type = edu_val
-
-                            group = Group(
-                                name=group_name_upper,
-                                faculty_id=faculty.id,
-                                course_year=course_year,
-                                education_type=education_type,
-                                direction_id=direction.id
-                            )
-                            db.session.add(group)
-                            imported_groups += 1
-                        else:
-                            # Mavjud guruhni yo'nalishga biriktirish (agar hali biriktirilmagan bo'lsa)
-                            if group.direction_id is None:
-                                group.direction_id = direction.id
-
-            except Exception as e:
-                errors.append(f"Qator {row_idx}: Xatolik - {str(e)}")
-                continue
-
-        db.session.commit()
-
-        return {
-            'success': True,
-            'imported_directions': imported_directions,
-            'imported_groups': imported_groups,
-            'errors': errors
-        }
-
-    except Exception as e:
-        return {
-            'success': False,
-            'imported_directions': 0,
-            'imported_groups': 0,
-            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
-        }
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Xodimlar"
+    
+    # Sarlavha
+    title = "Xodimlar ro'yxati"
+    ws.merge_cells('A1:L1')
+    title_cell = ws['A1']
+    title_cell.value = title
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    
+    # Sana
+    from datetime import datetime
+    ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ws.merge_cells('A2:L2')
+    ws['A2'].font = Font(size=10, italic=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Jadval sarlavhalari
+    headers = ['№', "To'liq ism", 'Email', 'Telefon', 'Pasport raqami', 'JSHSHIR', 'Tug\'ilgan sana', 'Kafedra', 'Lavozim', 'Fakultet', 'Rollar', 'Holat']
+    header_row = 3
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+    
+    # Namuna ma'lumotlar
+    sample_data = [
+        [1, "Tursunqulov Avazbek", "admin@university.uz", "+998901234567", "AB1234567", "30202020200021", "06.02.1999", "IT", "Administrator", "IT fakulteti", "Administrator", "Faol"],
+        [2, "Karimov Sherzod", "dean.it@university.uz", "+998901234568", "AC2345678", "30202020200022", "15.05.1980", "IT", "Dekan", "IT fakulteti", "Dekan", "Faol"],
+        [3, "Mamatov Valijon", "valijon@university.uz", "+998901234569", "AD3456789", "30202020200023", "20.08.1985", "Dasturiy injiniring", "Dotsent", "IT fakulteti", "O'qituvchi", "Faol"],
+        [4, "Rahimova Aziza", "accounting@university.uz", "+998901234570", "AE4567890", "30202020200024", "10.12.1990", "Buxgalteriya", "Buxgalter", "", "Buxgalter", "Faol"],
+        [5, "Aliyev Vali", "vali@university.uz", "+998901234571", "AF5678901", "30202020200025", "25.03.1988", "IT", "Dekan", "IT fakulteti", "Dekan, O'qituvchi", "Faol"]
+    ]
+    
+    for row_num, row_data in enumerate(sample_data, start=header_row + 1):
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.value = value
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+    
+    # Ustun kengliklarini sozlash
+    column_widths = [5, 30, 25, 16, 18, 16, 14, 20, 15, 20, 30, 12]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
 
 
-def import_payments_from_excel(file):
-    """Excel fayldan to'lov ma'lumotlarini import qilish"""
+def import_students_from_excel(file):
+    """Excel fayldan talabalarni import qilish"""
     try:
         from openpyxl import load_workbook
-    except ImportError:
-        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
-    
-    from app.models import User, StudentPayment
-    from app import db
-    
-    def parse_amount(value):
-        """Summani raqamga aylantirish (bo'shliqlarni olib tashlash)"""
-        if value is None:
-            return 0
-        if isinstance(value, (int, float)):
-            return float(value)
-        # Matndan raqamni ajratish
-        value_str = str(value).replace(' ', '').replace(',', '')
-        try:
-            return float(value_str)
-        except (ValueError, TypeError):
-            return 0
-    
-    try:
-        # Excel faylni o'qish
-        wb = load_workbook(filename=io.BytesIO(file.read()))
-        ws = wb.active
-        
-        imported_count = 0
-        updated_count = 0
-        errors = []
-        
-        # Sarlavha qatorini topish
-        header_row = None
-        for row_idx in range(1, min(5, ws.max_row + 1)):
-            row_values = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[row_idx]]
-            # Sarlavhalarni tekshirish
-            if any('talaba' in val and 'id' in val for val in row_values) or \
-               any('ism' in val or 'name' in val for val in row_values):
-                header_row = row_idx
-                break
-        
-        if header_row is None:
-            header_row = 1  # Agar topilmasa, 1-qatordan boshlash
-        
-        # Ustunlar indekslarini topish
-        headers = [str(cell.value).strip().lower() if cell.value else '' for cell in ws[header_row]]
-        
-        # Ustunlar indekslarini aniqlash
-        col_indices = {}
-        for idx, header in enumerate(headers, 1):
-            header_lower = header.lower()
-            if 'talaba' in header_lower and 'id' in header_lower:
-                col_indices['student_id'] = idx
-            elif 'ism' in header_lower or 'name' in header_lower or 'to\'liq' in header_lower:
-                col_indices['full_name'] = idx
-            elif 'kontrakt' in header_lower or 'contract' in header_lower or 'miqdori' in header_lower:
-                col_indices['contract_amount'] = idx
-            elif 'to\'lagan' in header_lower or 'paid' in header_lower or 'tolagan' in header_lower:
-                col_indices['paid_amount'] = idx
-        
-        # Ma'lumotlarni o'qish
-        for row_idx in range(header_row + 1, ws.max_row + 1):
-            row = ws[row_idx]
-            
-            # Bo'sh qatorni o'tkazib yuborish
-            if not any(cell.value for cell in row):
-                continue
-            
-            try:
-                # Talaba ID yoki ism orqali talabani topish
-                student = None
-                
-                # Talaba ID orqali
-                if 'student_id' in col_indices:
-                    student_id_val = row[col_indices['student_id'] - 1].value
-                    if student_id_val:
-                        student_id_str = str(student_id_val).strip()
-                        student = User.query.filter_by(student_id=student_id_str, role='student').first()
-                
-                # Ism orqali (agar ID topilmasa)
-                if not student and 'full_name' in col_indices:
-                    full_name = str(row[col_indices['full_name'] - 1].value or '').strip()
-                    if full_name:
-                        student = User.query.filter_by(full_name=full_name, role='student').first()
-                
-                if not student:
-                    name_val = row[col_indices.get('full_name', 1) - 1].value if 'full_name' in col_indices else 'Noma\'lum'
-                    errors.append(f"Qator {row_idx}: Talaba topilmadi - {name_val}")
-                    continue
-                
-                # Kontrakt miqdori
-                contract_amount = 0
-                if 'contract_amount' in col_indices:
-                    contract_val = row[col_indices['contract_amount'] - 1].value
-                    contract_amount = parse_amount(contract_val)
-                
-                if contract_amount <= 0:
-                    errors.append(f"Qator {row_idx}: Kontrakt miqdori noto'g'ri - {student.full_name}")
-                    continue
-                
-                # To'lagan summa
-                paid_amount = 0
-                if 'paid_amount' in col_indices:
-                    paid_val = row[col_indices['paid_amount'] - 1].value
-                    paid_amount = parse_amount(paid_val)
-                
-                # Mavjud yozuvni topish yoki yangi yaratish
-                payment = StudentPayment.query.filter_by(student_id=student.id).first()
-                
-                if payment:
-                    # Yangilash
-                    payment.contract_amount = contract_amount
-                    payment.paid_amount = paid_amount
-                    payment.updated_at = datetime.utcnow()
-                    updated_count += 1
-                else:
-                    # Yangi yaratish
-                    payment = StudentPayment(
-                        student_id=student.id,
-                        contract_amount=contract_amount,
-                        paid_amount=paid_amount,
-                        academic_year='2024-2025'  # Default
-                    )
-                    db.session.add(payment)
-                    imported_count += 1
-                
-            except Exception as e:
-                errors.append(f"Qator {row_idx}: Xatolik - {str(e)}")
-                continue
-        
-        # Ma'lumotlarni saqlash
-        db.session.commit()
-        
-        return {
-            'success': True,
-            'imported': imported_count,
-            'updated': updated_count,
-            'errors': errors
-        }
-        
-    except Exception as e:
-        return {
-            'success': False,
-            'imported': 0,
-            'updated': 0,
-            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
-        }
-
-
-def import_all_users_from_excel(file):
-    """Excel fayldan barcha foydalanuvchilarni import qilish (rol bo'yicha ajratish)"""
-    try:
-        from openpyxl import load_workbook
-        from app.models import User, Faculty, Group, UserRole
+        from app.models import User, Group, Faculty
         from app import db
-        from werkzeug.security import generate_password_hash
+        from datetime import datetime
+    except ImportError:
+        return {
+            'success': False,
+            'imported': 0,
+            'errors': ["openpyxl kutubxonasi o'rnatilmagan"]
+        }
+    
+    try:
+        wb = load_workbook(file)
+        ws = wb.active
+        
+        imported = 0
+        errors = []
+        
+        # Sarlavha qatorini topish (3-qator)
+        header_row = 3
+        headers = []
+        for col in range(1, ws.max_column + 1):
+            cell_value = ws.cell(row=header_row, column=col).value
+            if cell_value:
+                headers.append(str(cell_value).strip())
+        
+        # Ma'lumotlarni o'qish
+        for row_num in range(header_row + 1, ws.max_row + 1):
+            try:
+                row_data = {}
+                for col_num, header in enumerate(headers, 1):
+                    cell_value = ws.cell(row=row_num, column=col_num).value
+                    row_data[header] = str(cell_value).strip() if cell_value else ''
+                
+                # Bo'sh qatorlarni o'tkazib yuborish
+                if not row_data.get("To'liq ismi") and not row_data.get('Email'):
+                    continue
+                
+                full_name = row_data.get("To'liq ismi", '').strip()
+                email = row_data.get('Email', '').strip()
+                passport_number = row_data.get('Pasport raqami', '').strip()
+                
+                if not full_name or not email or not passport_number:
+                    errors.append(f"Qator {row_num}: Ism, email yoki pasport raqami kiritilmagan")
+                    continue
+                
+                # Foydalanuvchini topish yoki yaratish
+                user = User.query.filter_by(email=email).first()
+                
+                if user:
+                    # Yangilash
+                    user.full_name = full_name
+                    user.phone = row_data.get('Telefon', '').strip() or None
+                    user.student_id = row_data.get('Talaba ID', '').strip() or None
+                    user.passport_number = passport_number
+                    user.pinfl = row_data.get('JSHSHIR-kod', '').strip() or None
+                    user.specialty = row_data.get('Mutaxassislik', '').strip() or None
+                    user.specialty_code = row_data.get('Shifr (mutaxassislik kodi)', '').strip() or None
+                    user.education_type = row_data.get("Ta'lim shakli", '').strip() or None
+                    
+                    # Tug'ilgan sana
+                    birth_date_str = row_data.get("Tug'ilgan sana (YYYY-MM-DD)", '').strip()
+                    if birth_date_str:
+                        try:
+                            user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+                        except:
+                            try:
+                                user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                            except:
+                                pass
+                    
+                    # Guruh
+                    group_name = row_data.get('Guruh', '').strip()
+                    if group_name:
+                        group = Group.query.filter_by(name=group_name).first()
+                        if group:
+                            user.group_id = group.id
+                    
+                    user.set_password(passport_number)
+                else:
+                    # Yaratish
+                    user = User(
+                        email=email,
+                        full_name=full_name,
+                        role='student',
+                        phone=row_data.get('Telefon', '').strip() or None,
+                        student_id=row_data.get('Talaba ID', '').strip() or None,
+                        passport_number=passport_number,
+                        pinfl=row_data.get('JSHSHIR-kod', '').strip() or None,
+                        specialty=row_data.get('Mutaxassislik', '').strip() or None,
+                        specialty_code=row_data.get('Shifr (mutaxassislik kodi)', '').strip() or None,
+                        education_type=row_data.get("Ta'lim shakli", '').strip() or None
+                    )
+                    
+                    # Tug'ilgan sana
+                    birth_date_str = row_data.get("Tug'ilgan sana (YYYY-MM-DD)", '').strip()
+                    if birth_date_str:
+                        try:
+                            user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+                        except:
+                            try:
+                                user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                            except:
+                                pass
+                    
+                    # Guruh
+                    group_name = row_data.get('Guruh', '').strip()
+                    if group_name:
+                        group = Group.query.filter_by(name=group_name).first()
+                        if group:
+                            user.group_id = group.id
+                    
+                    user.set_password(passport_number)
+                    db.session.add(user)
+                    imported += 1
+                
+            except Exception as e:
+                errors.append(f"Qator {row_num}: Xatolik - {str(e)}")
+        
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'imported': imported,
+            'errors': errors
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'imported': 0,
+            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
+        }
+
+
+def import_directions_from_excel(file):
+    """Excel fayldan yo'nalishlar va guruhlarni import qilish"""
+    try:
+        from openpyxl import load_workbook
+        from app.models import Direction, Group, Faculty
+        from app import db
+    except ImportError:
+        return {
+            'success': False,
+            'imported': 0,
+            'errors': ["openpyxl kutubxonasi o'rnatilmagan"]
+        }
+    
+    try:
+        wb = load_workbook(file)
+        ws = wb.active
+        
+        imported = 0
+        errors = []
+        
+        # Sarlavha qatorini topish (1-qator)
+        header_row = 1
+        headers = []
+        for col in range(1, ws.max_column + 1):
+            cell_value = ws.cell(row=header_row, column=col).value
+            if cell_value:
+                headers.append(str(cell_value).strip())
+        
+        # Ma'lumotlarni o'qish
+        for row_num in range(header_row + 1, ws.max_row + 1):
+            try:
+                row_data = {}
+                for col_num, header in enumerate(headers, 1):
+                    cell_value = ws.cell(row=row_num, column=col_num).value
+                    row_data[header] = str(cell_value).strip() if cell_value else ''
+                
+                # Bo'sh qatorlarni o'tkazib yuborish
+                if not row_data.get('Yo\'nalish nomi') and not row_data.get('Yo\'nalish kodi'):
+                    continue
+                
+                direction_name = row_data.get('Yo\'nalish nomi', '').strip()
+                direction_code = row_data.get('Yo\'nalish kodi', '').strip()
+                faculty_name = row_data.get('Fakultet', '').strip()
+                group_name = row_data.get('Guruh', '').strip()
+                course_year = row_data.get('Kurs', '').strip()
+                
+                if not direction_name or not direction_code:
+                    errors.append(f"Qator {row_num}: Yo'nalish nomi yoki kodi kiritilmagan")
+                    continue
+                
+                # Fakultetni topish
+                faculty = None
+                if faculty_name:
+                    faculty = Faculty.query.filter_by(name=faculty_name).first()
+                    if not faculty:
+                        errors.append(f"Qator {row_num}: Fakultet '{faculty_name}' topilmadi")
+                        continue
+                
+                # Yo'nalishni topish yoki yaratish
+                direction = Direction.query.filter_by(code=direction_code).first()
+                if not direction:
+                    if not faculty:
+                        errors.append(f"Qator {row_num}: Fakultet kiritilmagan")
+                        continue
+                    direction = Direction(
+                        name=direction_name,
+                        code=direction_code,
+                        description=row_data.get('Tavsif', '').strip() or None,
+                        faculty_id=faculty.id
+                    )
+                    db.session.add(direction)
+                    db.session.flush()
+                    imported += 1
+                
+                # Guruhni topish yoki yaratish
+                if group_name and faculty:
+                    group = Group.query.filter_by(name=group_name).first()
+                    if not group:
+                        try:
+                            course_year_int = int(course_year) if course_year else 1
+                        except:
+                            course_year_int = 1
+                        
+                        group = Group(
+                            name=group_name,
+                            faculty_id=faculty.id,
+                            direction_id=direction.id,
+                            course_year=course_year_int
+                        )
+                        db.session.add(group)
+                
+            except Exception as e:
+                errors.append(f"Qator {row_num}: Xatolik - {str(e)}")
+        
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'imported': imported,
+            'errors': errors
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'imported': 0,
+            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
+        }
+
+
+def import_staff_from_excel(file):
+    """Excel fayldan xodimlarni import qilish (bitta sheet'dan) - bir nechta rollarni qo'llab-quvvatlash"""
+    try:
+        from openpyxl import load_workbook
+        from app.models import User, Faculty, UserRole
+        from app import db
         from datetime import datetime
     except ImportError:
         return {
@@ -610,196 +425,155 @@ def import_all_users_from_excel(file):
     
     try:
         wb = load_workbook(file)
+        ws = wb.active  # Bitta sheet'dan o'qish
+        
         imported = 0
         updated = 0
         errors = []
         
-        # Har bir worksheet (rol) uchun
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            
-            # Rolni aniqlash
-            role = None
-            role_mapping = {
-                'Administratorlar': 'admin',
-                'Dekanlar': 'dean',
-                "O'qituvchilar": 'teacher',
-                'Talabalar': 'student',
-                'Buxgalteriya': 'accounting'
-            }
-            role = role_mapping.get(sheet_name, sheet_name.lower())
-            
-            # Sarlavha qatorini topish (3-qator)
-            header_row = 3
-            headers = []
-            for col in range(1, ws.max_column + 1):
-                cell_value = ws.cell(row=header_row, column=col).value
-                if cell_value:
-                    headers.append(str(cell_value).strip())
-            
-            # Ma'lumotlarni o'qish
-            for row_num in range(header_row + 1, ws.max_row + 1):
-                try:
-                    row_data = {}
-                    for col_num, header in enumerate(headers, 1):
-                        cell_value = ws.cell(row=row_num, column=col_num).value
-                        row_data[header] = str(cell_value).strip() if cell_value else ''
+        # Rol mapping (katta harfdan kichik harfga)
+        role_mapping = {
+            'Administrator': 'admin',
+            'Dekan': 'dean',
+            "O'qituvchi": 'teacher',
+            'Buxgalter': 'accounting'
+        }
+        
+        # Sarlavha qatorini topish (3-qator)
+        header_row = 3
+        headers = []
+        for col in range(1, ws.max_column + 1):
+            cell_value = ws.cell(row=header_row, column=col).value
+            if cell_value:
+                headers.append(str(cell_value).strip())
+        
+        # Ma'lumotlarni o'qish
+        for row_num in range(header_row + 1, ws.max_row + 1):
+            try:
+                row_data = {}
+                for col_num, header in enumerate(headers, 1):
+                    cell_value = ws.cell(row=row_num, column=col_num).value
+                    row_data[header] = str(cell_value).strip() if cell_value else ''
+                
+                # Bo'sh qatorlarni o'tkazib yuborish
+                if not row_data.get("To'liq ism") and not row_data.get('Email'):
+                    continue
+                
+                full_name = row_data.get("To'liq ism", '').strip()
+                email = row_data.get('Email', '').strip()
+                
+                if not full_name or not email:
+                    errors.append(f"Qator {row_num}: Ism yoki email kiritilmagan")
+                    continue
+                
+                # Foydalanuvchini topish yoki yaratish
+                user = User.query.filter_by(email=email).first()
+                
+                # Xodim uchun
+                passport_number = row_data.get('Pasport raqami', '').strip()
+                if not passport_number:
+                    errors.append(f"Qator {row_num}: Pasport raqami kiritilmagan")
+                    continue
+                
+                # Rollarni o'qish (Rollar ustunidan)
+                roles_str = row_data.get('Rollar', '').strip()
+                roles_list = []
+                if roles_str:
+                    # "Administrator, Dekan" formatidan rollarni ajratish
+                    for role_display in roles_str.split(','):
+                        role_display = role_display.strip()
+                        role = role_mapping.get(role_display)
+                        if role:
+                            roles_list.append(role)
+                
+                if not roles_list:
+                    errors.append(f"Qator {row_num}: Rollar kiritilmagan yoki noto'g'ri format")
+                    continue
+                
+                # Asosiy rol (birinchi rol)
+                primary_role = roles_list[0]
+                
+                if user:
+                    # Yangilash
+                    user.full_name = full_name
+                    user.phone = row_data.get('Telefon', '').strip() or None
+                    user.passport_number = passport_number
+                    user.pinfl = row_data.get('JSHSHIR', '').strip() or None
+                    user.department = row_data.get('Kafedra', '').strip() or None
+                    user.position = row_data.get('Lavozim', '').strip() or None
                     
-                    # Bo'sh qatorlarni o'tkazib yuborish
-                    if not row_data.get("To'liq ism") and not row_data.get('Email'):
-                        continue
+                    # Tug'ilgan sana
+                    birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
+                    if birth_date_str:
+                        try:
+                            user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                        except:
+                            pass
                     
-                    full_name = row_data.get("To'liq ism", '').strip()
-                    email = row_data.get('Email', '').strip()
+                    # Fakultet (dekan uchun)
+                    if 'dean' in roles_list:
+                        faculty_name = row_data.get('Fakultet', '').strip()
+                        if faculty_name:
+                            faculty = Faculty.query.filter_by(name=faculty_name).first()
+                            if faculty:
+                                user.faculty_id = faculty.id
                     
-                    if not full_name or not email:
-                        errors.append(f"Qator {row_num}: Ism yoki email kiritilmagan")
-                        continue
+                    user.set_password(passport_number)
                     
-                    # Foydalanuvchini topish yoki yaratish
-                    user = User.query.filter_by(email=email).first()
+                    # Agar foydalanuvchi talaba bo'lsa, rolini o'zgartirish
+                    if user.role == 'student':
+                        user.role = primary_role
                     
-                    if role == 'student':
-                        # Talaba uchun
-                        passport_number = row_data.get('Pasport raqami', '').strip()
-                        if not passport_number:
-                            errors.append(f"Qator {row_num}: Pasport raqami kiritilmagan")
-                            continue
-                        
-                        if user:
-                            # Yangilash
-                            user.full_name = full_name
-                            user.phone = row_data.get('Telefon', '').strip() or None
-                            user.student_id = row_data.get('Talaba ID', '').strip() or None
-                            user.passport_number = passport_number
-                            user.pinfl = row_data.get('JSHSHIR', '').strip() or None
-                            
-                            # Tug'ilgan sana
-                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
-                            if birth_date_str:
-                                try:
-                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
-                                except:
-                                    pass
-                            
-                            # Guruh
-                            group_name = row_data.get('Guruh', '').strip()
-                            if group_name:
-                                group = Group.query.filter_by(name=group_name).first()
-                                if group:
-                                    user.group_id = group.id
-                            
-                            user.set_password(passport_number)
-                            updated += 1
-                        else:
-                            # Yaratish
-                            user = User(
-                                email=email,
-                                full_name=full_name,
-                                role='student',
-                                phone=row_data.get('Telefon', '').strip() or None,
-                                student_id=row_data.get('Talaba ID', '').strip() or None,
-                                passport_number=passport_number,
-                                pinfl=row_data.get('JSHSHIR', '').strip() or None
-                            )
-                            
-                            # Tug'ilgan sana
-                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
-                            if birth_date_str:
-                                try:
-                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
-                                except:
-                                    pass
-                            
-                            # Guruh
-                            group_name = row_data.get('Guruh', '').strip()
-                            if group_name:
-                                group = Group.query.filter_by(name=group_name).first()
-                                if group:
-                                    user.group_id = group.id
-                            
-                            user.set_password(passport_number)
-                            db.session.add(user)
-                            db.session.flush()
-                            
-                            # Rol qo'shish
-                            user_role = UserRole(user_id=user.id, role='student')
-                            db.session.add(user_role)
-                            imported += 1
-                    else:
-                        # Xodim uchun
-                        passport_number = row_data.get('Pasport raqami', '').strip()
-                        if not passport_number:
-                            errors.append(f"Qator {row_num}: Pasport raqami kiritilmagan")
-                            continue
-                        
-                        if user:
-                            # Yangilash
-                            user.full_name = full_name
-                            user.phone = row_data.get('Telefon', '').strip() or None
-                            user.passport_number = passport_number
-                            user.pinfl = row_data.get('JSHSHIR', '').strip() or None
-                            user.department = row_data.get('Kafedra', '').strip() or None
-                            user.position = row_data.get('Lavozim', '').strip() or None
-                            
-                            # Tug'ilgan sana
-                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
-                            if birth_date_str:
-                                try:
-                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
-                                except:
-                                    pass
-                            
-                            # Fakultet (dekan uchun)
-                            if role == 'dean':
-                                faculty_name = row_data.get('Fakultet', '').strip()
-                                if faculty_name:
-                                    faculty = Faculty.query.filter_by(name=faculty_name).first()
-                                    if faculty:
-                                        user.faculty_id = faculty.id
-                            
-                            user.set_password(passport_number)
-                            updated += 1
-                        else:
-                            # Yaratish
-                            user = User(
-                                email=email,
-                                full_name=full_name,
-                                role=role,
-                                phone=row_data.get('Telefon', '').strip() or None,
-                                passport_number=passport_number,
-                                pinfl=row_data.get('JSHSHIR', '').strip() or None,
-                                department=row_data.get('Kafedra', '').strip() or None,
-                                position=row_data.get('Lavozim', '').strip() or None
-                            )
-                            
-                            # Tug'ilgan sana
-                            birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
-                            if birth_date_str:
-                                try:
-                                    user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
-                                except:
-                                    pass
-                            
-                            # Fakultet (dekan uchun)
-                            if role == 'dean':
-                                faculty_name = row_data.get('Fakultet', '').strip()
-                                if faculty_name:
-                                    faculty = Faculty.query.filter_by(name=faculty_name).first()
-                                    if faculty:
-                                        user.faculty_id = faculty.id
-                            
-                            user.set_password(passport_number)
-                            db.session.add(user)
-                            db.session.flush()
-                            
-                            # Rol qo'shish
-                            user_role = UserRole(user_id=user.id, role=role)
-                            db.session.add(user_role)
-                            imported += 1
+                    # Bir nechta rollarni qo'llab-quvvatlash
+                    # Eski rollarni o'chirish va yangilarini qo'shish
+                    UserRole.query.filter_by(user_id=user.id).delete()
+                    for role in roles_list:
+                        user_role = UserRole(user_id=user.id, role=role)
+                        db.session.add(user_role)
                     
-                except Exception as e:
-                    errors.append(f"Qator {row_num}: Xatolik - {str(e)}")
+                    updated += 1
+                else:
+                    # Yaratish
+                    user = User(
+                        email=email,
+                        full_name=full_name,
+                        role=primary_role,
+                        phone=row_data.get('Telefon', '').strip() or None,
+                        passport_number=passport_number,
+                        pinfl=row_data.get('JSHSHIR', '').strip() or None,
+                        department=row_data.get('Kafedra', '').strip() or None,
+                        position=row_data.get('Lavozim', '').strip() or None
+                    )
+                    
+                    # Tug'ilgan sana
+                    birth_date_str = row_data.get("Tug'ilgan sana", '').strip()
+                    if birth_date_str:
+                        try:
+                            user.birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
+                        except:
+                            pass
+                    
+                    # Fakultet (dekan uchun)
+                    if 'dean' in roles_list:
+                        faculty_name = row_data.get('Fakultet', '').strip()
+                        if faculty_name:
+                            faculty = Faculty.query.filter_by(name=faculty_name).first()
+                            if faculty:
+                                user.faculty_id = faculty.id
+                    
+                    user.set_password(passport_number)
+                    db.session.add(user)
+                    db.session.flush()
+                    
+                    # Bir nechta rollarni qo'llab-quvvatlash
+                    for role in roles_list:
+                        user_role = UserRole(user_id=user.id, role=role)
+                        db.session.add(user_role)
+                    
+                    imported += 1
+                
+            except Exception as e:
+                errors.append(f"Qator {row_num}: Xatolik - {str(e)}")
         
         db.session.commit()
         
@@ -817,3 +591,8 @@ def import_all_users_from_excel(file):
             'updated': 0,
             'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
         }
+
+
+def import_all_users_from_excel(file):
+    """Excel fayldan barcha foydalanuvchilarni import qilish (rol bo'yicha ajratish) - eski funksiya, import_staff_from_excel ishlatiladi"""
+    return import_staff_from_excel(file)

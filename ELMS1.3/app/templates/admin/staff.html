@@ -25,12 +25,12 @@
         </div>
     </div>
     
-    <!-- Search -->
+    <!-- Filters -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-        <form method="GET" class="flex gap-4">
-            <div class="flex-1 relative">
-                <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <input type="text" name="search" value="{{ search }}" placeholder="Ism, email, telefon bo'yicha qidirish..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        <form method="GET" class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <input type="text" name="search" value="{{ search }}" placeholder="Qidirish (ism, email, telefon)..."
+                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
             <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
                 Qidirish
@@ -45,30 +45,29 @@
     
     <!-- Staff table -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50 border-b border-gray-100">
-                    <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">FIO</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Rollar</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Telefon</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Holat</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Amallar</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    {% for user in users.items %}
-                    <tr class="hover:bg-gray-50">
+        {% if users.items %}
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">FIO</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Rollar</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Telefon</th>
+                    <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for user in users.items %}
+                <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
                                     {{ user.full_name[0] }}
                                 </div>
                                 <div>
-                                    <p class="text-sm font-medium text-gray-900">{{ user.full_name }}</p>
+                                    <p class="font-medium text-gray-900">{{ user.full_name }}</p>
                                     {% if user.position %}
-                                    <p class="text-xs text-gray-500">{{ user.position }}</p>
+                                    <p class="text-sm text-gray-500">{{ user.position }}</p>
                                     {% endif %}
                                 </div>
                             </div>
@@ -76,47 +75,76 @@
                         <td class="px-6 py-4 text-sm text-gray-600">{{ user.email }}</td>
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
-                                {% for role in user.get_roles() %}
+                                {% set role_display_names = {
+                                    'admin': 'Administrator',
+                                    'dean': 'Dekan',
+                                    'teacher': "O'qituvchi",
+                                    'accounting': 'Buxgalter'
+                                } %}
+                                {% set role_order = ['admin', 'dean', 'teacher', 'accounting'] %}
+                                {% set user_roles = user.get_roles() %}
+                                {% for role_key in role_order %}
+                                {% if role_key in user_roles %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                    {{ user.get_role_display() if loop.first else role }}
+                                    {{ role_display_names.get(role_key, role_key) }}
                                 </span>
+                                {% endif %}
                                 {% endfor %}
                             </div>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">{{ user.phone or '-' }}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full {% if user.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                {% if user.is_active %}Faol{% else %}Bloklangan{% endif %}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="flex items-center gap-2">
-                                <a href="{{ url_for('admin.edit_user', id=user.id) }}" class="text-blue-600 hover:text-blue-900" title="Tahrirlash">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        <td class="px-6 py-4 text-right">
+                            <div class="inline-flex items-center gap-1">
+                                <!-- Tahrirlash -->
+                                <a href="{{ url_for('admin.edit_staff', id=user.id) }}" class="p-2 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ma'lumotlarni tahrirlash">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
                                 </a>
-                                <a href="{{ url_for('admin.toggle_user', id=user.id) }}" onclick="return confirm('Xodimning holatini o\'zgartirmoqchimisiz?')" class="text-yellow-600 hover:text-yellow-900" title="Bloklash/Blokdan chiqarish">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                </a>
-                                <a href="{{ url_for('admin.reset_user_password', id=user.id) }}" onclick="return confirm('Parolni boshlang\'ich holatga qaytarmoqchimisiz?')" class="text-purple-600 hover:text-purple-900" title="Parolni qaytarish">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-                                </a>
-                                <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" onsubmit="return confirm('Bu xodimni o\'chirmoqchimisiz?')" class="inline">
+                                <!-- Parolni qaytarish -->
+                                <form action="{{ url_for('admin.reset_user_password', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('Parolni boshlang\'ich holatga qaytarmoqchimisiz?')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <button type="submit" class="text-red-600 hover:text-red-900" title="O'chirish">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    <button type="submit" class="p-2 rounded-lg hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors" title="Parolni qaytarish">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                                        </svg>
                                     </button>
                                 </form>
+                                <!-- O'chirish -->
+                                <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('Bu xodimni o\'chirmoqchimisiz?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="O'chirish">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                                <!-- Holat toggle switch -->
+                                {% if user.id != current_user.id %}
+                                <form action="{{ url_for('admin.toggle_user', id=user.id) }}" method="POST" class="inline" id="toggle-form-{{ user.id }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" 
+                                               class="sr-only peer" 
+                                               {% if user.is_active %}checked{% endif %}
+                                               onchange="document.getElementById('toggle-form-{{ user.id }}').submit();">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                    </label>
+                                </form>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">Xodimlar topilmadi</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-gray-500">Xodimlar topilmadi</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-6 py-12 text-center text-gray-500">Xodimlar topilmadi</div>
+        {% endif %}
     </div>
     
     <!-- Pagination -->

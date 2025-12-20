@@ -128,7 +128,8 @@ class UserRole(db.Model):
 class User(UserMixin, db.Model):
     """Foydalanuvchi modeli"""
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True)  # Email ixtiyoriy
+    login = db.Column(db.String(50), unique=True)  # Login (xodimlar uchun majburiy)
     password_hash = db.Column(db.String(256), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='student')  # admin, teacher, student, dean, accounting
@@ -138,9 +139,10 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20))
     
     # Talaba uchun
-    student_id = db.Column(db.String(20), unique=True)  # Talaba ID raqami
+    student_id = db.Column(db.String(20), unique=True)  # Talaba ID raqami (talabalar uchun majburiy)
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'))
     enrollment_year = db.Column(db.Integer)  # Qabul yili
+    semester = db.Column(db.Integer, default=1)  # Semestr (1-8)
     # Qo'shimcha talaba ma'lumotlari
     passport_number = db.Column(db.String(20))   # Pasport raqami
     pinfl = db.Column(db.String(14))            # JSHSHIR (PINFL)
@@ -212,7 +214,7 @@ class User(UserMixin, db.Model):
         return roles.get(self.role, self.role)
     
     def get_all_roles_display(self):
-        """Barcha rollarni ko'rinishda olish"""
+        """Barcha rollarni ko'rinishda olish (tartiblangan)"""
         roles = {
             'admin': 'Administrator',
             'teacher': "O'qituvchi",
@@ -221,7 +223,17 @@ class User(UserMixin, db.Model):
             'accounting': 'Buxgalteriya'
         }
         user_roles = self.get_roles()
-        return [roles.get(r, r) for r in user_roles]
+        # Rollarni belgilangan tartibda saralash: admin, dean, teacher, accounting, student
+        role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
+        sorted_roles = []
+        for ordered_role in role_order:
+            if ordered_role in user_roles:
+                sorted_roles.append(roles.get(ordered_role, ordered_role))
+        # Agar tartibda bo'lmagan rollar bo'lsa, ularni oxiriga qo'shish
+        for role in user_roles:
+            if role not in role_order:
+                sorted_roles.append(roles.get(role, role))
+        return sorted_roles
     
     def has_permission(self, permission):
         permissions = {
@@ -470,20 +482,63 @@ class GradeScale(db.Model):
 def create_demo_data():
     """Demo ma'lumotlarni yaratish"""
     # Accounting accountini har doim yaratish/yangilash
-    accounting = User.query.filter_by(email='accounting@university.uz').first()
+    accounting = User.query.filter_by(login='accounting').first()
     if not accounting:
-        accounting = User(
-            email='accounting@university.uz',
-            full_name='Buxgalteriya Bo\'limi',
-            role='accounting',
-            phone='+998 90 123 45 68'
-        )
-        accounting.set_password('accounting123')
-        db.session.add(accounting)
+        # Email orqali ham qidirish (eski versiyalar uchun)
+        accounting = User.query.filter_by(email='accounting@university.uz').first()
+        if accounting:
+            # Login qo'shish
+            accounting.login = 'accounting'
+            db.session.commit()
+        else:
+            accounting = User(
+                email='accounting@university.uz',
+                login='accounting',
+                full_name='Buxgalteriya Bo\'limi',
+                role='accounting',
+                phone='+998 90 123 45 68'
+            )
+            accounting.set_password('accounting123')
+            db.session.add(accounting)
+            db.session.commit()
+    
+    # Mavjud demo hisoblar uchun login qo'shish (migratsiya) - avval buni qilamiz
+    # Admin
+    admin_existing = User.query.filter_by(role='admin').first()
+    if admin_existing and not admin_existing.login:
+        admin_existing.login = 'admin'
         db.session.commit()
     
+    # Accounting
+    accounting_old = User.query.filter_by(email='accounting@university.uz').first()
+    if accounting_old and not accounting_old.login:
+        accounting_old.login = 'accounting'
+        db.session.commit()
+    
+    # Deans - mavjud demo hisoblar uchun
+    deans_old = User.query.filter_by(role='dean').all()
+    for dean in deans_old:
+        if not dean.login and dean.email:
+            login = dean.email.split('@')[0].replace('.', '_')
+            # Login unikalligini tekshirish
+            existing = User.query.filter_by(login=login).first()
+            if not existing:
+                dean.login = login
+                db.session.commit()
+    
+    # Teachers - mavjud demo hisoblar uchun
+    teachers_old = User.query.filter_by(role='teacher').all()
+    for teacher in teachers_old:
+        if not teacher.login and teacher.email:
+            login = teacher.email.split('@')[0].replace('.', '_')
+            # Login unikalligini tekshirish
+            existing = User.query.filter_by(login=login).first()
+            if not existing:
+                teacher.login = login
+                db.session.commit()
+    
     # Agar database'da allaqachon ma'lumotlar bo'lsa, qolganini yaratmaymiz
-    if User.query.filter_by(role='admin').first() is not None:
+    if admin_existing is not None:
         return
     
     # ===== FAKULTETLAR =====
@@ -504,27 +559,43 @@ def create_demo_data():
     db.session.commit()
     
     # ===== ADMIN =====
-    admin = User.query.filter_by(email='admin@university.uz').first()
+    admin = User.query.filter_by(login='admin').first()
     if not admin:
+        # Demo admin uchun pasport raqami: ADMIN123
         admin = User(
             email='admin@university.uz',
+            login='admin',
             full_name='Tizim Administratori',
-            role='admin'
+            role='admin',
+            passport_number='ADMIN123'
         )
         admin.set_password('admin123')
         db.session.add(admin)
+    else:
+        # Mavjud admin uchun pasport raqami yo'q bo'lsa, qo'shamiz
+        if not admin.passport_number:
+            admin.passport_number = 'ADMIN123'
+            db.session.commit()
     
     # ===== BUXGALTERIYA =====
-    accounting = User.query.filter_by(email='accounting@university.uz').first()
+    accounting = User.query.filter_by(login='accounting').first()
     if not accounting:
+        # Demo accounting uchun pasport raqami: ACCOUNTING123
         accounting = User(
             email='accounting@university.uz',
+            login='accounting',
             full_name='Buxgalteriya Bo\'limi',
             role='accounting',
-            phone='+998 90 123 45 68'
+            phone='+998 90 123 45 68',
+            passport_number='ACCOUNTING123'
         )
         accounting.set_password('accounting123')
         db.session.add(accounting)
+    else:
+        # Mavjud accounting uchun pasport raqami yo'q bo'lsa, qo'shamiz
+        if not accounting.passport_number:
+            accounting.passport_number = 'ACCOUNTING123'
+            db.session.commit()
     
     # ===== DEKANLAR =====
     deans_data = [
@@ -534,18 +605,30 @@ def create_demo_data():
     
     deans = {}
     for d in deans_data:
-        dean = User.query.filter_by(email=d['email']).first()
+        # Login yaratish: dean.it -> dean_it
+        login = d['email'].split('@')[0].replace('.', '_')
+        dean = User.query.filter_by(login=login).first()
         if not dean:
+            # Demo hisoblar uchun pasport raqami: login + "123" (masalan: DEAN_IT123)
+            passport_number = login.upper() + '123'
             dean = User(
                 email=d['email'],
+                login=login,
                 full_name=d['full_name'],
                 role='dean',
                 position=d['position'],
                 faculty_id=faculties[d['faculty']].id,
-                phone='+998 90 123 45 67'
+                phone='+998 90 123 45 67',
+                passport_number=passport_number
             )
             dean.set_password('dean123')
             db.session.add(dean)
+        else:
+            # Mavjud dean uchun pasport raqami yo'q bo'lsa, qo'shamiz
+            if not dean.passport_number:
+                passport_number = login.upper() + '123'
+                dean.passport_number = passport_number
+                db.session.commit()
         deans[d['faculty']] = dean
     
     db.session.commit()
@@ -584,18 +667,30 @@ def create_demo_data():
     
     teachers = []
     for t in teachers_data:
-        teacher = User.query.filter_by(email=t['email']).first()
+        # Login yaratish: a.karimov -> a_karimov
+        login = t['email'].split('@')[0].replace('.', '_')
+        teacher = User.query.filter_by(login=login).first()
         if not teacher:
+            # Demo hisoblar uchun pasport raqami: login + "123" (masalan: a_karimov123)
+            passport_number = login.upper() + '123'
             teacher = User(
                 email=t['email'],
+                login=login,
                 full_name=t['full_name'],
                 role='teacher',
                 department=t['department'],
                 position=t['position'],
-                phone='+998 91 234 56 78'
+                phone='+998 91 234 56 78',
+                passport_number=passport_number
             )
             teacher.set_password('teacher123')
             db.session.add(teacher)
+        else:
+            # Mavjud teacher uchun pasport raqami yo'q bo'lsa, qo'shamiz
+            if not teacher.passport_number:
+                passport_number = login.upper() + '123'
+                teacher.passport_number = passport_number
+                db.session.commit()
         teachers.append(teacher)
     
     db.session.commit()
@@ -639,15 +734,17 @@ def create_demo_data():
     
     students = []
     for s in students_data:
-        student = User.query.filter_by(email=s['email']).first()
+        # Talabalar uchun student_id orqali qidirish
+        student = User.query.filter_by(student_id=s['student_id']).first()
         if not student:
             student = User(
-                email=s['email'],
+                email=s['email'] if s.get('email') else None,
                 full_name=s['full_name'],
                 role='student',
                 student_id=s['student_id'],
                 group_id=groups[s['group']].id,
-                enrollment_year=int('20' + s['group'][-2:])
+                enrollment_year=int('20' + s['group'][-2:]),
+                semester=1
             )
             student.set_password('student123')
             db.session.add(student)

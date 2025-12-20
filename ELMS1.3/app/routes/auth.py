@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from app.models import User, PasswordResetToken
 from app import db
@@ -13,11 +13,21 @@ def login():
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
-        email = request.form.get('email')
+        login_input = request.form.get('login')  # Login, email yoki talaba ID
         password = request.form.get('password')
         remember = request.form.get('remember', False)
         
-        user = User.query.filter_by(email=email).first()
+        # Login, email yoki talaba ID orqali foydalanuvchini topish
+        user = None
+        if login_input:
+            # Avval email orqali qidirish
+            user = User.query.filter_by(email=login_input).first()
+            # Agar topilmasa, login orqali qidirish
+            if not user:
+                user = User.query.filter_by(login=login_input).first()
+            # Agar hali ham topilmasa, talaba ID orqali qidirish
+            if not user:
+                user = User.query.filter_by(student_id=login_input).first()
         
         if user and user.check_password(password):
             if not user.is_active:
@@ -26,18 +36,25 @@ def login():
             
             user.last_login = datetime.utcnow()
             db.session.commit()
+            
+            # Session'dagi eski current_role ni tozalash va yangi foydalanuvchining asosiy rolini o'rnatish
+            session.pop('current_role', None)
+            session['current_role'] = user.role
+            
             login_user(user, remember=remember)
             
             next_page = request.args.get('next')
             return redirect(next_page or url_for('main.dashboard'))
         else:
-            flash("Email yoki parol noto'g'ri", 'error')
+            flash("Login, email, talaba ID yoki parol noto'g'ri", 'error')
     
     return render_template('auth/login.html')
 
 @bp.route('/logout')
 @login_required
 def logout():
+    # Session'dagi current_role ni tozalash
+    session.pop('current_role', None)
     logout_user()
     flash("Tizimdan muvaffaqiyatli chiqdingiz", 'success')
     return redirect(url_for('auth.login'))

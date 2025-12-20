@@ -134,11 +134,12 @@
             <form method="POST" class="mt-6 sm:mt-8 space-y-4 sm:space-y-5">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('email') }}</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Login / Email / Talaba ID</label>
                     <div class="relative">
-                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
-                        <input type="email" name="email" placeholder="email@example.com" required class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <input type="text" name="login" placeholder="Login, email yoki talaba ID" required class="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     </div>
+                    <p class="text-xs text-gray-500 mt-1">Xodimlar: Login (masalan: a_tursunqulov), Talabalar: Talaba ID (masalan: 376123456789), yoki Email</p>
                 </div>
                 
                 <div>
@@ -167,25 +168,25 @@
             <div class="mt-6 sm:mt-8">
                 <p class="text-xs sm:text-sm text-gray-500 text-center mb-3 sm:mb-4">{% if current_lang == 'uz' %}Demo hisoblar:{% elif current_lang == 'ru' %}Демо аккаунты:{% else %}Demo accounts:{% endif %}</p>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="fillDemo('admin@university.uz', 'admin123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                    <button onclick="fillDemo('admin', 'admin123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
                         <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('admin') }}</p>
-                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">admin@university.uz</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">Login: admin</p>
                     </button>
-                    <button onclick="fillDemo('a.karimov@university.uz', 'teacher123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                    <button onclick="fillDemo('a_karimov', 'teacher123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
                         <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('teacher') }}</p>
-                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">a.karimov@university.uz</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">Login: a_karimov</p>
                     </button>
-                    <button onclick="fillDemo('student1@university.uz', 'student123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                    <button onclick="fillDemo('ST2021001', 'student123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
                         <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('student') }}</p>
-                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">student1@university.uz</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">Talaba ID: ST2021001</p>
                     </button>
-                    <button onclick="fillDemo('dean.it@university.uz', 'dean123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                    <button onclick="fillDemo('dean_it', 'dean123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
                         <p class="text-xs sm:text-sm font-medium text-gray-900">{{ t('dean') }}</p>
-                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">dean.it@university.uz</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">Login: dean_it</p>
                     </button>
-                    <button onclick="fillDemo('accounting@university.uz', 'accounting123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
+                    <button onclick="fillDemo('accounting', 'accounting123')" class="p-2 sm:p-3 text-left bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors">
                         <p class="text-xs sm:text-sm font-medium text-gray-900">Buxgalteriya</p>
-                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">accounting@university.uz</p>
+                        <p class="text-[10px] sm:text-xs text-gray-500 truncate">Login: accounting</p>
                     </button>
                 </div>
             </div>
@@ -194,8 +195,8 @@
 </div>
 
 <script>
-function fillDemo(email, password) {
-    document.querySelector('input[name="email"]').value = email;
+function fillDemo(loginValue, password) {
+    document.querySelector('input[name="login"]').value = loginValue;
     document.querySelector('input[name="password"]').value = password;
 }
 </script>

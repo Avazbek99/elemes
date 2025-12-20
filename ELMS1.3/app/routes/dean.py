@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, send_file, session
 from flask_login import login_required, current_user
 from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction
 from app import db
@@ -11,13 +11,25 @@ from werkzeug.security import generate_password_hash
 bp = Blueprint('dean', __name__, url_prefix='/dean')
 
 def dean_required(f):
-    """Faqat dekan uchun"""
+    """Faqat dekan uchun (joriy tanlangan rol yoki asosiy rol)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'dean':
+        if not current_user.is_authenticated:
             flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
             return redirect(url_for('main.dashboard'))
-        return f(*args, **kwargs)
+        
+        # Session'dan joriy rol ni olish
+        current_role = session.get('current_role', current_user.role)
+        
+        # Foydalanuvchida dekan roli borligini tekshirish
+        if current_role == 'dean' and 'dean' in current_user.get_roles():
+            return f(*args, **kwargs)
+        elif current_user.has_role('dean'):
+            # Agar joriy rol dekan emas, lekin foydalanuvchida dekan roli bor bo'lsa, ruxsat berish
+            return f(*args, **kwargs)
+        else:
+            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            return redirect(url_for('main.dashboard'))
     return decorated_function
 
 
@@ -266,6 +278,48 @@ def remove_students_from_group(id):
         flash("Hech qanday talaba guruhdan chiqarilmadi", 'warning')
     
     return redirect(url_for('dean.group_students', id=id))
+
+
+# ==================== KURSLAR ====================
+@bp.route('/courses')
+@login_required
+@dean_required
+def courses():
+    """Dekan uchun kurslar bo'limi - kurs>yo'nalish>guruh struktura"""
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Sizga fakultet biriktirilmagan", 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    # Fakultetdagi barcha guruhlarni kurs bo'yicha guruhlash
+    all_groups = faculty.groups.order_by(Group.course_year, Group.name).all()
+    
+    # Kurslar bo'yicha guruhlash
+    courses_dict = {}
+    for group in all_groups:
+        course_year = group.course_year
+        if course_year not in courses_dict:
+            courses_dict[course_year] = {}
+        
+        # Yo'nalish bo'yicha guruhlash
+        direction_id = group.direction_id if group.direction_id else None
+        direction_name = "Biriktirilmagan" if not direction_id else group.direction.name
+        
+        if direction_id not in courses_dict[course_year]:
+            courses_dict[course_year][direction_id] = {
+                'direction': group.direction if group.direction_id else None,
+                'direction_name': direction_name,
+                'groups': []
+            }
+        
+        courses_dict[course_year][direction_id]['groups'].append(group)
+    
+    # Kurslarni tartiblash
+    sorted_courses = sorted(courses_dict.items())
+    
+    return render_template('dean/courses.html', 
+                         faculty=faculty,
+                         courses_dict=dict(sorted_courses))
 
 
 # ==================== O'QITUVCHI-FAN BIRIKTIRISH ====================

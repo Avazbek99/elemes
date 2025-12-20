@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session
 from flask_login import login_required, current_user
 from app.models import User, StudentPayment, Group, Faculty
 from app import db
@@ -9,13 +9,25 @@ from sqlalchemy import func
 bp = Blueprint('accounting', __name__, url_prefix='/accounting')
 
 def accounting_required(f):
-    """Faqat buxgalteriya uchun"""
+    """Faqat buxgalteriya uchun (joriy tanlangan rol yoki asosiy rol)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'accounting':
+        if not current_user.is_authenticated:
             flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
             return redirect(url_for('main.dashboard'))
-        return f(*args, **kwargs)
+        
+        # Session'dan joriy rol ni olish
+        current_role = session.get('current_role', current_user.role)
+        
+        # Foydalanuvchida accounting roli borligini tekshirish
+        if current_role == 'accounting' and 'accounting' in current_user.get_roles():
+            return f(*args, **kwargs)
+        elif current_user.has_role('accounting'):
+            # Agar joriy rol accounting emas, lekin foydalanuvchida accounting roli bor bo'lsa, ruxsat berish
+            return f(*args, **kwargs)
+        else:
+            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            return redirect(url_for('main.dashboard'))
     return decorated_function
 
 

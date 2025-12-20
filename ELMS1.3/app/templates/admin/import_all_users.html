@@ -17,12 +17,28 @@
         <div class="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
             <h3 class="text-sm font-semibold text-blue-900 mb-2">Import qilish talablari:</h3>
             <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
+<<<<<<< Current (Your changes)
                 <li>Excel fayl har bir rol uchun alohida worksheet'larga bo'lingan bo'lishi kerak</li>
-                <li>Worksheet nomlari: "Administratorlar", "Dekanlar", "O'qituvchilar", "Talabalar", "Buxgalteriya"</li>
+                <li>Worksheet nomlari: "Administratorlar", "Dekanlar", "O'qituvchilar", "Buxgalteriya"</li>
                 <li>Har bir worksheet'da sarlavha qatori 3-qatorda bo'lishi kerak</li>
                 <li>Pasport raqami majburiy va parol sifatida ishlatiladi</li>
                 <li>Email bo'yicha foydalanuvchi topilsa, yangilanadi, aks holda yangi yaratiladi</li>
+                <li>Bir nechta rolli xodimlar har bir rol worksheet'ida ko'rsatilishi mumkin</li>
+=======
+                <li>Excel fayl bitta worksheet'da bo'lishi kerak</li>
+                <li>Sarlavha qatori 3-qatorda bo'lishi kerak</li>
+                <li>Pasport raqami majburiy va parol sifatida ishlatiladi</li>
+                <li>Email bo'yicha foydalanuvchi topilsa, yangilanadi, aks holda yangi yaratiladi</li>
+                <li>Rollar ustunida rollar "Administrator", "Dekan", "O'qituvchi", "Buxgalter" ko'rinishida bo'lishi kerak</li>
+                <li>Bir nechta rolli xodimlar uchun rollar vergul bilan ajratilgan bo'lishi kerak (masalan: "Dekan, O'qituvchi")</li>
+>>>>>>> Incoming (Background Agent changes)
             </ul>
+            <div class="mt-4">
+                <a href="{{ url_for('admin.download_staff_sample_import') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Namuna faylini yuklab olish
+                </a>
+            </div>
         </div>
         
         <form method="POST" enctype="multipart/form-data" class="space-y-6">

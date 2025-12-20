@@ -6,15 +6,14 @@
 <div class="flex justify-between items-center mb-6">
     <div>
         <h1 class="text-2xl font-bold text-gray-900">Dars jadvali</h1>
-        <p class="text-gray-600">{{ faculty.name }}</p>
         <p class="text-gray-500 text-sm">Har oyda bir marotaba o'tkaziladigan onlayn video konsultatsiya jadvali</p>
     </div>
     <div class="flex gap-2">
-        <a href="{{ url_for('dean.export_schedule', group=request.args.get('group'), year=year, month=month) }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+        <a href="{{ url_for('admin.export_schedule', group_id=request.args.get('group'), year=year, month=month) }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Excel yuklab olish
         </a>
-        <a href="{{ url_for('dean.create_schedule') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+        <a href="{{ url_for('admin.create_schedule') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
             Dars qo'shish
         </a>
@@ -40,7 +39,7 @@
         {% set month_names = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentyabr','Oktyabr','Noyabr','Dekabr'] %}
         <form method="GET" class="flex items-center gap-3">
             <input type="hidden" name="group" value="{{ current_group or '' }}">
-            <a href="{{ url_for('dean.schedule', year=prev_year, month=prev_month, group=current_group) }}" class="w-10 h-10 flex items-center justify-center text-xl rounded-full border border-gray-200 hover:bg-gray-100">
+            <a href="{{ url_for('admin.schedule', year=prev_year, month=prev_month, group=current_group) }}" class="w-10 h-10 flex items-center justify-center text-xl rounded-full border border-gray-200 hover:bg-gray-100">
                 ‹
             </a>
             <div class="flex items-center gap-2">
@@ -56,7 +55,7 @@
                 </select>
             </div>
             <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">Ko'rish</button>
-            <a href="{{ url_for('dean.schedule', year=next_year, month=next_month, group=current_group) }}" class="w-10 h-10 flex items-center justify-center text-xl rounded-full border border-gray-200 hover:bg-gray-100">
+            <a href="{{ url_for('admin.schedule', year=next_year, month=next_month, group=current_group) }}" class="w-10 h-10 flex items-center justify-center text-xl rounded-full border border-gray-200 hover:bg-gray-100">
                 ›
             </a>
         </form>
@@ -86,7 +85,7 @@
                     {% if is_today %}bg-primary-600 text-white{% else %}bg-gray-100 text-gray-700{% endif %}">
                     {{ day }}
                 </div>
-                <a href="{{ url_for('dean.create_schedule', date=date_str, group=current_group) }}"
+                <a href="{{ url_for('admin.create_schedule', date=date_str, group=current_group) }}"
                    class="w-6 h-6 flex items-center justify-center rounded-full bg-primary-50 text-primary-600 text-lg leading-none hover:bg-primary-100">
                     +
                 </a>
@@ -113,12 +112,12 @@
                 </a>
                 {% endif %}
                 <div class="flex justify-end items-center pt-1 gap-1">
-                    <a href="{{ url_for('dean.edit_schedule', id=schedule.id) }}" class="w-7 h-7 flex items-center justify-center bg-white text-primary-700 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Tahrirlash">
+                    <a href="{{ url_for('admin.edit_schedule', id=schedule.id) }}" class="w-7 h-7 flex items-center justify-center bg-white text-primary-700 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Tahrirlash">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                         </svg>
                     </a>
-                    <form action="{{ url_for('dean.delete_schedule', id=schedule.id) }}" method="POST" class="inline" onsubmit="return confirm('Darsni o\'chirmoqchimisiz?');">
+                    <form action="{{ url_for('admin.delete_schedule', id=schedule.id) }}" method="POST" class="inline" onsubmit="return confirm('Darsni o\'chirmoqchimisiz?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="w-7 h-7 flex items-center justify-center bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors" title="O'chirish">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,3 +134,4 @@
     </div>
 </div>
 {% endblock %}
+

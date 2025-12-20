@@ -16,8 +16,24 @@ def set_language(lang):
         session['language'] = lang
     return redirect(request.referrer or url_for('main.dashboard'))
 
+@bp.route('/switch-role/<role>')
+@login_required
+def switch_role(role):
+    """Rolni o'zgartirish"""
+    # Foydalanuvchining mavjud rollarini tekshirish
+    user_roles = current_user.get_roles()
+    
+    if role in user_roles:
+        session['current_role'] = role
+        flash(f"Rol {role} ga o'zgartirildi", 'success')
+    else:
+        flash("Sizda bu rolga kirish huquqi yo'q", 'error')
+    
+    return redirect(request.referrer or url_for('main.dashboard'))
+
 @bp.route('/')
 def index():
+    """Asosiy sahifa"""
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
     return redirect(url_for('auth.login'))
@@ -25,501 +41,186 @@ def index():
 @bp.route('/dashboard')
 @login_required
 def dashboard():
-    context = {
-        'greeting': get_greeting(),
-        'today': datetime.now().strftime('%A, %d %B %Y')
-    }
+    from flask import current_app
+    import os
+    print("=" * 50)
+    print("🔍 DEBUG: Flask Template Configuration")
+    print("=" * 50)
+    print("TEMPLATE FOLDER:", current_app.template_folder)
+    print("ROOT PATH:", current_app.root_path)
+    template_path = os.path.join(current_app.root_path, current_app.template_folder)
+    print("FULL TEMPLATE PATH:", template_path)
+    print("Dashboard exists:", os.path.exists(os.path.join(template_path, 'dashboard.html')))
+    print("Base exists:", os.path.exists(os.path.join(template_path, 'base.html')))
+    print("=" * 50)
+    """Dashboard sahifasi"""
+    user = current_user
     
-    if current_user.role == 'admin':
-        context.update({
-            'total_users': User.query.count(),
-            'total_faculties': Faculty.query.count(),
-            'total_teachers': User.query.filter_by(role='teacher').count(),
-            'total_students': User.query.filter_by(role='student').count(),
-            'recent_users': User.query.order_by(User.created_at.desc()).limit(5).all()
-        })
+    # Foydalanuvchi rollariga qarab turli ma'lumotlar
+    stats = {}
+    announcements = []
+    recent_assignments = []
+    upcoming_schedules = []
     
-    elif current_user.role == 'dean':
-        faculty = Faculty.query.get(current_user.faculty_id)
-        if faculty:
-            faculty_group_ids = [g.id for g in faculty.groups.all()]
-            context.update({
-                'faculty': faculty,
-                'total_groups': faculty.groups.count(),
-                'total_subjects': faculty.subjects.count(),
-                'total_students': User.query.filter(
-                    User.role == 'student',
-                    User.group_id.in_(faculty_group_ids)
-                ).count(),
-                'recent_announcements': Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
-            })
-    
-    elif current_user.role == 'teacher':
-        # O'qituvchiga biriktirilgan fanlar
-        teaching = TeacherSubject.query.filter_by(teacher_id=current_user.id).all()
-        subjects = list(set([t.subject for t in teaching]))
-        groups = list(set([t.group for t in teaching]))
+    if user.role == 'student':
+        # Talaba uchun
+        stats = {
+            'subjects': user.get_subjects(),
+            'assignments': Assignment.query.join(Subject).join(TeacherSubject).filter(
+                TeacherSubject.group_id == user.group_id
+            ).count(),
+            'submissions': Submission.query.filter_by(student_id=user.id).count(),
+            'completed_assignments': Submission.query.filter_by(student_id=user.id).filter(Submission.score != None).count()
+        }
         
-        # Baholanmagan topshiriqlar
-        pending_count = 0
-        for ts in teaching:
-            pending_count += Submission.query.join(Assignment).filter(
-                Assignment.subject_id == ts.subject_id,
-                Assignment.group_id == ts.group_id,
+        # E'lonlar
+        announcements = Announcement.query.filter(
+            (Announcement.target_roles.contains('student')) |
+            (Announcement.target_roles == None)
+        ).order_by(Announcement.created_at.desc()).limit(5).all()
+        
+        # Yaqin topshiriqlar
+        recent_assignments = Assignment.query.join(Subject).join(TeacherSubject).filter(
+            TeacherSubject.group_id == user.group_id
+        ).order_by(Assignment.due_date.desc()).limit(5).all()
+        
+        # Dars jadvali
+        if user.group_id:
+            upcoming_schedules = Schedule.query.filter_by(group_id=user.group_id).all()
+    
+    elif user.role == 'teacher':
+        # O'qituvchi uchun
+        teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
+        subject_ids = [ts.subject_id for ts in teacher_subjects]
+        
+        stats = {
+            'subjects': Subject.query.filter(Subject.id.in_(subject_ids)).all() if subject_ids else [],
+            'assignments': Assignment.query.filter(Assignment.subject_id.in_(subject_ids)).count() if subject_ids else 0,
+            'submissions': Submission.query.join(Assignment).filter(Assignment.subject_id.in_(subject_ids)).count() if subject_ids else 0,
+            'pending_grades': Submission.query.join(Assignment).filter(
+                Assignment.subject_id.in_(subject_ids),
                 Submission.score == None
-            ).count()
+            ).count() if subject_ids else 0
+        }
         
-        context.update({
-            'my_subjects': subjects,
-            'my_groups': groups,
-            'total_subjects': len(subjects),
-            'total_groups': len(groups),
-            'pending_submissions': pending_count,
-            'today_schedule': get_today_schedule(current_user)
-        })
+        # E'lonlar
+        announcements = Announcement.query.filter(
+            (Announcement.target_roles.contains('teacher')) |
+            (Announcement.target_roles == None)
+        ).order_by(Announcement.created_at.desc()).limit(5).all()
+        
+        # Yaqin topshiriqlar
+        recent_assignments = Assignment.query.filter(
+            Assignment.subject_id.in_(subject_ids)
+        ).order_by(Assignment.due_date.desc()).limit(5).all() if subject_ids else []
     
-    elif current_user.role == 'student':
-        # Talabaning guruhi va fanlari
-        group = Group.query.get(current_user.group_id) if current_user.group_id else None
-        subjects = current_user.get_subjects() if group else []
+    elif user.role == 'dean':
+        # Dekan uchun
+        faculty = Faculty.query.get(user.faculty_id) if user.faculty_id else None
         
-        # To'lov ma'lumotlari
-        from app.models import StudentPayment
-        payment = StudentPayment.query.filter_by(student_id=current_user.id).first()
-        payment_info = None
-        if payment:
-            payment_info = {
-                'contract': float(payment.contract_amount),
-                'paid': float(payment.paid_amount),
-                'remaining': float(payment.get_remaining_amount()),
-                'percentage': payment.get_payment_percentage()
+        if faculty:
+            stats = {
+                'total_students': User.query.join(Group).filter(Group.faculty_id == faculty.id, User.role == 'student').count(),
+                'total_teachers': User.query.filter_by(role='teacher').count(),
+                'total_subjects': Subject.query.filter_by(faculty_id=faculty.id).count(),
+                'total_groups': Group.query.filter_by(faculty_id=faculty.id).count()
             }
+            
+            # E'lonlar
+            announcements = Announcement.query.filter(
+                ((Announcement.target_roles.contains('dean')) | (Announcement.target_roles == None)),
+                (Announcement.faculty_id == faculty.id) | (Announcement.faculty_id == None)
+            ).order_by(Announcement.created_at.desc()).limit(5).all()
+    
+    elif user.role == 'admin':
+        # Admin uchun
+        stats = {
+            'total_users': User.query.count(),
+            'total_students': User.query.filter_by(role='student').count(),
+            'total_teachers': User.query.filter_by(role='teacher').count(),
+            'total_faculties': Faculty.query.count(),
+            'total_subjects': Subject.query.count()
+        }
         
-        context.update({
-            'group': group,
-            'my_subjects': subjects,
-            'total_subjects': len(subjects),
-            'pending_assignments': get_pending_assignments(current_user),
-            'recent_grades': get_recent_grades(current_user),
-            'today_schedule': get_today_schedule(current_user),
-            'payment_info': payment_info
-        })
+        # E'lonlar
+        announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
     
-    # E'lonlar
-    context['announcements'] = Announcement.query.order_by(
-        Announcement.is_important.desc(),
-        Announcement.created_at.desc()
-    ).limit(3).all()
-    
-    return render_template('dashboard.html', **context)
-
-@bp.route('/schedule')
-@login_required
-def schedule():
-    today = datetime.now()
-    year = request.args.get('year', type=int) or today.year
-    month = request.args.get('month', type=int) or today.month
-    if month < 1:
-        month = 12
-        year -= 1
-    elif month > 12:
-        month = 1
-        year += 1
-    days_in_month = calendar.monthrange(year, month)[1]
-    start_weekday = calendar.monthrange(year, month)[0]  # 0=Monday
-    # Oldingi va keyingi oylar
-    if month == 1:
-        prev_month, prev_year = 12, year - 1
-    else:
-        prev_month, prev_year = month - 1, year
-    if month == 12:
-        next_month, next_year = 1, year + 1
-    else:
-        next_month, next_year = month + 1, year
-    
-    today_year = today.year
-    today_month = today.month
-    today_day = today.day
-    
-    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
-    start_code = int(f"{year}{month:02d}01")
-    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
-    
-    # Foydalanuvchi roliga qarab schedule'larni olish
-    if current_user.role == 'teacher':
-        schedules = Schedule.query.filter(
-            Schedule.teacher_id == current_user.id,
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
-    elif current_user.role == 'student' and current_user.group_id:
-        schedules = Schedule.query.filter(
-            Schedule.group_id == current_user.group_id,
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
-    elif current_user.role == 'dean' and current_user.faculty_id:
-        faculty = Faculty.query.get(current_user.faculty_id)
-        group_ids = [g.id for g in faculty.groups.all()]
-        schedules = Schedule.query.filter(
-            Schedule.group_id.in_(group_ids),
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
-    else:
-        schedules = Schedule.query.filter(
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
-    
-    # Oy kunlari bo'yicha guruhlash (har bir dars aniq sana bo'yicha)
-    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
-    for s in schedules:
-        try:
-            code_str = str(s.day_of_week)
-            day = int(code_str[-2:])
-        except (TypeError, ValueError):
-            continue
-        if 1 <= day <= days_in_month:
-            schedule_by_day[day].append(s)
-    
-    for day in schedule_by_day:
-        schedule_by_day[day].sort(key=lambda x: x.start_time or '')
-    
-    return render_template('schedule.html', 
-                         schedule_by_day=schedule_by_day,
-                         days_in_month=days_in_month,
-                         start_weekday=start_weekday,
-                         year=year,
-                         month=month,
-                         today_year=today_year,
-                         today_month=today_month,
-                         today_day=today_day,
-                         prev_year=prev_year,
-                         prev_month=prev_month,
-                         next_year=next_year,
-                         next_month=next_month)
+    return render_template('dashboard.html', stats=stats, announcements=announcements, 
+                         recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules)
 
 @bp.route('/announcements')
 @login_required
 def announcements():
-    page = request.args.get('page', 1, type=int)
-    announcements = Announcement.query.order_by(
-        Announcement.is_important.desc(),
-        Announcement.created_at.desc()
-    ).paginate(page=page, per_page=10)
+    """E'lonlar sahifasi"""
+    user = current_user
+    
+    # Foydalanuvchi roliga qarab e'lonlarni filtrlash
+    query = Announcement.query
+    
+    if user.role == 'student':
+        query = query.filter(
+            (Announcement.target_roles.contains('student')) |
+            (Announcement.target_roles == None)
+        )
+    elif user.role == 'teacher':
+        query = query.filter(
+            (Announcement.target_roles.contains('teacher')) |
+            (Announcement.target_roles == None)
+        )
+    elif user.role == 'dean':
+        if user.faculty_id:
+            query = query.filter(
+                ((Announcement.target_roles.contains('dean')) | (Announcement.target_roles == None)),
+                (Announcement.faculty_id == user.faculty_id) | (Announcement.faculty_id == None)
+            )
+    
+    announcements = query.order_by(Announcement.created_at.desc()).all()
     
     return render_template('announcements.html', announcements=announcements)
-
-@bp.route('/announcements/create', methods=['GET', 'POST'])
-@login_required
-def create_announcement():
-    if not current_user.has_permission('create_announcement'):
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
-        return redirect(url_for('main.announcements'))
-    
-    if request.method == 'POST':
-        title = request.form.get('title')
-        content = request.form.get('content')
-        is_important = request.form.get('is_important') == 'on'
-        target_roles = ','.join(request.form.getlist('target_roles'))
-        
-        announcement = Announcement(
-            title=title,
-            content=content,
-            is_important=is_important,
-            target_roles=target_roles,
-            author_id=current_user.id,
-            faculty_id=current_user.faculty_id if current_user.role == 'dean' else None
-        )
-        db.session.add(announcement)
-        db.session.commit()
-        
-        flash("E'lon muvaffaqiyatli yaratildi", 'success')
-        return redirect(url_for('main.announcements'))
-    
-    return render_template('create_announcement.html')
-
-@bp.route('/announcements/<int:id>/edit', methods=['GET', 'POST'])
-@login_required
-def edit_announcement(id):
-    announcement = Announcement.query.get_or_404(id)
-    
-    # Faqat admin yoki e'lonni yaratgan foydalanuvchi tahrirlashi mumkin
-    if current_user.role != 'admin' and announcement.author_id != current_user.id:
-        flash("Sizda bu e'lonni tahrirlash huquqi yo'q", 'error')
-        return redirect(url_for('main.announcements'))
-    
-    if request.method == 'POST':
-        announcement.title = request.form.get('title')
-        announcement.content = request.form.get('content')
-        announcement.is_important = request.form.get('is_important') == 'on'
-        announcement.target_roles = ','.join(request.form.getlist('target_roles'))
-        
-        db.session.commit()
-        flash("E'lon muvaffaqiyatli yangilandi", 'success')
-        return redirect(url_for('main.announcements'))
-    
-    return render_template('edit_announcement.html', announcement=announcement)
-
-@bp.route('/announcements/<int:id>/delete', methods=['POST'])
-@login_required
-def delete_announcement(id):
-    announcement = Announcement.query.get_or_404(id)
-    
-    # Faqat admin yoki e'lonni yaratgan foydalanuvchi o'chirishi mumkin
-    if current_user.role != 'admin' and announcement.author_id != current_user.id:
-        flash("Sizda bu e'lonni o'chirish huquqi yo'q", 'error')
-        return redirect(url_for('main.announcements'))
-    
-    db.session.delete(announcement)
-    db.session.commit()
-    flash("E'lon o'chirildi", 'success')
-    return redirect(url_for('main.announcements'))
 
 @bp.route('/messages')
 @login_required
 def messages():
-    from app.models import TeacherSubject
+    """Xabarlar sahifasi"""
+    # Foydalanuvchiga kelgan xabarlar
+    received_messages = Message.query.filter_by(receiver_id=current_user.id).order_by(Message.created_at.desc()).all()
     
-    # Ruxsatli foydalanuvchilarni aniqlash
-    allowed_user_ids = set()
+    # Foydalanuvchi yuborgan xabarlar
+    sent_messages = Message.query.filter_by(sender_id=current_user.id).order_by(Message.created_at.desc()).all()
     
-    if current_user.role == 'student':
-        # Talaba faqat o'ziga biriktirilgan o'qituvchi va dekanga yozishi mumkin
-        if current_user.group_id:
-            # O'z guruhiga biriktirilgan o'qituvchilar
-            teaching_assignments = TeacherSubject.query.filter_by(group_id=current_user.group_id).all()
-            teacher_ids = [ta.teacher_id for ta in teaching_assignments]
-            allowed_user_ids.update(teacher_ids)
-            
-            # O'z fakultetidagi dekan
-            student_group = Group.query.get(current_user.group_id)
-            if student_group and student_group.faculty_id:
-                faculty_dean = User.query.filter_by(
-                    role='dean',
-                    faculty_id=student_group.faculty_id
-                ).first()
-                if faculty_dean:
-                    allowed_user_ids.add(faculty_dean.id)
-        
-    elif current_user.role == 'dean':
-        # Dekan faqat o'z fakultetidagi talabalarga yozishi mumkin
-        if current_user.faculty_id:
-            faculty_groups = Group.query.filter_by(faculty_id=current_user.faculty_id).all()
-            group_ids = [g.id for g in faculty_groups]
-            students = User.query.filter(
-                User.role == 'student',
-                User.group_id.in_(group_ids)
-            ).all()
-            allowed_user_ids.update([s.id for s in students])
-        
-    elif current_user.role == 'teacher':
-        # O'qituvchi o'z guruhlaridagi talabalarga yozishi mumkin
-        teaching_groups = TeacherSubject.query.filter_by(teacher_id=current_user.id).all()
-        group_ids = [tg.group_id for tg in teaching_groups]
-        students = User.query.filter(
-            User.role == 'student',
-            User.group_id.in_(group_ids)
-        ).all()
-        allowed_user_ids.update([s.id for s in students])
-        
-        # O'qituvchilar o'rtasida ham yozish mumkin
-        teachers = User.query.filter_by(role='teacher').filter(User.id != current_user.id).all()
-        allowed_user_ids.update([t.id for t in teachers])
-        
-        # Dekanlarga ham yozish mumkin
-        deans = User.query.filter_by(role='dean').all()
-        allowed_user_ids.update([d.id for d in deans])
-        
-    else:
-        # Admin va boshqalar barcha foydalanuvchilar bilan yozishi mumkin
-        all_users = User.query.filter(User.id != current_user.id).all()
-        allowed_user_ids.update([u.id for u in all_users])
-    
-    # Barcha suhbatlar (faqat ruxsatli foydalanuvchilar bilan)
-    sent = db.session.query(Message.receiver_id).filter_by(sender_id=current_user.id).filter(Message.receiver_id.in_(allowed_user_ids)).distinct()
-    received = db.session.query(Message.sender_id).filter_by(receiver_id=current_user.id).filter(Message.sender_id.in_(allowed_user_ids)).distinct()
-    
-    user_ids = set([r[0] for r in sent] + [r[0] for r in received])
-    chat_users = User.query.filter(User.id.in_(user_ids)).all()
-    
-    # Har bir foydalanuvchi bilan so'nggi xabar
-    chats = []
-    for user in chat_users:
-        last_message = Message.query.filter(
-            ((Message.sender_id == current_user.id) & (Message.receiver_id == user.id)) |
-            ((Message.sender_id == user.id) & (Message.receiver_id == current_user.id))
-        ).order_by(Message.created_at.desc()).first()
-        
-        unread_count = Message.query.filter_by(
-            sender_id=user.id,
-            receiver_id=current_user.id,
-            is_read=False
-        ).count()
-        
-        chats.append({
-            'user': user,
-            'last_message': last_message,
-            'unread_count': unread_count
-        })
-    
-    chats.sort(key=lambda x: x['last_message'].created_at if x['last_message'] else datetime.min, reverse=True)
-    
-    # Ruxsatli foydalanuvchilar ro'yxati (yangi suhbat boshlash uchun)
-    available_users = User.query.filter(User.id.in_(allowed_user_ids)).filter(User.id != current_user.id).all()
-    
-    return render_template('messages.html', chats=chats, available_users=available_users)
-
-@bp.route('/messages/<int:user_id>', methods=['GET', 'POST'])
-@login_required
-def chat(user_id):
-    from app.models import TeacherSubject, Group
-    
-    other_user = User.query.get_or_404(user_id)
-    
-    # Ruxsatni tekshirish
-    can_message = False
-    
-    if current_user.role == 'student':
-        # Talaba faqat o'ziga biriktirilgan o'qituvchi va dekanga yozishi mumkin
-        can_message = False
-        
-        if current_user.group_id:
-            # O'z guruhiga biriktirilgan o'qituvchilarga
-            if other_user.role == 'teacher':
-                teaching = TeacherSubject.query.filter_by(
-                    teacher_id=other_user.id,
-                    group_id=current_user.group_id
-                ).first()
-                can_message = teaching is not None
-            
-            # O'z fakultetidagi dekanga
-            elif other_user.role == 'dean':
-                student_group = Group.query.get(current_user.group_id)
-                if student_group and student_group.faculty_id:
-                    can_message = other_user.faculty_id == student_group.faculty_id
-        
-    elif current_user.role == 'dean':
-        # Dekan faqat o'z fakultetidagi talabalarga yozishi mumkin
-        if other_user.role == 'student' and current_user.faculty_id:
-            if other_user.group_id:
-                group = Group.query.get(other_user.group_id)
-                can_message = group and group.faculty_id == current_user.faculty_id
-        else:
-            can_message = False
-            
-    elif current_user.role == 'teacher':
-        # O'qituvchi o'z guruhlaridagi talabalarga, boshqa o'qituvchilarga va dekanlarga yozishi mumkin
-        if other_user.role == 'student':
-            if other_user.group_id:
-                teaching = TeacherSubject.query.filter_by(
-                    teacher_id=current_user.id,
-                    group_id=other_user.group_id
-                ).first()
-                can_message = teaching is not None
-        elif other_user.role in ['teacher', 'dean']:
-            can_message = True
-        else:
-            can_message = False
-            
-    else:
-        # Admin va boshqalar barcha foydalanuvchilar bilan yozishi mumkin
-        can_message = True
-    
-    if not can_message:
-        flash("Siz bu foydalanuvchiga xabar yubora olmaysiz", 'error')
-        return redirect(url_for('main.messages'))
-    
-    if request.method == 'POST':
-        content = request.form.get('content')
-        if content:
-            message = Message(
-                sender_id=current_user.id,
-                receiver_id=user_id,
-                content=content
-            )
-            db.session.add(message)
-            db.session.commit()
-    
-    # Xabarlarni o'qilgan deb belgilash
-    Message.query.filter_by(
-        sender_id=user_id,
-        receiver_id=current_user.id,
-        is_read=False
-    ).update({'is_read': True})
-    db.session.commit()
-    
-    # Barcha xabarlar
-    messages = Message.query.filter(
-        ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
-        ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
-    ).order_by(Message.created_at.asc()).all()
-    
-    return render_template('chat.html', other_user=other_user, messages=messages)
+    return render_template('messages.html', received_messages=received_messages, sent_messages=sent_messages)
 
 @bp.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
+    """Profil sozlamalari"""
     if request.method == 'POST':
-        current_user.full_name = request.form.get('full_name', current_user.full_name)
-        current_user.phone = request.form.get('phone', current_user.phone)
+        user = current_user
         
+        # Ma'lumotlarni yangilash
+        user.full_name = request.form.get('full_name', user.full_name)
+        user.email = request.form.get('email', user.email)
+        user.phone = request.form.get('phone', user.phone)
+        
+        # Parolni o'zgartirish
+        old_password = request.form.get('old_password')
         new_password = request.form.get('new_password')
-        if new_password:
-            current_password = request.form.get('current_password')
-            if current_user.check_password(current_password):
-                current_user.set_password(new_password)
-                flash("Parol muvaffaqiyatli o'zgartirildi", 'success')
+        confirm_password = request.form.get('confirm_password')
+        
+        if old_password and new_password:
+            if user.check_password(old_password):
+                if new_password == confirm_password:
+                    user.set_password(new_password)
+                    flash("Parol muvaffaqiyatli o'zgartirildi", 'success')
+                else:
+                    flash("Yangi parollar mos kelmaydi", 'error')
+                    return render_template('settings.html')
             else:
-                flash("Joriy parol noto'g'ri", 'error')
+                flash("Eski parol noto'g'ri", 'error')
                 return render_template('settings.html')
         
         db.session.commit()
-        flash("Sozlamalar saqlandi", 'success')
+        flash("Ma'lumotlar muvaffaqiyatli yangilandi", 'success')
+        return redirect(url_for('main.settings'))
     
     return render_template('settings.html')
-
-
-# Yordamchi funksiyalar
-def get_greeting():
-    hour = datetime.now().hour
-    if hour < 12:
-        return "Xayrli tong"
-    elif hour < 18:
-        return "Xayrli kun"
-    return "Xayrli kech"
-
-def get_today_schedule(user):
-    today = datetime.now().weekday()
-    if today > 5:
-        return []
-    
-    if user.role == 'teacher':
-        return Schedule.query.filter(
-            Schedule.teacher_id == user.id,
-            Schedule.day_of_week == today
-        ).order_by(Schedule.start_time).all()
-    elif user.role == 'student' and user.group_id:
-        return Schedule.query.filter(
-            Schedule.group_id == user.group_id,
-            Schedule.day_of_week == today
-        ).order_by(Schedule.start_time).all()
-    return []
-
-def get_pending_assignments(user):
-    if not user.group_id:
-        return []
-    
-    assignments = Assignment.query.filter_by(group_id=user.group_id).all()
-    pending = []
-    for assignment in assignments:
-        submission = Submission.query.filter_by(
-            student_id=user.id,
-            assignment_id=assignment.id
-        ).first()
-        if not submission:
-            pending.append(assignment)
-    return pending[:5]
-
-def get_recent_grades(user):
-    return Submission.query.filter(
-        Submission.student_id == user.id,
-        Submission.score != None
-    ).order_by(Submission.graded_at.desc()).limit(5).all()

@@ -584,7 +584,7 @@ def create_all_users_excel(users):
                 ws.cell(row=row_num, column=7, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
                 ws.cell(row=row_num, column=8, value=user.department or '')
                 ws.cell(row=row_num, column=9, value=user.position or '')
-                ws.cell(row=row_num, column=10, value=user.faculty.name if user.faculty else '')
+                ws.cell(row=row_num, column=10, value=user.managed_faculty.name if user.managed_faculty else '')
                 ws.cell(row=row_num, column=11, value='Faol' if user.is_active else 'Bloklangan')
             
             # Stil
@@ -617,6 +617,106 @@ def create_all_users_excel(users):
     wb.save(output)
     output.seek(0)
     return output
+
+
+def create_staff_excel(users):
+    """Xodimlarni Excel formatida yaratish (bitta sheet'da) - bir nechta rollarni qo'llab-quvvatlash"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Xodimlar"
+    
+    # Sarlavha
+    title = "Xodimlar ro'yxati"
+    ws.merge_cells('A1:L1')
+    title_cell = ws['A1']
+    title_cell.value = title
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    
+    # Sana
+    ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ws.merge_cells('A2:L2')
+    ws['A2'].font = Font(size=10, italic=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Jadval sarlavhalari
+    headers = ['№', "To'liq ism", 'Email', 'Telefon', 'Pasport raqami', 'JSHSHIR', 'Tug\'ilgan sana', 'Kafedra', 'Lavozim', 'Fakultet', 'Rollar', 'Holat']
+    
+    header_row = 3
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+    
+    # Rollarni ko'rsatish uchun mapping
+    role_display_names = {
+        'admin': 'Administrator',
+        'dean': 'Dekan',
+        'teacher': "O'qituvchi",
+        'accounting': 'Buxgalter'
+    }
+    
+    # Ma'lumotlar
+    for row_num, user in enumerate(users, start=header_row + 1):
+        ws.cell(row=row_num, column=1, value=row_num - header_row)
+        ws.cell(row=row_num, column=2, value=user.full_name)
+        ws.cell(row=row_num, column=3, value=user.email)
+        ws.cell(row=row_num, column=4, value=user.phone or '')
+        ws.cell(row=row_num, column=5, value=getattr(user, 'passport_number', None) or '')
+        ws.cell(row=row_num, column=6, value=getattr(user, 'pinfl', None) or '')
+        birth_date = getattr(user, 'birth_date', None)
+        ws.cell(row=row_num, column=7, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
+        ws.cell(row=row_num, column=8, value=user.department or '')
+        ws.cell(row=row_num, column=9, value=user.position or '')
+        ws.cell(row=row_num, column=10, value=user.managed_faculty.name if user.managed_faculty else '')
+        
+        # Bir nechta rollar
+        all_roles = user.get_roles() if hasattr(user, 'get_roles') else [user.role]
+        staff_roles = [r for r in all_roles if r in ['admin', 'dean', 'teacher', 'accounting']]
+        ws.cell(row=row_num, column=11, value=', '.join([role_display_names.get(r, r) for r in staff_roles]))
+        
+        ws.cell(row=row_num, column=12, value='Faol' if user.is_active else 'Bloklangan')
+        
+        # Stil
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.alignment = Alignment(horizontal='left', vertical='center')
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            if row_num % 2 == 0:
+                cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+    
+    # Ustun kengliklarini sozlash
+    column_widths = [5, 30, 25, 16, 18, 16, 14, 20, 15, 20, 30, 12]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+    
+    excel_file = io.BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+    
+    return excel_file.getvalue()
 
 
 def create_sample_contracts_excel():
