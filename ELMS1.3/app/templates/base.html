@@ -35,6 +35,19 @@
             box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);
         }
         .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+        @keyframes slide-in {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .animate-slide-in {
+            animation: slide-in 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-sky-50 to-slate-100 min-h-screen">
@@ -387,9 +400,9 @@
             <!-- Flash messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-            <div class="px-6 pt-4">
+            <div class="fixed top-20 right-4 z-50 max-w-md w-full lg:max-w-lg space-y-2" id="flash-messages-container">
                 {% for category, message in messages %}
-                <div class="mb-2 p-4 rounded-xl flex items-center gap-3 {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200{% elif category == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-sky-50 text-sky-700 border border-sky-200{% endif %}">
+                <div class="p-4 rounded-xl flex items-center gap-3 shadow-lg {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200{% elif category == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-sky-50 text-sky-700 border border-sky-200{% endif %} animate-slide-in">
                     {% if category == 'error' %}
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {% elif category == 'success' %}
@@ -397,10 +410,26 @@
                     {% else %}
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {% endif %}
-                    <span>{{ message }}</span>
+                    <span class="flex-1">{{ message }}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
                 </div>
                 {% endfor %}
             </div>
+            <script>
+                // Flash message'larni avtomatik yopish
+                setTimeout(function() {
+                    const container = document.getElementById('flash-messages-container');
+                    if (container) {
+                        container.style.opacity = '0';
+                        container.style.transition = 'opacity 0.5s';
+                        setTimeout(function() {
+                            container.remove();
+                        }, 500);
+                    }
+                }, 5000);
+            </script>
             {% endif %}
             {% endwith %}
             
