@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, send_file, session
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction, StudentPayment
 from app import db
 from functools import wraps
 from sqlalchemy import func
@@ -703,7 +703,7 @@ def download_sample_import():
 @login_required
 @dean_required
 def create_student():
-    """Dekan uchun talaba yaratish (admin versiyasiga o'xshash)"""
+    """Dekan uchun yangi talaba yaratish (admin versiyasiga o'xshash)"""
     from datetime import datetime
     
     faculty = Faculty.query.get(current_user.faculty_id)
@@ -711,46 +711,35 @@ def create_student():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    # Faqat o'z fakultetidagi yo'nalishlar va guruhlar
-    directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
-    groups = faculty.groups.order_by(Group.name).all()
-    
     if request.method == 'POST':
-        email = request.form.get('email')
-        full_name = request.form.get('full_name')
-        passport_number = request.form.get('passport_number')
-        phone = request.form.get('phone')
-        student_id = request.form.get('student_id')
-        direction_id = request.form.get('direction_id', type=int)
-        group_id = request.form.get('group_id', type=int)
-        enrollment_year = request.form.get('enrollment_year', type=int)
-        pinfl = request.form.get('pinfl')
-        birth_date = request.form.get('birth_date')
-        specialty = request.form.get('specialty')
-        specialty_code = request.form.get('specialty_code')
-        education_type = request.form.get('education_type')
+        email = request.form.get('email', '').strip()
+        full_name = request.form.get('full_name', '').strip()
+        passport_number = request.form.get('passport_number', '').strip()
+        phone = request.form.get('phone', '').strip()
+        student_id = request.form.get('student_id', '').strip()
+        pinfl = request.form.get('pinfl', '').strip()
+        birth_date = request.form.get('birth_date', '').strip()
+        description = request.form.get('description', '').strip()
         
-        # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
-        if email and User.query.filter_by(email=email).first():
-            flash("Bu email allaqachon mavjud", 'error')
-            return render_template('dean/create_student.html', 
-                                 directions=directions, groups=groups, faculty=faculty)
-        
-        # Talaba ID majburiy (talabalar uchun)
+        # Talaba ID majburiy
         if not student_id:
             flash("Talaba ID majburiy maydon", 'error')
-            return render_template('dean/create_student.html', 
-                                 directions=directions, groups=groups, faculty=faculty)
+            return render_template('dean/create_student.html', faculty=faculty)
         
         if User.query.filter_by(student_id=student_id).first():
             flash("Bu talaba ID allaqachon mavjud", 'error')
-            return render_template('dean/create_student.html', 
-                                 directions=directions, groups=groups, faculty=faculty)
+            return render_template('dean/create_student.html', faculty=faculty)
         
+        # Pasport seriyasi va raqami majburiy
         if not passport_number:
             flash("Pasport seriyasi va raqami majburiy", 'error')
-            return render_template('dean/create_student.html', 
-                                 directions=directions, groups=groups, faculty=faculty)
+            return render_template('dean/create_student.html', faculty=faculty)
+        
+        # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
+        if email:
+            if User.query.filter_by(email=email).first():
+                flash("Bu email allaqachon mavjud", 'error')
+                return render_template('dean/create_student.html', faculty=faculty)
         
         # Pasport raqamini katta harfga o'zgartirish
         passport_number = passport_number.upper()
@@ -762,51 +751,58 @@ def create_student():
                 parsed_birth_date = datetime.strptime(birth_date, '%Y-%m-%d').date()
             except ValueError:
                 flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
-                return render_template('dean/create_student.html', 
-                                     directions=directions, groups=groups, faculty=faculty)
+                return render_template('dean/create_student.html', faculty=faculty)
         
-        # Guruh tekshiruvi - faqat o'z fakultetidagi guruhlarga
-        if group_id:
-            group = Group.query.get(group_id)
-            if not group or group.faculty_id != faculty.id:
-                flash("Noto'g'ri guruh tanlandi", 'error')
-                return render_template('dean/create_student.html', 
-                                     directions=directions, groups=groups, faculty=faculty)
+        # Email maydonini tozalash
+        email_value = email.strip() if email and email.strip() else None
         
         student = User(
-            email=email if email else None,  # Email ixtiyoriy
             full_name=full_name,
             role='student',
-            phone=phone,
             student_id=student_id,
-            group_id=group_id,
-            enrollment_year=enrollment_year,
             passport_number=passport_number,
-            pinfl=pinfl,
+            phone=phone.strip() if phone and phone.strip() else None,
+            pinfl=pinfl.strip() if pinfl and pinfl.strip() else None,
             birth_date=parsed_birth_date,
-            specialty=specialty,
-            specialty_code=specialty_code,
-            education_type=education_type
+            description=description.strip() if description and description.strip() else None
         )
+        
+        # Email maydonini alohida o'rnatish (agar bo'sh bo'lsa, o'rnatmaymiz)
+        if email_value:
+            student.email = email_value
         
         # Parolni pasport raqamiga o'rnatish
         student.set_password(passport_number)
         
         db.session.add(student)
-        db.session.commit()
+        
+        # Commit qilish va agar email NOT NULL xatolik bo'lsa, email maydonini bo'sh qatorga o'zgartirish
+        try:
+            db.session.commit()
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'email' in error_str and ('not null' in error_str or 'constraint' in error_str):
+                # Database'da email NOT NULL bo'lsa, bo'sh qator qo'yamiz
+                db.session.rollback()
+                student.email = ''  # Bo'sh qator (database NOT NULL constraint uchun)
+                db.session.add(student)
+                db.session.commit()
+            else:
+                raise
         
         flash(f"{student.full_name} muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('dean.students'))
     
-    return render_template('dean/create_student.html', 
-                         directions=directions, groups=groups, faculty=faculty)
+    return render_template('dean/create_student.html', faculty=faculty)
 
 
 @bp.route('/students/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @dean_required
 def edit_student(id):
-    """Dekan uchun talaba ma'lumotlarini tahrirlash (faqat o'z fakulteti doirasida)"""
+    """Dekan uchun talabani tahrirlash (faqat o'z fakulteti doirasida)"""
+    from datetime import datetime
+    
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
         flash("Sizga fakultet biriktirilmagan", 'error')
@@ -814,56 +810,75 @@ def edit_student(id):
     
     student = User.query.get_or_404(id)
     
-    # Faqat talaba va shu fakultetga tegishli guruhda bo'lishi kerak
-    if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
+    # Faqat talaba va shu fakultetga tegishli guruhda bo'lishi kerak (agar guruh bo'lsa)
+    if student.role != 'student':
+        flash("Bu foydalanuvchi talaba emas", 'error')
+        return redirect(url_for('dean.students'))
+    
+    # Agar talabaning guruh bo'lsa, fakultetni tekshirish
+    if student.group and student.group.faculty_id != faculty.id:
         flash("Sizda bu talabani tahrirlash huquqi yo'q", 'error')
         return redirect(url_for('dean.students'))
     
-    groups = faculty.groups.order_by(Group.name).all()
-    
     if request.method == 'POST':
-        full_name = request.form.get('full_name')
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        student_id_val = request.form.get('student_id')
-        group_id = request.form.get('group_id', type=int)
-        enrollment_year = request.form.get('enrollment_year', type=int)
+        student_id = request.form.get('student_id', '').strip()
+        full_name = request.form.get('full_name', '').strip()
+        passport_number = request.form.get('passport_number', '').strip()
+        phone = request.form.get('phone', '').strip()
+        email = request.form.get('email', '').strip()
+        pinfl = request.form.get('pinfl', '').strip()
+        birth_date_str = request.form.get('birth_date', '').strip()
+        description = request.form.get('description', '').strip()
         
-        # Email unikalligi
-        existing_email = User.query.filter(User.email == email, User.id != student.id).first()
-        if existing_email:
-            flash("Bu email boshqa foydalanuvchida mavjud", 'error')
-            return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
+        # Talaba ID majburiy
+        if not student_id:
+            flash("Talaba ID majburiy maydon", 'error')
+            return render_template('dean/edit_student.html', faculty=faculty, student=student)
         
-        # Talaba ID unikalligi
-        if student_id_val:
-            existing_sid = User.query.filter(
-                User.student_id == student_id_val,
-                User.id != student.id
-            ).first()
-            if existing_sid:
-                flash("Bu talaba ID boshqa talabada mavjud", 'error')
-                return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
+        # Talaba ID unikalligi (boshqa talabada bo'lmasligi kerak)
+        existing_student = User.query.filter_by(student_id=student_id).first()
+        if existing_student and existing_student.id != student.id:
+            flash("Bu talaba ID allaqachon boshqa talabada mavjud", 'error')
+            return render_template('dean/edit_student.html', faculty=faculty, student=student)
         
-        # Guruh tekshiruvi
-        if group_id:
-            group = Group.query.get(group_id)
-            if not group or group.faculty_id != faculty.id:
-                flash("Noto'g'ri guruh tanlandi", 'error')
-                return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
-            student.group_id = group_id
+        # Pasport seriyasi va raqami majburiy
+        if not passport_number:
+            flash("Pasport seriyasi va raqami majburiy", 'error')
+            return render_template('dean/edit_student.html', faculty=faculty, student=student)
         
+        # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
+        if email:
+            existing_student_with_email = User.query.filter_by(email=email).first()
+            if existing_student_with_email and existing_student_with_email.id != student.id:
+                flash("Bu email allaqachon boshqa talabada mavjud", 'error')
+                return render_template('dean/edit_student.html', faculty=faculty, student=student)
+        
+        # Pasport raqamini katta harfga o'zgartirish
+        passport_number = passport_number.upper()
+        
+        # Tug'ilgan sanani parse qilish (yyyy-mm-dd)
+        if birth_date_str:
+            try:
+                student.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                return render_template('dean/edit_student.html', faculty=faculty, student=student)
+        else:
+            student.birth_date = None
+        
+        student.email = email if email else None
         student.full_name = full_name
-        student.email = email
-        student.phone = phone
-        student.student_id = student_id_val or None
-        student.enrollment_year = enrollment_year
+        student.phone = phone if phone else None
+        student.student_id = student_id
+        student.passport_number = passport_number
+        student.pinfl = pinfl if pinfl else None
+        student.description = description if description else None
         
         db.session.commit()
-        flash("Talaba ma'lumotlari yangilandi", 'success')
+        flash(f"{student.full_name} ma'lumotlari yangilandi", 'success')
         return redirect(url_for('dean.students'))
     
-    return render_template('dean/edit_student.html', faculty=faculty, groups=groups, student=student)
+    return render_template('dean/edit_student.html', faculty=faculty, student=student)
 
 
 @bp.route('/students/<int:id>/toggle', methods=['POST'])
@@ -922,11 +937,21 @@ def delete_student(id):
         return redirect(url_for('main.dashboard'))
     
     student = User.query.get_or_404(id)
-    if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
+    if student.role != 'student':
+        flash("Bu foydalanuvchi talaba emas", 'error')
+        return redirect(url_for('dean.students'))
+    
+    # Fakultet tekshiruvi (agar guruh bo'lsa)
+    if student.group and student.group.faculty_id != faculty.id:
         flash("Sizda bu amal uchun huquq yo'q", 'error')
         return redirect(url_for('dean.students'))
     
     student_name = student.full_name
+    
+    # Talabaning to'lovlarini o'chirish
+    StudentPayment.query.filter_by(student_id=student.id).delete()
+    
+    # Talabani o'chirish
     db.session.delete(student)
     db.session.commit()
     flash(f"{student_name} o'chirildi", 'success')

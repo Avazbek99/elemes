@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, StudentPayment
 from app import db
 from functools import wraps
 from datetime import datetime
@@ -2571,6 +2571,11 @@ def delete_student(id):
         return redirect(url_for('admin.students'))
     
     student_name = student.full_name
+    
+    # Talabaning to'lovlarini o'chirish
+    StudentPayment.query.filter_by(student_id=student.id).delete()
+    
+    # Talabani o'chirish
     db.session.delete(student)
     db.session.commit()
     flash(f"{student_name} o'chirildi", 'success')

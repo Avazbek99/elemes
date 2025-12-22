@@ -163,8 +163,13 @@ def generate_staff_sample_file():
     return output
 
 
-def import_students_from_excel(file):
-    """Excel fayldan talabalarni import qilish"""
+def import_students_from_excel(file, faculty_id=None):
+    """Excel fayldan talabalarni import qilish
+    
+    Args:
+        file: Excel fayl
+        faculty_id: Fakultet ID (ixtiyoriy, agar berilsa, guruhlar shu fakultet doirasida qidiriladi)
+    """
     try:
         from openpyxl import load_workbook
         from app.models import User, Group, Faculty
@@ -240,7 +245,12 @@ def import_students_from_excel(file):
                     # Guruh
                     group_name = row_data.get('Guruh', '').strip()
                     if group_name:
-                        group = Group.query.filter_by(name=group_name).first()
+                        if faculty_id:
+                            # Fakultet doirasida guruh qidirish
+                            group = Group.query.filter_by(name=group_name, faculty_id=faculty_id).first()
+                        else:
+                            # Barcha guruhlar orasidan qidirish
+                            group = Group.query.filter_by(name=group_name).first()
                         if group:
                             user.group_id = group.id
                     
@@ -274,7 +284,12 @@ def import_students_from_excel(file):
                     # Guruh
                     group_name = row_data.get('Guruh', '').strip()
                     if group_name:
-                        group = Group.query.filter_by(name=group_name).first()
+                        if faculty_id:
+                            # Fakultet doirasida guruh qidirish
+                            group = Group.query.filter_by(name=group_name, faculty_id=faculty_id).first()
+                        else:
+                            # Barcha guruhlar orasidan qidirish
+                            group = Group.query.filter_by(name=group_name).first()
                         if group:
                             user.group_id = group.id
                     
