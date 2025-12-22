@@ -1,4 +1,7 @@
 from flask import flash
+from app.models import Subject, Faculty
+from app import db
+from datetime import datetime
 import io
 import re
 
@@ -596,3 +599,161 @@ def import_staff_from_excel(file):
 def import_all_users_from_excel(file):
     """Excel fayldan barcha foydalanuvchilarni import qilish (rol bo'yicha ajratish) - eski funksiya, import_staff_from_excel ishlatiladi"""
     return import_staff_from_excel(file)
+
+
+def generate_subjects_sample_file():
+    """Fanlarni import qilish uchun namuna Excel fayl"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Fanlar import"
+
+    # Sarlavha
+    ws.merge_cells('A1:C1')
+    title_cell = ws['A1']
+    title_cell.value = "Fanlar import uchun namuna fayl"
+    title_cell.font = Font(size=14, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+
+    # Jadval sarlavhalari
+    headers = [
+        "Fan nomi",      # A
+        "Fan kodi",      # B
+        "Tavsif"         # C
+    ]
+
+    header_row = 3
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+    # Namuna ma'lumotlar
+    sample_data = [
+        ["Dasturlash asoslari", "DA101", "Dasturlashning asosiy tushunchalari va algoritmlar"],
+        ["Ma'lumotlar bazasi", "MB201", "Ma'lumotlar bazasi dizayni va SQL so'rovlari"],
+        ["Web dasturlash", "WD301", "Web texnologiyalari va frameworklar"]
+    ]
+
+    for row_num, row_data in enumerate(sample_data, start=header_row + 1):
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.value = value
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+
+    # Ustun kengliklarini sozlash
+    column_widths = [30, 15, 50]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+def import_subjects_from_excel(file):
+    """Excel fayldan fanlarni import qilish"""
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+
+    imported = 0
+    updated = 0
+    errors = []
+
+    try:
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+
+        # Sarlavha qatorini topish (3-qator)
+        header_row = 3
+        headers = {}
+        for col_num in range(1, 4):  # A, B, C ustunlari
+            cell_value = ws.cell(row=header_row, column=col_num).value
+            if cell_value:
+                headers[cell_value] = col_num
+
+        # Ma'lumotlarni o'qish
+        for row_num in range(header_row + 1, ws.max_row + 1):
+            try:
+                # Ustunlardan ma'lumotlarni olish
+                name = ws.cell(row=row_num, column=headers.get("Fan nomi", 1)).value
+                code = ws.cell(row=row_num, column=headers.get("Fan kodi", 2)).value
+                description = ws.cell(row=row_num, column=headers.get("Tavsif", 3)).value
+
+                # Bo'sh qatorlarni o'tkazib yuborish
+                if not name or not code:
+                    continue
+
+                name = str(name).strip()
+                code = str(code).strip().upper()
+                description = str(description).strip() if description else None
+
+                # Fan kodini tekshirish
+                existing_subject = Subject.query.filter_by(code=code).first()
+
+                # Default fakultetni tanlash
+                default_faculty = Faculty.query.first()
+                if not default_faculty:
+                    errors.append(f"Qator {row_num}: Fakultet mavjud emas")
+                    continue
+
+                if existing_subject:
+                    # Yangilash
+                    existing_subject.name = name
+                    existing_subject.description = description
+                    updated += 1
+                else:
+                    # Yaratish
+                    subject = Subject(
+                        name=name,
+                        code=code,
+                        description=description,
+                        credits=3,  # Default
+                        faculty_id=default_faculty.id,  # Default fakultet
+                        semester=1  # Default
+                    )
+                    db.session.add(subject)
+                    imported += 1
+
+            except Exception as e:
+                errors.append(f"Qator {row_num}: Xatolik - {str(e)}")
+
+        db.session.commit()
+
+        return {
+            'success': True,
+            'imported': imported,
+            'updated': updated,
+            'errors': errors
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'imported': 0,
+            'updated': 0,
+            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
+        }

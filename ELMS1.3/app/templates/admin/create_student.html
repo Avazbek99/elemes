@@ -16,144 +16,73 @@
         <form method="POST" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
-            <!-- Asosiy ma'lumotlar -->
-            <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Asosiy ma'lumotlar</h3>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
-                    <input type="text" name="full_name" required placeholder="Ism Familiya"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <input type="email" name="email" placeholder="email@university.uz"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <p class="text-xs text-gray-500 mt-1">Ixtiyoriy</p>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
-                    <input type="text" name="phone" placeholder="+998 90 123 45 67"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
+            <!-- To'liq ism -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
+                <input type="text" name="full_name" required placeholder="Ism Familiya"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
             
-            <!-- Pasport ma'lumotlari -->
-            <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Pasport ma'lumotlari</h3>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Pasport seriyasi va raqami *</label>
-                    <input type="text" name="passport_number" required placeholder="AB1234567" style="text-transform: uppercase;"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <p class="text-xs text-gray-500 mt-1">Bu parol sifatida ishlatiladi</p>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">JSHSHIR (PINFL)</label>
-                    <input type="text" name="pinfl" placeholder="30202020200021" maxlength="14"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Tug'ilgan sana</label>
-                    <input type="text" name="birth_date" placeholder="yyyy-mm-dd (masalan: 1999-02-06)"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
+            <!-- Talaba ID -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID *</label>
+                <input type="text" name="student_id" required placeholder="376123456789"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <p class="mt-1 text-xs text-gray-500">Tizimga kirish uchun talaba ID</p>
             </div>
             
-            <!-- Talaba ma'lumotlari -->
-            <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Talaba ma'lumotlari</h3>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID *</label>
-                    <input type="text" name="student_id" required placeholder="376123456789"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <p class="mt-1 text-xs text-gray-500">Tizimga kirish uchun talaba ID (masalan: 376123456789)</p>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Yo'nalish</label>
-                    <select name="direction_id" id="directionSelect" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <option value="">Yo'nalishni tanlang...</option>
-                        {% for direction in directions %}
-                        <option value="{{ direction.id }}">{{ direction.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Guruh *</label>
-                    <select name="group_id" id="groupSelect" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <option value="">Guruhni tanlang...</option>
-                        {% for group in groups %}
-                        <option value="{{ group.id }}" data-direction-id="{{ group.direction_id or '' }}">{{ group.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Qabul yili</label>
-                    <input type="number" name="enrollment_year" placeholder="2024" min="2000" max="2030"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Mutaxassislik</label>
-                    <input type="text" name="specialty" placeholder="Dasturiy injiniring"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Mutaxassislik kodi</label>
-                    <input type="text" name="specialty_code" placeholder="5330100"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim turi</label>
-                    <select name="education_type" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <option value="kunduzgi">Kunduzgi</option>
-                        <option value="sirtqi">Sirtqi</option>
-                        <option value="kechki">Kechki</option>
-                    </select>
-                </div>
+            <!-- Pasport seriyasi va raqami -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Pasport seriyasi va raqami *</label>
+                <input type="text" name="passport_number" required placeholder="AB1234567" style="text-transform: uppercase;"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Bu parol sifatida ishlatiladi</p>
+            </div>
+            
+            <!-- JSHSHIR (PINFL) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">JSHSHIR (PINFL)</label>
+                <input type="text" name="pinfl" placeholder="30202020200021" maxlength="14"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <!-- Tug'ilgan sana -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tug'ilgan sana</label>
+                <input type="text" name="birth_date" placeholder="yyyy-mm-dd (masalan: 1999-02-06)"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <!-- Telefon -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
+                <input type="text" name="phone" placeholder="+998 90 123 45 67"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <!-- Email -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input type="email" name="email" placeholder="email@university.uz"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <!-- Tavsif -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tavsif</label>
+                <textarea name="description" rows="3" placeholder="Talaba haqida qisqacha ma'lumot..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
             </div>
             
             <div class="pt-4 border-t border-gray-100 flex gap-3">
                 <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
                     Talaba yaratish
                 </button>
-                <a href="javascript:history.back()" class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                <a href="{{ url_for('admin.students') }}" class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
                     Bekor qilish
                 </a>
             </div>
         </form>
     </div>
 </div>
-
-<script>
-// Yo'nalish tanlanganda guruhlarni filtrlash
-document.getElementById('directionSelect').addEventListener('change', function() {
-    const directionId = this.value;
-    const groupSelect = document.getElementById('groupSelect');
-    
-    Array.from(groupSelect.options).forEach(option => {
-        if (option.value === '') {
-            option.style.display = 'block';
-        } else {
-            const groupDirectionId = option.getAttribute('data-direction-id');
-            option.style.display = (groupDirectionId === directionId || !directionId) ? 'block' : 'none';
-        }
-    });
-    
-    if (!directionId) {
-        groupSelect.value = '';
-    }
-});
-</script>
 {% endblock %}
-

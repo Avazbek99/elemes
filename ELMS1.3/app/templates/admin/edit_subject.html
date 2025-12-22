@@ -16,6 +16,7 @@
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <form method="POST" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Fan nomi *</label>
                 <input type="text" name="name" required value="{{ subject.name }}"
@@ -26,37 +27,13 @@
                 <label class="block text-sm font-medium text-gray-700 mb-2">Fan kodi *</label>
                 <input type="text" name="code" required value="{{ subject.code }}" maxlength="20"
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase">
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
-                <select name="faculty_id" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    {% for faculty in faculties %}
-                    <option value="{{ faculty.id }}" {% if subject.faculty_id == faculty.id %}selected{% endif %}>{{ faculty.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Kredit soni *</label>
-                    <input type="number" name="credits" required value="{{ subject.credits }}" min="1" max="10"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Semestr *</label>
-                    <select name="semester" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        {% for i in range(1, 9) %}
-                        <option value="{{ i }}" {% if subject.semester == i %}selected{% endif %}>{{ i }}-semestr</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <p class="mt-1 text-sm text-gray-500">Yagona kod (avtomatik katta harflarga aylanadi)</p>
             </div>
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Tavsif</label>
-                <textarea name="description" rows="3"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">{{ subject.description or '' }}</textarea>
+                <textarea name="description" rows="3" placeholder="Fan haqida qisqacha ma'lumot..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ subject.description or '' }}</textarea>
             </div>
             
             <div class="pt-4 border-t border-gray-100 flex gap-3">
@@ -71,6 +48,3 @@
     </div>
 </div>
 {% endblock %}
-
-
-

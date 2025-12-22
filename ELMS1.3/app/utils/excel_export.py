@@ -800,3 +800,83 @@ def create_sample_contracts_excel():
     
     return output
 
+
+def create_subjects_excel(subjects):
+    """Fanlar ro'yxatini Excel formatida yaratish"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Fanlar"
+    
+    # Sarlavha
+    title = "Fanlar ro'yxati"
+    ws.merge_cells('A1:C1')
+    title_cell = ws['A1']
+    title_cell.value = title
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    
+    # Sana
+    ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ws.merge_cells('A2:C2')
+    ws['A2'].font = Font(size=10, italic=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Jadval sarlavhalari
+    headers = [
+        "Fan nomi",      # A
+        "Fan kodi",      # B
+        "Tavsif"         # C
+    ]
+    header_row = 3
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+    
+    # Ma'lumotlar
+    for row_num, subject in enumerate(subjects, start=header_row + 1):
+        ws.cell(row=row_num, column=1, value=subject.name)
+        ws.cell(row=row_num, column=2, value=subject.code)
+        ws.cell(row=row_num, column=3, value=subject.description or '')
+        
+        # Stil
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.alignment = Alignment(horizontal='left', vertical='center')
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            if row_num % 2 == 0:
+                cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+    
+    # Ustun kengliklarini sozlash
+    column_widths = [30, 15, 50]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+    
+    # Excel faylni qaytarish
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return output

@@ -17,50 +17,80 @@
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <form method="POST" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="faculty_id" value="{{ faculty_id }}" />
 
+            <!-- Fakultet (avtomatik) -->
+            {% if faculty %}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet</label>
+                <input type="text" value="{{ faculty.name }}" disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                <p class="text-xs text-gray-500 mt-1">Fakultet avtomatik tanlangan</p>
+            </div>
+            {% else %}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
                 <select name="faculty_id" id="facultySelect" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="">Tanlang...</option>
-                    {% for faculty in faculties %}
-                    <option value="{{ faculty.id }}" {% if faculty_id == faculty.id %}selected{% endif %}>{{ faculty.name }}</option>
+                    {% for fac in faculties %}
+                    <option value="{{ fac.id }}" {% if faculty_id == fac.id %}selected{% endif %}>{{ fac.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Kurs -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Kurs *</label>
+                <select name="course_year" id="courseSelect" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">Tanlang...</option>
+                    {% for course in courses %}
+                    <option value="{{ course }}">{{ course }}-kurs</option>
                     {% endfor %}
                 </select>
             </div>
 
+            <!-- Semestr -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Semestr *</label>
+                <select name="semester" id="semesterSelect" required disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">Avval kursni tanlang...</option>
+                </select>
+            </div>
+
+            <!-- Ta'lim shakli -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim shakli *</label>
+                <select name="education_type" id="educationTypeSelect" required disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">Avval semestrni tanlang...</option>
+                </select>
+            </div>
+
+            <!-- Yo'nalish -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Yo'nalish *</label>
-                <select name="direction_id" id="directionSelect" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <option value="">Avval fakultetni tanlang...</option>
-                    {% for direction in directions %}
-                    <option value="{{ direction.id }}" 
-                            data-faculty-id="{{ direction.faculty_id }}"
-                            data-education-type="{{ direction.education_type }}"
-                            {% if direction_id == direction.id %}selected{% endif %}>
-<<<<<<< Current (Your changes)
-                        {{ direction.name }} ({{ direction.code }}) - {{ direction.course_year }}-kurs, {{ direction.semester }}-semestr
-=======
-                        {{ direction.code }} - {{ direction.name }} ({{ direction.course_year }}-kurs, {{ direction.semester }}-semestr)
->>>>>>> Incoming (Background Agent changes)
-                    </option>
-                    {% endfor %}
+                <select name="direction_id" id="directionSelect" required disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">Avval ta'lim shaklini tanlang...</option>
                 </select>
-                <p class="text-xs text-gray-500 mt-1">Fakultet tanlangandan keyin yo'nalishlar ko'rinadi</p>
             </div>
 
+            <!-- Guruh nomi -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Guruh nomi *</label>
                 <input type="text" name="name" required placeholder="Masalan: DI-21"
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase">
             </div>
 
+            <!-- Tavsif -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim shakli</label>
-                <input type="text" id="educationTypeDisplay" value="Yo'nalish tanlangandan keyin ko'rsatiladi" disabled
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
-                <p class="text-xs text-gray-500 mt-1">Ta'lim shakli yo'nalishdan avtomatik olinadi</p>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tavsif</label>
+                <textarea name="description" rows="3" placeholder="Guruh haqida qisqacha tavsif (ixtiyoriy)"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
             </div>
 
             <div class="pt-4 border-t border-gray-100 flex gap-3">
@@ -78,47 +108,91 @@
 </div>
 
 <script>
-// Fakultet tanlanganda yo'nalishlarni filtrlash
-document.getElementById('facultySelect').addEventListener('change', function() {
-    const facultyId = this.value;
+// Ma'lumotlar bazasi
+const allDirections = [
+    {% for direction in all_directions %}
+    {
+        id: {{ direction.id }},
+        faculty_id: {{ direction.faculty_id }},
+        course_year: {{ direction.course_year }},
+        semester: {{ direction.semester }},
+        education_type: '{{ direction.education_type }}',
+        code: '{{ direction.code }}',
+        name: '{{ direction.name }}'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+const facultyId = {{ faculty_id if faculty_id else 'null' }};
+
+// Kurs tanlanganda semestrlarni filtrlash
+document.getElementById('courseSelect').addEventListener('change', function() {
+    const courseYear = parseInt(this.value);
+    const semesterSelect = document.getElementById('semesterSelect');
+    const educationTypeSelect = document.getElementById('educationTypeSelect');
     const directionSelect = document.getElementById('directionSelect');
     
-    // Barcha option'larni ko'rsatish/yashirish
-    Array.from(directionSelect.options).forEach(option => {
-        if (option.value === '') {
-            option.style.display = 'block';
-            if (!facultyId) {
-                option.textContent = 'Avval fakultetni tanlang...';
-            } else {
-                option.textContent = 'Yo\'nalishni tanlang...';
-            }
-        } else {
-            const optionFacultyId = option.getAttribute('data-faculty-id');
-            if (facultyId && optionFacultyId == facultyId) {
-                option.style.display = 'block';
-            } else {
-                option.style.display = 'none';
-            }
-        }
-    });
+    // Semestrlarni tozalash
+    semesterSelect.innerHTML = '<option value="">Avval kursni tanlang...</option>';
+    educationTypeSelect.innerHTML = '<option value="">Avval semestrni tanlang...</option>';
+    educationTypeSelect.disabled = true;
+    educationTypeSelect.classList.add('bg-gray-50', 'text-gray-500');
+    educationTypeSelect.classList.remove('bg-white', 'text-gray-900');
+    directionSelect.innerHTML = '<option value="">Avval ta\'lim shaklini tanlang...</option>';
+    directionSelect.disabled = true;
+    directionSelect.classList.add('bg-gray-50', 'text-gray-500');
+    directionSelect.classList.remove('bg-white', 'text-gray-900');
     
-    // Agar fakultet tanlanmagan bo'lsa, yo'nalishni tozalash
-    if (!facultyId) {
-        directionSelect.value = '';
-        document.getElementById('educationTypeDisplay').value = 'Yo\'nalish tanlangandan keyin ko\'rsatiladi';
+    if (courseYear) {
+        // Shu kursdagi semestrlarni topish
+        const semesters = new Set();
+        allDirections.forEach(dir => {
+            if (dir.faculty_id == facultyId && dir.course_year === courseYear) {
+                semesters.add(dir.semester);
+            }
+        });
+        
+        const sortedSemesters = Array.from(semesters).sort((a, b) => a - b);
+        sortedSemesters.forEach(sem => {
+            const option = document.createElement('option');
+            option.value = sem;
+            option.textContent = sem + '-semestr';
+            semesterSelect.appendChild(option);
+        });
+        
+        semesterSelect.disabled = false;
+        semesterSelect.classList.remove('bg-gray-50', 'text-gray-500');
+        semesterSelect.classList.add('bg-white', 'text-gray-900');
+    } else {
+        semesterSelect.disabled = true;
+        semesterSelect.classList.add('bg-gray-50', 'text-gray-500');
+        semesterSelect.classList.remove('bg-white', 'text-gray-900');
     }
 });
 
-// Yo'nalish tanlanganda ta'lim shaklini ko'rsatish
-document.getElementById('directionSelect').addEventListener('change', function() {
-    const directionId = this.value;
-    const educationTypeDisplay = document.getElementById('educationTypeDisplay');
+// Semestr tanlanganda ta'lim shakllarini filtrlash
+document.getElementById('semesterSelect').addEventListener('change', function() {
+    const courseYear = parseInt(document.getElementById('courseSelect').value);
+    const semester = parseInt(this.value);
+    const educationTypeSelect = document.getElementById('educationTypeSelect');
+    const directionSelect = document.getElementById('directionSelect');
     
-    if (directionId) {
-        const selectedOption = this.options[this.selectedIndex];
-        const educationType = selectedOption.getAttribute('data-education-type');
+    // Ta'lim shakllarini tozalash
+    educationTypeSelect.innerHTML = '<option value="">Avval semestrni tanlang...</option>';
+    directionSelect.innerHTML = '<option value="">Avval ta\'lim shaklini tanlang...</option>';
+    directionSelect.disabled = true;
+    directionSelect.classList.add('bg-gray-50', 'text-gray-500');
+    directionSelect.classList.remove('bg-white', 'text-gray-900');
+    
+    if (courseYear && semester) {
+        // Shu kurs va semestrdagi ta'lim shakllarini topish
+        const educationTypes = new Set();
+        allDirections.forEach(dir => {
+            if (dir.faculty_id == facultyId && dir.course_year === courseYear && dir.semester === semester) {
+                educationTypes.add(dir.education_type);
+            }
+        });
         
-        // Ta'lim shakli nomlarini o'zbek tiliga o'girish
         const educationTypeNames = {
             'kunduzgi': 'Kunduzgi',
             'sirtqi': 'Sirtqi',
@@ -126,13 +200,61 @@ document.getElementById('directionSelect').addEventListener('change', function()
             'kechki': 'Kechki'
         };
         
-        if (educationType && educationTypeNames[educationType]) {
-            educationTypeDisplay.value = educationTypeNames[educationType] + ' (yo\'nalishdan olinadi)';
-        } else {
-            educationTypeDisplay.value = 'Yo\'nalishdan avtomatik olinadi';
-        }
+        Array.from(educationTypes).sort().forEach(et => {
+            const option = document.createElement('option');
+            option.value = et;
+            option.textContent = educationTypeNames[et] || et;
+            educationTypeSelect.appendChild(option);
+        });
+        
+        educationTypeSelect.disabled = false;
+        educationTypeSelect.classList.remove('bg-gray-50', 'text-gray-500');
+        educationTypeSelect.classList.add('bg-white', 'text-gray-900');
     } else {
-        educationTypeDisplay.value = 'Yo\'nalish tanlangandan keyin ko\'rsatiladi';
+        educationTypeSelect.disabled = true;
+        educationTypeSelect.classList.add('bg-gray-50', 'text-gray-500');
+        educationTypeSelect.classList.remove('bg-white', 'text-gray-900');
+    }
+});
+
+// Ta'lim shakli tanlanganda yo'nalishlarni filtrlash
+document.getElementById('educationTypeSelect').addEventListener('change', function() {
+    const courseYear = parseInt(document.getElementById('courseSelect').value);
+    const semester = parseInt(document.getElementById('semesterSelect').value);
+    const educationType = this.value;
+    const directionSelect = document.getElementById('directionSelect');
+    
+    // Yo'nalishlarni tozalash
+    directionSelect.innerHTML = '<option value="">Avval ta\'lim shaklini tanlang...</option>';
+    
+    if (courseYear && semester && educationType) {
+        // Shu kurs, semestr va ta'lim shaklidagi yo'nalishlarni topish
+        const filteredDirections = allDirections.filter(dir => {
+            return dir.faculty_id == facultyId && 
+                   dir.course_year === courseYear && 
+                   dir.semester === semester && 
+                   dir.education_type === educationType;
+        });
+        
+        filteredDirections.sort((a, b) => {
+            if (a.code !== b.code) return a.code.localeCompare(b.code);
+            return a.name.localeCompare(b.name);
+        });
+        
+        filteredDirections.forEach(dir => {
+            const option = document.createElement('option');
+            option.value = dir.id;
+            option.textContent = dir.code + ' - ' + dir.name;
+            directionSelect.appendChild(option);
+        });
+        
+        directionSelect.disabled = false;
+        directionSelect.classList.remove('bg-gray-50', 'text-gray-500');
+        directionSelect.classList.add('bg-white', 'text-gray-900');
+    } else {
+        directionSelect.disabled = true;
+        directionSelect.classList.add('bg-gray-50', 'text-gray-500');
+        directionSelect.classList.remove('bg-white', 'text-gray-900');
     }
 });
 </script>

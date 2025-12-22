@@ -27,17 +27,17 @@ def index():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '')
     
-    if current_user.role == 'student':
+    if current_user.role == 'student' or current_user.has_role('student'):
         # Talaba faqat o'z guruhiga biriktirilgan fanlarni ko'radi
         if current_user.group_id:
             subject_ids = [ts.subject_id for ts in TeacherSubject.query.filter_by(group_id=current_user.group_id).all()]
             query = Subject.query.filter(Subject.id.in_(subject_ids))
         else:
             query = Subject.query.filter(False)  # Bo'sh
-    elif current_user.role == 'teacher':
+    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
         # O'qituvchi faqat o'ziga biriktirilgan fanlarni ko'radi
         subject_ids = [ts.subject_id for ts in TeacherSubject.query.filter_by(teacher_id=current_user.id).all()]
-        query = Subject.query.filter(Subject.id.in_(subject_ids))
+        query = Subject.query.filter(Subject.id.in_(subject_ids)) if subject_ids else Subject.query.filter(False)
     else:
         # Admin va dekan barcha fanlarni ko'radi
         query = Subject.query

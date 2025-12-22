@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from app.models import User, Subject, Assignment, Announcement, Schedule, Submission, Message, Group, Faculty, TeacherSubject
 from app import db
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from sqlalchemy import func
 from app.utils.translations import get_translation, get_current_language
 import calendar
@@ -72,10 +72,14 @@ def dashboard():
     recent_assignments = []
     upcoming_schedules = []
     
+    # my_subjects o'zgaruvchisini barcha rollar uchun yaratish
+    my_subjects = []
+    
     if user.role == 'student':
         # Talaba uchun
+        my_subjects = user.get_subjects() if hasattr(user, 'get_subjects') else []
         stats = {
-            'subjects': user.get_subjects(),
+            'subjects': my_subjects,
             'assignments': Assignment.query.join(Subject).join(TeacherSubject).filter(
                 TeacherSubject.group_id == user.group_id
             ).count(),
@@ -97,14 +101,23 @@ def dashboard():
         # Dars jadvali
         if user.group_id:
             upcoming_schedules = Schedule.query.filter_by(group_id=user.group_id).all()
+            # Bugungi dars jadvali
+            today = date.today()
+            today_weekday = today.weekday()  # 0 = Monday, 6 = Sunday
+            today_schedule = Schedule.query.filter_by(group_id=user.group_id).filter(
+                Schedule.day_of_week == today_weekday
+            ).order_by(Schedule.start_time).all()
+        else:
+            today_schedule = []
     
-    elif user.role == 'teacher':
+    elif user.role == 'teacher' or user.has_role('teacher'):
         # O'qituvchi uchun
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
         subject_ids = [ts.subject_id for ts in teacher_subjects]
+        my_subjects = Subject.query.filter(Subject.id.in_(subject_ids)).all() if subject_ids else []
         
         stats = {
-            'subjects': Subject.query.filter(Subject.id.in_(subject_ids)).all() if subject_ids else [],
+            'subjects': my_subjects,
             'assignments': Assignment.query.filter(Assignment.subject_id.in_(subject_ids)).count() if subject_ids else 0,
             'submissions': Submission.query.join(Assignment).filter(Assignment.subject_id.in_(subject_ids)).count() if subject_ids else 0,
             'pending_grades': Submission.query.join(Assignment).filter(
@@ -123,6 +136,20 @@ def dashboard():
         recent_assignments = Assignment.query.filter(
             Assignment.subject_id.in_(subject_ids)
         ).order_by(Assignment.due_date.desc()).limit(5).all() if subject_ids else []
+        
+        # Dars jadvali (o'qituvchi uchun)
+        today = date.today()
+        today_weekday = today.weekday()  # 0 = Monday, 6 = Sunday
+        # O'qituvchining guruhlari
+        teacher_groups = [ts.group_id for ts in teacher_subjects]
+        if teacher_groups:
+            today_schedule = Schedule.query.filter(
+                Schedule.group_id.in_(teacher_groups),
+                Schedule.teacher_id == user.id,
+                Schedule.day_of_week == today_weekday
+            ).order_by(Schedule.start_time).all()
+        else:
+            today_schedule = []
     
     elif user.role == 'dean':
         # Dekan uchun
@@ -155,8 +182,13 @@ def dashboard():
         # E'lonlar
         announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
     
+    # today_schedule o'zgaruvchisini barcha rollar uchun yaratish (agar yaratilmagan bo'lsa)
+    if 'today_schedule' not in locals():
+        today_schedule = []
+    
     return render_template('dashboard.html', stats=stats, announcements=announcements, 
-                         recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules)
+                         recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules,
+                         my_subjects=my_subjects, today_schedule=today_schedule)
 
 @bp.route('/announcements')
 @login_required
@@ -288,13 +320,45 @@ def delete_announcement(id):
 @login_required
 def messages():
     """Xabarlar sahifasi"""
-    # Foydalanuvchiga kelgan xabarlar
-    received_messages = Message.query.filter_by(receiver_id=current_user.id).order_by(Message.created_at.desc()).all()
+    user = current_user
     
-    # Foydalanuvchi yuborgan xabarlar
-    sent_messages = Message.query.filter_by(sender_id=current_user.id).order_by(Message.created_at.desc()).all()
+    # Barcha xabarlarni olish (yuborilgan va qabul qilingan)
+    all_messages = Message.query.filter(
+        (Message.sender_id == user.id) | (Message.receiver_id == user.id)
+    ).order_by(Message.created_at.desc()).all()
     
-    return render_template('messages.html', received_messages=received_messages, sent_messages=sent_messages)
+    # Suhbatlar ro'yxatini yaratish (har bir foydalanuvchi bilan alohida suhbat)
+    chats_dict = {}
+    for msg in all_messages:
+        # Qaysi foydalanuvchi bilan suhbat
+        other_user_id = msg.receiver_id if msg.sender_id == user.id else msg.sender_id
+        other_user = User.query.get(other_user_id)
+        
+        if other_user and other_user_id not in chats_dict:
+            chats_dict[other_user_id] = {
+                'user': other_user,
+                'last_message': msg,
+                'unread_count': 0
+            }
+        elif other_user and other_user_id in chats_dict:
+            # Agar bu xabar keyinroq bo'lsa, last_message ni yangilash
+            if msg.created_at > chats_dict[other_user_id]['last_message'].created_at:
+                chats_dict[other_user_id]['last_message'] = msg
+        
+        # O'qilmagan xabarlarni hisoblash
+        if msg.receiver_id == user.id and not msg.is_read:
+            chats_dict[other_user_id]['unread_count'] += 1
+    
+    # Chats ro'yxatini yaratish
+    chats = list(chats_dict.values())
+    chats.sort(key=lambda x: x['last_message'].created_at, reverse=True)
+    
+    # Mavjud foydalanuvchilar (suhbat boshlash uchun)
+    # Barcha foydalanuvchilar, lekin o'zini va allaqachon suhbat bo'lganlarini olib tashlash
+    all_users = User.query.filter(User.id != user.id, User.is_active == True).all()
+    available_users = [u for u in all_users if u.id not in chats_dict.keys()]
+    
+    return render_template('messages.html', chats=chats, available_users=available_users)
 
 @bp.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -330,6 +394,24 @@ def settings():
         return redirect(url_for('main.settings'))
     
     return render_template('settings.html')
+
+@bp.route('/chat/<int:user_id>')
+@login_required
+def chat(user_id):
+    """Foydalanuvchi bilan suhbat"""
+    other_user = User.query.get_or_404(user_id)
+    
+    # Ikki foydalanuvchi o'rtasidagi barcha xabarlar
+    messages = Message.query.filter(
+        ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
+        ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
+    ).order_by(Message.created_at.asc()).all()
+    
+    # Xabarlarni o'qilgan deb belgilash
+    Message.query.filter_by(sender_id=user_id, receiver_id=current_user.id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    
+    return render_template('chat.html', other_user=other_user, messages=messages)
 
 @bp.route('/schedule')
 @login_required

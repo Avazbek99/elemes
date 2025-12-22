@@ -132,7 +132,7 @@
                 {% for subject in my_subjects[:4] %}
                 <a href="{{ url_for('courses.detail', id=subject.id) }}" class="block p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                     <p class="text-sm font-medium text-gray-900">{{ subject.name }}</p>
-                    <p class="text-xs text-gray-500">{{ subject.code }} • {{ subject.credits }} kredit</p>
+                    <p class="text-xs text-gray-500">{{ subject.code }}{% if subject.credits %} • {{ subject.credits }} kredit{% endif %}</p>
                 </a>
                 {% else %}
                 <p class="text-sm text-gray-500">Fanlar biriktirilmagan</p>
@@ -239,7 +239,7 @@
                 {% for subject in my_subjects[:4] %}
                 <a href="{{ url_for('courses.detail', id=subject.id) }}" class="block p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                     <p class="text-sm font-medium text-gray-900">{{ subject.name }}</p>
-                    <p class="text-xs text-gray-500">{{ subject.code }} • {{ subject.credits }} kredit</p>
+                    <p class="text-xs text-gray-500">{{ subject.code }}{% if subject.credits %} • {{ subject.credits }} kredit{% endif %}</p>
                 </a>
                 {% else %}
                 <p class="text-sm text-gray-500">Fanlar biriktirilmagan</p>

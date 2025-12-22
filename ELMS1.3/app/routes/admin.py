@@ -5,8 +5,8 @@ from app import db
 from functools import wraps
 from datetime import datetime
 
-from app.utils.excel_import import import_students_from_excel, import_directions_from_excel, generate_sample_file, import_staff_from_excel, generate_staff_sample_file
-from app.utils.excel_export import create_all_users_excel
+from app.utils.excel_import import import_students_from_excel, import_directions_from_excel, generate_sample_file, import_staff_from_excel, generate_staff_sample_file, import_subjects_from_excel, generate_subjects_sample_file
+from app.utils.excel_export import create_all_users_excel, create_subjects_excel
 from werkzeug.security import generate_password_hash
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -42,7 +42,7 @@ def index():
     stats = {
         'total_users': User.query.count(),
         'total_students': User.query.filter_by(role='student').count(),
-        'total_teachers': User.query.filter_by(role='teacher').count(),
+        'total_teachers': db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().count() or User.query.filter_by(role='teacher').count() or len([u for u in User.query.all() if 'teacher' in u.get_roles()]),
         'total_deans': User.query.filter_by(role='dean').count(),
         'total_faculties': Faculty.query.count(),
         'total_groups': Group.query.count(),
@@ -64,7 +64,24 @@ def users():
     query = User.query
     
     if role:
-        query = query.filter_by(role=role)
+        # UserRole orqali qidirish
+        role_user_ids = db.session.query(UserRole.user_id).filter_by(role=role).distinct().all()
+        role_user_ids = [uid[0] for uid in role_user_ids]
+        
+        # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+        if not role_user_ids:
+            users_by_role = User.query.filter_by(role=role).all()
+            role_user_ids = [u.id for u in users_by_role]
+        
+        # Agar hali ham topilmasa, get_roles() orqali qidirish
+        if not role_user_ids:
+            all_users = User.query.all()
+            role_user_ids = [u.id for u in all_users if role in u.get_roles()]
+        
+        if role_user_ids:
+            query = query.filter(User.id.in_(role_user_ids))
+        else:
+            query = query.filter(User.id == -1)  # Hech narsa topilmasin
     
     if search:
         query = query.filter(
@@ -74,12 +91,21 @@ def users():
     
     users = query.order_by(User.created_at.desc()).paginate(page=page, per_page=20)
     
+    # Stats uchun ham UserRole orqali qidirish
+    def get_role_count(role_name):
+        count = db.session.query(UserRole.user_id).filter_by(role=role_name).distinct().count()
+        if count == 0:
+            count = User.query.filter_by(role=role_name).count()
+        if count == 0:
+            count = len([u for u in User.query.all() if role_name in u.get_roles()])
+        return count
+    
     stats = {
         'total': User.query.count(),
-        'admins': User.query.filter_by(role='admin').count(),
-        'deans': User.query.filter_by(role='dean').count(),
-        'teachers': User.query.filter_by(role='teacher').count(),
-        'students': User.query.filter_by(role='student').count(),
+        'admins': get_role_count('admin'),
+        'deans': get_role_count('dean'),
+        'teachers': get_role_count('teacher'),
+        'students': get_role_count('student'),
     }
     
     return render_template('admin/users.html', users=users, stats=stats, current_role=role, search=search)
@@ -191,6 +217,9 @@ def edit_user(id):
     faculties = Faculty.query.all()
     groups = Group.query.all()
     
+    # Foydalanuvchining mavjud rollarini olish
+    existing_roles = [ur.role for ur in user.roles_list.all()] if user.roles_list.count() > 0 else ([user.role] if user.role else [])
+    
     if request.method == 'POST':
         email = request.form.get('email')
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
@@ -198,24 +227,54 @@ def edit_user(id):
             existing_user_with_email = User.query.filter_by(email=email).first()
             if existing_user_with_email and existing_user_with_email.id != user.id:
                 flash("Bu email allaqachon boshqa foydalanuvchida mavjud", 'error')
-                return render_template('admin/edit_user.html', user=user, faculties=faculties, groups=groups)
+                return render_template('admin/edit_user.html', user=user, faculties=faculties, groups=groups, existing_roles=existing_roles)
         user.email = email if email else None
         user.full_name = request.form.get('full_name')
-        user.role = request.form.get('role')
         user.is_active = request.form.get('is_active') == 'on'
         user.phone = request.form.get('phone')
         
+        # Bir nechta rol tanlash (agar roles maydoni mavjud bo'lsa)
+        selected_roles = request.form.getlist('roles')
+        
+        # Agar roles tanlangan bo'lsa, UserRole orqali saqlash
+        if selected_roles:
+            # Asosiy rol (eng yuqori darajali)
+            main_role = selected_roles[0]
+            if 'admin' in selected_roles:
+                main_role = 'admin'
+            elif 'dean' in selected_roles:
+                main_role = 'dean'
+            elif 'teacher' in selected_roles:
+                main_role = 'teacher'
+            elif 'student' in selected_roles:
+                main_role = 'student'
+            
+            user.role = main_role
+            
+            # Rollarni yangilash
+            # Eski rollarni o'chirish
+            UserRole.query.filter_by(user_id=user.id).delete()
+            
+            # Yangi rollarni qo'shish
+            for role in selected_roles:
+                user_role = UserRole(user_id=user.id, role=role)
+                db.session.add(user_role)
+        else:
+            # Agar roles tanlanmagan bo'lsa, faqat asosiy rolni yangilash
+            user.role = request.form.get('role')
+        
         # Rolga qarab qo'shimcha ma'lumotlar
-        if user.role == 'student':
+        if 'student' in (selected_roles if selected_roles else [user.role]):
             user.student_id = request.form.get('student_id')
             user.group_id = request.form.get('group_id', type=int)
             user.enrollment_year = request.form.get('enrollment_year', type=int)
-        elif user.role == 'teacher':
+        if 'teacher' in (selected_roles if selected_roles else [user.role]):
             user.department = request.form.get('department')
             user.position = request.form.get('position')
-        elif user.role == 'dean':
+        if 'dean' in (selected_roles if selected_roles else [user.role]):
             user.faculty_id = request.form.get('faculty_id', type=int)
-            user.position = request.form.get('position')
+            if not user.position:
+                user.position = request.form.get('position')
         
         new_password = request.form.get('new_password')
         if new_password:
@@ -225,7 +284,7 @@ def edit_user(id):
         flash("Foydalanuvchi muvaffaqiyatli yangilandi", 'success')
         return redirect(url_for('admin.users'))
     
-    return render_template('admin/edit_user.html', user=user, faculties=faculties, groups=groups)
+    return render_template('admin/edit_user.html', user=user, faculties=faculties, groups=groups, existing_roles=existing_roles)
 
 
 @bp.route('/users/<int:id>/toggle', methods=['POST'])
@@ -331,6 +390,44 @@ def reset_user_password(id):
     elif 'students' in referer:
         return redirect(url_for('admin.students'))
     return redirect(url_for('admin.users'))
+# ==================== O'QITUVCHILAR ====================
+@bp.route('/teachers')
+@login_required
+@admin_required
+def teachers():
+    """O'qituvchilar ro'yxati (UserRole orqali qidirish)"""
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '')
+    
+    # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
+    teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
+    teacher_user_ids = [uid[0] for uid in teacher_user_ids]
+    
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish (asosiy role maydoni)
+    if not teacher_user_ids:
+        teachers_by_role = User.query.filter_by(role='teacher').all()
+        teacher_user_ids = [t.id for t in teachers_by_role]
+    
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if not teacher_user_ids:
+        all_users = User.query.all()
+        teacher_user_ids = [u.id for u in all_users if 'teacher' in u.get_roles()]
+    
+    # O'qituvchilarni olish
+    query = User.query.filter(User.id.in_(teacher_user_ids))
+    
+    if search:
+        query = query.filter(
+            (User.full_name.ilike(f'%{search}%')) |
+            (User.email.ilike(f'%{search}%')) |
+            (User.phone.ilike(f'%{search}%'))
+        )
+    
+    teachers = query.order_by(User.full_name).paginate(page=page, per_page=20, error_out=False)
+    
+    return render_template('admin/teachers.html', teachers=teachers, search=search)
+
+
 # ==================== XODIMLAR BAZASI ====================
 @bp.route('/staff')
 @login_required
@@ -340,8 +437,27 @@ def staff():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '')
     
-    # Talabalar bo'lmagan barcha foydalanuvchilar
-    query = User.query.filter(User.role != 'student')
+    # Talabalar bo'lmagan barcha foydalanuvchilar (UserRole orqali)
+    # Avval student roliga ega bo'lmagan user ID'larni topish
+    student_user_ids = db.session.query(UserRole.user_id).filter_by(role='student').distinct().all()
+    student_user_ids = [uid[0] for uid in student_user_ids]
+    
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+    if not student_user_ids:
+        students_by_role = User.query.filter_by(role='student').all()
+        student_user_ids = [u.id for u in students_by_role]
+    
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if not student_user_ids:
+        all_users = User.query.all()
+        student_user_ids = [u.id for u in all_users if 'student' in u.get_roles()]
+    
+    # Talabalar bo'lmagan foydalanuvchilar
+    if student_user_ids:
+        query = User.query.filter(~User.id.in_(student_user_ids))
+    else:
+        # Agar student roliga ega bo'lganlar topilmasa, faqat asosiy role maydoniga qarab qidirish
+        query = User.query.filter(User.role != 'student')
     
     if search:
         query = query.filter(
@@ -363,48 +479,44 @@ def create_staff():
     faculties = Faculty.query.all()
     
     if request.method == 'POST':
-        email = request.form.get('email')
-        login = request.form.get('login')  # Login (xodimlar uchun majburiy)
-        full_name = request.form.get('full_name')
-        phone = request.form.get('phone')
-        passport_number = request.form.get('passport_number')
-        pinfl = request.form.get('pinfl')
-        birth_date_str = request.form.get('birth_date')
-        department = request.form.get('department')
-        position = request.form.get('position')
-        faculty_id = request.form.get('faculty_id', type=int)
+        email = request.form.get('email', '').strip()
+        login = request.form.get('login', '').strip()  # Login (xodimlar uchun majburiy)
+        full_name = request.form.get('full_name', '').strip()
+        phone = request.form.get('phone', '').strip()
+        passport_number = request.form.get('passport_number', '').strip()
+        pinfl = request.form.get('pinfl', '').strip()
+        birth_date_str = request.form.get('birth_date', '').strip()
+        description = request.form.get('description', '').strip()
         
         # Bir nechta rol tanlash
         selected_roles = request.form.getlist('roles')  # ['admin', 'dean', 'teacher']
         
         if not selected_roles:
             flash("Kamida bitta rol tanlanishi kerak", 'error')
-            return render_template('admin/create_staff.html', faculties=faculties)
+            return render_template('admin/create_staff.html')
         
         # Login majburiy (xodimlar uchun)
         if not login:
             flash("Login majburiy maydon", 'error')
-            return render_template('admin/create_staff.html', faculties=faculties)
+            return render_template('admin/create_staff.html')
         
         # Login unikalligi
         if User.query.filter_by(login=login).first():
             flash("Bu login allaqachon mavjud", 'error')
-            return render_template('admin/create_staff.html', faculties=faculties)
+            return render_template('admin/create_staff.html')
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email and User.query.filter_by(email=email).first():
             flash("Bu email allaqachon mavjud", 'error')
-            return render_template('admin/create_staff.html', faculties=faculties)
+            return render_template('admin/create_staff.html')
         
         # Pasport raqami parol sifatida ishlatiladi
         if not passport_number:
             flash("Pasport seriyasi va raqami majburiy", 'error')
-            return render_template('admin/create_staff.html', faculties=faculties)
+            return render_template('admin/create_staff.html')
         
         # Pasport raqamini katta harfga o'zgartirish
         passport_number = passport_number.upper()
-        
-        password = passport_number  # Pasport raqami parol
         
         # Tug'ilgan sanani parse qilish (yyyy-mm-dd)
         birth_date = None
@@ -413,7 +525,9 @@ def create_staff():
                 birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
                 flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
-                return render_template('admin/create_staff.html', faculties=faculties)
+                return render_template('admin/create_staff.html')
+        
+        password = passport_number  # Pasport raqami parol
         
         # Asosiy rol (birinchisi yoki eng yuqori darajali)
         main_role = selected_roles[0]
@@ -424,23 +538,49 @@ def create_staff():
         elif 'teacher' in selected_roles:
             main_role = 'teacher'
         
+        # Dekan roli tanlangan bo'lsa, fakultetni aniqlash
+        faculty_id = None
+        if 'dean' in selected_roles:
+            # Dekan roli tanlangan bo'lsa, birinchi fakultetni biriktirish (yoki keyinroq tahrirlash mumkin)
+            first_faculty = Faculty.query.first()
+            if first_faculty:
+                faculty_id = first_faculty.id
+        
+        # Email maydonini tozalash
+        email_value = email.strip() if email and email.strip() else None
+        
         user = User(
-            email=email if email else None,  # Email ixtiyoriy
             login=login,
             full_name=full_name,
             role=main_role,  # Asosiy rol (eski kodlar bilan mosligi uchun)
-            phone=phone,
+            phone=phone.strip() if phone and phone.strip() else None,
             passport_number=passport_number,
-            pinfl=pinfl,
+            pinfl=pinfl.strip() if pinfl and pinfl.strip() else None,
             birth_date=birth_date,
-            department=department,
-            position=position,
-            faculty_id=faculty_id if main_role == 'dean' else None
+            faculty_id=faculty_id if 'dean' in selected_roles else None,
+            description=description.strip() if description and description.strip() else None
         )
+        
+        # Email maydonini alohida o'rnatish (agar bo'sh bo'lsa, o'rnatmaymiz)
+        if email_value:
+            user.email = email_value
         
         user.set_password(password)
         db.session.add(user)
-        db.session.flush()  # ID olish uchun
+        
+        # Commit qilish va agar email NOT NULL xatolik bo'lsa, email maydonini bo'sh qatorga o'zgartirish
+        try:
+            db.session.flush()  # ID olish uchun
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'email' in error_str and ('not null' in error_str or 'constraint' in error_str):
+                # Database'da email NOT NULL bo'lsa, bo'sh qator qo'yamiz
+                db.session.rollback()
+                user.email = ''  # Bo'sh qator (database NOT NULL constraint uchun)
+                db.session.add(user)
+                db.session.flush()  # ID olish uchun
+            else:
+                raise
         
         # Bir nechta rol qo'shish
         for role in selected_roles:
@@ -452,7 +592,7 @@ def create_staff():
         flash(f"Xodim {user.full_name} muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('admin.staff'))
     
-    return render_template('admin/create_staff.html', faculties=faculties)
+    return render_template('admin/create_staff.html')
 
 
 @bp.route('/staff/<int:id>/edit', methods=['GET', 'POST'])
@@ -467,23 +607,21 @@ def edit_staff(id):
         flash("Bu talaba, xodim emas", 'error')
         return redirect(url_for('admin.students'))
     
-    faculties = Faculty.query.all()
-    
     # Foydalanuvchining mavjud rollarini olish
-    existing_roles = [ur.role for ur in user.roles_list.all()]
+    existing_roles = [ur.role for ur in user.roles_list.all()] if user.roles_list.count() > 0 else ([user.role] if user.role else [])
     
     if request.method == 'POST':
         login = request.form.get('login')
         # Login majburiy (xodimlar uchun)
         if not login:
             flash("Login majburiy maydon", 'error')
-            return render_template('admin/edit_staff.html', user=user, faculties=faculties, existing_roles=existing_roles)
+            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
         
         # Login unikalligi (boshqa foydalanuvchida bo'lmasligi kerak)
         existing_user_with_login = User.query.filter_by(login=login).first()
         if existing_user_with_login and existing_user_with_login.id != user.id:
             flash("Bu login allaqachon boshqa foydalanuvchida mavjud", 'error')
-            return render_template('admin/edit_staff.html', user=user, faculties=faculties, existing_roles=existing_roles)
+            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
         
         user.login = login
         email = request.form.get('email')
@@ -492,20 +630,21 @@ def edit_staff(id):
             existing_user_with_email = User.query.filter_by(email=email).first()
             if existing_user_with_email and existing_user_with_email.id != user.id:
                 flash("Bu email allaqachon boshqa foydalanuvchida mavjud", 'error')
-                return render_template('admin/edit_staff.html', user=user, faculties=faculties, existing_roles=existing_roles)
-        user.email = email if email else None
-        user.full_name = request.form.get('full_name')
-        user.phone = request.form.get('phone')
-        passport_number = request.form.get('passport_number')
+                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+        # Email maydonini tozalash va o'rnatish
+        email_value = email.strip() if email and email.strip() else None
+        user.email = email_value if email_value else None
+        user.full_name = request.form.get('full_name', '').strip()
+        user.phone = request.form.get('phone', '').strip() or None
+        passport_number = request.form.get('passport_number', '').strip()
+        pinfl = request.form.get('pinfl', '').strip()
+        birth_date_str = request.form.get('birth_date', '').strip()
+        description = request.form.get('description', '').strip()
+        
         # Pasport raqamini katta harfga o'zgartirish
         if passport_number:
             passport_number = passport_number.upper()
         user.passport_number = passport_number
-        user.pinfl = request.form.get('pinfl')
-        birth_date_str = request.form.get('birth_date')
-        user.department = request.form.get('department')
-        user.position = request.form.get('position')
-        faculty_id = request.form.get('faculty_id', type=int)
         
         # Tug'ilgan sanani parse qilish (yyyy-mm-dd)
         if birth_date_str:
@@ -513,14 +652,19 @@ def edit_staff(id):
                 user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
                 flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
-                return render_template('admin/edit_staff.html', user=user, faculties=faculties, existing_roles=existing_roles)
+                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+        else:
+            user.birth_date = None
+        
+        user.pinfl = pinfl if pinfl else None
+        user.description = description if description else None
         
         # Bir nechta rol tanlash
         selected_roles = request.form.getlist('roles')
         
         if not selected_roles:
             flash("Kamida bitta rol tanlanishi kerak", 'error')
-            return render_template('admin/edit_staff.html', user=user, faculties=faculties, existing_roles=existing_roles)
+            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
         
         # Asosiy rol (eng yuqori darajali)
         main_role = selected_roles[0]
@@ -532,7 +676,16 @@ def edit_staff(id):
             main_role = 'teacher'
         
         user.role = main_role
-        user.faculty_id = faculty_id if 'dean' in selected_roles else None
+        
+        # Dekan roli tanlangan bo'lsa, fakultetni aniqlash
+        if 'dean' in selected_roles:
+            # Agar fakultet biriktirilmagan bo'lsa, birinchi fakultetni biriktirish
+            if not user.faculty_id:
+                first_faculty = Faculty.query.first()
+                if first_faculty:
+                    user.faculty_id = first_faculty.id
+        else:
+            user.faculty_id = None
         
         # Rollarni yangilash
         # Eski rollarni o'chirish
@@ -543,11 +696,23 @@ def edit_staff(id):
             user_role = UserRole(user_id=user.id, role=role)
             db.session.add(user_role)
         
-        db.session.commit()
+        # Commit qilish va agar email NOT NULL xatolik bo'lsa, email maydonini bo'sh qatorga o'zgartirish
+        try:
+            db.session.commit()
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'email' in error_str and ('not null' in error_str or 'constraint' in error_str):
+                # Database'da email NOT NULL bo'lsa, bo'sh qator qo'yamiz
+                db.session.rollback()
+                user.email = ''  # Bo'sh qator (database NOT NULL constraint uchun)
+                db.session.commit()
+            else:
+                raise
+        
         flash(f"Xodim {user.full_name} ma'lumotlari yangilandi", 'success')
         return redirect(url_for('admin.staff'))
     
-    return render_template('admin/edit_staff.html', user=user, faculties=faculties, existing_roles=existing_roles)
+    return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
 
 
 # ==================== FAKULTETLAR ====================
@@ -618,23 +783,44 @@ def faculties():
 @login_required
 @admin_required
 def create_faculty():
+    # Barcha dekanlar (bir nechta rolda bo'lishi mumkin)
+    all_deans_query = User.query.join(UserRole).filter(UserRole.role == 'dean')
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+    if all_deans_query.count() == 0:
+        all_deans_query = User.query.filter(User.role == 'dean')
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if all_deans_query.count() == 0:
+        all_users = User.query.all()
+        all_deans_list = [u for u in all_users if 'dean' in u.get_roles()]
+    else:
+        all_deans_list = all_deans_query.all()
+    
     if request.method == 'POST':
         name = request.form.get('name')
         code = request.form.get('code').upper()
         description = request.form.get('description')
+        selected_dean_ids = request.form.getlist('dean_ids')  # List of dean IDs
         
         if Faculty.query.filter_by(code=code).first():
             flash("Bu kod allaqachon mavjud", 'error')
-            return render_template('admin/create_faculty.html')
+            return render_template('admin/create_faculty.html', all_deans=all_deans_list)
         
         faculty = Faculty(name=name, code=code, description=description)
         db.session.add(faculty)
+        db.session.flush()  # ID ni olish uchun
+        
+        # Tanlangan dekanlarni fakultetga biriktirish
+        for dean_id in selected_dean_ids:
+            dean = User.query.get(dean_id)
+            if dean and 'dean' in dean.get_roles():
+                dean.faculty_id = faculty.id
+        
         db.session.commit()
         
         flash("Fakultet muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('admin.faculties'))
     
-    return render_template('admin/create_faculty.html')
+    return render_template('admin/create_faculty.html', all_deans=all_deans_list)
 
 
 @bp.route('/faculties/<int:id>/edit', methods=['GET', 'POST'])
@@ -643,16 +829,66 @@ def create_faculty():
 def edit_faculty(id):
     faculty = Faculty.query.get_or_404(id)
     
+    # Barcha dekanlar (bir nechta rolda bo'lishi mumkin)
+    all_deans_query = User.query.join(UserRole).filter(UserRole.role == 'dean')
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+    if all_deans_query.count() == 0:
+        all_deans_query = User.query.filter(User.role == 'dean')
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if all_deans_query.count() == 0:
+        all_users = User.query.all()
+        all_deans_list = [u for u in all_users if 'dean' in u.get_roles()]
+    else:
+        all_deans_list = all_deans_query.all()
+    
+    # Joriy dekanlar (barcha dekanlar)
+    current_deans = User.query.join(UserRole).filter(
+        UserRole.role == 'dean',
+        User.faculty_id == faculty.id
+    ).all()
+    
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+    if not current_deans:
+        current_deans = User.query.filter(
+            User.role == 'dean',
+            User.faculty_id == faculty.id
+        ).all()
+    
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if not current_deans:
+        all_users = User.query.filter_by(faculty_id=faculty.id).all()
+        current_deans = [u for u in all_users if 'dean' in u.get_roles()]
+    
+    # Joriy dekanlar ID'lari ro'yxati (template uchun)
+    current_dean_ids = [d.id for d in current_deans] if current_deans else []
+    
     if request.method == 'POST':
+        # Fakultet ma'lumotlarini yangilash
         faculty.name = request.form.get('name')
         faculty.code = request.form.get('code').upper()
         faculty.description = request.form.get('description')
         
+        # Dekanlarni o'zgartirish
+        selected_dean_ids = request.form.getlist('dean_ids')  # List of dean IDs
+        
+        # Barcha joriy dekanlarning faculty_id ni None qilish
+        for current_dean in current_deans:
+            current_dean.faculty_id = None
+        
+        # Tanlangan dekanlarni fakultetga biriktirish
+        for dean_id in selected_dean_ids:
+            dean = User.query.get(dean_id)
+            if dean and 'dean' in dean.get_roles():
+                dean.faculty_id = faculty.id
+        
         db.session.commit()
-        flash("Fakultet yangilandi", 'success')
+        flash("Fakultet muvaffaqiyatli yangilandi", 'success')
         return redirect(url_for('admin.faculties'))
     
-    return render_template('admin/edit_faculty.html', faculty=faculty)
+    return render_template('admin/edit_faculty.html', 
+                         faculty=faculty,
+                         all_deans=all_deans_list,
+                         current_dean_ids=current_dean_ids)
 
 
 @bp.route('/faculties/<int:id>/delete', methods=['POST'])
@@ -705,10 +941,14 @@ def faculty_detail(id):
     group_filter = request.args.get('group', type=int)
     search = request.args.get('search', '')
     
-    # Fakultetdagi barcha yo'nalishlarni olish
-    all_directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+    # Fakultetdagi barcha yo'nalishlarni olish va kurs va semestr bo'yicha tartiblash
+    all_directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(
+        Direction.course_year, 
+        Direction.semester, 
+        Direction.name
+    ).all()
     
-    # Fakultetdagi barcha guruhlarni kurs bo'yicha guruhlash
+    # Fakultetdagi barcha guruhlarni olish
     all_groups = faculty.groups.order_by(Group.course_year, Group.name).all()
     
     # Filtrlash
@@ -719,40 +959,33 @@ def faculty_detail(id):
     if group_filter:
         all_groups = [g for g in all_groups if g.id == group_filter]
     
-    # Kurslar bo'yicha guruhlash
+    # Kurslar bo'yicha guruhlash (yo'nalishlarning course_year bo'yicha)
     courses_dict = {}
     
-    # Avval barcha yo'nalishlarni kurslar bo'yicha qo'shish
+    # Barcha yo'nalishlarni kurs va semestr bo'yicha guruhlash
     for direction in all_directions:
+        course_year = direction.course_year
+        semester = direction.semester
+        
+        # Kurs yaratish
+        if course_year not in courses_dict:
+            courses_dict[course_year] = {}
+        
+        # Semestr bo'yicha guruhlash (1-semestr, 2-semestr, ...)
+        if semester not in courses_dict[course_year]:
+            courses_dict[course_year][semester] = {}
+        
         # Bu yo'nalishga tegishli guruhlarni topish
         direction_groups = [g for g in all_groups if g.direction_id == direction.id]
         
-        if direction_groups:
-            # Agar guruhlar bo'lsa, kurs bo'yicha guruhlash
-            for group in direction_groups:
-                course_year = group.course_year
-                if course_year not in courses_dict:
-                    courses_dict[course_year] = {}
-                
-                direction_id = direction.id
-                if direction_id not in courses_dict[course_year]:
-                    courses_dict[course_year][direction_id] = {
-                        'direction': direction,
-                        'groups': []
-                    }
-                
-                courses_dict[course_year][direction_id]['groups'].append(group)
-        else:
-            # Agar guruhlar bo'lmasa ham, yo'nalishni ko'rsatish (1-kurs sifatida)
-            if 1 not in courses_dict:
-                courses_dict[1] = {}
-            
-            direction_id = direction.id
-            if direction_id not in courses_dict[1]:
-                courses_dict[1][direction_id] = {
-                    'direction': direction,
-                    'groups': []
-                }
+        # Yo'nalishni semestr ichiga qo'shish
+        direction_id = direction.id
+        if direction_id not in courses_dict[course_year][semester]:
+            courses_dict[course_year][semester][direction_id] = {
+                'direction': direction,
+                'direction_name': direction.name,
+                'groups': direction_groups
+            }
     
     # Biriktirilmagan guruhlarni qo'shish
     for group in all_groups:
@@ -761,39 +994,48 @@ def faculty_detail(id):
             if course_year not in courses_dict:
                 courses_dict[course_year] = {}
             
+            # Biriktirilmagan guruhlar uchun 1-semestr bo'limiga qo'shish
+            if 1 not in courses_dict[course_year]:
+                courses_dict[course_year][1] = {}
+            
             direction_id = None
-            if direction_id not in courses_dict[course_year]:
-                courses_dict[course_year][direction_id] = {
+            if direction_id not in courses_dict[course_year][1]:
+                courses_dict[course_year][1][direction_id] = {
                     'direction': None,
+                    'direction_name': "Biriktirilmagan",
                     'groups': []
                 }
             
-            courses_dict[course_year][direction_id]['groups'].append(group)
+            courses_dict[course_year][1][direction_id]['groups'].append(group)
     
     # Har bir kurs uchun statistika hisoblash
     for course_year, course_data in courses_dict.items():
-        total_directions = len(course_data)
-        total_groups = sum(len(d['groups']) for d in course_data.values())
-        total_students = sum(
-            User.query.filter(User.group_id.in_([g.id for g in d['groups']]), User.role == 'student').count()
-            for d in course_data.values()
-        )
+        # course_data endi semestrlar bo'yicha guruhlangan {1: {direction_id: {...}}, 2: {...}}
+        total_directions = 0
+        total_groups = 0
+        total_students = 0
         
-        # Har bir yo'nalish uchun statistika
-        for direction_id, direction_data in course_data.items():
-            direction_data['students_count'] = User.query.filter(
-                User.group_id.in_([g.id for g in direction_data['groups']]),
-                User.role == 'student'
-            ).count() if direction_data['groups'] else 0
-            
-            if direction_data['direction']:
-                # Fanlar yo'nalishga to'g'ridan-to'g'ri biriktirilmagan, fakultetga biriktirilgan
-                # Shuning uchun faqat fakultetdagi fanlarni hisoblaymiz
-                direction_data['subjects_count'] = Subject.query.filter_by(
-                    faculty_id=faculty.id
-                ).count()
-            else:
-                direction_data['subjects_count'] = 0
+        # Har bir semestr uchun statistika
+        for semester, semester_data in course_data.items():
+            # Har bir yo'nalish uchun statistika
+            for direction_id, direction_data in semester_data.items():
+                direction_data['students_count'] = User.query.filter(
+                    User.group_id.in_([g.id for g in direction_data['groups']]),
+                    User.role == 'student'
+                ).count() if direction_data['groups'] else 0
+                
+                if direction_data['direction']:
+                    # Fanlar yo'nalishga to'g'ridan-to'g'ri biriktirilmagan, fakultetga biriktirilgan
+                    # Shuning uchun faqat fakultetdagi fanlarni hisoblaymiz
+                    direction_data['subjects_count'] = Subject.query.filter_by(
+                        faculty_id=faculty.id
+                    ).count()
+                else:
+                    direction_data['subjects_count'] = 0
+                
+                total_directions += 1
+                total_groups += len(direction_data['groups'])
+                total_students += direction_data['students_count']
         
         course_data['total_directions'] = total_directions
         course_data['total_groups'] = total_groups
@@ -804,13 +1046,31 @@ def faculty_detail(id):
     
     # Template uchun courses_dict'ni to'g'rilash
     # courses_dict strukturasini template'ga moslashtirish
+    # course_data endi {semester: {direction_id: {...}}} formatida
     formatted_courses_dict = {}
     for course_year, course_data in dict(sorted_courses).items():
-        # course_data o'zi dict bo'lib, uning ichida yo'nalishlar kalit sifatida saqlanadi
-        # Lekin template'da course_data.directions ishlatilmoqda
+        # Semestrlar bo'yicha guruhlangan yo'nalishlarni birlashtirish
+        # Avval 1-semestr, keyin 2-semestr va hokazo
+        all_directions = {}
+        
+        # Semestrlar ro'yxatini tartiblash (faqat int bo'lganlar)
+        semesters_list = sorted([s for s in course_data.keys() if isinstance(s, int)])
+        
+        # Semestrlar bo'yicha yo'nalishlarni birlashtirish
+        for semester in semesters_list:
+            for direction_id, direction_data in course_data[semester].items():
+                all_directions[direction_id] = direction_data
+        
+        # Semestrlar bo'yicha ajratilgan struktura (template uchun)
+        semesters_dict = {}
+        for semester in semesters_list:
+            semesters_dict[semester] = course_data[semester]
+        
         formatted_courses_dict[course_year] = {
-            'directions': course_data,  # directions kalitini qo'shish
-            'total_directions': course_data.get('total_directions', len([k for k in course_data.keys() if k is not None])),
+            'directions': all_directions,  # Barcha semestrlar birlashtirilgan
+            'semesters': semesters_dict,  # Semestrlar bo'yicha ajratilgan (template uchun)
+            'semesters_list': semesters_list,  # Tartiblangan semestrlar ro'yxati
+            'total_directions': course_data.get('total_directions', len(all_directions)),
             'total_groups': course_data.get('total_groups', 0),
             'total_students': course_data.get('total_students', 0)
         }
@@ -904,16 +1164,18 @@ def change_faculty_dean(id):
 @login_required
 @admin_required
 def subjects():
-    faculty_id = request.args.get('faculty', type=int)
+    search = request.args.get('search', '').strip()
     
     query = Subject.query
-    if faculty_id:
-        query = query.filter_by(faculty_id=faculty_id)
+    if search:
+        query = query.filter(
+            (Subject.name.ilike(f'%{search}%')) |
+            (Subject.code.ilike(f'%{search}%'))
+        )
     
     subjects = query.order_by(Subject.code).all()
-    faculties = Faculty.query.all()
     
-    return render_template('admin/subjects.html', subjects=subjects, faculties=faculties, current_faculty=faculty_id)
+    return render_template('admin/subjects.html', subjects=subjects, search=search)
 
 
 @bp.route('/students/import/sample')
@@ -936,22 +1198,32 @@ def download_sample_import():
 @login_required
 @admin_required
 def create_subject():
-    faculties = Faculty.query.all()
-    
     if request.method == 'POST':
-        code = request.form.get('code').upper()
+        code = request.form.get('code', '').strip().upper()
+        name = request.form.get('name', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        if not code or not name:
+            flash("Fan nomi va kodi majburiy maydonlar", 'error')
+            return render_template('admin/create_subject.html')
         
         if Subject.query.filter_by(code=code).first():
             flash("Bu fan kodi allaqachon mavjud", 'error')
-            return render_template('admin/create_subject.html', faculties=faculties)
+            return render_template('admin/create_subject.html')
+        
+        # Default fakultetni tanlash (birinchi fakultet)
+        default_faculty = Faculty.query.first()
+        if not default_faculty:
+            flash("Fakultet mavjud emas. Avval fakultet yarating", 'error')
+            return render_template('admin/create_subject.html')
         
         subject = Subject(
-            name=request.form.get('name'),
+            name=name,
             code=code,
-            description=request.form.get('description'),
-            credits=request.form.get('credits', 3, type=int),
-            faculty_id=request.form.get('faculty_id', type=int),
-            semester=request.form.get('semester', 1, type=int)
+            description=description if description else None,
+            credits=3,  # Default value
+            faculty_id=default_faculty.id,  # Default fakultet
+            semester=1  # Default value
         )
         db.session.add(subject)
         db.session.commit()
@@ -959,7 +1231,7 @@ def create_subject():
         flash("Fan muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('admin.subjects'))
     
-    return render_template('admin/create_subject.html', faculties=faculties)
+    return render_template('admin/create_subject.html')
 
 
 @bp.route('/subjects/<int:id>/edit', methods=['GET', 'POST'])
@@ -967,21 +1239,31 @@ def create_subject():
 @admin_required
 def edit_subject(id):
     subject = Subject.query.get_or_404(id)
-    faculties = Faculty.query.all()
     
     if request.method == 'POST':
-        subject.name = request.form.get('name')
-        subject.code = request.form.get('code').upper()
-        subject.description = request.form.get('description')
-        subject.credits = request.form.get('credits', 3, type=int)
-        subject.faculty_id = request.form.get('faculty_id', type=int)
-        subject.semester = request.form.get('semester', 1, type=int)
+        code = request.form.get('code', '').strip().upper()
+        name = request.form.get('name', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        if not code or not name:
+            flash("Fan nomi va kodi majburiy maydonlar", 'error')
+            return render_template('admin/edit_subject.html', subject=subject)
+        
+        # Kod unikalligini tekshirish (joriy fanni hisobga olmasdan)
+        existing_subject = Subject.query.filter_by(code=code).first()
+        if existing_subject and existing_subject.id != subject.id:
+            flash("Bu fan kodi allaqachon boshqa fanda mavjud", 'error')
+            return render_template('admin/edit_subject.html', subject=subject)
+        
+        subject.name = name
+        subject.code = code
+        subject.description = description if description else None
         
         db.session.commit()
         flash("Fan yangilandi", 'success')
         return redirect(url_for('admin.subjects'))
     
-    return render_template('admin/edit_subject.html', subject=subject, faculties=faculties)
+    return render_template('admin/edit_subject.html', subject=subject)
 
 
 @bp.route('/subjects/<int:id>/delete', methods=['POST'])
@@ -995,6 +1277,94 @@ def delete_subject(id):
     return redirect(url_for('admin.subjects'))
 
 
+@bp.route('/subjects/export')
+@login_required
+@admin_required
+def export_subjects():
+    """Fanlarni Excel formatida export qilish"""
+    try:
+        subjects = Subject.query.order_by(Subject.code).all()
+        excel_file = create_subjects_excel(subjects)
+        
+        filename = f"fanlar_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return send_file(
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        flash(f"Export xatosi: {str(e)}", 'error')
+        return redirect(url_for('admin.subjects'))
+
+
+@bp.route('/subjects/import', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def import_subjects():
+    """Excel fayldan fanlarni import qilish"""
+    if request.method == 'POST':
+        if 'excel_file' not in request.files:
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('admin.subjects'))
+        
+        file = request.files['excel_file']
+        if file.filename == '':
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('admin.subjects'))
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            return redirect(url_for('admin.subjects'))
+        
+        try:
+            result = import_subjects_from_excel(file)
+            
+            if result['success']:
+                if result['imported'] > 0:
+                    flash(f"{result['imported']} ta fan muvaffaqiyatli import qilindi", 'success')
+                if result['updated'] > 0:
+                    flash(f"{result['updated']} ta fan yangilandi", 'success')
+                if result['imported'] == 0 and result['updated'] == 0:
+                    flash("Hech qanday fan import qilinmadi", 'warning')
+                
+                if result['errors']:
+                    error_msg = f"Xatolar ({len(result['errors'])}): " + "; ".join(result['errors'][:5])
+                    if len(result['errors']) > 5:
+                        error_msg += f" va yana {len(result['errors']) - 5} ta xato"
+                    flash(error_msg, 'warning')
+            else:
+                flash(f"Import xatosi: {result['errors'][0] if result['errors'] else 'Noma`lum xatolik'}", 'error')
+                
+        except ImportError as e:
+            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+        except Exception as e:
+            flash(f"Import xatosi: {str(e)}", 'error')
+        
+        return redirect(url_for('admin.subjects'))
+    
+    return render_template('admin/import_subjects.html')
+
+
+@bp.route('/subjects/import/sample')
+@login_required
+@admin_required
+def download_subjects_sample():
+    """Fanlarni import qilish uchun namuna Excel faylni yuklab berish"""
+    try:
+        sample_file = generate_subjects_sample_file()
+        filename = "fanlar_import_namuna.xlsx"
+        return send_file(
+            sample_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        flash(f"Namuna fayl yuklab olishda xatolik: {str(e)}", 'error')
+        return redirect(url_for('admin.subjects'))
+
+
 # ==================== HISOBOTLAR ====================
 @bp.route('/reports')
 @login_required
@@ -1005,7 +1375,7 @@ def reports():
     stats = {
         'total_users': User.query.count(),
         'total_students': User.query.filter_by(role='student').count(),
-        'total_teachers': User.query.filter_by(role='teacher').count(),
+        'total_teachers': db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().count() or User.query.filter_by(role='teacher').count() or len([u for u in User.query.all() if 'teacher' in u.get_roles()]),
         'total_faculties': Faculty.query.count(),
         'total_groups': Group.query.count(),
         'total_subjects': Subject.query.count(),
@@ -1431,46 +1801,42 @@ def create_group():
     
     if request.method == 'POST':
         name = request.form.get('name')
-        faculty_id = request.form.get('faculty_id', type=int)
+        faculty_id = request.form.get('faculty_id', type=int) or request.args.get('faculty_id', type=int)
         direction_id = request.form.get('direction_id', type=int)
+        course_year = request.form.get('course_year', type=int)
+        semester = request.form.get('semester', type=int)
+        education_type = request.form.get('education_type')
         
         # Validatsiya
         if not name:
             flash("Guruh nomi majburiy", 'error')
-            return render_template('admin/create_group.html', 
-                                 faculties=Faculty.query.all(), 
-                                 directions=Direction.query.filter_by(faculty_id=faculty_id).all() if faculty_id else Direction.query.all(),
-                                 faculty_id=faculty_id,
-                                 direction_id=direction_id)
+            return redirect(url_for('admin.create_group', faculty_id=faculty_id))
         
         if not faculty_id:
             flash("Fakultet tanlash majburiy", 'error')
-            return render_template('admin/create_group.html', 
-                                 faculties=Faculty.query.all(), 
-                                 directions=Direction.query.all(),
-                                 faculty_id=faculty_id,
-                                 direction_id=direction_id)
+            return redirect(url_for('admin.create_group'))
         
         if not direction_id:
             flash("Yo'nalish tanlash majburiy", 'error')
-            return render_template('admin/create_group.html', 
-                                 faculties=Faculty.query.all(), 
-                                 directions=Direction.query.filter_by(faculty_id=faculty_id).all() if faculty_id else Direction.query.all(),
-                                 faculty_id=faculty_id,
-                                 direction_id=direction_id)
+            return redirect(url_for('admin.create_group', faculty_id=faculty_id))
         
         # Yo'nalish tekshiruvi
         direction = Direction.query.get(direction_id)
         if not direction or direction.faculty_id != faculty_id:
             flash("Noto'g'ri yo'nalish tanlandi", 'error')
-            return render_template('admin/create_group.html', 
-                                 faculties=Faculty.query.all(), 
-                                 directions=Direction.query.filter_by(faculty_id=faculty_id).all() if faculty_id else Direction.query.all(),
-                                 faculty_id=faculty_id,
-                                 direction_id=direction_id)
+            return redirect(url_for('admin.create_group', faculty_id=faculty_id))
         
-        if Group.query.filter_by(name=name, faculty_id=faculty_id).first():
-            flash("Bu guruh nomi allaqachon mavjud", 'error')
+        # Kurs, semestr va ta'lim shaklini yo'nalishdan olish
+        if not course_year:
+            course_year = direction.course_year
+        if not semester:
+            semester = direction.semester
+        if not education_type:
+            education_type = direction.education_type
+        
+        # Bir yo'nalishda bir xil guruh nomi bo'lishi mumkin emas
+        if Group.query.filter_by(name=name.upper(), direction_id=direction_id).first():
+            flash("Bu yo'nalishda bunday nomli guruh allaqachon mavjud", 'error')
             return render_template('admin/create_group.html', 
                                  faculties=Faculty.query.all(), 
                                  directions=Direction.query.filter_by(faculty_id=faculty_id).all() if faculty_id else Direction.query.all(),
@@ -1478,12 +1844,17 @@ def create_group():
                                  direction_id=direction_id)
         
         # Yo'nalishdan kurs, semestr va ta'lim shaklini olish
+        description = request.form.get('description', '').strip()
+        course_year = request.form.get('course_year', type=int) or direction.course_year
+        education_type = request.form.get('education_type') or direction.education_type
+        
         group = Group(
             name=name.upper(),
             faculty_id=faculty_id,
-            course_year=direction.course_year,
-            education_type=direction.education_type,  # Yo'nalishdan olinadi
-            direction_id=direction_id
+            course_year=course_year,
+            education_type=education_type,  # Yo'nalishdan olinadi
+            direction_id=direction_id,
+            description=description if description else None
         )
         db.session.add(group)
         db.session.commit()
@@ -1494,18 +1865,39 @@ def create_group():
             return redirect(url_for('admin.faculty_detail', id=faculty_id))
         return redirect(url_for('admin.groups'))
     
-    # GET request - faqat shu fakultetdagi yo'nalishlarni ko'rsatish
-    directions = []
-    if faculty_id:
-        directions = Direction.query.filter_by(faculty_id=faculty_id).order_by(Direction.course_year, Direction.semester, Direction.name).all()
-    else:
-        directions = Direction.query.order_by(Direction.faculty_id, Direction.course_year, Direction.semester, Direction.name).all()
+    # GET request - ma'lumotlarni tayyorlash
+    faculties = Faculty.query.all()
     
-    return render_template('admin/create_group.html', 
-                         faculties=Faculty.query.all(), 
-                         directions=directions,
-                         faculty_id=faculty_id,
-                         direction_id=direction_id)
+    # Agar faculty_id berilgan bo'lsa, faqat shu fakultet uchun
+    if faculty_id:
+        faculty = Faculty.query.get(faculty_id)
+        if not faculty:
+            flash("Fakultet topilmadi", 'error')
+            return redirect(url_for('admin.faculties'))
+        
+        # Fakultetdagi barcha kurslarni olish
+        courses = db.session.query(Direction.course_year).filter_by(faculty_id=faculty_id).distinct().order_by(Direction.course_year).all()
+        courses = [c[0] for c in courses]
+        
+        # Barcha yo'nalishlarni ma'lumotlar bazasi sifatida yuborish (JavaScript uchun)
+        all_directions = Direction.query.filter_by(faculty_id=faculty_id).order_by(Direction.course_year, Direction.semester, Direction.name).all()
+        
+        return render_template('admin/create_group.html', 
+                             faculties=faculties,
+                             faculty=faculty,
+                             faculty_id=faculty_id,
+                             courses=courses,
+                             all_directions=all_directions,
+                             direction_id=direction_id)
+    else:
+        # Agar faculty_id berilmagan bo'lsa, barcha fakultetlar
+        return render_template('admin/create_group.html', 
+                             faculties=faculties,
+                             faculty=None,
+                             faculty_id=None,
+                             courses=[],
+                             all_directions=[],
+                             direction_id=direction_id)
 
 
 @bp.route('/groups/<int:id>/edit', methods=['GET', 'POST'])
@@ -1515,15 +1907,38 @@ def edit_group(id):
     group = Group.query.get_or_404(id)
     
     if request.method == 'POST':
-        # Faqat guruh nomini o'zgartirish mumkin
-        group.name = request.form.get('name').upper()
+        # Guruh nomi, kurs, semestr, ta'lim shakli, yo'nalish va tavsifni o'zgartirish mumkin
+        new_name = request.form.get('name').upper()
+        course_year = request.form.get('course_year', type=int)
+        semester = request.form.get('semester', type=int)
+        education_type = request.form.get('education_type')
+        direction_id = request.form.get('direction_id', type=int)
+        description = request.form.get('description', '').strip()
         
-        # Agar guruhga yo'nalish biriktirilgan bo'lsa, kurs va ta'lim shaklini yo'nalishdan olish
-        if group.direction_id:
-            direction = Direction.query.get(group.direction_id)
-            if direction:
-                group.course_year = direction.course_year
-                group.education_type = direction.education_type
+        # Validatsiya
+        if not course_year or not semester or not education_type or not direction_id:
+            flash("Barcha maydonlar to'ldirilishi kerak", 'error')
+            return redirect(url_for('admin.edit_group', id=group.id))
+        
+        # Yo'nalish tekshiruvi
+        direction = Direction.query.get(direction_id)
+        if not direction or direction.faculty_id != group.faculty_id:
+            flash("Noto'g'ri yo'nalish tanlandi", 'error')
+            return redirect(url_for('admin.edit_group', id=group.id))
+        
+        # Bir yo'nalishda bir xil guruh nomi bo'lishi mumkin emas
+        # Agar nom yoki yo'nalish o'zgarganda tekshirish kerak
+        if (new_name != group.name or direction_id != group.direction_id):
+            existing_group = Group.query.filter_by(name=new_name, direction_id=direction_id).first()
+            if existing_group and existing_group.id != group.id:
+                flash("Bu yo'nalishda bunday nomli guruh allaqachon mavjud", 'error')
+                return redirect(url_for('admin.edit_group', id=group.id))
+        
+        group.name = new_name
+        group.direction_id = direction_id
+        group.course_year = course_year
+        group.education_type = education_type
+        group.description = description if description else None
         
         db.session.commit()
         flash("Guruh yangilandi", 'success')
@@ -1532,9 +1947,21 @@ def edit_group(id):
             return redirect(url_for('admin.faculty_detail', id=group.faculty_id))
         return redirect(url_for('admin.groups'))
     
+    # GET request - ma'lumotlarni tayyorlash
+    faculty = group.faculty
+    
+    # Fakultetdagi barcha kurslarni olish
+    courses = db.session.query(Direction.course_year).filter_by(faculty_id=faculty.id).distinct().order_by(Direction.course_year).all()
+    courses = [c[0] for c in courses]
+    
+    # Barcha yo'nalishlarni ma'lumotlar bazasi sifatida yuborish (JavaScript uchun)
+    all_directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.course_year, Direction.semester, Direction.name).all()
+    
     return render_template('admin/edit_group.html', 
-                         group=group, 
-                         faculties=Faculty.query.all())
+                         group=group,
+                         faculty=faculty,
+                         courses=courses,
+                         all_directions=all_directions)
 
 
 @bp.route('/groups/<int:id>/students')
@@ -1842,7 +2269,21 @@ def assignments():
         
     assignments_list = query.all()
     faculties = Faculty.query.all()
-    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
+    # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
+    teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
+    teacher_user_ids = [uid[0] for uid in teacher_user_ids]
+    
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+    if not teacher_user_ids:
+        teachers_by_role = User.query.filter_by(role='teacher').all()
+        teacher_user_ids = [t.id for t in teachers_by_role]
+    
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if not teacher_user_ids:
+        all_users = User.query.all()
+        teacher_user_ids = [u.id for u in all_users if 'teacher' in u.get_roles()]
+    
+    teachers = User.query.filter(User.id.in_(teacher_user_ids)).order_by(User.full_name).all() if teacher_user_ids else []
     
     return render_template('admin/assignments.html', assignments=assignments_list, faculties=faculties, teachers=teachers, current_faculty=faculty_id, search=search)
 
@@ -1926,46 +2367,35 @@ def directions():
 @admin_required
 def create_student():
     """Admin uchun yangi talaba yaratish"""
-    directions = Direction.query.all()
-    groups = Group.query.all()
-    faculties = Faculty.query.all()
-    
     if request.method == 'POST':
-        email = request.form.get('email')
-        full_name = request.form.get('full_name')
-        passport_number = request.form.get('passport_number')
-        phone = request.form.get('phone')
-        student_id = request.form.get('student_id')
-        direction_id = request.form.get('direction_id', type=int)
-        group_id = request.form.get('group_id', type=int)
-        enrollment_year = request.form.get('enrollment_year', type=int)
-        pinfl = request.form.get('pinfl')
-        birth_date = request.form.get('birth_date')
-        specialty = request.form.get('specialty')
-        specialty_code = request.form.get('specialty_code')
-        education_type = request.form.get('education_type')
+        email = request.form.get('email', '').strip()
+        full_name = request.form.get('full_name', '').strip()
+        passport_number = request.form.get('passport_number', '').strip()
+        phone = request.form.get('phone', '').strip()
+        student_id = request.form.get('student_id', '').strip()
+        pinfl = request.form.get('pinfl', '').strip()
+        birth_date = request.form.get('birth_date', '').strip()
+        description = request.form.get('description', '').strip()
         
-        # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
-        if email and User.query.filter_by(email=email).first():
-            flash("Bu email allaqachon mavjud", 'error')
-            return render_template('admin/create_student.html', 
-                                 directions=directions, groups=groups, faculties=faculties)
-        
-        # Talaba ID majburiy (talabalar uchun)
+        # Talaba ID majburiy
         if not student_id:
             flash("Talaba ID majburiy maydon", 'error')
-            return render_template('admin/create_student.html', 
-                                 directions=directions, groups=groups, faculties=faculties)
+            return render_template('admin/create_student.html')
         
         if User.query.filter_by(student_id=student_id).first():
             flash("Bu talaba ID allaqachon mavjud", 'error')
-            return render_template('admin/create_student.html', 
-                                 directions=directions, groups=groups, faculties=faculties)
+            return render_template('admin/create_student.html')
         
+        # Pasport seriyasi va raqami majburiy
         if not passport_number:
             flash("Pasport seriyasi va raqami majburiy", 'error')
-            return render_template('admin/create_student.html', 
-                                 directions=directions, groups=groups, faculties=faculties)
+            return render_template('admin/create_student.html')
+        
+        # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
+        if email:
+            if User.query.filter_by(email=email).first():
+                flash("Bu email allaqachon mavjud", 'error')
+                return render_template('admin/create_student.html')
         
         # Pasport raqamini katta harfga o'zgartirish
         passport_number = passport_number.upper()
@@ -1977,36 +2407,49 @@ def create_student():
                 parsed_birth_date = datetime.strptime(birth_date, '%Y-%m-%d').date()
             except ValueError:
                 flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
-                return render_template('admin/create_student.html', 
-                                     directions=directions, groups=groups, faculties=faculties)
+                return render_template('admin/create_student.html')
+        
+        # Email maydonini tozalash
+        email_value = email.strip() if email and email.strip() else None
         
         student = User(
-            email=email if email else None,  # Email ixtiyoriy
             full_name=full_name,
             role='student',
-            phone=phone,
             student_id=student_id,
-            group_id=group_id,
-            enrollment_year=enrollment_year,
             passport_number=passport_number,
-            pinfl=pinfl,
+            phone=phone.strip() if phone and phone.strip() else None,
+            pinfl=pinfl.strip() if pinfl and pinfl.strip() else None,
             birth_date=parsed_birth_date,
-            specialty=specialty,
-            specialty_code=specialty_code,
-            education_type=education_type
+            description=description.strip() if description and description.strip() else None
         )
+        
+        # Email maydonini alohida o'rnatish (agar bo'sh bo'lsa, o'rnatmaymiz)
+        if email_value:
+            student.email = email_value
         
         # Parolni pasport raqamiga o'rnatish
         student.set_password(passport_number)
         
         db.session.add(student)
-        db.session.commit()
+        
+        # Commit qilish va agar email NOT NULL xatolik bo'lsa, email maydonini bo'sh qatorga o'zgartirish
+        try:
+            db.session.commit()
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'email' in error_str and ('not null' in error_str or 'constraint' in error_str):
+                # Database'da email NOT NULL bo'lsa, bo'sh qator qo'yamiz
+                db.session.rollback()
+                student.email = ''  # Bo'sh qator (database NOT NULL constraint uchun)
+                db.session.add(student)
+                db.session.commit()
+            else:
+                raise
         
         flash(f"{student.full_name} muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('admin.students'))
     
-    return render_template('admin/create_student.html', 
-                         directions=directions, groups=groups, faculties=faculties)
+    return render_template('admin/create_student.html')
 
 
 @bp.route('/students/<int:id>/edit', methods=['GET', 'POST'])
@@ -2019,66 +2462,65 @@ def edit_student(id):
         flash("Bu foydalanuvchi talaba emas", 'error')
         return redirect(url_for('admin.students'))
     
-    directions = Direction.query.all()
-    groups = Group.query.all()
-    faculties = Faculty.query.all()
-    
     if request.method == 'POST':
-        student_id = request.form.get('student_id')
-        # Talaba ID majburiy (talabalar uchun)
+        student_id = request.form.get('student_id', '').strip()
+        full_name = request.form.get('full_name', '').strip()
+        passport_number = request.form.get('passport_number', '').strip()
+        phone = request.form.get('phone', '').strip()
+        email = request.form.get('email', '').strip()
+        pinfl = request.form.get('pinfl', '').strip()
+        birth_date_str = request.form.get('birth_date', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        # Talaba ID majburiy
         if not student_id:
             flash("Talaba ID majburiy maydon", 'error')
-            return render_template('admin/edit_student.html', 
-                                 student=student, directions=directions, groups=groups, faculties=faculties)
+            return render_template('admin/edit_student.html', student=student)
         
         # Talaba ID unikalligi (boshqa talabada bo'lmasligi kerak)
         existing_student = User.query.filter_by(student_id=student_id).first()
         if existing_student and existing_student.id != student.id:
             flash("Bu talaba ID allaqachon boshqa talabada mavjud", 'error')
-            return render_template('admin/edit_student.html', 
-                                 student=student, directions=directions, groups=groups, faculties=faculties)
+            return render_template('admin/edit_student.html', student=student)
         
-        email = request.form.get('email')
+        # Pasport seriyasi va raqami majburiy
+        if not passport_number:
+            flash("Pasport seriyasi va raqami majburiy", 'error')
+            return render_template('admin/edit_student.html', student=student)
+        
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email:
             existing_student_with_email = User.query.filter_by(email=email).first()
             if existing_student_with_email and existing_student_with_email.id != student.id:
                 flash("Bu email allaqachon boshqa talabada mavjud", 'error')
-                return render_template('admin/edit_student.html', 
-                                     student=student, directions=directions, groups=groups, faculties=faculties)
-        student.email = email if email else None
-        student.full_name = request.form.get('full_name')
-        student.phone = request.form.get('phone')
-        student.student_id = student_id
-        student.group_id = request.form.get('group_id', type=int)
-        student.enrollment_year = request.form.get('enrollment_year', type=int)
-        passport_number = request.form.get('passport_number')
+                return render_template('admin/edit_student.html', student=student)
+        
         # Pasport raqamini katta harfga o'zgartirish
-        if passport_number:
-            passport_number = passport_number.upper()
-        student.passport_number = passport_number
-        student.pinfl = request.form.get('pinfl')
-        birth_date_str = request.form.get('birth_date')
+        passport_number = passport_number.upper()
+        
         # Tug'ilgan sanani parse qilish (yyyy-mm-dd)
         if birth_date_str:
             try:
                 student.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
                 flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
-                return render_template('admin/edit_student.html', 
-                                     student=student, directions=directions, groups=groups, faculties=faculties)
+                return render_template('admin/edit_student.html', student=student)
         else:
             student.birth_date = None
-        student.specialty = request.form.get('specialty')
-        student.specialty_code = request.form.get('specialty_code')
-        student.education_type = request.form.get('education_type')
+        
+        student.email = email if email else None
+        student.full_name = full_name
+        student.phone = phone if phone else None
+        student.student_id = student_id
+        student.passport_number = passport_number
+        student.pinfl = pinfl if pinfl else None
+        student.description = description if description else None
         
         db.session.commit()
         flash(f"{student.full_name} ma'lumotlari yangilandi", 'success')
         return redirect(url_for('admin.students'))
     
-    return render_template('admin/edit_student.html', 
-                         student=student, directions=directions, groups=groups, faculties=faculties)
+    return render_template('admin/edit_student.html', student=student)
 
 
 @bp.route('/students')
@@ -2243,7 +2685,21 @@ def create_schedule():
     """Admin uchun dars jadvaliga qo'shish"""
     groups = Group.query.order_by(Group.name).all()
     subjects = Subject.query.order_by(Subject.code).all()
-    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
+    # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
+    teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
+    teacher_user_ids = [uid[0] for uid in teacher_user_ids]
+    
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+    if not teacher_user_ids:
+        teachers_by_role = User.query.filter_by(role='teacher').all()
+        teacher_user_ids = [t.id for t in teachers_by_role]
+    
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if not teacher_user_ids:
+        all_users = User.query.all()
+        teacher_user_ids = [u.id for u in all_users if 'teacher' in u.get_roles()]
+    
+    teachers = User.query.filter(User.id.in_(teacher_user_ids)).order_by(User.full_name).all() if teacher_user_ids else []
     
     # GET parametrlar orqali kelgan default sana va guruh
     default_date = request.args.get('date')
@@ -2304,7 +2760,21 @@ def edit_schedule(id):
     
     groups = Group.query.order_by(Group.name).all()
     subjects = Subject.query.order_by(Subject.code).all()
-    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
+    # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
+    teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
+    teacher_user_ids = [uid[0] for uid in teacher_user_ids]
+    
+    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
+    if not teacher_user_ids:
+        teachers_by_role = User.query.filter_by(role='teacher').all()
+        teacher_user_ids = [t.id for t in teachers_by_role]
+    
+    # Agar hali ham topilmasa, get_roles() orqali qidirish
+    if not teacher_user_ids:
+        all_users = User.query.all()
+        teacher_user_ids = [u.id for u in all_users if 'teacher' in u.get_roles()]
+    
+    teachers = User.query.filter(User.id.in_(teacher_user_ids)).order_by(User.full_name).all() if teacher_user_ids else []
     
     # Eski sana
     try:

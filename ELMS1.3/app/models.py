@@ -131,7 +131,7 @@ class UserRole(db.Model):
 class User(UserMixin, db.Model):
     """Foydalanuvchi modeli"""
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True)  # Email ixtiyoriy
+    email = db.Column(db.String(120), unique=True, nullable=True, default=None)  # Email ixtiyoriy
     login = db.Column(db.String(50), unique=True)  # Login (xodimlar uchun majburiy)
     password_hash = db.Column(db.String(256), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
@@ -158,6 +158,7 @@ class User(UserMixin, db.Model):
     department = db.Column(db.String(100))
     position = db.Column(db.String(50))
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'))  # Dekan qaysi fakultetga tegishli
+    description = db.Column(db.Text)  # Xodim haqida tavsif
     
     # Relationships
     submissions = db.relationship('Submission', backref='student', lazy='dynamic', foreign_keys='Submission.student_id')
