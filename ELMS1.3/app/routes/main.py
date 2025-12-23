@@ -373,20 +373,20 @@ def settings():
         user.phone = request.form.get('phone', user.phone)
         
         # Parolni o'zgartirish
-        old_password = request.form.get('old_password')
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
         
-        if old_password and new_password:
-            if user.check_password(old_password):
-                if new_password == confirm_password:
+        if new_password:
+            # Yangi parolni tekshirish
+            if new_password == confirm_password:
+                if len(new_password) >= 8:
                     user.set_password(new_password)
                     flash("Parol muvaffaqiyatli o'zgartirildi", 'success')
                 else:
-                    flash("Yangi parollar mos kelmaydi", 'error')
+                    flash("Parol kamida 8 ta belgidan iborat bo'lishi kerak", 'error')
                     return render_template('settings.html')
             else:
-                flash("Eski parol noto'g'ri", 'error')
+                flash("Yangi parollar mos kelmaydi", 'error')
                 return render_template('settings.html')
         
         db.session.commit()

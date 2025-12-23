@@ -4,7 +4,7 @@ import io
 
 
 def create_students_excel(students, faculty_name=None):
-    """Talabalar ro'yxatini Excel formatida yaratish (A–M ustunlari bilan)"""
+    """Talabalar ro'yxatini Excel formatida yaratish (yangi tartib)"""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -21,8 +21,8 @@ def create_students_excel(students, faculty_name=None):
     if faculty_name:
         title += f" - {faculty_name}"
     
-    # A–M (13 ustun)
-    ws.merge_cells('A1:M1')
+    # A–O (15 ustun)
+    ws.merge_cells('A1:O1')
     title_cell = ws['A1']
     title_cell.value = title
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -31,26 +31,27 @@ def create_students_excel(students, faculty_name=None):
     
     # Sana
     ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ws.merge_cells('A2:M2')
+    ws.merge_cells('A2:O2')
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
-    # Jadval sarlavhalari (A–M)
+    # Jadval sarlavhalari (A ustunidan boshlanadi)
     headers = [
-        '№',                   # 1 - qo'shimcha tartib raqami
-        "Talaba ID",           # 2 - A ustun (Talaba ID)
-        "To'liq ismi",         # 3 - B ustun
-        "Pasport raqami",      # 4 - C ustun
-        "JSHSHIR-kod",         # 5 - D ustun
-        "Tug‘ilgan sana",      # 6 - E ustun
-        "Telefon",             # 7 - F ustun
-        "Ta'lim shakli",       # 8 - G ustun
-        "Shifr (mutaxassislik kodi)",  # 9 - H ustun
-        "Mutaxassislik",       # 10 - I ustun
-        "Talaba kursi",        # 11 - J ustun
-        "Guruh",               # 12 - K ustun
-        "Fakultet",            # 13 - L ustun
-        "Email"                # 14 - M ustun
+        "Talaba ID",           # A
+        "To'liq ism",          # B
+        "Pasport seriya raqami",  # C
+        "JSHSHIR",             # D
+        "Tug'ilgan sana",      # E
+        "Telefon",             # F
+        "Email",               # G
+        "Tavsif",              # H
+        "Fakultet",            # I
+        "Kurs",                # J
+        "Semestr",             # K
+        "Ta'lim shakli",       # L
+        "Mutaxassislik kodi",  # M
+        "Mutaxassislik nomi",  # N
+        "Guruh"                # O
     ]
     header_row = 3
     
@@ -69,52 +70,71 @@ def create_students_excel(students, faculty_name=None):
     
     # Ma'lumotlar
     for row_num, student in enumerate(students, start=header_row + 1):
-        # 1: tartib raqami
-        ws.cell(row=row_num, column=1, value=row_num - header_row)
-        # 2: Talaba ID
-        ws.cell(row=row_num, column=2, value=student.student_id or '')
-        # 3: To'liq ism
-        ws.cell(row=row_num, column=3, value=student.full_name)
-        # 4: Pasport
+        # Talaba ID
+        ws.cell(row=row_num, column=1, value=student.student_id or '')
+        # To'liq ism
+        ws.cell(row=row_num, column=2, value=student.full_name)
+        # Pasport seriya raqami
         passport = getattr(student, 'passport_number', None)
-        ws.cell(row=row_num, column=4, value=passport or '')
-        # 5: JSHSHIR
+        ws.cell(row=row_num, column=3, value=passport or '')
+        # JSHSHIR
         pinfl = getattr(student, 'pinfl', None)
-        ws.cell(row=row_num, column=5, value=pinfl or '')
-        # 6: Tug‘ilgan sana
+        ws.cell(row=row_num, column=4, value=pinfl or '')
+        # Tug'ilgan sana
         birth_date = getattr(student, 'birth_date', None)
-        ws.cell(row=row_num, column=6, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
-        # 7: Telefon
-        ws.cell(row=row_num, column=7, value=student.phone or '')
-        # 8: Ta'lim shakli
-        education_type = getattr(student, 'education_type', None)
-        if not education_type and getattr(student, 'group', None):
-            education_type = student.group.education_type
-        ws.cell(row=row_num, column=8, value=education_type or '')
-        # 9: Shifr (mutaxassislik kodi)
-        specialty_code = getattr(student, 'specialty_code', None)
-        if not specialty_code and getattr(student, 'group', None) and student.group.direction:
-            specialty_code = student.group.direction.code
-        ws.cell(row=row_num, column=9, value=specialty_code or '')
-        # 10: Mutaxassislik
-        specialty = getattr(student, 'specialty', None)
-        if not specialty and getattr(student, 'group', None) and student.group.direction:
-            specialty = student.group.direction.name
-        ws.cell(row=row_num, column=10, value=specialty or '')
-        # 11: Kurs
-        course_year = None
-        if getattr(student, 'group', None):
+        if birth_date:
+            if isinstance(birth_date, str):
+                ws.cell(row=row_num, column=5, value=birth_date)
+            else:
+                ws.cell(row=row_num, column=5, value=birth_date.strftime('%d.%m.%Y'))
+        else:
+            ws.cell(row=row_num, column=5, value='')
+        # Telefon
+        ws.cell(row=row_num, column=6, value=student.phone or '')
+        # Email
+        ws.cell(row=row_num, column=7, value=student.email or '')
+        # Tavsif
+        ws.cell(row=row_num, column=8, value=getattr(student, 'description', None) or '')
+        
+        # Fakultet, Kurs, Semestr, Ta'lim shakli, Guruh - guruhdan olinadi
+        if getattr(student, 'group', None) and student.group:
+            # Fakultet
+            faculty_name_val = student.group.faculty.name if student.group.faculty else ''
+            ws.cell(row=row_num, column=9, value=faculty_name_val)
+            # Kurs (1-kurs formatida)
             course_year = student.group.course_year
-        ws.cell(row=row_num, column=11, value=course_year or '')
-        # 12: Guruh
-        ws.cell(row=row_num, column=12, value=student.group.name if getattr(student, 'group', None) else '')
-        # 13: Fakultet
-        faculty_name = ''
-        if getattr(student, 'group', None) and student.group.faculty:
-            faculty_name = student.group.faculty.name
-        ws.cell(row=row_num, column=13, value=faculty_name)
-        # 14: Email
-        ws.cell(row=row_num, column=14, value=student.email)
+            ws.cell(row=row_num, column=10, value=f"{course_year}-kurs" if course_year else '')
+            # Semestr (talabadan yoki guruh yo'nalishidan) - "1-semestr" formatida
+            semester = getattr(student, 'semester', None)
+            if not semester and student.group.direction:
+                semester = student.group.direction.semester
+            semester_display = f"{semester}-semestr" if semester else ''
+            ws.cell(row=row_num, column=11, value=semester_display)
+            # Ta'lim shakli - bosh harf katta bilan
+            education_type = student.group.education_type or ''
+            education_type_display = education_type.capitalize() if education_type else ''
+            ws.cell(row=row_num, column=12, value=education_type_display)
+            # Mutaxassislik kodi (yo'nalish kodi)
+            specialty_code = ''
+            if student.group.direction:
+                specialty_code = student.group.direction.code or ''
+            ws.cell(row=row_num, column=13, value=specialty_code)
+            # Mutaxassislik nomi (yo'nalish nomi)
+            specialty_name = ''
+            if student.group.direction:
+                specialty_name = student.group.direction.name or ''
+            ws.cell(row=row_num, column=14, value=specialty_name)
+            # Guruh
+            ws.cell(row=row_num, column=15, value=student.group.name)
+        else:
+            # Guruh bo'lmagan talabalar uchun bo'sh qatorlar
+            ws.cell(row=row_num, column=9, value='')
+            ws.cell(row=row_num, column=10, value='')
+            ws.cell(row=row_num, column=11, value='')
+            ws.cell(row=row_num, column=12, value='')
+            ws.cell(row=row_num, column=13, value='')
+            ws.cell(row=row_num, column=14, value='')
+            ws.cell(row=row_num, column=15, value='')
         
         # Stil
         for col_num in range(1, len(headers) + 1):
@@ -130,7 +150,7 @@ def create_students_excel(students, faculty_name=None):
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
     # Ustun kengliklarini sozlash
-    column_widths = [5, 15, 30, 18, 16, 14, 16, 14, 18, 24, 12, 14, 20, 25]
+    column_widths = [15, 30, 20, 18, 18, 16, 25, 40, 20, 12, 12, 15, 20, 30, 15]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     
@@ -634,7 +654,7 @@ def create_staff_excel(users):
     
     # Sarlavha
     title = "Xodimlar ro'yxati"
-    ws.merge_cells('A1:L1')
+    ws.merge_cells('A1:H1')
     title_cell = ws['A1']
     title_cell.value = title
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -643,12 +663,12 @@ def create_staff_excel(users):
     
     # Sana
     ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ws.merge_cells('A2:L2')
+    ws.merge_cells('A2:H2')
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
-    # Jadval sarlavhalari
-    headers = ['№', "To'liq ism", 'Email', 'Telefon', 'Pasport raqami', 'JSHSHIR', 'Tug\'ilgan sana', 'Kafedra', 'Lavozim', 'Fakultet', 'Rollar', 'Holat']
+    # Jadval sarlavhalari (A ustunidan boshlanadi)
+    headers = ["To'liq ism", 'Login', 'Pasport seriya raqami', 'JSHSHIR', "Tug'ilgan sana", 'Telefon', 'Email', 'Tavsif']
     
     header_row = 3
     
@@ -665,34 +685,26 @@ def create_staff_excel(users):
             bottom=Side(style='thin')
         )
     
-    # Rollarni ko'rsatish uchun mapping
-    role_display_names = {
-        'admin': 'Administrator',
-        'dean': 'Dekan',
-        'teacher': "O'qituvchi",
-        'accounting': 'Buxgalter'
-    }
-    
     # Ma'lumotlar
     for row_num, user in enumerate(users, start=header_row + 1):
-        ws.cell(row=row_num, column=1, value=row_num - header_row)
-        ws.cell(row=row_num, column=2, value=user.full_name)
-        ws.cell(row=row_num, column=3, value=user.email)
-        ws.cell(row=row_num, column=4, value=user.phone or '')
-        ws.cell(row=row_num, column=5, value=getattr(user, 'passport_number', None) or '')
-        ws.cell(row=row_num, column=6, value=getattr(user, 'pinfl', None) or '')
+        ws.cell(row=row_num, column=1, value=user.full_name)
+        ws.cell(row=row_num, column=2, value=user.login or '')
+        ws.cell(row=row_num, column=3, value=getattr(user, 'passport_number', None) or '')
+        ws.cell(row=row_num, column=4, value=getattr(user, 'pinfl', None) or '')
+        
+        # Tug'ilgan sana
         birth_date = getattr(user, 'birth_date', None)
-        ws.cell(row=row_num, column=7, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
-        ws.cell(row=row_num, column=8, value=user.department or '')
-        ws.cell(row=row_num, column=9, value=user.position or '')
-        ws.cell(row=row_num, column=10, value=user.managed_faculty.name if user.managed_faculty else '')
+        if birth_date:
+            if isinstance(birth_date, str):
+                ws.cell(row=row_num, column=5, value=birth_date)
+            else:
+                ws.cell(row=row_num, column=5, value=birth_date.strftime('%d.%m.%Y'))
+        else:
+            ws.cell(row=row_num, column=5, value='')
         
-        # Bir nechta rollar
-        all_roles = user.get_roles() if hasattr(user, 'get_roles') else [user.role]
-        staff_roles = [r for r in all_roles if r in ['admin', 'dean', 'teacher', 'accounting']]
-        ws.cell(row=row_num, column=11, value=', '.join([role_display_names.get(r, r) for r in staff_roles]))
-        
-        ws.cell(row=row_num, column=12, value='Faol' if user.is_active else 'Bloklangan')
+        ws.cell(row=row_num, column=6, value=user.phone or '')
+        ws.cell(row=row_num, column=7, value=user.email or '')
+        ws.cell(row=row_num, column=8, value=getattr(user, 'description', None) or '')
         
         # Stil
         for col_num in range(1, len(headers) + 1):
@@ -708,7 +720,7 @@ def create_staff_excel(users):
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
     # Ustun kengliklarini sozlash
-    column_widths = [5, 30, 25, 16, 18, 16, 14, 20, 15, 20, 30, 12]
+    column_widths = [30, 20, 20, 18, 18, 16, 25, 40]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     

@@ -43,13 +43,13 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">JSHSHIR (PINFL)</label>
                 <input type="text" name="pinfl" value="{{ student.pinfl or '' }}" maxlength="14"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                placeholder="30202020200021"    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
             
             <!-- Tug'ilgan sana -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Tug'ilgan sana</label>
-                <input type="text" name="birth_date" value="{% if student.birth_date %}{{ student.birth_date.strftime('%Y-%m-%d') }}{% endif %}" placeholder="yyyy-mm-dd"
+                <input type="text" name="birth_date" id="birth_date" value="{% if student.birth_date %}{{ student.birth_date.strftime('%Y-%m-%d') }}{% endif %}" placeholder="1999-02-06" pattern="\d{4}-\d{2}-\d{2}"
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
             
@@ -85,5 +85,79 @@
         </form>
     </div>
 </div>
+
+<script>
+// Tug'ilgan sana input'ini formatlash
+document.addEventListener('DOMContentLoaded', function() {
+    const birthDateInput = document.getElementById('birth_date');
+    
+    if (birthDateInput) {
+        // Date picker yaratish
+        const datePicker = document.createElement('input');
+        datePicker.type = 'date';
+        datePicker.style.position = 'absolute';
+        datePicker.style.opacity = '0';
+        datePicker.style.pointerEvents = 'none';
+        datePicker.style.width = '0';
+        datePicker.style.height = '0';
+        
+        // Mavjud qiymatni date picker'ga yozish
+        if (birthDateInput.value) {
+            datePicker.value = birthDateInput.value;
+        }
+        
+        // Date picker'ni input'ga qo'shish
+        birthDateInput.parentElement.style.position = 'relative';
+        birthDateInput.parentElement.appendChild(datePicker);
+        
+        // Date picker'ga bosilganda, text input'ga formatlangan qiymatni yozish
+        datePicker.addEventListener('change', function() {
+            if (this.value) {
+                birthDateInput.value = this.value; // yyyy-mm-dd formatida
+            }
+        });
+        
+        // Text input'ga bosilganda, date picker'ni ochish
+        birthDateInput.addEventListener('focus', function() {
+            if (datePicker.value) {
+                datePicker.showPicker();
+            } else {
+                datePicker.showPicker();
+            }
+        });
+        
+        // Text input'ga yozilganda, formatni tekshirish
+        birthDateInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, ''); // Faqat raqamlarni qoldirish
+            
+            // Formatlash: yyyy-mm-dd
+            if (value.length > 4) {
+                value = value.substring(0, 4) + '-' + value.substring(4);
+            }
+            if (value.length > 7) {
+                value = value.substring(0, 7) + '-' + value.substring(7, 9);
+            }
+            
+            e.target.value = value;
+            
+            // Agar to'liq format bo'lsa, date picker'ga ham yozish
+            if (value.length === 10) {
+                datePicker.value = value;
+            }
+        });
+        
+        // Text input'dan focus chiqganda, formatni tekshirish
+        birthDateInput.addEventListener('blur', function() {
+            const value = this.value;
+            // Formatni tekshirish: yyyy-mm-dd
+            const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+            if (value && !datePattern.test(value)) {
+                // Format noto'g'ri bo'lsa, tozalash
+                this.value = '';
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
 

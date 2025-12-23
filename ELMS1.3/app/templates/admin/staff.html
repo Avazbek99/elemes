@@ -29,7 +29,7 @@
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <form method="GET" class="flex flex-wrap gap-4">
             <div class="flex-1 min-w-[200px]">
-                <input type="text" name="search" value="{{ search }}" placeholder="Qidirish (ism, email, telefon)..."
+                <input type="text" name="search" value="{{ search }}" placeholder="Qidirish (ism, login, pasport, JSHSHIR, telefon, email)..."
                     class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
             <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
@@ -49,10 +49,11 @@
         <table class="w-full">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">FIO</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">To'liq ism</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Pasport raqami</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Telefon</th>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Email</th>
                     <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Rollar</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Telefon</th>
                     <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
                 </tr>
             </thead>
@@ -66,13 +67,22 @@
                                 </div>
                                 <div>
                                     <p class="font-medium text-gray-900">{{ user.full_name }}</p>
-                                    {% if user.position %}
-                                    <p class="text-sm text-gray-500">{{ user.position }}</p>
+                                    {% if user.login %}
+                                    <p class="text-sm text-gray-500">{{ user.login }}</p>
                                     {% endif %}
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-600">{{ user.email }}</td>
+                        <td class="px-6 py-4">
+                            <div>
+                                <p class="text-sm text-gray-900">{{ user.passport_number or '-' }}</p>
+                                {% if user.pinfl %}
+                                <p class="text-xs text-gray-500">{{ user.pinfl }}</p>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ user.phone or '-' }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ user.email or '-' }}</td>
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
                                 {% set role_display_names = {
@@ -92,7 +102,6 @@
                                 {% endfor %}
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-600">{{ user.phone or '-' }}</td>
                         <td class="px-6 py-4 text-right">
                             <div class="inline-flex items-center gap-1">
                                 <!-- Tahrirlash -->
@@ -137,7 +146,7 @@
                     </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-gray-500">Xodimlar topilmadi</td>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">Xodimlar topilmadi</td>
                 </tr>
                 {% endfor %}
             </tbody>
