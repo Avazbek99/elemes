@@ -49,6 +49,7 @@ class Group(db.Model):
     direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)  # Yo'nalishga biriktirish
     course_year = db.Column(db.Integer, nullable=False)  # 1, 2, 3, 4-kurs
     education_type = db.Column(db.String(20), default='kunduzgi')  # kunduzgi, sirtqi, kechki
+    description = db.Column(db.Text)  # Guruh haqida tavsif
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
