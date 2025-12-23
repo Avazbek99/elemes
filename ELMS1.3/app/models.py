@@ -67,7 +67,7 @@ class Subject(db.Model):
     code = db.Column(db.String(20), nullable=False)  # DA101, MB201
     description = db.Column(db.Text)
     credits = db.Column(db.Integer, default=3)  # Kredit soni
-    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=True)
     semester = db.Column(db.Integer, default=1)  # 1-8 semestr
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -542,9 +542,8 @@ def create_demo_data():
                 teacher.login = login
                 db.session.commit()
     
-    # Agar database'da allaqachon ma'lumotlar bo'lsa, qolganini yaratmaymiz
-    if admin_existing is not None:
-        return
+    # Eslatma: Har bir demo hisobni alohida tekshirib, agar yo'q bo'lsa yaratamiz
+    # Shuning uchun bu yerda return qilmaymiz
     
     # ===== FAKULTETLAR =====
     faculties_data = [

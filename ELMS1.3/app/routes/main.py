@@ -51,18 +51,6 @@ def index():
 @bp.route('/dashboard')
 @login_required
 def dashboard():
-    from flask import current_app
-    import os
-    print("=" * 50)
-    print("🔍 DEBUG: Flask Template Configuration")
-    print("=" * 50)
-    print("TEMPLATE FOLDER:", current_app.template_folder)
-    print("ROOT PATH:", current_app.root_path)
-    template_path = os.path.join(current_app.root_path, current_app.template_folder)
-    print("FULL TEMPLATE PATH:", template_path)
-    print("Dashboard exists:", os.path.exists(os.path.join(template_path, 'dashboard.html')))
-    print("Base exists:", os.path.exists(os.path.join(template_path, 'base.html')))
-    print("=" * 50)
     """Dashboard sahifasi"""
     user = current_user
     
@@ -368,9 +356,18 @@ def settings():
         user = current_user
         
         # Ma'lumotlarni yangilash
-        user.full_name = request.form.get('full_name', user.full_name)
-        user.email = request.form.get('email', user.email)
+        # To'liq ism o'zgartirilmaydi (faqat telefon va email)
         user.phone = request.form.get('phone', user.phone)
+        
+        # Emailni o'zgartirish (xodimlar va talabalar uchun)
+        new_email = request.form.get('email', '').strip()
+        if new_email and new_email != user.email:
+            # Email unikalligini tekshirish
+            existing_user = User.query.filter_by(email=new_email).first()
+            if existing_user and existing_user.id != user.id:
+                flash("Bu email allaqachon boshqa foydalanuvchi tomonidan ishlatilmoqda", 'error')
+                return render_template('settings.html')
+            user.email = new_email if new_email else None
         
         # Parolni o'zgartirish
         new_password = request.form.get('new_password')
@@ -460,7 +457,14 @@ def schedule():
     
     # Jadvalni olish
     user = current_user
-    query = Schedule.query
+    
+    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
+    start_code = int(f"{year}{month:02d}01")
+    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    
+    query = Schedule.query.filter(
+        Schedule.day_of_week.between(start_code, end_code)
+    )
     
     if user.role == 'student':
         # Talaba uchun - faqat o'z guruhidagi darslar
@@ -468,7 +472,7 @@ def schedule():
             query = query.filter_by(group_id=user.group_id)
         else:
             query = query.filter_by(id=None)  # Guruh yo'q bo'lsa, hech narsa ko'rsatma
-    elif user.role == 'teacher':
+    elif user.role == 'teacher' or user.has_role('teacher'):
         # O'qituvchi uchun - o'z o'qitayotgan guruhlardagi darslar
         teacher_groups = Group.query.join(TeacherSubject).filter(
             TeacherSubject.teacher_id == user.id
@@ -480,18 +484,27 @@ def schedule():
             query = query.filter_by(id=None)  # Guruhlar yo'q bo'lsa, hech narsa ko'rsatma
     
     # Barcha darslarni olish (day_of_week asosida)
-    schedules = query.all()
+    schedules = query.order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    # Kunlar bo'yicha guruhlash (oyning har bir kunida shu hafta kuniga to'g'ri keladigan darslar)
-    schedule_by_day = {}
-    for day in range(1, days_in_month + 1):
-        current_date = datetime(year, month, day)
-        weekday = current_date.weekday()  # 0 = Monday, 6 = Sunday
-        
-        # Bu kunda bo'ladigan darslar (day_of_week mos keladiganlar)
-        day_schedules = [s for s in schedules if s.day_of_week == weekday]
-        if day_schedules:
-            schedule_by_day[day] = day_schedules
+    # Kunlar bo'yicha guruhlash (har bir dars aniq sana bo'yicha)
+    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
+    for s in schedules:
+        try:
+            # day_of_week YYYYMMDD formatida (masalan: 20251210)
+            code_str = str(s.day_of_week)
+            if len(code_str) == 8:  # YYYYMMDD formatida
+                day = int(code_str[-2:])  # Oxirgi 2 raqam - kun
+            else:
+                # Eski format (hafta kuni 0-6) - o'tkazib yuborish
+                continue
+        except (TypeError, ValueError):
+            continue
+        if 1 <= day <= days_in_month:
+            schedule_by_day[day].append(s)
+    
+    # Har bir kun uchun vaqt bo'yicha tartiblash
+    for day in schedule_by_day:
+        schedule_by_day[day].sort(key=lambda x: x.start_time or '')
     
     return render_template('schedule.html',
                           year=year,

@@ -37,7 +37,7 @@ def generate_sample_file():
     
     # Talablar ro'yxati
     requirements = [
-        "1. Talaba ID - ixtiyoriy maydon, unikal bo'lishi kerak",
+        "1. Talaba ID - majburiy maydon, unikal bo'lishi kerak",
         "2. To'liq ism - majburiy maydon",
         "3. Pasport seriya raqami - majburiy maydon (masalan: AB1234567)",
         "4. JSHSHIR - ixtiyoriy maydon (14 raqam)",
@@ -45,13 +45,13 @@ def generate_sample_file():
         "6. Telefon - ixtiyoriy maydon",
         "7. Email - ixtiyoriy maydon, unikal bo'lishi kerak",
         "8. Tavsif - ixtiyoriy maydon",
-        "9. Fakultet - guruh biriktirish uchun kerak",
-        "10. Kurs - guruh biriktirish uchun kerak (1-kurs, 2-kurs formatida)",
+        "9. Fakultet - ixtiyoriy maydon (guruh biriktirish uchun)",
+        "10. Kurs - ixtiyoriy maydon (1-kurs, 2-kurs formatida, guruh biriktirish uchun)",
         "11. Semestr - ixtiyoriy maydon (1-semestr, 2-semestr formatida)",
-        "12. Ta'lim shakli - guruh biriktirish uchun kerak (Kunduzgi, Sirtqi, Kechki - bosh harf katta)",
+        "12. Ta'lim shakli - ixtiyoriy maydon (Kunduzgi, Sirtqi, Kechki - bosh harf katta, guruh biriktirish uchun)",
         "13. Mutaxassislik kodi - ixtiyoriy maydon (yo'nalish kodi)",
         "14. Mutaxassislik nomi - ixtiyoriy maydon (yo'nalish nomi)",
-        "15. Guruh - guruh biriktirish uchun kerak (agar mavjud bo'lsa, qo'shiladi, aks holda yangi yaratiladi)"
+        "15. Guruh - ixtiyoriy maydon (agar mavjud bo'lsa, qo'shiladi, aks holda yangi yaratiladi)"
     ]
     
     for idx, req in enumerate(requirements, start=3):
@@ -61,6 +61,33 @@ def generate_sample_file():
         cell.font = Font(size=10)
         cell.alignment = Alignment(horizontal='left', vertical='center')
         cell.fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+
+    # Eslatma qismi
+    note_start_row = len(requirements) + 3
+    ws.merge_cells(f'A{note_start_row}:O{note_start_row}')
+    note_title_cell = ws.cell(row=note_start_row, column=1)
+    note_title_cell.value = "ESLATMA:"
+    note_title_cell.font = Font(size=11, bold=True, color="000000")
+    note_title_cell.alignment = Alignment(horizontal='left', vertical='center')
+    note_title_cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
+    
+    notes = [
+        "• Fayl .xlsx yoki .xls formatida bo'lishi kerak",
+        "• Majburiy maydonlar: To'liq ism, Talaba ID, Pasport seriya raqami",
+        "• Ixtiyoriy maydonlar: Qolgan barcha maydonlar",
+        "• Agar Fakultet, Kurs, Ta'lim shakli va Guruh ma'lumotlari to'liq bo'lsa, talaba avtomatik guruhga qo'shiladi",
+        "• Guruh nomi to'g'ri yozilishi kerak (masalan: DI-21). Agar guruh mavjud bo'lmasa, yangi yaratiladi",
+        "• Email va Talaba ID takrorlanmasligi kerak",
+        "• Yangi talabalar uchun boshlang'ich parol: Pasport seriya raqami"
+    ]
+    
+    for idx, note in enumerate(notes, start=note_start_row + 1):
+        ws.merge_cells(f'A{idx}:O{idx}')
+        cell = ws.cell(row=idx, column=1)
+        cell.value = note
+        cell.font = Font(size=10)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
 
     # Jadval sarlavhalari (A ustunidan boshlanadi)
     headers = [
@@ -81,7 +108,7 @@ def generate_sample_file():
         "Guruh"                   # O
     ]
 
-    header_row = len(requirements) + 3
+    header_row = len(requirements) + len(notes) + 4
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=header_row, column=col_num)
         cell.value = header
@@ -95,10 +122,10 @@ def generate_sample_file():
             bottom=Side(style='thin')
         )
 
-    # Namuna ma'lumotlar
+    # Namuna ma'lumotlar (ismlar katta harflarda)
     sample_data = [
-        ["ST2024001", "Aliyev Vali", "AB1234567", "30202020200021", "15.01.2000", "+998901234567", "vali@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "DI", "Dasturiy injiniring", "DI-21"],
-        ["ST2024002", "Karimova Zuhra", "AC2345678", "30202020200022", "20.03.2001", "+998901234568", "zuhra@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "DI", "Dasturiy injiniring", "DI-21"]
+        ["ST2024001", "ALIYEV VALI", "AB1234567", "30202020200021", "2000-01-15", "+998901234567", "vali@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "DI", "Dasturiy injiniring", "DI-21"],
+        ["ST2024002", "KARIMOVA ZUHRA", "AC2345678", "30202020200022", "2001-03-20", "+998901234568", "zuhra@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "DI", "Dasturiy injiniring", "DI-21"]
     ]
 
     for row_num, row_data in enumerate(sample_data, start=header_row + 1):
@@ -138,7 +165,7 @@ def generate_staff_sample_file():
     
     # Sarlavha
     title = "Xodimlar import uchun namuna fayl"
-    ws.merge_cells('A1:H1')
+    ws.merge_cells('A1:I1')
     title_cell = ws['A1']
     title_cell.value = title
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -148,7 +175,7 @@ def generate_staff_sample_file():
     # Import talablari
     from datetime import datetime
     ws['A2'] = "IMPORT TALABLARI:"
-    ws.merge_cells('A2:H2')
+    ws.merge_cells('A2:I2')
     ws['A2'].font = Font(size=11, bold=True, color="000000")
     ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
     ws['A2'].fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
@@ -162,20 +189,47 @@ def generate_staff_sample_file():
         "5. Tug'ilgan sana - ixtiyoriy maydon (DD.MM.YYYY yoki YYYY-MM-DD formatida)",
         "6. Telefon - ixtiyoriy maydon",
         "7. Email - ixtiyoriy maydon, unikal bo'lishi kerak",
-        "8. Tavsif - ixtiyoriy maydon"
+        "8. Tavsif - ixtiyoriy maydon. Dekan roli bo'lsa, fakultet nomi yozilishi kerak (masalan: IT fakulteti dekani)",
+        "9. Rollar - majburiy maydon (kamida bitta rol tanlanishi kerak). Vergul bilan ajratilgan: Administrator, Dekan, O'qituvchi, Buxgalter"
     ]
     
     for idx, req in enumerate(requirements, start=3):
-        ws.merge_cells(f'A{idx}:H{idx}')
+        ws.merge_cells(f'A{idx}:I{idx}')
         cell = ws.cell(row=idx, column=1)
         cell.value = req
         cell.font = Font(size=10)
         cell.alignment = Alignment(horizontal='left', vertical='center')
         cell.fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+
+    # Eslatma qismi
+    note_start_row = len(requirements) + 3
+    ws.merge_cells(f'A{note_start_row}:I{note_start_row}')
+    note_title_cell = ws.cell(row=note_start_row, column=1)
+    note_title_cell.value = "ESLATMA:"
+    note_title_cell.font = Font(size=11, bold=True, color="000000")
+    note_title_cell.alignment = Alignment(horizontal='left', vertical='center')
+    note_title_cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
+    
+    notes = [
+        "• Fayl .xlsx yoki .xls formatida bo'lishi kerak",
+        "• Majburiy maydonlar: To'liq ism, Login, Pasport seriya raqami, Rollar (kamida bitta)",
+        "• Ixtiyoriy maydonlar: Qolgan barcha maydonlar",
+        "• Dekan roli tanlangan bo'lsa, Tavsif maydonida fakultet nomi ko'rsatilishi kerak (masalan: IT fakulteti dekani)",
+        "• Login va Email takrorlanmasligi kerak",
+        "• Yangi xodimlar uchun boshlang'ich parol: Pasport seriya raqami"
+    ]
+    
+    for idx, note in enumerate(notes, start=note_start_row + 1):
+        ws.merge_cells(f'A{idx}:I{idx}')
+        cell = ws.cell(row=idx, column=1)
+        cell.value = note
+        cell.font = Font(size=10)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
     
     # Jadval sarlavhalari (A ustunidan boshlanadi)
-    headers = ["To'liq ism", 'Login', 'Pasport seriya raqami', 'JSHSHIR', "Tug'ilgan sana", 'Telefon', 'Email', 'Tavsif']
-    header_row = len(requirements) + 3
+    headers = ["To'liq ism", 'Login', 'Pasport seriya raqami', 'JSHSHIR', "Tug'ilgan sana", 'Telefon', 'Email', 'Tavsif', 'Rollar']
+    header_row = len(requirements) + len(notes) + 4
     
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=header_row, column=col_num)
@@ -190,13 +244,13 @@ def generate_staff_sample_file():
             bottom=Side(style='thin')
         )
     
-    # Namuna ma'lumotlar
+    # Namuna ma'lumotlar (ismlar katta harflarda)
     sample_data = [
-        ["Tursunqulov Avazbek", "admin", "AB1234567", "30202020200021", "15.01.1980", "+998901234567", "admin@university.uz", "Tizim administratori"],
-        ["Karimov Sherzod", "sherzod", "AC2345678", "30202020200022", "20.03.1975", "+998901234568", "dean.it@university.uz", "IT fakulteti dekani"],
-        ["Mamatov Valijon", "valijon", "AD3456789", "30202020200023", "10.05.1985", "+998901234569", "valijon@university.uz", "Dasturiy injiniring kafedrasi o'qituvchisi"],
-        ["Rahimova Aziza", "aziza", "AE4567890", "30202020200024", "25.07.1990", "+998901234570", "accounting@university.uz", "Buxgalteriya bo'limi xodimi"],
-        ["Aliyev Vali", "vali", "AF5678901", "30202020200025", "30.09.1982", "+998901234571", "vali@university.uz", "IT fakulteti dekani va o'qituvchi"]
+        ["TURSUNQULOV AVAZBEK", "admin", "AB1234567", "30202020200021", "1980-01-15", "+998901234567", "admin@university.uz", "Tizim administratori", "Administrator"],
+        ["KARIMOV SHERZOD", "sherzod", "AC2345678", "30202020200022", "1975-03-20", "+998901234568", "dean.it@university.uz", "IT fakulteti dekani", "Dekan"],
+        ["MAMATOV VALIJON", "valijon", "AD3456789", "30202020200023", "1985-05-10", "+998901234569", "valijon@university.uz", "Dasturiy injiniring kafedrasi o'qituvchisi", "O'qituvchi"],
+        ["RAHIMOVA AZIZA", "aziza", "AE4567890", "30202020200024", "1990-07-25", "+998901234570", "accounting@university.uz", "Buxgalteriya bo'limi xodimi", "Buxgalter"],
+        ["ALIYEV VALI", "vali", "AF5678901", "30202020200025", "1982-09-30", "+998901234571", "vali@university.uz", "IT fakulteti dekani va o'qituvchi", "Dekan, O'qituvchi"]
     ]
     
     for row_num, row_data in enumerate(sample_data, start=header_row + 1):
@@ -211,7 +265,7 @@ def generate_staff_sample_file():
             )
     
     # Ustun kengliklarini sozlash
-    column_widths = [30, 20, 20, 18, 18, 16, 25, 40]
+    column_widths = [30, 20, 20, 18, 18, 16, 25, 20, 40]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     
@@ -287,9 +341,19 @@ def import_students_from_excel(file, faculty_id=None):
                 email = row_data.get('Email', '').strip()
                 passport_number = row_data.get('Pasport seriya raqami', '').strip()
                 
-                if not full_name or not passport_number:
-                    errors.append(f"Qator {row_num}: To'liq ism yoki pasport seriya raqami kiritilmagan")
+                # Majburiy maydonlarni tekshirish
+                if not full_name:
+                    errors.append(f"Qator {row_num}: To'liq ism kiritilmagan")
                     continue
+                if not student_id:
+                    errors.append(f"Qator {row_num}: Talaba ID kiritilmagan")
+                    continue
+                if not passport_number:
+                    errors.append(f"Qator {row_num}: Pasport seriya raqami kiritilmagan")
+                    continue
+                
+                # Ismni katta harflarda yozish
+                full_name = full_name.upper()
                 
                 # Foydalanuvchini topish (student_id, email yoki passport_number orqali)
                 user = None
@@ -659,9 +723,22 @@ def import_staff_from_excel(file):
                 login = row_data.get('Login', '').strip()
                 email = row_data.get('Email', '').strip()
                 
+                # Majburiy maydonlarni tekshirish
                 if not full_name:
                     errors.append(f"Qator {row_num}: To'liq ism kiritilmagan")
                     continue
+                if not login:
+                    errors.append(f"Qator {row_num}: Login kiritilmagan")
+                    continue
+                
+                # Xodim uchun
+                passport_number = row_data.get('Pasport seriya raqami', '').strip()
+                if not passport_number:
+                    errors.append(f"Qator {row_num}: Pasport seriya raqami kiritilmagan")
+                    continue
+                
+                # Ismni katta harflarda yozish
+                full_name = full_name.upper()
                 
                 # Login yoki email orqali foydalanuvchini topish
                 user = None
@@ -669,12 +746,6 @@ def import_staff_from_excel(file):
                     user = User.query.filter_by(login=login).first()
                 if not user and email:
                     user = User.query.filter_by(email=email).first()
-                
-                # Xodim uchun
-                passport_number = row_data.get('Pasport seriya raqami', '').strip()
-                if not passport_number:
-                    errors.append(f"Qator {row_num}: Pasport seriya raqami kiritilmagan")
-                    continue
                 
                 # Pasport raqamini katta harfga o'zgartirish
                 passport_number = passport_number.upper()
@@ -687,19 +758,94 @@ def import_staff_from_excel(file):
                 birth_date = None
                 if birth_date_str:
                     try:
-                        # DD.MM.YYYY yoki YYYY-MM-DD formatini qo'llab-quvvatlash
-                        if '.' in birth_date_str:
-                            birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
-                        elif '-' in birth_date_str:
+                        # YYYY-MM-DD formatini qo'llab-quvvatlash (asosiy)
+                        # DD.MM.YYYY formatini ham qo'llab-quvvatlash (qayta ishlash uchun)
+                        if '-' in birth_date_str:
                             birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+                        elif '.' in birth_date_str:
+                            birth_date = datetime.strptime(birth_date_str, '%d.%m.%Y').date()
                         else:
-                            errors.append(f"Qator {row_num}: Tug'ilgan sana noto'g'ri format (DD.MM.YYYY yoki YYYY-MM-DD)")
+                            errors.append(f"Qator {row_num}: Tug'ilgan sana noto'g'ri format (YYYY-MM-DD, masalan: 1999-02-06)")
                     except ValueError:
-                        errors.append(f"Qator {row_num}: Tug'ilgan sana noto'g'ri format")
+                        errors.append(f"Qator {row_num}: Tug'ilgan sana noto'g'ri format (YYYY-MM-DD, masalan: 1999-02-06)")
                 
-                # Asosiy rol - import qilishda default 'teacher' rolini beramiz
-                # (Rollar keyinchalik admin panel orqali belgilanadi)
-                primary_role = 'teacher'
+                # Rollarni o'qish va qayta ishlash
+                roles_str = row_data.get('Rollar', '').strip()
+                roles_list = []
+                if roles_str:
+                    # O'zbek tilidagi rollarni ingliz tiliga o'girish
+                    role_mapping = {
+                        'administrator': 'admin',
+                        'dekan': 'dean',
+                        'o\'qituvchi': 'teacher',
+                        'oqituvchi': 'teacher',
+                        'buxgalter': 'accounting',
+                        'talaba': 'student'
+                    }
+                    # Vergul bilan ajratilgan rollarni ajratish
+                    roles_raw = [r.strip() for r in roles_str.split(',') if r.strip()]
+                    # Har bir rolni tekshirish va o'girish
+                    for role_raw in roles_raw:
+                        role_lower = role_raw.lower()
+                        # Avval to'g'ridan-to'g'ri ingliz tilida bo'lsa
+                        if role_lower in ['admin', 'dean', 'teacher', 'accounting', 'student']:
+                            roles_list.append(role_lower)
+                        # Keyin o'zbek tilidagi rollarni o'girish
+                        elif role_lower in role_mapping:
+                            roles_list.append(role_mapping[role_lower])
+                        # Agar hech qaysi biriga mos kelmasa, o'zbek tilidagi nomlarni tekshirish
+                        else:
+                            # Katta harflar bilan ham tekshirish
+                            role_title = role_raw.title()
+                            if role_title == 'Administrator':
+                                roles_list.append('admin')
+                            elif role_title == 'Dekan':
+                                roles_list.append('dean')
+                            elif role_title in ["O'qituvchi", 'Oqituvchi']:
+                                roles_list.append('teacher')
+                            elif role_title == 'Buxgalter':
+                                roles_list.append('accounting')
+                            elif role_title == 'Talaba':
+                                roles_list.append('student')
+                    
+                    # Faqat to'g'ri rollarni qabul qilish
+                    valid_roles = ['admin', 'dean', 'teacher', 'accounting', 'student']
+                    roles_list = [r for r in roles_list if r in valid_roles]
+                
+                # Asosiy rol - agar rollar berilgan bo'lsa, eng yuqori darajali rolni tanlash
+                # Aks holda default 'teacher' rolini beramiz
+                if roles_list:
+                    # Rol darajalari (yuqoridan pastga)
+                    role_priority = ['admin', 'dean', 'teacher', 'accounting', 'student']
+                    primary_role = None
+                    for priority_role in role_priority:
+                        if priority_role in roles_list:
+                            primary_role = priority_role
+                            break
+                    if not primary_role:
+                        primary_role = roles_list[0]
+                else:
+                    primary_role = 'teacher'
+                    roles_list = ['teacher']  # Default rol
+                
+                # Dekan roli bo'lsa, fakultetni tavsifdan olish
+                faculty_id_for_dean = None
+                if 'dean' in roles_list:
+                    description = row_data.get('Tavsif', '').strip()
+                    if description:
+                        # Tavsifdan fakultet nomini topish
+                        faculty = Faculty.query.filter(Faculty.name.ilike(f'%{description}%')).first()
+                        if not faculty:
+                            # Aksincha, description fakultet nomi bo'lishi mumkin
+                            faculty = Faculty.query.filter_by(name=description).first()
+                        if faculty:
+                            faculty_id_for_dean = faculty.id
+                        else:
+                            errors.append(f"Qator {row_num}: Dekan roli uchun tavsif maydonida fakultet nomi ko'rsatilishi kerak")
+                            continue
+                    else:
+                        errors.append(f"Qator {row_num}: Dekan roli tanlangan bo'lsa, tavsif maydonida fakultet nomi ko'rsatilishi kerak")
+                        continue
                 
                 if user:
                     # Yangilash
@@ -713,20 +859,34 @@ def import_staff_from_excel(file):
                     user.email = email if email else None
                     user.description = row_data.get('Tavsif', '').strip() or None
                     
+                    # Dekan roli bo'lsa, fakultetni biriktirish
+                    if 'dean' in roles_list and faculty_id_for_dean:
+                        user.faculty_id = faculty_id_for_dean
+                    elif 'dean' not in roles_list:
+                        user.faculty_id = None
+                    
                     user.set_password(passport_number)
                     
-                    # Agar foydalanuvchi talaba bo'lsa, rolini o'zgartirish
-                    if user.role == 'student':
-                        user.role = primary_role
+                    # Rollarni yangilash (commit qilmasdan)
+                    user.role = primary_role
+                    # Eski rollarni o'chirish
+                    UserRole.query.filter_by(user_id=user.id).delete()
+                    # Yangi rollarni qo'shish (belgilangan tartibda: admin, dean, teacher, accounting, student)
+                    role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
+                    if roles_list:
+                        # Belgilangan tartibda qo'shish
+                        for role in role_order:
+                            if role in roles_list:
+                                user_role = UserRole(user_id=user.id, role=role)
+                                db.session.add(user_role)
+                    else:
+                        # Agar rollar berilmagan bo'lsa, faqat asosiy rolni saqlash
+                        user_role = UserRole(user_id=user.id, role=primary_role)
+                        db.session.add(user_role)
                     
                     updated += 1
                 else:
                     # Yaratish
-                    # Login majburiy
-                    if not login:
-                        errors.append(f"Qator {row_num}: Login kiritilmagan")
-                        continue
-                    
                     # Login unikalligi
                     if User.query.filter_by(login=login).first():
                         errors.append(f"Qator {row_num}: Bu login allaqachon mavjud")
@@ -745,7 +905,8 @@ def import_staff_from_excel(file):
                         passport_number=passport_number,
                         pinfl=pinfl,
                         birth_date=birth_date,
-                        description=row_data.get('Tavsif', '').strip() or None
+                        description=row_data.get('Tavsif', '').strip() or None,
+                        faculty_id=faculty_id_for_dean if 'dean' in roles_list else None
                     )
                     
                     # Email maydonini alohida o'rnatish (agar bo'sh bo'lsa, o'rnatmaymiz)
@@ -770,6 +931,19 @@ def import_staff_from_excel(file):
                             db.session.flush()
                         else:
                             raise
+                    
+                    # Rollarni biriktirish (user ID olish uchun flush kerak, lekin commit qilmaymiz)
+                    # Rollarni belgilangan tartibda saqlash: admin, dean, teacher, accounting, student
+                    role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
+                    if roles_list:
+                        # Belgilangan tartibda qo'shish
+                        for role in role_order:
+                            if role in roles_list:
+                                user_role = UserRole(user_id=user.id, role=role)
+                                db.session.add(user_role)
+                    else:
+                        user_role = UserRole(user_id=user.id, role=primary_role)
+                        db.session.add(user_role)
                     
                     imported += 1
                 

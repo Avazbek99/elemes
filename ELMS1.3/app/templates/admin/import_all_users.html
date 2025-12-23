@@ -13,33 +13,124 @@
         <p class="text-gray-500 mt-1">Excel fayldan barcha foydalanuvchilarni import qiling</p>
     </div>
     
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div class="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-            <h3 class="text-sm font-semibold text-blue-900 mb-2">Import qilish talablari:</h3>
-            <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
-                <li>Excel fayl har bir rol uchun alohida worksheet'larga bo'lingan bo'lishi kerak</li>
-                <li>Worksheet nomlari: "Administratorlar", "Dekanlar", "O'qituvchilar", "Buxgalteriya"</li>
-                <li>Har bir worksheet'da sarlavha qatori 3-qatorda bo'lishi kerak</li>
-                <li>Pasport raqami majburiy va parol sifatida ishlatiladi</li>
-                <li>Email bo'yicha foydalanuvchi topilsa, yangilanadi, aks holda yangi yaratiladi</li>
-                <li>Bir nechta rolli xodimlar har bir rol worksheet'ida ko'rsatilishi mumkin</li>
-            </ul>
-            <div class="mt-4">
-                <a href="{{ url_for('admin.download_staff_sample_import') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Namuna faylini yuklab olish
-                </a>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Excel fayl format</h2>
+        <p class="text-gray-600 mb-4">Excel faylda quyidagi ustunlar bo'lishi kerak:</p>
+
+        <div class="bg-gray-50 rounded-xl p-4 mb-4">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200">
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">Ustun nomi</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">Tavsif</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">Majburiy</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">To'liq ism (A)</td>
+                        <td class="py-2 px-3 text-gray-600">Xodimning to'liq ismi (Familiya Ism Sharif)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Login (B)</td>
+                        <td class="py-2 px-3 text-gray-600">Login (takrorlanmasligi kerak)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Pasport seriya raqami (C)</td>
+                        <td class="py-2 px-3 text-gray-600">Pasport seriya va raqami</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">JSHSHIR (D)</td>
+                        <td class="py-2 px-3 text-gray-600">JSHSHIR kod (14 xonali)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Tug'ilgan sana (E)</td>
+                        <td class="py-2 px-3 text-gray-600">DD.MM.YYYY yoki YYYY-MM-DD formatida</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Telefon (F)</td>
+                        <td class="py-2 px-3 text-gray-600">Telefon raqami</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Email (G)</td>
+                        <td class="py-2 px-3 text-gray-600">Email manzil (takrorlanmasligi kerak)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Tavsif (H)</td>
+                        <td class="py-2 px-3 text-gray-600">Xodim haqida qo'shimcha ma'lumot. Dekan roli bo'lsa, fakultet nomi yozilishi kerak (masalan: IT fakulteti dekani)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy (Dekan roli uchun majburiy)</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Rollar (I)</td>
+                        <td class="py-2 px-3 text-gray-600">Vergul bilan ajratilgan: Administrator, Dekan, O'qituvchi, Buxgalter. Kamida bitta rol tanlanishi kerak</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    <p class="text-sm font-medium text-blue-900 mb-1">Eslatma:</p>
+                    <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                        <li>Fayl .xlsx yoki .xls formatida bo'lishi kerak</li>
+                        <li><strong>Majburiy maydonlar:</strong> To'liq ism, Login, Pasport seriya raqami, Rollar (kamida bitta)</li>
+                        <li><strong>Ixtiyoriy maydonlar:</strong> Qolgan barcha maydonlar</li>
+                        <li>Dekan roli tanlangan bo'lsa, Tavsif maydonida fakultet nomi ko'rsatilishi kerak (masalan: "IT fakulteti dekani")</li>
+                        <li>Login va Email takrorlanmasligi kerak</li>
+                        <li>Yangi xodimlar uchun boshlang'ich parol: <code
+                                class="bg-blue-100 px-1 rounded">Pasport seriya raqami</code></li>
+                    </ul>
+                </div>
             </div>
         </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Excel fayl yuklash</h2>
         
         <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Excel fayl *</label>
-                <input type="file" name="excel_file" accept=".xlsx,.xls" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                <p class="text-xs text-gray-500 mt-1">Faqat .xlsx yoki .xls formatidagi fayllar</p>
+                <div class="relative">
+                    <input type="file" name="excel_file" accept=".xlsx,.xls" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-sm text-gray-600 mb-0">Fayl formati: .xlsx yoki .xls</p>
+                    <a href="{{ url_for('admin.download_staff_sample_import') }}"
+                        class="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Namuna yuklab olish
+                    </a>
+                </div>
             </div>
             
             <div class="pt-4 border-t border-gray-100 flex gap-3">

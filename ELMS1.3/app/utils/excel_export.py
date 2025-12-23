@@ -72,21 +72,21 @@ def create_students_excel(students, faculty_name=None):
     for row_num, student in enumerate(students, start=header_row + 1):
         # Talaba ID
         ws.cell(row=row_num, column=1, value=student.student_id or '')
-        # To'liq ism
-        ws.cell(row=row_num, column=2, value=student.full_name)
+        # To'liq ism (katta harflarda)
+        ws.cell(row=row_num, column=2, value=student.full_name.upper() if student.full_name else '')
         # Pasport seriya raqami
         passport = getattr(student, 'passport_number', None)
         ws.cell(row=row_num, column=3, value=passport or '')
         # JSHSHIR
         pinfl = getattr(student, 'pinfl', None)
         ws.cell(row=row_num, column=4, value=pinfl or '')
-        # Tug'ilgan sana
+        # Tug'ilgan sana (YYYY-MM-DD formatida)
         birth_date = getattr(student, 'birth_date', None)
         if birth_date:
             if isinstance(birth_date, str):
                 ws.cell(row=row_num, column=5, value=birth_date)
             else:
-                ws.cell(row=row_num, column=5, value=birth_date.strftime('%d.%m.%Y'))
+                ws.cell(row=row_num, column=5, value=birth_date.strftime('%Y-%m-%d'))
         else:
             ws.cell(row=row_num, column=5, value='')
         # Telefon
@@ -242,7 +242,7 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
         ws.cell(row=row_num, column=2, value=day_value)
         ws.cell(row=row_num, column=3, value=f"{schedule.start_time} - {schedule.end_time}")
         ws.cell(row=row_num, column=4, value=schedule.subject.name if schedule.subject else '')
-        ws.cell(row=row_num, column=5, value=schedule.teacher.full_name if schedule.teacher else '')
+        ws.cell(row=row_num, column=5, value=schedule.teacher.full_name.upper() if schedule.teacher and schedule.teacher.full_name else '')
         ws.cell(row=row_num, column=6, value=schedule.link or '')
         ws.cell(row=row_num, column=7, value=schedule.lesson_type or '')
         
@@ -345,7 +345,7 @@ def create_contracts_excel(payments, course_year=None):
             
             ws.cell(row=row_num, column=1, value=row_num - header_row)
             ws.cell(row=row_num, column=2, value=student.student_id or '')
-            ws.cell(row=row_num, column=3, value=student.full_name)
+            ws.cell(row=row_num, column=3, value=student.full_name.upper() if student.full_name else '')
             ws.cell(row=row_num, column=4, value=student.group.name if student.group else '')
             ws.cell(row=row_num, column=5, value=contract)
             ws.cell(row=row_num, column=6, value=paid)
@@ -459,7 +459,7 @@ def create_group_grades_excel(subject, group, student_rows):
         
         ws.cell(row=row_num, column=1, value=row_num - header_row)
         ws.cell(row=row_num, column=2, value=student.student_id or '')
-        ws.cell(row=row_num, column=3, value=student.full_name)
+        ws.cell(row=row_num, column=3, value=student.full_name.upper() if student.full_name else '')
         ws.cell(row=row_num, column=4, value=group.name)
         ws.cell(row=row_num, column=5, value=subject.name)
         ws.cell(row=row_num, column=6, value=row['total'])
@@ -584,7 +584,7 @@ def create_all_users_excel(users):
         role_users = users_by_role[role]
         for row_num, user in enumerate(role_users, start=header_row + 1):
             ws.cell(row=row_num, column=1, value=row_num - header_row)
-            ws.cell(row=row_num, column=2, value=user.full_name)
+            ws.cell(row=row_num, column=2, value=user.full_name.upper() if user.full_name else '')
             ws.cell(row=row_num, column=3, value=user.email)
             ws.cell(row=row_num, column=4, value=user.phone or '')
             
@@ -593,7 +593,7 @@ def create_all_users_excel(users):
                 ws.cell(row=row_num, column=6, value=getattr(user, 'passport_number', None) or '')
                 ws.cell(row=row_num, column=7, value=getattr(user, 'pinfl', None) or '')
                 birth_date = getattr(user, 'birth_date', None)
-                ws.cell(row=row_num, column=8, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
+                ws.cell(row=row_num, column=8, value=birth_date.strftime('%Y-%m-%d') if birth_date else '')
                 ws.cell(row=row_num, column=9, value=user.group.name if user.group else '')
                 ws.cell(row=row_num, column=10, value=user.group.course_year if user.group else '')
                 ws.cell(row=row_num, column=11, value=user.group.faculty.name if user.group and user.group.faculty else '')
@@ -601,7 +601,7 @@ def create_all_users_excel(users):
                 ws.cell(row=row_num, column=5, value=getattr(user, 'passport_number', None) or '')
                 ws.cell(row=row_num, column=6, value=getattr(user, 'pinfl', None) or '')
                 birth_date = getattr(user, 'birth_date', None)
-                ws.cell(row=row_num, column=7, value=birth_date.strftime('%d.%m.%Y') if birth_date else '')
+                ws.cell(row=row_num, column=7, value=birth_date.strftime('%Y-%m-%d') if birth_date else '')
                 ws.cell(row=row_num, column=8, value=user.department or '')
                 ws.cell(row=row_num, column=9, value=user.position or '')
                 ws.cell(row=row_num, column=10, value=user.managed_faculty.name if user.managed_faculty else '')
@@ -654,7 +654,7 @@ def create_staff_excel(users):
     
     # Sarlavha
     title = "Xodimlar ro'yxati"
-    ws.merge_cells('A1:H1')
+    ws.merge_cells('A1:I1')
     title_cell = ws['A1']
     title_cell.value = title
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -663,12 +663,12 @@ def create_staff_excel(users):
     
     # Sana
     ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ws.merge_cells('A2:H2')
+    ws.merge_cells('A2:I2')
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
     # Jadval sarlavhalari (A ustunidan boshlanadi)
-    headers = ["To'liq ism", 'Login', 'Pasport seriya raqami', 'JSHSHIR', "Tug'ilgan sana", 'Telefon', 'Email', 'Tavsif']
+    headers = ["To'liq ism", 'Login', 'Pasport seriya raqami', 'JSHSHIR', "Tug'ilgan sana", 'Telefon', 'Email', 'Tavsif', 'Rollar']
     
     header_row = 3
     
@@ -687,24 +687,50 @@ def create_staff_excel(users):
     
     # Ma'lumotlar
     for row_num, user in enumerate(users, start=header_row + 1):
-        ws.cell(row=row_num, column=1, value=user.full_name)
+        ws.cell(row=row_num, column=1, value=user.full_name.upper() if user.full_name else '')
         ws.cell(row=row_num, column=2, value=user.login or '')
         ws.cell(row=row_num, column=3, value=getattr(user, 'passport_number', None) or '')
         ws.cell(row=row_num, column=4, value=getattr(user, 'pinfl', None) or '')
         
-        # Tug'ilgan sana
+        # Tug'ilgan sana (YYYY-MM-DD formatida)
         birth_date = getattr(user, 'birth_date', None)
         if birth_date:
             if isinstance(birth_date, str):
                 ws.cell(row=row_num, column=5, value=birth_date)
             else:
-                ws.cell(row=row_num, column=5, value=birth_date.strftime('%d.%m.%Y'))
+                ws.cell(row=row_num, column=5, value=birth_date.strftime('%Y-%m-%d'))
         else:
             ws.cell(row=row_num, column=5, value='')
         
         ws.cell(row=row_num, column=6, value=user.phone or '')
         ws.cell(row=row_num, column=7, value=user.email or '')
         ws.cell(row=row_num, column=8, value=getattr(user, 'description', None) or '')
+        
+        # Rollarni olish va o'zbek tilida ko'rsatish (belgilangan tartibda)
+        from app.models import UserRole
+        role_names = {
+            'admin': 'Administrator',
+            'dean': 'Dekan',
+            'teacher': "O'qituvchi",
+            'accounting': 'Buxgalter',
+            'student': 'Talaba'
+        }
+        # Belgilangan tartib: Administrator, Dekan, O'qituvchi, Buxgalter
+        role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
+        role_display_order = ['Administrator', 'Dekan', "O'qituvchi", 'Buxgalter', 'Talaba']
+        
+        # Foydalanuvchining rollarini olish
+        user_roles = UserRole.query.filter_by(user_id=user.id).all()
+        user_role_codes = [ur.role for ur in user_roles] if user_roles else ([user.role] if user.role else [])
+        
+        # Belgilangan tartibda ko'rsatish
+        roles_display = []
+        for role_code in role_order:
+            if role_code in user_role_codes:
+                roles_display.append(role_names.get(role_code, role_code))
+        
+        roles_str = ', '.join(roles_display) if roles_display else ''
+        ws.cell(row=row_num, column=9, value=roles_str)
         
         # Stil
         for col_num in range(1, len(headers) + 1):
@@ -720,7 +746,7 @@ def create_staff_excel(users):
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
     # Ustun kengliklarini sozlash
-    column_widths = [30, 20, 20, 18, 18, 16, 25, 40]
+    column_widths = [30, 20, 20, 18, 18, 16, 25, 20, 40]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     

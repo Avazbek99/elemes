@@ -44,10 +44,10 @@
                                 class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Pasport (C)</td>
+                        <td class="py-2 px-3 font-mono text-primary-600">Pasport seriya raqami (C)</td>
                         <td class="py-2 px-3 text-gray-600">Pasport seriya va raqami</td>
                         <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
                     </tr>
                     <tr>
                         <td class="py-2 px-3 font-mono text-primary-600">PINFL (D)</td>
@@ -57,13 +57,61 @@
                     </tr>
                     <tr>
                         <td class="py-2 px-3 font-mono text-primary-600">Tug'ilgan sana (E)</td>
-                        <td class="py-2 px-3 text-gray-600">KK.OO.YYYY formatida</td>
+                        <td class="py-2 px-3 text-gray-600">DD.MM.YYYY yoki YYYY-MM-DD formatida</td>
                         <td class="py-2 px-3"><span
                                 class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Email (M)</td>
+                        <td class="py-2 px-3 font-mono text-primary-600">Telefon (F)</td>
+                        <td class="py-2 px-3 text-gray-600">Telefon raqami</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Email (G)</td>
                         <td class="py-2 px-3 text-gray-600">Email manzil (takrorlanmasligi kerak)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Fakultet (I)</td>
+                        <td class="py-2 px-3 text-gray-600">Fakultet nomi (guruh biriktirish uchun)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Kurs (J)</td>
+                        <td class="py-2 px-3 text-gray-600">Kurs raqami (1-kurs, 2-kurs formatida)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Semestr (K)</td>
+                        <td class="py-2 px-3 text-gray-600">Semestr raqami (1-semestr, 2-semestr formatida)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Ta'lim shakli (L)</td>
+                        <td class="py-2 px-3 text-gray-600">Kunduzgi, Sirtqi, Kechki (bosh harf katta)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Mutaxassislik kodi (M)</td>
+                        <td class="py-2 px-3 text-gray-600">Yo'nalish kodi (masalan: DI)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Mutaxassislik nomi (N)</td>
+                        <td class="py-2 px-3 text-gray-600">Yo'nalish nomi (masalan: Dasturiy injiniring)</td>
+                        <td class="py-2 px-3"><span
+                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">Guruh (O)</td>
+                        <td class="py-2 px-3 text-gray-600">Guruh nomi (masalan: DI-21)</td>
                         <td class="py-2 px-3"><span
                                 class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
                     </tr>
@@ -83,10 +131,13 @@
                     <p class="text-sm font-medium text-blue-900 mb-1">Eslatma:</p>
                     <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
                         <li>Fayl .xlsx yoki .xls formatida bo'lishi kerak</li>
-                        <li>Guruh nomi to'g'ri yozilishi kerak (masalan: DI-21)</li>
+                        <li><strong>Majburiy maydonlar:</strong> To'liq ism, Talaba ID, Pasport seriya raqami</li>
+                        <li><strong>Ixtiyoriy maydonlar:</strong> Qolgan barcha maydonlar</li>
+                        <li>Agar Fakultet, Kurs, Ta'lim shakli va Guruh ma'lumotlari to'liq bo'lsa, talaba avtomatik guruhga qo'shiladi</li>
+                        <li>Guruh nomi to'g'ri yozilishi kerak (masalan: DI-21). Agar guruh mavjud bo'lmasa, yangi yaratiladi</li>
                         <li>Email va Talaba ID takrorlanmasligi kerak</li>
-                        <li>Barcha talabalar uchun standart parol: <code
-                                class="bg-blue-100 px-1 rounded">student123</code></li>
+                        <li>Yangi talabalar uchun boshlang'ich parol: <code
+                                class="bg-blue-100 px-1 rounded">Pasport seriya raqami</code></li>
                     </ul>
                 </div>
             </div>
@@ -98,19 +149,6 @@
 
         <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet (ixtiyoriy)</label>
-                <select name="faculty_id"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <option value="">Barcha fakultetlar</option>
-                    {% for faculty in faculties %}
-                    <option value="{{ faculty.id }}">{{ faculty.name }}</option>
-                    {% endfor %}
-                </select>
-                <p class="mt-1 text-xs text-gray-500">Agar tanlansa, faqat shu fakultet guruhlariga talabalar qo'shiladi
-                </p>
-            </div>
-
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Excel fayl *</label>
                 <div class="relative">

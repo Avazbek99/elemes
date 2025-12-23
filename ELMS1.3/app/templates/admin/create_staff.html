@@ -85,22 +85,34 @@
                 <p class="text-xs text-gray-500 mb-2">Bir nechta rol tanlash mumkin</p>
                 <div class="space-y-2">
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="admin" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="admin" id="role_admin" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">Administrator</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="dean" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="dean" id="role_dean" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">Dekan</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="teacher" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="teacher" id="role_teacher" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">O'qituvchi</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="accounting" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="accounting" id="role_accounting" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">Buxgalter</span>
                     </label>
                 </div>
+            </div>
+            
+            <!-- Fakultet (dekan roli uchun) -->
+            <div id="faculty_field" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
+                <select name="faculty_id" id="faculty_select" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">Fakultetni tanlang...</option>
+                    {% for faculty in faculties %}
+                    <option value="{{ faculty.id }}">{{ faculty.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Dekan roli uchun fakultet tanlash majburiy</p>
             </div>
             
             <div class="pt-4 border-t border-gray-100 flex gap-3">
@@ -180,6 +192,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.value = '';
             }
         });
+    }
+    
+    // Dekan roli tanlangan bo'lsa, fakultet maydonini ko'rsatish
+    const roleDeanCheckbox = document.getElementById('role_dean');
+    const facultyField = document.getElementById('faculty_field');
+    const facultySelect = document.getElementById('faculty_select');
+    
+    if (roleDeanCheckbox && facultyField && facultySelect) {
+        function toggleFacultyField() {
+            if (roleDeanCheckbox.checked) {
+                facultyField.classList.remove('hidden');
+                facultySelect.setAttribute('required', 'required');
+            } else {
+                facultyField.classList.add('hidden');
+                facultySelect.removeAttribute('required');
+                facultySelect.value = '';
+            }
+        }
+        
+        roleDeanCheckbox.addEventListener('change', toggleFacultyField);
+        // Sahifa yuklanganda ham tekshirish
+        toggleFacultyField();
     }
 });
 </script>

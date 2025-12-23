@@ -246,23 +246,26 @@
                 <a href="{{ url_for('main.settings') }}" class="block bg-gradient-to-r from-dark-800 to-dark-700 rounded-xl p-3 hover:from-dark-700 hover:to-dark-600 transition-colors cursor-pointer">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold">
-                            {{ current_user.full_name[0] }}
+                            {% if current_user.role != 'student' %}
+                                {{ (current_user.login or current_user.full_name or 'U')[0].upper() }}
+                            {% else %}
+                                {{ (current_user.full_name or 'U')[0].upper() }}
+                            {% endif %}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-white truncate">{{ current_user.full_name }}</p>
-                            <p class="text-xs text-primary-400">
-                                {% set current_role = session.get('current_role', current_user.role) %}
-                                {% set role_names = {'admin': 'Administrator', 'dean': 'Dekan', 'teacher': "O'qituvchi", 'student': 'Talaba', 'accounting': 'Buxgalteriya'} %}
-                                {% if current_role == 'student' %}
+                            {% if current_user.role != 'student' %}
+                                <p class="text-sm font-medium text-white truncate">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
+                                <p class="text-xs text-primary-400">{{ current_user.login or '-' }}</p>
+                            {% else %}
+                                <p class="text-sm font-medium text-white truncate">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
+                                <p class="text-xs text-primary-400">
                                     {% if current_user.group %}
                                         {{ current_user.group.name }}
                                     {% else %}
                                         Guruh belgilanmagan
                                     {% endif %}
-                                {% else %}
-                                    {{ role_names.get(current_role, current_role) }}
-                                {% endif %}
-                            </p>
+                                </p>
+                            {% endif %}
                         </div>
                     </div>
                 </a>
@@ -312,23 +315,26 @@
                         <div class="relative group">
                             <button onclick="toggleProfileMenu()" class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/60 transition-colors">
                                 <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-sm shadow-md">
-                                    {{ current_user.full_name[0] }}
+                                    {% if current_user.role != 'student' %}
+                                        {{ (current_user.login or current_user.full_name or 'U')[0].upper() }}
+                                    {% else %}
+                                        {{ (current_user.full_name or 'U')[0].upper() }}
+                                    {% endif %}
                                 </div>
                                 <div class="text-left hidden sm:block">
-                                    <p class="text-sm font-medium text-gray-900">{{ current_user.full_name }}</p>
-                                    <p class="text-xs text-gray-500">
-                                        {% set current_role = session.get('current_role', current_user.role) %}
-                                        {% set role_names = {'admin': 'Administrator', 'dean': 'Dekan', 'teacher': "O'qituvchi", 'student': 'Talaba', 'accounting': 'Buxgalteriya'} %}
-                                        {% if current_role == 'student' %}
+                                    {% if current_user.role != 'student' %}
+                                        <p class="text-sm font-medium text-gray-900">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
+                                        <p class="text-xs text-gray-500">{{ current_user.login or '-' }}</p>
+                                    {% else %}
+                                        <p class="text-sm font-medium text-gray-900">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
+                                        <p class="text-xs text-gray-500">
                                             {% if current_user.group %}
                                                 {{ current_user.group.name }}
                                             {% else %}
                                                 Guruh belgilanmagan
                                             {% endif %}
-                                        {% else %}
-                                            {{ role_names.get(current_role, current_role) }}
-                                        {% endif %}
-                                    </p>
+                                        </p>
+                                    {% endif %}
                                 </div>
                                 <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>

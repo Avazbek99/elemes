@@ -496,27 +496,32 @@ def create_staff():
         
         if not selected_roles:
             flash("Kamida bitta rol tanlanishi kerak", 'error')
-            return render_template('admin/create_staff.html')
+            faculties = Faculty.query.all()
+            return render_template('admin/create_staff.html', faculties=faculties)
         
         # Login majburiy (xodimlar uchun)
         if not login:
             flash("Login majburiy maydon", 'error')
-            return render_template('admin/create_staff.html')
+            faculties = Faculty.query.all()
+            return render_template('admin/create_staff.html', faculties=faculties)
         
         # Login unikalligi
         if User.query.filter_by(login=login).first():
             flash("Bu login allaqachon mavjud", 'error')
-            return render_template('admin/create_staff.html')
+            faculties = Faculty.query.all()
+            return render_template('admin/create_staff.html', faculties=faculties)
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email and User.query.filter_by(email=email).first():
             flash("Bu email allaqachon mavjud", 'error')
-            return render_template('admin/create_staff.html')
+            faculties = Faculty.query.all()
+            return render_template('admin/create_staff.html', faculties=faculties)
         
         # Pasport raqami parol sifatida ishlatiladi
         if not passport_number:
             flash("Pasport seriyasi va raqami majburiy", 'error')
-            return render_template('admin/create_staff.html')
+            faculties = Faculty.query.all()
+            return render_template('admin/create_staff.html', faculties=faculties)
         
         # Pasport raqamini katta harfga o'zgartirish
         passport_number = passport_number.upper()
@@ -528,7 +533,8 @@ def create_staff():
                 birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
                 flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
-                return render_template('admin/create_staff.html')
+                faculties = Faculty.query.all()
+                return render_template('admin/create_staff.html', faculties=faculties)
         
         password = passport_number  # Pasport raqami parol
         
@@ -541,13 +547,26 @@ def create_staff():
         elif 'teacher' in selected_roles:
             main_role = 'teacher'
         
-        # Dekan roli tanlangan bo'lsa, fakultetni aniqlash
+        # Dekan roli tanlangan bo'lsa, fakultetni aniqlash (majburiy)
         faculty_id = None
         if 'dean' in selected_roles:
-            # Dekan roli tanlangan bo'lsa, birinchi fakultetni biriktirish (yoki keyinroq tahrirlash mumkin)
-            first_faculty = Faculty.query.first()
-            if first_faculty:
-                faculty_id = first_faculty.id
+            faculty_id_str = request.form.get('faculty_id', '').strip()
+            if not faculty_id_str:
+                flash("Dekan roli tanlangan bo'lsa, fakultet tanlash majburiy", 'error')
+                faculties = Faculty.query.all()
+                return render_template('admin/create_staff.html', faculties=faculties)
+            try:
+                faculty_id = int(faculty_id_str)
+                # Fakultet mavjudligini tekshirish
+                faculty = Faculty.query.get(faculty_id)
+                if not faculty:
+                    flash("Tanlangan fakultet topilmadi", 'error')
+                    faculties = Faculty.query.all()
+                    return render_template('admin/create_staff.html', faculties=faculties)
+            except (ValueError, TypeError):
+                flash("Fakultet noto'g'ri tanlangan", 'error')
+                faculties = Faculty.query.all()
+                return render_template('admin/create_staff.html', faculties=faculties)
         
         # Email maydonini tozalash
         email_value = email.strip() if email and email.strip() else None
@@ -595,7 +614,7 @@ def create_staff():
         flash(f"Xodim {user.full_name} muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('admin.staff'))
     
-    return render_template('admin/create_staff.html')
+    return render_template('admin/create_staff.html', faculties=faculties)
 
 
 @bp.route('/staff/<int:id>/edit', methods=['GET', 'POST'])
@@ -618,13 +637,15 @@ def edit_staff(id):
         # Login majburiy (xodimlar uchun)
         if not login:
             flash("Login majburiy maydon", 'error')
-            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+            faculties = Faculty.query.all()
+            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         
         # Login unikalligi (boshqa foydalanuvchida bo'lmasligi kerak)
         existing_user_with_login = User.query.filter_by(login=login).first()
         if existing_user_with_login and existing_user_with_login.id != user.id:
             flash("Bu login allaqachon boshqa foydalanuvchida mavjud", 'error')
-            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+            faculties = Faculty.query.all()
+            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         
         user.login = login
         email = request.form.get('email')
@@ -633,7 +654,8 @@ def edit_staff(id):
             existing_user_with_email = User.query.filter_by(email=email).first()
             if existing_user_with_email and existing_user_with_email.id != user.id:
                 flash("Bu email allaqachon boshqa foydalanuvchida mavjud", 'error')
-                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+                faculties = Faculty.query.all()
+                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         # Email maydonini tozalash va o'rnatish
         email_value = email.strip() if email and email.strip() else None
         user.email = email_value if email_value else None
@@ -655,7 +677,8 @@ def edit_staff(id):
                 user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
                 flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
-                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+                faculties = Faculty.query.all()
+                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         else:
             user.birth_date = None
         
@@ -667,7 +690,8 @@ def edit_staff(id):
         
         if not selected_roles:
             flash("Kamida bitta rol tanlanishi kerak", 'error')
-            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+            faculties = Faculty.query.all()
+            return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         
         # Asosiy rol (eng yuqori darajali)
         main_role = selected_roles[0]
@@ -680,13 +704,26 @@ def edit_staff(id):
         
         user.role = main_role
         
-        # Dekan roli tanlangan bo'lsa, fakultetni aniqlash
+        # Dekan roli tanlangan bo'lsa, fakultetni aniqlash (majburiy)
         if 'dean' in selected_roles:
-            # Agar fakultet biriktirilmagan bo'lsa, birinchi fakultetni biriktirish
-            if not user.faculty_id:
-                first_faculty = Faculty.query.first()
-                if first_faculty:
-                    user.faculty_id = first_faculty.id
+            faculty_id_str = request.form.get('faculty_id', '').strip()
+            if not faculty_id_str:
+                flash("Dekan roli tanlangan bo'lsa, fakultet tanlash majburiy", 'error')
+                faculties = Faculty.query.all()
+                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
+            try:
+                faculty_id = int(faculty_id_str)
+                # Fakultet mavjudligini tekshirish
+                faculty = Faculty.query.get(faculty_id)
+                if not faculty:
+                    flash("Tanlangan fakultet topilmadi", 'error')
+                    faculties = Faculty.query.all()
+                    return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
+                user.faculty_id = faculty_id
+            except (ValueError, TypeError):
+                flash("Fakultet noto'g'ri tanlangan", 'error')
+                faculties = Faculty.query.all()
+                return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         else:
             user.faculty_id = None
         
@@ -715,7 +752,8 @@ def edit_staff(id):
         flash(f"Xodim {user.full_name} ma'lumotlari yangilandi", 'success')
         return redirect(url_for('admin.staff'))
     
-    return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles)
+    faculties = Faculty.query.all()
+    return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
 
 
 # ==================== FAKULTETLAR ====================
@@ -1214,18 +1252,12 @@ def create_subject():
             flash("Bu fan kodi allaqachon mavjud", 'error')
             return render_template('admin/create_subject.html')
         
-        # Default fakultetni tanlash (birinchi fakultet)
-        default_faculty = Faculty.query.first()
-        if not default_faculty:
-            flash("Fakultet mavjud emas. Avval fakultet yarating", 'error')
-            return render_template('admin/create_subject.html')
-        
         subject = Subject(
             name=name,
             code=code,
             description=description if description else None,
             credits=3,  # Default value
-            faculty_id=default_faculty.id,  # Default fakultet
+            faculty_id=None,  # Fakultetga bog'liq emas
             semester=1  # Default value
         )
         db.session.add(subject)
@@ -1514,8 +1546,6 @@ def reset_grade_scale():
 @admin_required
 def import_students():
     """Excel fayldan talabalar import qilish"""
-    faculties = Faculty.query.all()
-    
     if request.method == 'POST':
         if 'excel_file' not in request.files:
             flash("Fayl tanlanmagan", 'error')
@@ -1530,12 +1560,10 @@ def import_students():
             flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
             return redirect(url_for('admin.students'))
         
-        faculty_id = request.form.get('faculty_id', type=int)
-        
         try:
             from app.utils.excel_import import import_students_from_excel
             
-            result = import_students_from_excel(file, faculty_id=faculty_id)
+            result = import_students_from_excel(file, faculty_id=None)
             
             if result['success']:
                 if result['imported'] > 0:
@@ -1558,7 +1586,7 @@ def import_students():
         
         return redirect(url_for('admin.students'))
     
-    return render_template('admin/import_students.html', faculties=faculties)
+    return render_template('admin/import_students.html')
 
 
 # ==================== EXCEL EXPORT ====================
