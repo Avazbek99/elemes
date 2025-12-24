@@ -131,7 +131,8 @@ def detail(id):
     if current_user.role == 'admin':
         can_view = True
     elif current_user.role == 'dean':
-        can_view = subject.faculty_id == current_user.faculty_id
+        # Dekan barcha fanlarni ko'ra oladi (fanlar endi fakultetga bog'liq emas)
+        can_view = True
     elif current_user.role == 'teacher':
         teaching = TeacherSubject.query.filter_by(
             teacher_id=current_user.id,

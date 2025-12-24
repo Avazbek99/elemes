@@ -433,11 +433,10 @@ def courses():
                 ).count() if direction_data['groups'] else 0
                 
                 if direction_data['direction']:
-                    # Fanlar yo'nalishga to'g'ridan-to'g'ri biriktirilmagan, fakultetga biriktirilgan
-                    # Shuning uchun faqat fakultetdagi fanlarni hisoblaymiz
-                    direction_data['subjects_count'] = Subject.query.filter_by(
-                        faculty_id=faculty.id
-                    ).count()
+                    # Yo'nalishdagi fanlar sonini o'quv rejasi orqali hisoblash (unique subject_id lar soni)
+                    direction_data['subjects_count'] = db.session.query(
+                        func.count(func.distinct(DirectionCurriculum.subject_id))
+                    ).filter_by(direction_id=direction_data['direction'].id).scalar() or 0
                 else:
                     direction_data['subjects_count'] = 0
                 

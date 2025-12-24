@@ -4,6 +4,7 @@ from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment
 from app import db
 from functools import wraps
 from datetime import datetime
+from sqlalchemy import func
 
 from app.utils.excel_import import import_students_from_excel, import_directions_from_excel, generate_sample_file, import_staff_from_excel, generate_staff_sample_file, import_subjects_from_excel, generate_subjects_sample_file
 from app.utils.excel_export import create_all_users_excel, create_subjects_excel
@@ -1070,11 +1071,10 @@ def faculty_detail(id):
                 ).count() if direction_data['groups'] else 0
                 
                 if direction_data['direction']:
-                    # Fanlar yo'nalishga to'g'ridan-to'g'ri biriktirilmagan, fakultetga biriktirilgan
-                    # Shuning uchun faqat fakultetdagi fanlarni hisoblaymiz
-                    direction_data['subjects_count'] = Subject.query.filter_by(
-                        faculty_id=faculty.id
-                    ).count()
+                    # Yo'nalishdagi fanlar sonini o'quv rejasi orqali hisoblash (unique subject_id lar soni)
+                    direction_data['subjects_count'] = db.session.query(
+                        func.count(func.distinct(DirectionCurriculum.subject_id))
+                    ).filter_by(direction_id=direction_data['direction'].id).scalar() or 0
                 else:
                     direction_data['subjects_count'] = 0
                 
