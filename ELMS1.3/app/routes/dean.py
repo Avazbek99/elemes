@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, send_file, session
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction, StudentPayment
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction, StudentPayment, DirectionCurriculum
 from app import db
 from functools import wraps
 from sqlalchemy import func
@@ -1423,6 +1423,7 @@ def create_direction():
         course_year = request.form.get('course_year', type=int)
         semester = request.form.get('semester', type=int)
         education_type = request.form.get('education_type', 'kunduzgi')
+        enrollment_year = request.form.get('enrollment_year', type=int)
         
         # Validatsiya
         if not name or not code:
@@ -1435,6 +1436,10 @@ def create_direction():
         
         if not semester or semester < 1 or semester > 10:
             flash("Semestr 1-10 oralig'ida bo'lishi kerak", 'error')
+            return render_template('dean/create_direction.html', faculty=faculty)
+        
+        if not enrollment_year or enrollment_year < 2000 or enrollment_year > 2100:
+            flash("Qabul yili to'g'ri kiriting (2000-2100)", 'error')
             return render_template('dean/create_direction.html', faculty=faculty)
         
         # Ta'lim shakli validatsiyasi
@@ -1463,7 +1468,8 @@ def create_direction():
             faculty_id=faculty.id,
             course_year=course_year,
             semester=semester,
-            education_type=education_type
+            education_type=education_type,
+            enrollment_year=enrollment_year
         )
         db.session.add(direction)
         db.session.commit()
@@ -1471,7 +1477,8 @@ def create_direction():
         flash("Yo'nalish muvaffaqiyatli yaratildi", 'success')
         return redirect(url_for('dean.courses'))
     
-    return render_template('dean/create_direction.html', faculty=faculty)
+    from datetime import datetime as dt
+    return render_template('dean/create_direction.html', faculty=faculty, datetime=dt)
 
 
 @bp.route('/directions/<int:id>')
@@ -1554,6 +1561,7 @@ def edit_direction(id):
         course_year = request.form.get('course_year', type=int)
         semester = request.form.get('semester', type=int)
         education_type = request.form.get('education_type', 'kunduzgi')
+        enrollment_year = request.form.get('enrollment_year', type=int)
         
         if not name or not code:
             flash("Yo'nalish nomi va kodi to'ldirilishi shart", 'error')
@@ -1565,6 +1573,10 @@ def edit_direction(id):
         
         if not semester or semester < 1 or semester > 10:
             flash("Semestr 1-10 oralig'ida bo'lishi kerak", 'error')
+            return render_template('dean/edit_direction.html', direction=direction)
+        
+        if not enrollment_year or enrollment_year < 2000 or enrollment_year > 2100:
+            flash("Qabul yili to'g'ri kiriting (2000-2100)", 'error')
             return render_template('dean/edit_direction.html', direction=direction)
         
         # Ta'lim shakli validatsiyasi
@@ -1592,13 +1604,15 @@ def edit_direction(id):
         direction.course_year = course_year
         direction.semester = semester
         direction.education_type = education_type
+        direction.enrollment_year = enrollment_year
         
         db.session.commit()
         
         flash("Yo'nalish yangilandi", 'success')
         return redirect(url_for('dean.courses'))
     
-    return render_template('dean/edit_direction.html', direction=direction)
+    from datetime import datetime as dt
+    return render_template('dean/edit_direction.html', direction=direction, datetime=dt)
 
 
 @bp.route('/directions/<int:id>/delete', methods=['POST'])
@@ -1630,6 +1644,223 @@ def delete_direction(id):
         flash("Yo'nalish o'chirildi", 'success')
     
     return redirect(url_for('dean.courses'))
+
+
+# ==================== O'QUV REJA ====================
+@bp.route('/directions/<int:id>/curriculum')
+@login_required
+@dean_required
+def direction_curriculum(id):
+    """Yo'nalish o'quv rejasi"""
+    direction = Direction.query.get_or_404(id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id:
+        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        return redirect(url_for('dean.courses'))
+    
+    # Barcha fanlar (fakultet bo'yicha)
+    all_subjects = Subject.query.filter_by(faculty_id=direction.faculty_id).order_by(Subject.name).all()
+    
+    # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
+    curriculum_by_semester = {}
+    semester_totals = {}  # Har bir semestr uchun jami soat va kredit
+    total_hours = 0
+    total_credits = 0
+    
+    for item in direction.curriculum_items.order_by(DirectionCurriculum.semester).all():
+        semester = item.semester
+        if semester not in curriculum_by_semester:
+            curriculum_by_semester[semester] = []
+            semester_totals[semester] = {'hours': 0, 'credits': 0}
+        curriculum_by_semester[semester].append(item)
+        
+        # Semestr jami soat va kreditni hisoblash
+        item_hours = (item.hours_maruza or 0) + (item.hours_amaliyot or 0) + \
+                    (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
+                    (item.hours_mustaqil or 0)
+        item_credits = item_hours / 30
+        
+        semester_totals[semester]['hours'] += item_hours
+        semester_totals[semester]['credits'] += item_credits
+        
+        # Umumiy yuklamani hisoblash
+        total_hours += item_hours
+        total_credits += item_credits
+    
+    return render_template('dean/direction_curriculum.html',
+                         direction=direction,
+                         all_subjects=all_subjects,
+                         curriculum_by_semester=curriculum_by_semester,
+                         semester_totals=semester_totals,
+                         total_hours=total_hours,
+                         total_credits=total_credits)
+
+
+@bp.route('/directions/<int:id>/curriculum/add', methods=['POST'])
+@login_required
+@dean_required
+def add_subject_to_curriculum(id):
+    """O'quv rejaga fan qo'shish"""
+    direction = Direction.query.get_or_404(id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('dean.courses'))
+    
+    subject_ids = request.form.getlist('subject_ids')
+    semester = request.form.get('semester', type=int)
+    
+    if not subject_ids or not semester:
+        flash("Fan va semestr tanlash majburiy", 'error')
+        return redirect(url_for('dean.direction_curriculum', id=id))
+    
+    added = 0
+    for subject_id in subject_ids:
+        subject_id = int(subject_id)
+        subject = Subject.query.get(subject_id)
+        if not subject:
+            continue
+        
+        # Takrorlanmasligini tekshirish
+        existing = DirectionCurriculum.query.filter_by(
+            direction_id=direction.id,
+            subject_id=subject_id,
+            semester=semester
+        ).first()
+        
+        if not existing:
+            curriculum_item = DirectionCurriculum(
+                direction_id=direction.id,
+                subject_id=subject_id,
+                semester=semester
+            )
+            db.session.add(curriculum_item)
+            added += 1
+    
+    db.session.commit()
+    flash(f"{added} ta fan o'quv rejaga qo'shildi", 'success')
+    return redirect(url_for('dean.direction_curriculum', id=id))
+
+
+@bp.route('/directions/<int:id>/curriculum/<int:item_id>/update', methods=['POST'])
+@login_required
+@dean_required
+def update_curriculum_item(id, item_id):
+    """O'quv reja elementini yangilash (soatlar) - eski versiya, saqlab qolindi"""
+    direction = Direction.query.get_or_404(id)
+    item = DirectionCurriculum.query.get_or_404(item_id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id or item.direction_id != direction.id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('dean.courses'))
+    
+    item.hours_maruza = request.form.get('hours_maruza', type=int) or 0
+    item.hours_amaliyot = request.form.get('hours_amaliyot', type=int) or 0
+    item.hours_laboratoriya = request.form.get('hours_laboratoriya', type=int) or 0
+    item.hours_seminar = request.form.get('hours_seminar', type=int) or 0
+    item.hours_kurs_ishi = request.form.get('hours_kurs_ishi', type=int) or 0
+    item.hours_mustaqil = request.form.get('hours_mustaqil', type=int) or 0
+    
+    db.session.commit()
+    flash("O'quv reja yangilandi", 'success')
+    return redirect(url_for('dean.direction_curriculum', id=id))
+
+
+@bp.route('/directions/<int:id>/curriculum/semester/<int:semester>/update', methods=['POST'])
+@login_required
+@dean_required
+def update_semester_curriculum(id, semester):
+    """Semestr bo'yicha barcha fanlarni yangilash"""
+    direction = Direction.query.get_or_404(id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('dean.courses'))
+    
+    # Bu semestr uchun barcha fanlarni olish
+    items = DirectionCurriculum.query.filter_by(
+        direction_id=direction.id,
+        semester=semester
+    ).all()
+    
+    updated = 0
+    for item in items:
+        item_id = str(item.id)
+        
+        # Soatlarni yangilash
+        item.hours_maruza = request.form.get(f'hours_maruza[{item_id}]', type=int) or 0
+        item.hours_amaliyot = request.form.get(f'hours_amaliyot[{item_id}]', type=int) or 0
+        item.hours_laboratoriya = request.form.get(f'hours_laboratoriya[{item_id}]', type=int) or 0
+        item.hours_seminar = request.form.get(f'hours_seminar[{item_id}]', type=int) or 0
+        item.hours_mustaqil = request.form.get(f'hours_mustaqil[{item_id}]', type=int) or 0
+        
+        # Kurs ishi checkbox - agar belgilangan bo'lsa 1, aks holda 0
+        kurs_ishi_values = request.form.getlist('hours_kurs_ishi')
+        item.hours_kurs_ishi = 1 if item_id in kurs_ishi_values else 0
+        
+        updated += 1
+    
+    db.session.commit()
+    flash(f"{updated} ta fan yangilandi", 'success')
+    return redirect(url_for('dean.direction_curriculum', id=id))
+
+
+@bp.route('/directions/<int:id>/curriculum/<int:item_id>/replace', methods=['POST'])
+@login_required
+@dean_required
+def replace_curriculum_subject(id, item_id):
+    """O'quv rejadagi fanni boshqa fan bilan almashtirish"""
+    direction = Direction.query.get_or_404(id)
+    item = DirectionCurriculum.query.get_or_404(item_id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id or item.direction_id != direction.id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('dean.courses'))
+    
+    new_subject_id = request.form.get('subject_id', type=int)
+    if not new_subject_id:
+        flash("Fan tanlash majburiy", 'error')
+        return redirect(url_for('dean.direction_curriculum', id=id))
+    
+    # Takrorlanmasligini tekshirish
+    existing = DirectionCurriculum.query.filter_by(
+        direction_id=direction.id,
+        subject_id=new_subject_id,
+        semester=item.semester
+    ).filter(DirectionCurriculum.id != item_id).first()
+    
+    if existing:
+        flash("Bu semestrda bu fan allaqachon mavjud", 'error')
+        return redirect(url_for('dean.direction_curriculum', id=id))
+    
+    item.subject_id = new_subject_id
+    db.session.commit()
+    flash("Fan almashtirildi", 'success')
+    return redirect(url_for('dean.direction_curriculum', id=id))
+
+
+@bp.route('/directions/<int:id>/curriculum/<int:item_id>/delete', methods=['POST'])
+@login_required
+@dean_required
+def delete_curriculum_item(id, item_id):
+    """O'quv rejadan fanni o'chirish"""
+    direction = Direction.query.get_or_404(id)
+    item = DirectionCurriculum.query.get_or_404(item_id)
+    
+    # Fakultet tekshiruvi
+    if direction.faculty_id != current_user.faculty_id or item.direction_id != direction.id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('dean.courses'))
+    
+    db.session.delete(item)
+    db.session.commit()
+    flash("Fan o'quv rejadan o'chirildi", 'success')
+    return redirect(url_for('dean.direction_curriculum', id=id))
 
 
 # ==================== DARS JADVALI ====================

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, StudentPayment
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, StudentPayment, DirectionCurriculum
 from app import db
 from functools import wraps
 from datetime import datetime
@@ -938,9 +938,13 @@ def edit_faculty(id):
 def delete_faculty(id):
     faculty = Faculty.query.get_or_404(id)
     
-    if faculty.groups.count() > 0 or faculty.subjects.count() > 0:
-        flash("Fakultetda guruhlar yoki fanlar mavjud. Avval ularni o'chiring", 'error')
+    if faculty.groups.count() > 0:
+        flash("Fakultetda guruhlar mavjud. Avval ularni o'chiring", 'error')
     else:
+        # Fanlarning faculty_id ni None qilish (fanlar o'chib ketmasligi uchun)
+        for subject in faculty.subjects:
+            subject.faculty_id = None
+        
         db.session.delete(faculty)
         db.session.commit()
         flash("Fakultet o'chirildi", 'success')
@@ -1133,6 +1137,205 @@ def faculty_detail(id):
                          direction_filter=direction_filter,
                          group_filter=group_filter,
                          search=search)
+
+
+# ==================== YO'NALISHLAR ====================
+@bp.route('/directions/<int:id>')
+@login_required
+@admin_required
+def direction_detail(id):
+    """Yo'nalish detail sahifasi - ichidagi guruhlar"""
+    direction = Direction.query.get_or_404(id)
+    
+    # Bu yo'nalishga biriktirilgan guruhlar
+    groups = Group.query.filter_by(direction_id=direction.id).order_by(Group.course_year, Group.name).all()
+    
+    # Har bir guruh uchun talabalar soni
+    group_stats = {}
+    for group in groups:
+        group_stats[group.id] = group.students.count()
+    
+    return render_template('admin/direction_detail.html',
+                         direction=direction,
+                         groups=groups,
+                         group_stats=group_stats)
+
+
+@bp.route('/directions/<int:id>/curriculum')
+@login_required
+@admin_required
+def direction_curriculum(id):
+    """Yo'nalish o'quv rejasi"""
+    direction = Direction.query.get_or_404(id)
+    
+    # Barcha fanlar (fakultet bo'yicha yoki barcha)
+    if direction.faculty_id:
+        all_subjects = Subject.query.filter_by(faculty_id=direction.faculty_id).order_by(Subject.name).all()
+    else:
+        all_subjects = Subject.query.order_by(Subject.name).all()
+    
+    # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
+    curriculum_by_semester = {}
+    semester_totals = {}  # Har bir semestr uchun jami soat va kredit
+    total_hours = 0
+    total_credits = 0
+    
+    for item in direction.curriculum_items.order_by(DirectionCurriculum.semester).all():
+        semester = item.semester
+        if semester not in curriculum_by_semester:
+            curriculum_by_semester[semester] = []
+            semester_totals[semester] = {'hours': 0, 'credits': 0}
+        curriculum_by_semester[semester].append(item)
+        
+        # Semestr jami soat va kreditni hisoblash
+        item_hours = (item.hours_maruza or 0) + (item.hours_amaliyot or 0) + \
+                    (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
+                    (item.hours_mustaqil or 0)
+        item_credits = item_hours / 30
+        
+        semester_totals[semester]['hours'] += item_hours
+        semester_totals[semester]['credits'] += item_credits
+        
+        # Umumiy yuklamani hisoblash
+        total_hours += item_hours
+        total_credits += item_credits
+    
+    return render_template('admin/direction_curriculum.html',
+                         direction=direction,
+                         all_subjects=all_subjects,
+                         curriculum_by_semester=curriculum_by_semester,
+                         semester_totals=semester_totals,
+                         total_hours=total_hours,
+                         total_credits=total_credits)
+
+
+@bp.route('/directions/<int:id>/curriculum/semester/<int:semester>/update', methods=['POST'])
+@login_required
+@admin_required
+def update_semester_curriculum(id, semester):
+    """Semestr bo'yicha barcha fanlarni yangilash"""
+    direction = Direction.query.get_or_404(id)
+    
+    # Bu semestr uchun barcha fanlarni olish
+    items = DirectionCurriculum.query.filter_by(
+        direction_id=direction.id,
+        semester=semester
+    ).all()
+    
+    updated = 0
+    for item in items:
+        item_id = str(item.id)
+        
+        # Soatlarni yangilash
+        item.hours_maruza = request.form.get(f'hours_maruza[{item_id}]', type=int) or 0
+        item.hours_amaliyot = request.form.get(f'hours_amaliyot[{item_id}]', type=int) or 0
+        item.hours_laboratoriya = request.form.get(f'hours_laboratoriya[{item_id}]', type=int) or 0
+        item.hours_seminar = request.form.get(f'hours_seminar[{item_id}]', type=int) or 0
+        item.hours_mustaqil = request.form.get(f'hours_mustaqil[{item_id}]', type=int) or 0
+        
+        # Kurs ishi checkbox - agar belgilangan bo'lsa 1, aks holda 0
+        kurs_ishi_values = request.form.getlist('hours_kurs_ishi')
+        item.hours_kurs_ishi = 1 if item_id in kurs_ishi_values else 0
+        
+        updated += 1
+    
+    db.session.commit()
+    flash(f"{updated} ta fan yangilandi", 'success')
+    return redirect(url_for('admin.direction_curriculum', id=id))
+
+
+@bp.route('/directions/<int:id>/curriculum/<int:item_id>/replace', methods=['POST'])
+@login_required
+@admin_required
+def replace_curriculum_subject(id, item_id):
+    """O'quv rejadagi fanni boshqa fan bilan almashtirish"""
+    direction = Direction.query.get_or_404(id)
+    item = DirectionCurriculum.query.get_or_404(item_id)
+    
+    if item.direction_id != direction.id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('admin.faculties'))
+    
+    new_subject_id = request.form.get('subject_id', type=int)
+    if not new_subject_id:
+        flash("Fan tanlash majburiy", 'error')
+        return redirect(url_for('admin.direction_curriculum', id=id))
+    
+    # Takrorlanmasligini tekshirish
+    existing = DirectionCurriculum.query.filter_by(
+        direction_id=direction.id,
+        subject_id=new_subject_id,
+        semester=item.semester
+    ).filter(DirectionCurriculum.id != item_id).first()
+    
+    if existing:
+        flash("Bu semestrda bu fan allaqachon mavjud", 'error')
+        return redirect(url_for('admin.direction_curriculum', id=id))
+    
+    item.subject_id = new_subject_id
+    db.session.commit()
+    flash("Fan almashtirildi", 'success')
+    return redirect(url_for('admin.direction_curriculum', id=id))
+
+
+@bp.route('/directions/<int:id>/curriculum/<int:item_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_curriculum_item(id, item_id):
+    """O'quv rejadagi fanni o'chirish"""
+    direction = Direction.query.get_or_404(id)
+    item = DirectionCurriculum.query.get_or_404(item_id)
+    
+    if item.direction_id != direction.id:
+        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        return redirect(url_for('admin.faculties'))
+    
+    db.session.delete(item)
+    db.session.commit()
+    flash("Fan o'quv rejasidan o'chirildi", 'success')
+    return redirect(url_for('admin.direction_curriculum', id=id))
+
+
+@bp.route('/directions/<int:id>/curriculum/add', methods=['POST'])
+@login_required
+@admin_required
+def add_subject_to_curriculum(id):
+    """O'quv rejaga fan qo'shish"""
+    direction = Direction.query.get_or_404(id)
+    
+    subject_ids = request.form.getlist('subject_ids')
+    semester = request.form.get('semester', type=int)
+    
+    if not subject_ids or not semester:
+        flash("Fan va semestr tanlash majburiy", 'error')
+        return redirect(url_for('admin.direction_curriculum', id=id))
+    
+    added = 0
+    for subject_id in subject_ids:
+        subject_id = int(subject_id)
+        subject = Subject.query.get(subject_id)
+        if not subject:
+            continue
+        
+        # Takrorlanmasligini tekshirish
+        existing = DirectionCurriculum.query.filter_by(
+            direction_id=direction.id,
+            subject_id=subject_id,
+            semester=semester
+        ).first()
+        
+        if not existing:
+            curriculum_item = DirectionCurriculum(
+                direction_id=direction.id,
+                subject_id=subject_id,
+                semester=semester
+            )
+            db.session.add(curriculum_item)
+            added += 1
+    
+    db.session.commit()
+    flash(f"{added} ta fan o'quv rejaga qo'shildi", 'success')
+    return redirect(url_for('admin.direction_curriculum', id=id))
 
 
 @bp.route('/faculties/<int:id>/change_dean', methods=['GET', 'POST'])
@@ -2123,6 +2326,7 @@ def create_direction():
         course_year = request.form.get('course_year', type=int)
         semester = request.form.get('semester', type=int)
         education_type = request.form.get('education_type', 'kunduzgi')
+        enrollment_year = request.form.get('enrollment_year', type=int)
         
         # Validatsiya
         if not name or not code:
@@ -2145,6 +2349,12 @@ def create_direction():
         
         if not semester or semester < 1 or semester > 10:
             flash("Semestr 1-10 oralig'ida bo'lishi kerak", 'error')
+            return render_template('admin/create_direction.html', 
+                                 faculties=Faculty.query.all(),
+                                 faculty_id=faculty_id)
+        
+        if not enrollment_year or enrollment_year < 1900 or enrollment_year > 2100:
+            flash("Qabul yili to'g'ri kiriting (1900-2100)", 'error')
             return render_template('admin/create_direction.html', 
                                  faculties=Faculty.query.all(),
                                  faculty_id=faculty_id)
@@ -2179,7 +2389,8 @@ def create_direction():
             faculty_id=faculty_id,
             course_year=course_year,
             semester=semester,
-            education_type=education_type
+            education_type=education_type,
+            enrollment_year=enrollment_year
         )
         db.session.add(direction)
         db.session.commit()
@@ -2210,6 +2421,7 @@ def edit_direction(id):
         course_year = request.form.get('course_year', type=int)
         semester = request.form.get('semester', type=int)
         education_type = request.form.get('education_type', 'kunduzgi')
+        enrollment_year = request.form.get('enrollment_year', type=int)
         
         # Validatsiya
         if not course_year or course_year < 1 or course_year > 5:
@@ -2220,6 +2432,12 @@ def edit_direction(id):
         
         if not semester or semester < 1 or semester > 10:
             flash("Semestr 1-10 oralig'ida bo'lishi kerak", 'error')
+            return render_template('admin/edit_direction.html', 
+                                 direction=direction,
+                                 faculties=Faculty.query.all())
+        
+        if not enrollment_year or enrollment_year < 1900 or enrollment_year > 2100:
+            flash("Qabul yili to'g'ri kiriting (1900-2100)", 'error')
             return render_template('admin/edit_direction.html', 
                                  direction=direction,
                                  faculties=Faculty.query.all())
@@ -2251,6 +2469,7 @@ def edit_direction(id):
         direction.course_year = course_year
         direction.semester = semester
         direction.education_type = education_type
+        direction.enrollment_year = enrollment_year
         
         db.session.commit()
         flash("Yo'nalish yangilandi", 'success')

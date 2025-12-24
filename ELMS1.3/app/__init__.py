@@ -25,6 +25,17 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     csrf.init_app(app)
     
+    # Custom Jinja2 filter for formatting numbers
+    @app.template_filter('format_float')
+    def format_float_filter(value, decimals=2):
+        """Format float to string with specified decimals"""
+        try:
+            if value is None:
+                return f"0.{'0' * decimals}"
+            return f"{float(value):.{decimals}f}"
+        except (ValueError, TypeError):
+            return f"0.{'0' * decimals}"
+    
     # Context processor for translations
     @app.context_processor
     def inject_translations():

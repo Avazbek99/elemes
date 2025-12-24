@@ -19,7 +19,7 @@ class Faculty(db.Model):
     
     # Relationships
     groups = db.relationship('Group', backref='faculty', lazy='dynamic', cascade='all, delete-orphan')
-    subjects = db.relationship('Subject', backref='faculty', lazy='dynamic', cascade='all, delete-orphan')
+    subjects = db.relationship('Subject', backref='faculty', lazy='dynamic')
 
 
 # ==================== YO'NALISH (DIRECTION) ====================
@@ -33,11 +33,13 @@ class Direction(db.Model):
     course_year = db.Column(db.Integer, nullable=False)  # 1, 2, 3, 4, 5-kurs
     semester = db.Column(db.Integer, nullable=False)  # 1-10 semestr
     education_type = db.Column(db.String(20), nullable=False, default='kunduzgi')  # kunduzgi, sirtqi, masofaviy, kechki
+    enrollment_year = db.Column(db.Integer)  # Qabul yili (masalan: 2024)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
     faculty = db.relationship('Faculty', backref='directions')
     groups = db.relationship('Group', backref='direction', lazy='dynamic')
+    curriculum_items = db.relationship('DirectionCurriculum', backref='direction', lazy='dynamic', cascade='all, delete-orphan')
 
 
 # ==================== GURUH ====================
@@ -99,6 +101,28 @@ class Subject(db.Model):
         ).count()
         
         return lessons_with_content == 0  # Agar hech bir darsda content yo'q bo'lsa True
+
+
+# ==================== O'QUV REJA (YO'NALISH-FAN BOG'LANISHI) ====================
+class DirectionCurriculum(db.Model):
+    """Yo'nalish o'quv rejasi - yo'nalish, semestr va fanlar o'rtasidagi bog'lanish"""
+    id = db.Column(db.Integer, primary_key=True)
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    semester = db.Column(db.Integer, nullable=False)  # 1-10 semestr
+    hours_maruza = db.Column(db.Integer, default=0)  # M - Maruza soatlari
+    hours_amaliyot = db.Column(db.Integer, default=0)  # A - Amaliyot soatlari
+    hours_laboratoriya = db.Column(db.Integer, default=0)  # L - Laboratoriya soatlari
+    hours_seminar = db.Column(db.Integer, default=0)  # S - Seminar soatlari
+    hours_kurs_ishi = db.Column(db.Integer, default=0)  # K - Kurs ishi soatlari
+    hours_mustaqil = db.Column(db.Integer, default=0)  # MT - Mustaqil ta'lim soatlari
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    subject = db.relationship('Subject', backref='curriculum_items')
+    
+    # Unique constraint: bir yo'nalishda bir semestrda bir fan bir marta bo'lishi kerak
+    __table_args__ = (db.UniqueConstraint('direction_id', 'subject_id', 'semester', name='uq_direction_subject_semester'),)
 
 
 # ==================== O'QITUVCHI-FAN BOG'LANISHI ====================
