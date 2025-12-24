@@ -45,9 +45,9 @@ def index():
     if faculty:
         stats = {
             'total_groups': faculty.groups.count(),
-            'total_subjects': faculty.subjects.count(),
+            'total_subjects': Subject.query.count(),
             'total_students': User.query.join(Group).filter(Group.faculty_id == faculty.id).count(),
-            'total_teachers': TeacherSubject.query.join(Subject).filter(Subject.faculty_id == faculty.id).distinct(TeacherSubject.teacher_id).count(),
+            'total_teachers': TeacherSubject.query.distinct(TeacherSubject.teacher_id).count(),
         }
         # Yo'nalishlar ro'yxati
         directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
@@ -58,7 +58,7 @@ def index():
                 'groups_count': Group.query.filter_by(direction_id=direction.id).count(),
                 'groups': Group.query.filter_by(direction_id=direction.id).order_by(Group.name).all()
             }
-        subjects = faculty.subjects.order_by(Subject.code).all()
+        subjects = Subject.query.order_by(Subject.code).all()
     else:
         directions = []
         direction_stats = {}
@@ -1659,8 +1659,8 @@ def direction_curriculum(id):
         flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
         return redirect(url_for('dean.courses'))
     
-    # Barcha fanlar (fakultet bo'yicha)
-    all_subjects = Subject.query.filter_by(faculty_id=direction.faculty_id).order_by(Subject.name).all()
+    # Barcha fanlar
+    all_subjects = Subject.query.order_by(Subject.name).all()
     
     # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
     curriculum_by_semester = {}

@@ -1086,12 +1086,6 @@ def import_subjects_from_excel(file):
                 # Fan kodini tekshirish
                 existing_subject = Subject.query.filter_by(code=code).first()
 
-                # Default fakultetni tanlash
-                default_faculty = Faculty.query.first()
-                if not default_faculty:
-                    errors.append(f"Qator {row_num}: Fakultet mavjud emas")
-                    continue
-
                 if existing_subject:
                     # Yangilash
                     existing_subject.name = name
@@ -1104,7 +1098,6 @@ def import_subjects_from_excel(file):
                         code=code,
                         description=description,
                         credits=3,  # Default
-                        faculty_id=default_faculty.id,  # Default fakultet
                         semester=1  # Default
                     )
                     db.session.add(subject)

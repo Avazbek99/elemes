@@ -19,7 +19,6 @@ class Faculty(db.Model):
     
     # Relationships
     groups = db.relationship('Group', backref='faculty', lazy='dynamic', cascade='all, delete-orphan')
-    subjects = db.relationship('Subject', backref='faculty', lazy='dynamic')
 
 
 # ==================== YO'NALISH (DIRECTION) ====================
@@ -69,7 +68,6 @@ class Subject(db.Model):
     code = db.Column(db.String(20), nullable=False)  # DA101, MB201
     description = db.Column(db.Text)
     credits = db.Column(db.Integer, default=3)  # Kredit soni
-    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=True)
     semester = db.Column(db.Integer, default=1)  # 1-8 semestr
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -740,7 +738,6 @@ def create_demo_data():
             subject = Subject(
                 name=s['name'],
                 code=s['code'],
-                faculty_id=faculties[s['faculty']].id,
                 credits=s['credits'],
                 semester=s['semester'],
                 description=f"{s['name']} fani bo'yicha ma'ruzalar va amaliy mashg'ulotlar"

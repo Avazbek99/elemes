@@ -1168,11 +1168,8 @@ def direction_curriculum(id):
     """Yo'nalish o'quv rejasi"""
     direction = Direction.query.get_or_404(id)
     
-    # Barcha fanlar (fakultet bo'yicha yoki barcha)
-    if direction.faculty_id:
-        all_subjects = Subject.query.filter_by(faculty_id=direction.faculty_id).order_by(Subject.name).all()
-    else:
-        all_subjects = Subject.query.order_by(Subject.name).all()
+    # Barcha fanlar
+    all_subjects = Subject.query.order_by(Subject.name).all()
     
     # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
     curriculum_by_semester = {}
@@ -1460,7 +1457,6 @@ def create_subject():
             code=code,
             description=description if description else None,
             credits=3,  # Default value
-            faculty_id=None,  # Fakultetga bog'liq emas
             semester=1  # Default value
         )
         db.session.add(subject)
