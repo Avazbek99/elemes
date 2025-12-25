@@ -17,6 +17,11 @@
                 {% endif %}
                 {{ direction.code }} - {{ direction.name }}
             </h1>
+            <p class="text-gray-600 mt-1">
+                {% if direction.education_type %}
+                    {{ direction.education_type|title }}
+                {% endif %}
+            </p>
             {% if direction.description %}
             <p class="text-gray-600 mt-2">{{ direction.description }}</p>
             {% endif %}
