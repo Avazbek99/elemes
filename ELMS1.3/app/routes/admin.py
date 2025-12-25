@@ -1223,6 +1223,8 @@ def direction_curriculum(id):
     # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
     curriculum_by_semester = {}
     semester_totals = {}  # Har bir semestr uchun jami soat va kredit
+    semester_auditoriya = {}  # Har bir semestr uchun auditoriya soatlari
+    semester_mustaqil = {}  # Har bir semestr uchun mustaqil ta'lim soatlari
     total_hours = 0
     total_credits = 0
     
@@ -1231,9 +1233,21 @@ def direction_curriculum(id):
         if semester not in curriculum_by_semester:
             curriculum_by_semester[semester] = []
             semester_totals[semester] = {'hours': 0, 'credits': 0}
+            semester_auditoriya[semester] = {'m': 0, 'a': 0, 'l': 0, 's': 0, 'k': 0}
+            semester_mustaqil[semester] = 0
         curriculum_by_semester[semester].append(item)
         
-        # Semestr jami soat va kreditni hisoblash
+        # Auditoriya soatlari
+        semester_auditoriya[semester]['m'] += (item.hours_maruza or 0)
+        semester_auditoriya[semester]['a'] += (item.hours_amaliyot or 0)
+        semester_auditoriya[semester]['l'] += (item.hours_laboratoriya or 0)
+        semester_auditoriya[semester]['s'] += (item.hours_seminar or 0)
+        semester_auditoriya[semester]['k'] += (item.hours_kurs_ishi or 0)
+        
+        # Mustaqil ta'lim
+        semester_mustaqil[semester] += (item.hours_mustaqil or 0)
+        
+        # Semestr jami soat va kreditni hisoblash (K qo'shilmaydi)
         item_hours = (item.hours_maruza or 0) + (item.hours_amaliyot or 0) + \
                     (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
                     (item.hours_mustaqil or 0)
@@ -1251,6 +1265,8 @@ def direction_curriculum(id):
                          all_subjects=all_subjects,
                          curriculum_by_semester=curriculum_by_semester,
                          semester_totals=semester_totals,
+                         semester_auditoriya=semester_auditoriya,
+                         semester_mustaqil=semester_mustaqil,
                          total_hours=total_hours,
                          total_credits=total_credits)
 

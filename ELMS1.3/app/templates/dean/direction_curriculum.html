@@ -25,7 +25,12 @@
         <!-- Chap tomonda: Fanlar ro'yxati -->
         <div class="lg:col-span-1">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Fanlar</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Fanlar</h2>
+                    <span id="selected-count" class="text-sm font-medium text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
+                        0 tanlangan
+                    </span>
+                </div>
                 
                 <!-- Qidiruv -->
                 <div class="mb-4">
@@ -39,7 +44,8 @@
                     <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer subject-item" 
                            data-name="{{ subject.name|lower }}" data-code="{{ subject.code|lower }}">
                         <input type="checkbox" name="subject_ids" value="{{ subject.id }}" 
-                               class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                               class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 subject-checkbox"
+                               onchange="updateSelectedCount()">
                         <div class="flex-1">
                             <div class="text-sm font-medium text-gray-900">{{ subject.name }}</div>
                             <div class="text-xs text-gray-500">{{ subject.code }}</div>
@@ -168,7 +174,8 @@
                                             <div class="flex items-center justify-center">
                                                 <input type="checkbox" name="hours_kurs_ishi" form="semester-form-{{ semester }}" value="{{ item.id }}" 
                                                        {% if item.hours_kurs_ishi and item.hours_kurs_ishi > 0 %}checked{% endif %}
-                                                       class="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer">
+                                                       class="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                                                       onchange="calculateTotal(this)">
                                             </div>
                                         </td>
                                         <td class="px-2 py-2 border-r border-gray-200 text-center">
@@ -207,6 +214,24 @@
                                     </tr>
                                 {% endfor %}
                             </tbody>
+                            <tfoot>
+                                <tr class="bg-primary-50 border-t-2 border-primary-300">
+                                    <td class="px-4 py-3 border-r border-gray-200 font-bold text-gray-900 text-sm">JAMI</td>
+                                    <td colspan="5" class="px-2 py-2 border-r border-gray-200 text-center font-semibold text-gray-900">
+                                        <span class="semester-auditoriya-total-{{ semester }}">{{ (semester_auditoriya.get(semester, {}).get('m', 0) + semester_auditoriya.get(semester, {}).get('a', 0) + semester_auditoriya.get(semester, {}).get('l', 0) + semester_auditoriya.get(semester, {}).get('s', 0)) }}</span>
+                                    </td>
+                                    <td class="px-2 py-2 border-r border-gray-200 text-center font-semibold text-primary-700">
+                                        <span class="semester-mustaqil-{{ semester }}">{{ semester_mustaqil.get(semester, 0) }}</span>
+                                    </td>
+                                    <td class="px-3 py-2 border-r border-gray-200 text-center font-bold text-gray-900 bg-gray-200">
+                                        <span class="semester-total-hours-{{ semester }}">{{ semester_totals.get(semester, {}).get('hours', 0)|int }}</span>
+                                    </td>
+                                    <td class="px-3 py-2 border-r border-gray-200 text-center font-bold text-primary-700 bg-primary-100">
+                                        <span class="semester-total-credits-{{ semester }}">{{ semester_totals.get(semester, {}).get('credits', 0)|format_float(2) }}</span>
+                                    </td>
+                                    <td class="px-2 py-2 text-center"></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                     <form id="semester-form-{{ semester }}" method="POST" action="{{ url_for('dean.update_semester_curriculum', id=direction.id, semester=semester) }}" class="mt-4 flex items-center justify-end bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -263,6 +288,16 @@
 </div>
 
 <script>
+// Tanlangan fanlar sonini yangilash
+function updateSelectedCount() {
+    const checkedBoxes = document.querySelectorAll('input[name="subject_ids"]:checked');
+    const count = checkedBoxes.length;
+    const countElement = document.getElementById('selected-count');
+    if (countElement) {
+        countElement.textContent = count + ' tanlangan';
+    }
+}
+
 // Qidiruv funksiyasi
 document.getElementById('subject-search').addEventListener('input', function(e) {
     const searchTerm = e.target.value.toLowerCase();
@@ -326,14 +361,28 @@ function calculateTotal(input) {
     const row = input.closest('tr');
     if (!row) return;
     
-    // Barcha text inputlarni olish (K checkbox emas)
-    const textInputs = row.querySelectorAll('input[type="text"]');
-    let total = 0;
+    // Barcha text inputlarni olish (mustaqil ta'lim)
+    const mustaqilInput = row.querySelector('input[name*="hours_mustaqil"]');
+    const mustaqilValue = parseInt(mustaqilInput ? mustaqilInput.value : 0) || 0;
     
-    textInputs.forEach(function(inp) {
-        const value = parseInt(inp.value) || 0;
-        total += value;
-    });
+    // Auditoriya soatlari (M+A+L+S)
+    const maruzaInput = row.querySelector('input[name*="hours_maruza"]');
+    const amaliyotInput = row.querySelector('input[name*="hours_amaliyot"]');
+    const laboratoriyaInput = row.querySelector('input[name*="hours_laboratoriya"]');
+    const seminarInput = row.querySelector('input[name*="hours_seminar"]');
+    
+    const maruzaValue = parseInt(maruzaInput ? maruzaInput.value : 0) || 0;
+    const amaliyotValue = parseInt(amaliyotInput ? amaliyotInput.value : 0) || 0;
+    const laboratoriyaValue = parseInt(laboratoriyaInput ? laboratoriyaInput.value : 0) || 0;
+    const seminarValue = parseInt(seminarInput ? seminarInput.value : 0) || 0;
+    
+    // Kurs ishi (checkbox) - faqat auditoriya soatiga qo'shiladi, jami soatga qo'shilmaydi
+    const kursIshiCheckbox = row.querySelector('input[type="checkbox"][name="hours_kurs_ishi"]');
+    const kursIshiValue = (kursIshiCheckbox && kursIshiCheckbox.checked) ? 1 : 0;
+    
+    // Jami soat = Auditoriya (M+A+L+S, K qo'shilmaydi) + Mustaqil ta'lim
+    const auditoriyaTotal = maruzaValue + amaliyotValue + laboratoriyaValue + seminarValue;
+    const total = auditoriyaTotal + mustaqilValue;
     
     // JAMI ni yangilash
     const totalCell = row.querySelector('.total-hours');
@@ -369,12 +418,52 @@ function updateSemesterTotal(changedRow) {
     // Barcha qatorlardagi jami soatlarni yig'ish
     const rows = table.querySelectorAll('tbody tr');
     let semesterTotalHours = 0;
+    let semesterAuditoriyaM = 0;  // Maruza
+    let semesterAuditoriyaA = 0;  // Amaliyot
+    let semesterAuditoriyaL = 0;  // Laboratoriya
+    let semesterAuditoriyaS = 0;  // Seminar
+    let semesterAuditoriyaK = 0;  // Kurs ishi
+    let semesterMustaqil = 0;     // Mustaqil ta'lim
     
     rows.forEach(function(row) {
+        // Jami soat
         const totalCell = row.querySelector('.total-hours');
         if (totalCell) {
             const hours = parseInt(totalCell.textContent) || 0;
             semesterTotalHours += hours;
+        }
+        
+        // Auditoriya soatlari (M+A+L+S+K)
+        const maruzaInput = row.querySelector('input[name*="hours_maruza"]');
+        if (maruzaInput) {
+            semesterAuditoriyaM += parseInt(maruzaInput.value) || 0;
+        }
+        
+        const amaliyotInput = row.querySelector('input[name*="hours_amaliyot"]');
+        if (amaliyotInput) {
+            semesterAuditoriyaA += parseInt(amaliyotInput.value) || 0;
+        }
+        
+        const laboratoriyaInput = row.querySelector('input[name*="hours_laboratoriya"]');
+        if (laboratoriyaInput) {
+            semesterAuditoriyaL += parseInt(laboratoriyaInput.value) || 0;
+        }
+        
+        const seminarInput = row.querySelector('input[name*="hours_seminar"]');
+        if (seminarInput) {
+            semesterAuditoriyaS += parseInt(seminarInput.value) || 0;
+        }
+        
+        // Kurs ishi (checkbox) - belgilangan bo'lsa 1 soat
+        const kursIshiCheckbox = row.querySelector('input[type="checkbox"][name="hours_kurs_ishi"]');
+        if (kursIshiCheckbox && kursIshiCheckbox.checked) {
+            semesterAuditoriyaK += 1; // Har bir belgilangan kurs ishi uchun 1 soat
+        }
+        
+        // Mustaqil ta'lim
+        const mustaqilInput = row.querySelector('input[name*="hours_mustaqil"]');
+        if (mustaqilInput) {
+            semesterMustaqil += parseInt(mustaqilInput.value) || 0;
         }
     });
     
@@ -390,6 +479,14 @@ function updateSemesterTotal(changedRow) {
     semesterCreditsCells.forEach(function(cell) {
         cell.textContent = semesterTotalCredits.toFixed(2);
     });
+    
+    // Jami auditoriya va mustaqil ta'lim soatlarini yangilash (K qo'shilmaydi)
+    const auditoriyaTotal = semesterAuditoriyaM + semesterAuditoriyaA + semesterAuditoriyaL + semesterAuditoriyaS;
+    const auditoriyaTotalCell = document.querySelector(`.semester-auditoriya-total-${semester}`);
+    if (auditoriyaTotalCell) auditoriyaTotalCell.textContent = auditoriyaTotal;
+    
+    const mustaqilCell = document.querySelector(`.semester-mustaqil-${semester}`);
+    if (mustaqilCell) mustaqilCell.textContent = semesterMustaqil;
     
     // Umumiy yuklamani yangilash
     updateTotalWorkload();
@@ -420,12 +517,36 @@ function updateTotalWorkload() {
 
 // Har bir input uchun calculateTotal funksiyasini qo'shish
 document.addEventListener('DOMContentLoaded', function() {
-    const allInputs = document.querySelectorAll('.curriculum-row-form input[type="number"]');
-    allInputs.forEach(function(input) {
+    // Barcha text inputlar
+    const allTextInputs = document.querySelectorAll('input[type="text"][name*="hours_"]');
+    allTextInputs.forEach(function(input) {
         input.addEventListener('input', function() {
             calculateTotal(this);
         });
+        input.addEventListener('change', function() {
+            calculateTotal(this);
+        });
     });
+    
+    // Barcha checkbox'lar (kurs ishi)
+    const allCheckboxes = document.querySelectorAll('input[type="checkbox"][name="hours_kurs_ishi"]');
+    allCheckboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            calculateTotal(this);
+        });
+    });
+    
+    // Barcha semestrlarni boshlang'ich holatda yangilash
+    const allTables = document.querySelectorAll('table');
+    allTables.forEach(function(table) {
+        const firstRow = table.querySelector('tbody tr');
+        if (firstRow) {
+            updateSemesterTotal(firstRow);
+        }
+    });
+    
+    // Tanlangan fanlar sonini boshlang'ich holatda yangilash
+    updateSelectedCount();
 });
 
 // Fanlarni semestrga qo'shish form submit
