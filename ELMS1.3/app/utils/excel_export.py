@@ -21,8 +21,8 @@ def create_students_excel(students, faculty_name=None):
     if faculty_name:
         title += f" - {faculty_name}"
     
-    # A–O (15 ustun)
-    ws.merge_cells('A1:O1')
+    # A–P (16 ustun)
+    ws.merge_cells('A1:P1')
     title_cell = ws['A1']
     title_cell.value = title
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -31,7 +31,7 @@ def create_students_excel(students, faculty_name=None):
     
     # Sana
     ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ws.merge_cells('A2:O2')
+    ws.merge_cells('A2:P2')
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
@@ -49,9 +49,10 @@ def create_students_excel(students, faculty_name=None):
         "Kurs",                # J
         "Semestr",             # K
         "Ta'lim shakli",       # L
-        "Mutaxassislik kodi",  # M
-        "Mutaxassislik nomi",  # N
-        "Guruh"                # O
+        "Qabul yili",          # M
+        "Mutaxassislik kodi",  # N
+        "Mutaxassislik nomi",  # O
+        "Guruh"                # P
     ]
     header_row = 3
     
@@ -114,18 +115,25 @@ def create_students_excel(students, faculty_name=None):
             education_type = student.group.education_type or ''
             education_type_display = education_type.capitalize() if education_type else ''
             ws.cell(row=row_num, column=12, value=education_type_display)
+            # Qabul yili (yo'nalishdan yoki talabadan)
+            enrollment_year = ''
+            if student.group.direction and student.group.direction.enrollment_year:
+                enrollment_year = student.group.direction.enrollment_year
+            elif getattr(student, 'enrollment_year', None):
+                enrollment_year = student.enrollment_year
+            ws.cell(row=row_num, column=13, value=enrollment_year)
             # Mutaxassislik kodi (yo'nalish kodi)
             specialty_code = ''
             if student.group.direction:
                 specialty_code = student.group.direction.code or ''
-            ws.cell(row=row_num, column=13, value=specialty_code)
+            ws.cell(row=row_num, column=14, value=specialty_code)
             # Mutaxassislik nomi (yo'nalish nomi)
             specialty_name = ''
             if student.group.direction:
                 specialty_name = student.group.direction.name or ''
-            ws.cell(row=row_num, column=14, value=specialty_name)
+            ws.cell(row=row_num, column=15, value=specialty_name)
             # Guruh
-            ws.cell(row=row_num, column=15, value=student.group.name)
+            ws.cell(row=row_num, column=16, value=student.group.name)
         else:
             # Guruh bo'lmagan talabalar uchun bo'sh qatorlar
             ws.cell(row=row_num, column=9, value='')
@@ -135,6 +143,7 @@ def create_students_excel(students, faculty_name=None):
             ws.cell(row=row_num, column=13, value='')
             ws.cell(row=row_num, column=14, value='')
             ws.cell(row=row_num, column=15, value='')
+            ws.cell(row=row_num, column=16, value='')
         
         # Stil
         for col_num in range(1, len(headers) + 1):
@@ -150,7 +159,7 @@ def create_students_excel(students, faculty_name=None):
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
     # Ustun kengliklarini sozlash
-    column_widths = [15, 30, 20, 18, 18, 16, 25, 40, 20, 12, 12, 15, 20, 30, 15]
+    column_widths = [15, 30, 20, 18, 18, 16, 25, 40, 20, 12, 12, 15, 12, 20, 30, 15]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     

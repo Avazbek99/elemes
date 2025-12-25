@@ -20,17 +20,17 @@ def generate_sample_file():
     ws.title = "Talabalar import"
 
     # Sarlavha
-    ws.merge_cells('A1:O1')
+    ws.merge_cells('A1:P1')
     title_cell = ws['A1']
     title_cell.value = "Talabalar import uchun namuna fayl"
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-
+    
     # Import talablari
     from datetime import datetime
     ws['A2'] = "IMPORT TALABLARI:"
-    ws.merge_cells('A2:O2')
+    ws.merge_cells('A2:P2')
     ws['A2'].font = Font(size=11, bold=True, color="000000")
     ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
     ws['A2'].fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
@@ -48,14 +48,15 @@ def generate_sample_file():
         "9. Fakultet - ixtiyoriy maydon (guruh biriktirish uchun)",
         "10. Kurs - ixtiyoriy maydon (1-kurs, 2-kurs formatida, guruh biriktirish uchun)",
         "11. Semestr - ixtiyoriy maydon (1-semestr, 2-semestr formatida)",
-        "12. Ta'lim shakli - ixtiyoriy maydon (Kunduzgi, Sirtqi, Kechki - bosh harf katta, guruh biriktirish uchun)",
-        "13. Mutaxassislik kodi - ixtiyoriy maydon (yo'nalish kodi)",
-        "14. Mutaxassislik nomi - ixtiyoriy maydon (yo'nalish nomi)",
-        "15. Guruh - ixtiyoriy maydon (agar mavjud bo'lsa, qo'shiladi, aks holda yangi yaratiladi)"
+        "12. Ta'lim shakli - ixtiyoriy maydon (Kunduzgi, Sirtqi, Kechki, Masofaviy - bosh harf katta, guruh biriktirish uchun)",
+        "13. Qabul yili - ixtiyoriy maydon (masalan: 2024, guruh biriktirish uchun)",
+        "14. Mutaxassislik kodi - ixtiyoriy maydon (yo'nalish kodi)",
+        "15. Mutaxassislik nomi - ixtiyoriy maydon (yo'nalish nomi)",
+        "16. Guruh - ixtiyoriy maydon (agar mavjud bo'lsa, qo'shiladi, aks holda yangi yaratiladi)"
     ]
     
     for idx, req in enumerate(requirements, start=3):
-        ws.merge_cells(f'A{idx}:O{idx}')
+        ws.merge_cells(f'A{idx}:P{idx}')
         cell = ws.cell(row=idx, column=1)
         cell.value = req
         cell.font = Font(size=10)
@@ -75,14 +76,15 @@ def generate_sample_file():
         "• Fayl .xlsx yoki .xls formatida bo'lishi kerak",
         "• Majburiy maydonlar: To'liq ism, Talaba ID, Pasport seriya raqami",
         "• Ixtiyoriy maydonlar: Qolgan barcha maydonlar",
-        "• Agar Fakultet, Kurs, Ta'lim shakli va Guruh ma'lumotlari to'liq bo'lsa, talaba avtomatik guruhga qo'shiladi",
+        "• Agar Fakultet, Kurs, Ta'lim shakli, Qabul yili va Guruh ma'lumotlari to'liq bo'lsa, talaba avtomatik guruhga qo'shiladi",
         "• Guruh nomi to'g'ri yozilishi kerak (masalan: DI-21). Agar guruh mavjud bo'lmasa, yangi yaratiladi",
+        "• Qabul yili yo'nalishga biriktirishda muhim (masalan: 2024, 2025)",
         "• Email va Talaba ID takrorlanmasligi kerak",
         "• Yangi talabalar uchun boshlang'ich parol: Pasport seriya raqami"
     ]
     
     for idx, note in enumerate(notes, start=note_start_row + 1):
-        ws.merge_cells(f'A{idx}:O{idx}')
+        ws.merge_cells(f'A{idx}:P{idx}')
         cell = ws.cell(row=idx, column=1)
         cell.value = note
         cell.font = Font(size=10)
@@ -103,9 +105,10 @@ def generate_sample_file():
         "Kurs",                   # J
         "Semestr",                # K
         "Ta'lim shakli",          # L
-        "Mutaxassislik kodi",     # M
-        "Mutaxassislik nomi",     # N
-        "Guruh"                   # O
+        "Qabul yili",             # M
+        "Mutaxassislik kodi",     # N
+        "Mutaxassislik nomi",     # O
+        "Guruh"                   # P
     ]
 
     header_row = len(requirements) + len(notes) + 4
@@ -124,8 +127,8 @@ def generate_sample_file():
 
     # Namuna ma'lumotlar (ismlar katta harflarda)
     sample_data = [
-        ["ST2024001", "ALIYEV VALI", "AB1234567", "30202020200021", "2000-01-15", "+998901234567", "vali@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "DI", "Dasturiy injiniring", "DI-21"],
-        ["ST2024002", "KARIMOVA ZUHRA", "AC2345678", "30202020200022", "2001-03-20", "+998901234568", "zuhra@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "DI", "Dasturiy injiniring", "DI-21"]
+        ["ST2024001", "ALIYEV VALI", "AB1234567", "30202020200021", "2000-01-15", "+998901234567", "vali@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "2024", "DI", "Dasturiy injiniring", "DI-21"],
+        ["ST2024002", "KARIMOVA ZUHRA", "AC2345678", "30202020200022", "2001-03-20", "+998901234568", "zuhra@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "2024", "DI", "Dasturiy injiniring", "DI-21"]
     ]
 
     for row_num, row_data in enumerate(sample_data, start=header_row + 1):
@@ -140,7 +143,7 @@ def generate_sample_file():
             )
 
     # Ustun kengliklarini sozlash
-    column_widths = [15, 30, 20, 18, 18, 16, 25, 40, 20, 12, 12, 15, 20, 30, 15]
+    column_widths = [15, 30, 20, 18, 18, 16, 25, 40, 20, 12, 12, 15, 12, 20, 30, 15]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
 
@@ -380,11 +383,12 @@ def import_students_from_excel(file, faculty_id=None):
                     except ValueError:
                         errors.append(f"Qator {row_num}: Tug'ilgan sana noto'g'ri format (DD.MM.YYYY yoki YYYY-MM-DD)")
                 
-                # Fakultet, Kurs, Semestr, Ta'lim shakli, Mutaxassislik, Guruh
+                # Fakultet, Kurs, Semestr, Ta'lim shakli, Qabul yili, Mutaxassislik, Guruh
                 faculty_name = row_data.get('Fakultet', '').strip()
                 course_str = row_data.get('Kurs', '').strip()  # "1-kurs" formatida
                 semester_str = row_data.get('Semestr', '').strip()
                 education_type = row_data.get("Ta'lim shakli", '').strip()
+                enrollment_year_str = row_data.get('Qabul yili', '').strip()
                 specialty_code = row_data.get('Mutaxassislik kodi', '').strip()
                 specialty_name = row_data.get('Mutaxassislik nomi', '').strip()
                 group_name = row_data.get('Guruh', '').strip()
@@ -411,6 +415,14 @@ def import_students_from_excel(file, faculty_id=None):
                 if education_type:
                     education_type = education_type.lower()
                 
+                # Qabul yilini o'qish
+                enrollment_year = None
+                if enrollment_year_str:
+                    try:
+                        enrollment_year = int(enrollment_year_str)
+                    except:
+                        pass
+                
                 # Yo'nalishni topish yoki yaratish
                 direction = None
                 if specialty_code and faculty_name:
@@ -420,8 +432,20 @@ def import_students_from_excel(file, faculty_id=None):
                         errors.append(f"Qator {row_num}: Fakultet '{faculty_name}' topilmadi")
                         continue
                     
-                    # Yo'nalishni topish (kodi bo'yicha)
-                    direction = Direction.query.filter_by(code=specialty_code, faculty_id=faculty.id).first()
+                    # Yo'nalishni topish (kodi bo'yicha va qabul yili bo'yicha)
+                    query = Direction.query.filter_by(code=specialty_code, faculty_id=faculty.id)
+                    if enrollment_year:
+                        # Qabul yili bilan bir nechta yo'nalish bo'lishi mumkin
+                        query = query.filter_by(enrollment_year=enrollment_year)
+                    direction = query.first()
+                    
+                    # Agar qabul yili bilan topilmasa, qabul yilisiz qidirish
+                    if not direction and enrollment_year:
+                        direction = Direction.query.filter_by(
+                            code=specialty_code, 
+                            faculty_id=faculty.id,
+                            enrollment_year=None
+                        ).first()
                     
                     # Agar yo'nalish topilmasa, yangi yaratish
                     if not direction:
@@ -432,10 +456,14 @@ def import_students_from_excel(file, faculty_id=None):
                                 faculty_id=faculty.id,
                                 course_year=course_year,
                                 semester=semester,
-                                education_type=education_type or 'kunduzgi'
+                                education_type=education_type or 'kunduzgi',
+                                enrollment_year=enrollment_year
                             )
                             db.session.add(direction)
                             db.session.flush()
+                    elif enrollment_year and not direction.enrollment_year:
+                        # Mavjud yo'nalishga qabul yilini qo'shish
+                        direction.enrollment_year = enrollment_year
                 
                 # Guruhni topish yoki yaratish
                 group = None
@@ -489,6 +517,8 @@ def import_students_from_excel(file, faculty_id=None):
                             user.semester = semester
                         if education_type:
                             user.education_type = education_type
+                        if enrollment_year:
+                            user.enrollment_year = enrollment_year
                     
                     user.set_password(passport_number)
                     updated += 1
@@ -505,7 +535,8 @@ def import_students_from_excel(file, faculty_id=None):
                         email=email if email else None,
                         description=row_data.get('Tavsif', '').strip() or None,
                         semester=semester,
-                        education_type=education_type if education_type else None
+                        education_type=education_type if education_type else None,
+                        enrollment_year=enrollment_year
                     )
                     
                     # Guruhni biriktirish
