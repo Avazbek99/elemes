@@ -1122,3 +1122,163 @@ def import_subjects_from_excel(file):
             'updated': 0,
             'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
         }
+
+
+def import_curriculum_from_excel(file, direction_id):
+    """Excel fayldan o'quv rejani import qilish"""
+    try:
+        from openpyxl import load_workbook
+        from app.models import Direction, Subject, DirectionCurriculum
+        from app import db
+    except ImportError:
+        return {
+            'success': False,
+            'imported': 0,
+            'updated': 0,
+            'errors': ["openpyxl kutubxonasi o'rnatilmagan"]
+        }
+    
+    try:
+        direction = Direction.query.get(direction_id)
+        if not direction:
+            return {
+                'success': False,
+                'imported': 0,
+                'updated': 0,
+                'errors': ["Yo'nalish topilmadi"]
+            }
+        
+        wb = load_workbook(file, data_only=True)
+        
+        imported = 0
+        updated = 0
+        errors = []
+        
+        # Har bir worksheet'ni o'qish (semestr bo'yicha)
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            
+            # Semestr nomini olish (masalan: "1-semestr" -> 1)
+            try:
+                semester = int(sheet_name.split('-')[0])
+            except (ValueError, IndexError):
+                errors.append(f"Sheet '{sheet_name}' nomi noto'g'ri formatda. Semestr raqamini olish mumkin emas.")
+                continue
+            
+            # Sarlavha qatorini topish
+            header_row = None
+            for row_num in range(1, min(10, ws.max_row + 1)):
+                first_cell = ws.cell(row=row_num, column=1).value
+                if first_cell and ("Fan kodi" in str(first_cell) or "Fan nomi" in str(first_cell)):
+                    header_row = row_num
+                    break
+            
+            if not header_row:
+                errors.append(f"Sheet '{sheet_name}' da sarlavha qatori topilmadi.")
+                continue
+            
+            # Sarlavhalarni olish
+            headers = {}
+            for col_num in range(1, ws.max_column + 1):
+                cell_value = ws.cell(row=header_row, column=col_num).value
+                if cell_value:
+                    headers[str(cell_value).strip()] = col_num
+            
+            # Ma'lumotlarni o'qish
+            for row_num in range(header_row + 1, ws.max_row + 1):
+                try:
+                    # Fan kodi yoki nomi
+                    subject_code = ws.cell(row=row_num, column=headers.get("Fan kodi", 1)).value
+                    subject_name = ws.cell(row=row_num, column=headers.get("Fan nomi", 2)).value
+                    
+                    # Bo'sh qatorlarni o'tkazib yuborish
+                    if not subject_code and not subject_name:
+                        continue
+                    
+                    # Fan topish
+                    subject = None
+                    if subject_code:
+                        subject_code = str(subject_code).strip().upper()
+                        subject = Subject.query.filter_by(code=subject_code).first()
+                    
+                    if not subject and subject_name:
+                        subject_name = str(subject_name).strip()
+                        subject = Subject.query.filter_by(name=subject_name).first()
+                    
+                    if not subject:
+                        errors.append(f"Qator {row_num}: Fan topilmadi (Kod: {subject_code or '-'}, Nom: {subject_name or '-'})")
+                        continue
+                    
+                    # Soatlar
+                    maruza = ws.cell(row=row_num, column=headers.get("Maruza (M)", 4)).value or 0
+                    amaliyot = ws.cell(row=row_num, column=headers.get("Amaliyot (A)", 5)).value or 0
+                    laboratoriya = ws.cell(row=row_num, column=headers.get("Laboratoriya (L)", 6)).value or 0
+                    seminar = ws.cell(row=row_num, column=headers.get("Seminar (S)", 7)).value or 0
+                    kurs_ishi = ws.cell(row=row_num, column=headers.get("Kurs ishi (K)", 8)).value or 0
+                    mustaqil = ws.cell(row=row_num, column=headers.get("Mustaqil ta'lim (MT)", 9)).value or 0
+                    
+                    # Raqamlarga o'tkazish
+                    try:
+                        maruza = int(float(maruza)) if maruza else 0
+                        amaliyot = int(float(amaliyot)) if amaliyot else 0
+                        laboratoriya = int(float(laboratoriya)) if laboratoriya else 0
+                        seminar = int(float(seminar)) if seminar else 0
+                        kurs_ishi = int(float(kurs_ishi)) if kurs_ishi else 0
+                        mustaqil = int(float(mustaqil)) if mustaqil else 0
+                    except (ValueError, TypeError):
+                        errors.append(f"Qator {row_num}: Soatlar noto'g'ri formatda")
+                        continue
+                    
+                    # Mavjud o'quv reja elementini topish yoki yaratish
+                    curriculum_item = DirectionCurriculum.query.filter_by(
+                        direction_id=direction_id,
+                        subject_id=subject.id,
+                        semester=semester
+                    ).first()
+                    
+                    if curriculum_item:
+                        # Yangilash
+                        curriculum_item.hours_maruza = maruza
+                        curriculum_item.hours_amaliyot = amaliyot
+                        curriculum_item.hours_laboratoriya = laboratoriya
+                        curriculum_item.hours_seminar = seminar
+                        curriculum_item.hours_kurs_ishi = kurs_ishi
+                        curriculum_item.hours_mustaqil = mustaqil
+                        updated += 1
+                    else:
+                        # Yaratish
+                        curriculum_item = DirectionCurriculum(
+                            direction_id=direction_id,
+                            subject_id=subject.id,
+                            semester=semester,
+                            hours_maruza=maruza,
+                            hours_amaliyot=amaliyot,
+                            hours_laboratoriya=laboratoriya,
+                            hours_seminar=seminar,
+                            hours_kurs_ishi=kurs_ishi,
+                            hours_mustaqil=mustaqil
+                        )
+                        db.session.add(curriculum_item)
+                        imported += 1
+                
+                except Exception as e:
+                    errors.append(f"Qator {row_num}: {str(e)}")
+                    continue
+        
+        db.session.commit()
+        
+        return {
+            'success': True,
+            'imported': imported,
+            'updated': updated,
+            'errors': errors
+        }
+    
+    except Exception as e:
+        db.session.rollback()
+        return {
+            'success': False,
+            'imported': 0,
+            'updated': 0,
+            'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
+        }

@@ -48,8 +48,8 @@
     <table class="w-full">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Kod</th>
                 <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Fan nomi</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tavsif</th>
                 <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
             </tr>
         </thead>
@@ -58,14 +58,19 @@
             {% set has_issue = subject.has_lessons_without_content() %}
             <tr class="hover:bg-gray-50 transition-colors {% if has_issue %}bg-red-50{% endif %}">
                 <td class="px-6 py-4">
-                    <span class="font-mono font-medium {% if has_issue %}text-red-600{% else %}text-primary-600{% endif %}">{{ subject.code }}</span>
+                    <div class="space-y-1">
+                        <p class="font-medium text-base {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</p>
+                        <p class="font-mono text-sm {% if has_issue %}text-red-500{% else %}text-primary-600{% endif %}">{{ subject.code }}</p>
+                        {% if has_issue %}
+                        <p class="text-xs text-red-600 font-medium mt-1">⚠️ Darslar mavjud, lekin videolar/fayllar yo'q</p>
+                        {% endif %}
+                    </div>
                 </td>
                 <td class="px-6 py-4">
-                    <p class="font-medium {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</p>
-                    {% if has_issue %}
-                    <p class="text-xs text-red-600 font-medium mt-1">⚠️ Darslar mavjud, lekin videolar/fayllar yo'q</p>
-                    {% elif subject.description %}
-                    <p class="text-sm text-gray-500 truncate max-w-xs">{{ subject.description }}</p>
+                    {% if subject.description %}
+                    <p class="text-sm text-gray-600">{{ subject.description }}</p>
+                    {% else %}
+                    <p class="text-sm text-gray-400 italic">Tavsif mavjud emas</p>
                     {% endif %}
                 </td>
                 <td class="px-6 py-4 text-right">

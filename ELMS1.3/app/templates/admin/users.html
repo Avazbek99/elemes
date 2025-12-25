@@ -104,7 +104,7 @@
                             {{ user.full_name[0] }}
                         </div>
                         <div>
-                            <p class="font-medium text-gray-900">{{ user.full_name }}</p>
+                            <p class="font-medium text-gray-900">{{ user.full_name.upper() if user.full_name else '-' }}</p>
                             <p class="text-sm text-gray-500">{{ user.email }}</p>
                         </div>
                     </div>

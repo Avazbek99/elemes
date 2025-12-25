@@ -30,7 +30,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-lg font-semibold text-gray-900 truncate">{{ teacher.full_name }}</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 truncate">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</h3>
                         <span class="px-2 py-1 text-xs rounded-full {% if teacher.is_active %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-600{% endif %}">
                             {% if teacher.is_active %}Faol{% else %}Nofaol{% endif %}
                         </span>

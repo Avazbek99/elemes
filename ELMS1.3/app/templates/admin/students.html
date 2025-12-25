@@ -127,7 +127,7 @@
                                 {{ student.full_name[0] }}
                             </div>
                             <div>
-                                <p class="font-medium text-gray-900">{{ student.full_name }}</p>
+                                <p class="font-medium text-gray-900">{{ student.full_name.upper() if student.full_name else '-' }}</p>
                                 {% if student.student_id %}
                                 <p class="text-sm text-gray-500">{{ student.student_id }}</p>
                                 {% endif %}

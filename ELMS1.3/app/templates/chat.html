@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ other_user.full_name }} bilan suhbat{% endblock %}
+{% block title %}{{ other_user.full_name.upper() if other_user.full_name else '-' }} bilan suhbat{% endblock %}
 
 {% block content %}
 <div class="h-[calc(100vh-10rem)]">
@@ -15,7 +15,7 @@
                     {{ other_user.full_name[0] }}
                 </div>
                 <div>
-                    <p class="font-medium text-gray-900">{{ other_user.full_name }}</p>
+                    <p class="font-medium text-gray-900">{{ other_user.full_name.upper() if other_user.full_name else '-' }}</p>
                     <p class="text-xs text-gray-500">{{ other_user.get_role_display() }}</p>
                 </div>
             </div>

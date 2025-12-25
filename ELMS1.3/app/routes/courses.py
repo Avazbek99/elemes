@@ -3,7 +3,7 @@ import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, jsonify, Response
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from app.models import Subject, Lesson, Assignment, Submission, User, TeacherSubject, Group, LessonView, GradeScale
+from app.models import Subject, Lesson, Assignment, Submission, User, TeacherSubject, Group, LessonView, GradeScale, DirectionCurriculum
 from app import db
 from datetime import datetime
 
@@ -48,12 +48,238 @@ def index():
             (Subject.code.ilike(f'%{search}%'))
         )
     
-    subjects = query.order_by(Subject.code).paginate(page=page, per_page=12)
+    # Semestr bo'yicha guruhlash va tartiblash (o'qituvchi va talaba uchun)
+    subjects_by_semester = {}
+    all_subjects_list = []
+    
+    if current_user.role == 'student' and current_user.group_id:
+        # Talaba uchun - semestr bo'yicha guruhlash
+        group = Group.query.get(current_user.group_id)
+        if group and group.direction_id:
+            # DirectionCurriculum orqali semestr bo'yicha fanlarni olish
+            curriculum_items = DirectionCurriculum.query.filter_by(
+                direction_id=group.direction_id
+            ).join(Subject).order_by(
+                DirectionCurriculum.semester,
+                Subject.name
+            ).all()
+            
+            for item in curriculum_items:
+                semester = item.semester
+                if semester not in subjects_by_semester:
+                    subjects_by_semester[semester] = []
+                # Takrorlanuvchi fanlarni tekshirish
+                existing_subjects = [s['subject'].id for s in subjects_by_semester[semester]]
+                if item.subject.id not in existing_subjects:
+                    subjects_by_semester[semester].append({
+                        'subject': item.subject,
+                        'semester': semester
+                    })
+                    if item.subject not in all_subjects_list:
+                        all_subjects_list.append(item.subject)
+        else:
+            # Agar yo'nalish bo'lmasa, oddiy tartibda
+            subjects = query.order_by(Subject.code).paginate(page=page, per_page=12)
+            all_subjects_list = list(subjects.items)
+    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+        # O'qituvchi uchun - semestr bo'yicha guruhlash
+        teacher_subjects = TeacherSubject.query.filter_by(teacher_id=current_user.id).all()
+        teacher_groups = set([ts.group_id for ts in teacher_subjects])
+        
+        for group_id in teacher_groups:
+            group = Group.query.get(group_id)
+            if group and group.direction_id:
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id
+                ).join(Subject).filter(
+                    Subject.id.in_([ts.subject_id for ts in teacher_subjects if ts.group_id == group_id])
+                ).order_by(
+                    DirectionCurriculum.semester,
+                    Subject.name
+                ).all()
+                
+                for item in curriculum_items:
+                    semester = item.semester
+                    if semester not in subjects_by_semester:
+                        subjects_by_semester[semester] = []
+                    # Takrorlanuvchi fanlarni tekshirish
+                    existing_subjects = [s['subject'].id for s in subjects_by_semester[semester]]
+                    if item.subject.id not in existing_subjects:
+                        subjects_by_semester[semester].append({
+                            'subject': item.subject,
+                            'semester': semester
+                        })
+                        if item.subject not in all_subjects_list:
+                            all_subjects_list.append(item.subject)
+        
+        # Agar semestr bo'yicha guruhlash bo'lmasa, oddiy tartibda
+        if not subjects_by_semester:
+            subjects = query.order_by(Subject.name).paginate(page=page, per_page=12)
+            all_subjects_list = list(subjects.items)
+    else:
+        # Admin va dekan uchun oddiy tartib
+        subjects = query.order_by(Subject.name).paginate(page=page, per_page=12)
+        all_subjects_list = list(subjects.items)
+    
+    # Pagination uchun
+    if subjects_by_semester:
+        # Semestr bo'yicha guruhlangan fanlar uchun pagination
+        total_subjects = len(all_subjects_list)
+        per_page = 12
+        start = (page - 1) * per_page
+        end = start + per_page
+        paginated_subjects = all_subjects_list[start:end]
+        
+        # Pagination obyekti yaratish
+        from math import ceil
+        class Pagination:
+            def __init__(self, items, page, per_page, total):
+                self.items = items
+                self.page = page
+                self.per_page = per_page
+                self.total = total
+                self.pages = ceil(total / per_page) if total > 0 else 1
+                self.has_prev = page > 1
+                self.has_next = page < self.pages
+                self.prev_num = page - 1 if self.has_prev else None
+                self.next_num = page + 1 if self.has_next else None
+        
+        subjects = Pagination(paginated_subjects, page, per_page, total_subjects)
+    else:
+        subjects = query.order_by(Subject.name).paginate(page=page, per_page=12)
+    
+    # Har bir fan uchun dars turlarini olish (o'qituvchi va talaba uchun)
+    subject_lesson_types = {}
+    if current_user.role == 'student' and current_user.group_id:
+        # Talaba uchun - guruh va yo'nalish orqali
+        group = Group.query.get(current_user.group_id)
+        if group and group.direction_id:
+            for subject in subjects_for_processing:
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    subject_id=subject.id
+                ).all()
+                
+                lessons = []
+                for item in curriculum_items:
+                    # Maruza
+                    if item.hours_maruza and item.hours_maruza > 0:
+                        teacher_subject = TeacherSubject.query.filter_by(
+                            subject_id=subject.id,
+                            group_id=current_user.group_id,
+                            lesson_type='maruza'
+                        ).first()
+                        lessons.append({
+                            'type': 'Maruza',
+                            'hours': item.hours_maruza,
+                            'teacher': teacher_subject.teacher if teacher_subject else None
+                        })
+                    
+                    # Amaliyot (amaliyot + lobaratoriya)
+                    amaliyot_hours = (item.hours_amaliyot or 0) + (item.hours_laboratoriya or 0)
+                    if amaliyot_hours > 0:
+                        teacher_subject = TeacherSubject.query.filter_by(
+                            subject_id=subject.id,
+                            group_id=current_user.group_id,
+                            lesson_type='amaliyot'
+                        ).first()
+                        lessons.append({
+                            'type': 'Amaliyot',
+                            'hours': amaliyot_hours,
+                            'teacher': teacher_subject.teacher if teacher_subject else None
+                        })
+                    elif (item.hours_laboratoriya or 0) > 0:
+                        teacher_subject = TeacherSubject.query.filter_by(
+                            subject_id=subject.id,
+                            group_id=current_user.group_id,
+                            lesson_type='amaliyot'
+                        ).first()
+                        lessons.append({
+                            'type': 'Amaliyot',
+                            'hours': item.hours_laboratoriya,
+                            'teacher': teacher_subject.teacher if teacher_subject else None
+                        })
+                    
+                    # Seminar
+                    if item.hours_seminar and item.hours_seminar > 0:
+                        teacher_subject = TeacherSubject.query.filter_by(
+                            subject_id=subject.id,
+                            group_id=current_user.group_id,
+                            lesson_type='seminar'
+                        ).first()
+                        if not teacher_subject:
+                            teacher_subject = TeacherSubject.query.filter_by(
+                                subject_id=subject.id,
+                                group_id=current_user.group_id,
+                                lesson_type='amaliyot'
+                            ).first()
+                        lessons.append({
+                            'type': 'Seminar',
+                            'hours': item.hours_seminar,
+                            'teacher': teacher_subject.teacher if teacher_subject else None
+                        })
+                
+                if lessons:
+                    subject_lesson_types[subject.id] = lessons
+    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+        # O'qituvchi uchun - o'z biriktirilgan fanlari va guruhlari
+        teacher_subjects = TeacherSubject.query.filter_by(teacher_id=current_user.id).all()
+        for subject in subjects_for_processing:
+            lessons = []
+            # O'qituvchining bu fanga biriktirilgan guruhlari
+            subject_teacher_assignments = [ts for ts in teacher_subjects if ts.subject_id == subject.id]
+            
+            for ts in subject_teacher_assignments:
+                group = Group.query.get(ts.group_id)
+                if group and group.direction_id:
+                    curriculum_items = DirectionCurriculum.query.filter_by(
+                        direction_id=group.direction_id,
+                        subject_id=subject.id
+                    ).all()
+                    
+                    for item in curriculum_items:
+                        # Maruza
+                        if item.hours_maruza and item.hours_maruza > 0 and ts.lesson_type == 'maruza':
+                            lessons.append({
+                                'type': 'Maruza',
+                                'hours': item.hours_maruza,
+                                'teacher': current_user,
+                                'group': group
+                            })
+                        
+                        # Amaliyot
+                        amaliyot_hours = (item.hours_amaliyot or 0) + (item.hours_laboratoriya or 0)
+                        if amaliyot_hours > 0 and ts.lesson_type == 'amaliyot':
+                            lessons.append({
+                                'type': 'Amaliyot',
+                                'hours': amaliyot_hours,
+                                'teacher': current_user,
+                                'group': group
+                            })
+                        elif (item.hours_laboratoriya or 0) > 0 and ts.lesson_type == 'amaliyot':
+                            lessons.append({
+                                'type': 'Amaliyot',
+                                'hours': item.hours_laboratoriya,
+                                'teacher': current_user,
+                                'group': group
+                            })
+                        
+                        # Seminar
+                        if item.hours_seminar and item.hours_seminar > 0 and ts.lesson_type == 'seminar':
+                            lessons.append({
+                                'type': 'Seminar',
+                                'hours': item.hours_seminar,
+                                'teacher': current_user,
+                                'group': group
+                            })
+            
+            if lessons:
+                subject_lesson_types[subject.id] = lessons
     
     # Talaba uchun har bir fan bo'yicha ballar
     subject_grades = {}
     if current_user.role == 'student' and current_user.group_id:
-        for subject in subjects.items:
+        for subject in subjects_for_processing:
             assignments = Assignment.query.filter_by(
                 subject_id=subject.id,
                 group_id=current_user.group_id
@@ -114,7 +340,12 @@ def index():
                 'total': {'score': maruza_score + amaliyot_score, 'max': maruza_max + amaliyot_max}
             }
     
-    return render_template('courses/index.html', subjects=subjects, search=search, subject_grades=subject_grades)
+    return render_template('courses/index.html', 
+                         subjects=subjects, 
+                         search=search, 
+                         subject_grades=subject_grades, 
+                         subject_lesson_types=subject_lesson_types,
+                         subjects_by_semester=subjects_by_semester)
 
 
 @bp.route('/<int:id>')
@@ -298,6 +529,125 @@ def detail(id):
         maruza_teachers = [ta for ta in all_teacher_assignments if ta.lesson_type == 'maruza']
         amaliyot_teachers = [ta for ta in all_teacher_assignments if ta.lesson_type == 'amaliyot']
     
+    # Dars turlarini olish (o'qituvchi va talaba uchun)
+    lesson_types = []
+    if current_user.role == 'student' and current_user.group_id:
+        # Talaba uchun
+        group = Group.query.get(current_user.group_id)
+        if group and group.direction_id:
+            curriculum_items = DirectionCurriculum.query.filter_by(
+                direction_id=group.direction_id,
+                subject_id=subject.id
+            ).all()
+            
+            for item in curriculum_items:
+                # Maruza
+                if item.hours_maruza and item.hours_maruza > 0:
+                    teacher_subject = TeacherSubject.query.filter_by(
+                        subject_id=subject.id,
+                        group_id=current_user.group_id,
+                        lesson_type='maruza'
+                    ).first()
+                    lesson_types.append({
+                        'type': 'Maruza',
+                        'hours': item.hours_maruza,
+                        'teacher': teacher_subject.teacher if teacher_subject else None
+                    })
+                
+                # Amaliyot
+                amaliyot_hours = (item.hours_amaliyot or 0) + (item.hours_laboratoriya or 0)
+                if amaliyot_hours > 0:
+                    teacher_subject = TeacherSubject.query.filter_by(
+                        subject_id=subject.id,
+                        group_id=current_user.group_id,
+                        lesson_type='amaliyot'
+                    ).first()
+                    lesson_types.append({
+                        'type': 'Amaliyot',
+                        'hours': amaliyot_hours,
+                        'teacher': teacher_subject.teacher if teacher_subject else None
+                    })
+                elif (item.hours_laboratoriya or 0) > 0:
+                    teacher_subject = TeacherSubject.query.filter_by(
+                        subject_id=subject.id,
+                        group_id=current_user.group_id,
+                        lesson_type='amaliyot'
+                    ).first()
+                    lesson_types.append({
+                        'type': 'Amaliyot',
+                        'hours': item.hours_laboratoriya,
+                        'teacher': teacher_subject.teacher if teacher_subject else None
+                    })
+                
+                # Seminar
+                if item.hours_seminar and item.hours_seminar > 0:
+                    teacher_subject = TeacherSubject.query.filter_by(
+                        subject_id=subject.id,
+                        group_id=current_user.group_id,
+                        lesson_type='seminar'
+                    ).first()
+                    if not teacher_subject:
+                        teacher_subject = TeacherSubject.query.filter_by(
+                            subject_id=subject.id,
+                            group_id=current_user.group_id,
+                            lesson_type='amaliyot'
+                        ).first()
+                    lesson_types.append({
+                        'type': 'Seminar',
+                        'hours': item.hours_seminar,
+                        'teacher': teacher_subject.teacher if teacher_subject else None
+                    })
+    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+        # O'qituvchi uchun
+        teacher_subjects = TeacherSubject.query.filter_by(
+            teacher_id=current_user.id,
+            subject_id=subject.id
+        ).all()
+        
+        for ts in teacher_subjects:
+            group = Group.query.get(ts.group_id)
+            if group and group.direction_id:
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    subject_id=subject.id
+                ).all()
+                
+                for item in curriculum_items:
+                    # Maruza
+                    if item.hours_maruza and item.hours_maruza > 0 and ts.lesson_type == 'maruza':
+                        lesson_types.append({
+                            'type': 'Maruza',
+                            'hours': item.hours_maruza,
+                            'teacher': current_user,
+                            'group': group
+                        })
+                    
+                    # Amaliyot
+                    amaliyot_hours = (item.hours_amaliyot or 0) + (item.hours_laboratoriya or 0)
+                    if amaliyot_hours > 0 and ts.lesson_type == 'amaliyot':
+                        lesson_types.append({
+                            'type': 'Amaliyot',
+                            'hours': amaliyot_hours,
+                            'teacher': current_user,
+                            'group': group
+                        })
+                    elif (item.hours_laboratoriya or 0) > 0 and ts.lesson_type == 'amaliyot':
+                        lesson_types.append({
+                            'type': 'Amaliyot',
+                            'hours': item.hours_laboratoriya,
+                            'teacher': current_user,
+                            'group': group
+                        })
+                    
+                    # Seminar
+                    if item.hours_seminar and item.hours_seminar > 0 and ts.lesson_type == 'seminar':
+                        lesson_types.append({
+                            'type': 'Seminar',
+                            'hours': item.hours_seminar,
+                            'teacher': current_user,
+                            'group': group
+                        })
+    
     return render_template('courses/detail.html',
                          subject=subject,
                          lessons=all_lessons,
@@ -310,7 +660,8 @@ def detail(id):
                          is_teacher=is_teacher,
                          my_group=my_group,
                          student_grades=student_grades,
-                         lesson_locked_status=lesson_locked_status)
+                         lesson_locked_status=lesson_locked_status,
+                         lesson_types=lesson_types)
 
 
 @bp.route('/<int:id>/lessons/create', methods=['GET', 'POST'])

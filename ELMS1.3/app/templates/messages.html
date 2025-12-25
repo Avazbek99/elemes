@@ -35,7 +35,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-gray-900">{{ chat.user.full_name }}</p>
+                        <p class="text-sm font-medium text-gray-900">{{ chat.user.full_name.upper() if chat.user.full_name else '-' }}</p>
                         {% if chat.last_message %}
                         <span class="text-xs text-gray-400">{{ chat.last_message.created_at.strftime('%H:%M') }}</span>
                         {% endif %}
@@ -113,7 +113,7 @@
                     {{ user.full_name[0] }}
                 </div>
                 <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-900">{{ user.full_name }}</p>
+                    <p class="text-sm font-medium text-gray-900">{{ user.full_name.upper() if user.full_name else '-' }}</p>
                     <p class="text-xs text-gray-500">{{ user.get_role_display() }}</p>
                 </div>
             </a>

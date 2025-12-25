@@ -293,8 +293,18 @@ def delete_announcement(id):
     """E'lonni o'chirish"""
     announcement = Announcement.query.get_or_404(id)
     
+    # Joriy rolni olish (session'dan yoki asosiy roldan)
+    current_role = session.get('current_role', current_user.role)
+    
     # Ruxsat tekshiruvi
-    if current_user.role != 'admin' and announcement.author_id != current_user.id:
+    # Faqat admin roliga o'tgan foydalanuvchi barcha e'lonlarni o'chira oladi
+    # Dekan roliga o'tgan admin faqat o'z e'lonlarini o'chira oladi
+    if current_role != 'admin' and announcement.author_id != current_user.id:
+        flash("Sizda bu e'lonni o'chirish huquqi yo'q", 'error')
+        return redirect(url_for('main.announcements'))
+    
+    # Dekan roliga o'tgan admin boshqalarni yaratgan e'lonlarini o'chira olmasin
+    if current_role == 'dean' and announcement.author_id != current_user.id:
         flash("Sizda bu e'lonni o'chirish huquqi yo'q", 'error')
         return redirect(url_for('main.announcements'))
     
@@ -392,11 +402,27 @@ def settings():
     
     return render_template('settings.html')
 
-@bp.route('/chat/<int:user_id>')
+@bp.route('/chat/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def chat(user_id):
     """Foydalanuvchi bilan suhbat"""
     other_user = User.query.get_or_404(user_id)
+    
+    # Xabar yuborish
+    if request.method == 'POST':
+        content = request.form.get('content', '').strip()
+        if content:
+            message = Message(
+                sender_id=current_user.id,
+                receiver_id=user_id,
+                content=content
+            )
+            db.session.add(message)
+            db.session.commit()
+            flash("Xabar yuborildi", 'success')
+            return redirect(url_for('main.chat', user_id=user_id))
+        else:
+            flash("Xabar bo'sh bo'lishi mumkin emas", 'error')
     
     # Ikki foydalanuvchi o'rtasidagi barcha xabarlar
     messages = Message.query.filter(

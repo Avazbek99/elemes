@@ -16,7 +16,7 @@
                 {{ teacher.full_name[0] }}
             </div>
             <div>
-                <h3 class="font-semibold text-gray-900">{{ teacher.full_name }}</h3>
+                <h3 class="font-semibold text-gray-900">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</h3>
                 <p class="text-sm text-gray-500">{{ teacher.position or "O'qituvchi" }}</p>
             </div>
         </div>

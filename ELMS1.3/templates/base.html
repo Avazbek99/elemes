@@ -302,7 +302,7 @@
                                     {{ current_user.full_name[0] }}
                                 </div>
                                 <div class="text-left hidden sm:block">
-                                    <p class="text-sm font-medium text-gray-900">{{ current_user.full_name }}</p>
+                                    <p class="text-sm font-medium text-gray-900">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
                                     <p class="text-xs text-gray-500">
                                         {% set current_role = session.get('current_role', current_user.role) %}
                                         {% set role_names = {'admin': 'Administrator', 'dean': 'Dekan', 'teacher': "O'qituvchi", 'student': 'Talaba', 'accounting': 'Buxgalteriya'} %}

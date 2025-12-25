@@ -37,7 +37,7 @@
         <h3 class="font-medium text-amber-800 mb-2">Topshirmagan talabalar ({{ not_submitted|length }}):</h3>
         <div class="flex flex-wrap gap-2">
             {% for student in not_submitted %}
-            <span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm">{{ student.full_name }}</span>
+                            <span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm">{{ student.full_name.upper() if student.full_name else '-' }}</span>
             {% endfor %}
         </div>
     </div>
@@ -58,7 +58,7 @@
                             {{ submission.student.full_name[0] }}
                         </div>
                         <div>
-                            <p class="font-medium text-gray-900">{{ submission.student.full_name }}</p>
+                            <p class="font-medium text-gray-900">{{ submission.student.full_name.upper() if submission.student.full_name else '-' }}</p>
                             <p class="text-xs text-gray-500">{{ submission.submitted_at.strftime('%d.%m.%Y, %H:%M') }}</p>
                         </div>
                     </div>
