@@ -190,6 +190,7 @@ def edit_group(id):
                 return redirect(url_for('dean.edit_group', id=group.id))
         
         group.name = new_name
+        old_direction_id = group.direction_id
         group.direction_id = direction_id
         group.course_year = course_year
         group.education_type = education_type
@@ -197,7 +198,8 @@ def edit_group(id):
         
         db.session.commit()
         flash("Guruh yangilandi", 'success')
-        return redirect(url_for('dean.courses'))
+        # Yo'nalishga qaytish (yangi yoki eski yo'nalishga)
+        return redirect(url_for('dean.direction_detail', id=direction_id))
     
     # GET request - ma'lumotlarni tayyorlash
     # Fakultetdagi barcha kurslarni olish
@@ -370,14 +372,26 @@ def courses():
     # Kurslar bo'yicha guruhlash (yo'nalishlarning course_year bo'yicha)
     courses_dict = {}
     
+    # Avval barcha kurslarni yaratish (1-4 kurslar)
+    # Fakultetdagi barcha kurslarni topish (guruhlar yoki yo'nalishlar orqali)
+    all_course_years = set()
+    for group in all_groups:
+        all_course_years.add(group.course_year)
+    for direction in all_directions:
+        all_course_years.add(direction.course_year)
+    
+    # Har doim 1-5 kurslarni yaratish (guruhlar yoki yo'nalishlar bo'lmasa ham)
+    all_course_years.update({1, 2, 3, 4, 5})
+    
+    # Barcha kurslarni yaratish
+    for course_year in all_course_years:
+        if course_year not in courses_dict:
+            courses_dict[course_year] = {}
+    
     # Barcha yo'nalishlarni kurs va semestr bo'yicha guruhlash
     for direction in all_directions:
         course_year = direction.course_year
         semester = direction.semester
-        
-        # Kurs yaratish
-        if course_year not in courses_dict:
-            courses_dict[course_year] = {}
         
         # Semestr bo'yicha guruhlash (1-semestr, 2-semestr, ...)
         if semester not in courses_dict[course_year]:
@@ -385,6 +399,10 @@ def courses():
         
         # Bu yo'nalishga tegishli guruhlarni topish
         direction_groups = [g for g in all_groups if g.direction_id == direction.id]
+        
+        # Faqat guruhlari bo'lgan yo'nalishlarni ko'rsatish
+        if not direction_groups:
+            continue
         
         # Yo'nalishni semestr ichiga qo'shish
         direction_id = direction.id
@@ -464,28 +482,49 @@ def courses():
         # Semestrlar ro'yxatini tartiblash (faqat int bo'lganlar)
         semesters_list = sorted([s for s in course_data.keys() if isinstance(s, int)])
         
-        # Semestrlar bo'yicha yo'nalishlarni birlashtirish
+        # Semestrlar bo'yicha yo'nalishlarni birlashtirish (faqat guruhlari bo'lganlar)
         for semester in semesters_list:
             for direction_id, direction_data in course_data[semester].items():
-                all_directions[direction_id] = direction_data
+                # Faqat guruhlari bo'lgan yo'nalishlarni qo'shish
+                if direction_data.get('groups'):
+                    all_directions[direction_id] = direction_data
         
         # Semestrlar bo'yicha ajratilgan struktura (template uchun)
+        # Faqat yo'nalishlari bo'lgan semestrlarni qo'shish
         semesters_dict = {}
         for semester in semesters_list:
-            semesters_dict[semester] = course_data[semester]
+            # Faqat guruhlari bo'lgan yo'nalishlar bo'lishi kerak
+            filtered_directions = {
+                direction_id: direction_data 
+                for direction_id, direction_data in course_data[semester].items()
+                if direction_data.get('groups')  # Guruhlari bo'lgan yo'nalishlar
+            }
+            if filtered_directions:  # Faqat bo'sh bo'lmagan semestrlarni qo'shish
+                semesters_dict[semester] = filtered_directions
+        
+        # semesters_list ni faqat semesters_dict da mavjud bo'lgan semestrlar bilan yangilash
+        filtered_semesters_list = sorted([s for s in semesters_list if s in semesters_dict])
         
         formatted_courses_dict[course_year] = {
             'directions': all_directions,  # Barcha semestrlar birlashtirilgan
             'semesters': semesters_dict,  # Semestrlar bo'yicha ajratilgan (template uchun)
-            'semesters_list': semesters_list,  # Tartiblangan semestrlar ro'yxati
+            'semesters_list': filtered_semesters_list,  # Faqat guruhlari bo'lgan semestrlar ro'yxati
             'total_directions': course_data.get('total_directions', len(all_directions)),
             'total_groups': course_data.get('total_groups', 0),
             'total_students': course_data.get('total_students', 0)
         }
     
+    # Fakultetdagi barcha yo'nalishlarni popup uchun olish
+    all_faculty_directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(
+        Direction.course_year, 
+        Direction.semester, 
+        Direction.name
+    ).all()
+    
     return render_template('dean/courses.html', 
                          faculty=faculty,
-                         courses_dict=formatted_courses_dict)
+                         courses_dict=formatted_courses_dict,
+                         all_directions=all_faculty_directions)
 
 
 # ==================== O'QITUVCHI-FAN BIRIKTIRISH ====================
@@ -894,8 +933,8 @@ def students():
     education_types = sorted(set([g.education_type for g in groups if g.education_type]))
     
     return render_template('dean/students.html', 
-                         faculty=faculty,
-                         students=students,
+                         faculty=faculty, 
+                         students=students, 
                          groups=groups,
                          directions=directions,
                          courses=courses,

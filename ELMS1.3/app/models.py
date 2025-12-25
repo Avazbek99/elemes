@@ -659,6 +659,27 @@ def create_demo_data():
     
     db.session.commit()
     
+    # ===== DEMO MASOFAVIY YO'NALISHLAR =====
+    # Har bir fakultet uchun masofaviy yo'nalish yaratish
+    demo_directions = {}
+    for faculty_code, faculty in faculties.items():
+        demo_direction_code = f'DEMO-MASOFAVIY-{faculty_code}'
+        demo_direction = Direction.query.filter_by(code=demo_direction_code, education_type='masofaviy').first()
+        if not demo_direction:
+            demo_direction = Direction(
+                name=f'Demo Masofaviy Ta\'lim ({faculty.name})',
+                code=demo_direction_code,
+                description=f'Demo ma\'lumotlar uchun {faculty.name} masofaviy ta\'lim yo\'nalishi',
+                faculty_id=faculty.id,
+                course_year=1,
+                semester=1,
+                education_type='masofaviy',
+                enrollment_year=2024
+            )
+            db.session.add(demo_direction)
+            db.session.commit()
+        demo_directions[faculty_code] = demo_direction
+    
     # ===== GURUHLAR =====
     groups_data = [
         {'name': 'DI-21', 'faculty': 'IT', 'course_year': 3, 'education_type': 'kunduzgi'},
@@ -671,14 +692,26 @@ def create_demo_data():
     groups = {}
     for g in groups_data:
         group = Group.query.filter_by(name=g['name']).first()
+        # Har bir guruh uchun o'z fakultetiga tegishli masofaviy yo'nalishni topish
+        demo_direction = demo_directions.get(g['faculty'])
         if not group:
             group = Group(
                 name=g['name'],
                 faculty_id=faculties[g['faculty']].id,
-                course_year=g['course_year'],
-                education_type=g['education_type']
+                course_year=g['course_year'],  # Guruh o'z kursida qoladi
+                education_type=g['education_type'],
+                direction_id=demo_direction.id if demo_direction else None  # O'z fakultetiga tegishli masofaviy yo'nalishga bog'lash
             )
             db.session.add(group)
+        else:
+            # Mavjud guruhni o'z fakultetiga tegishli masofaviy yo'nalishga bog'lash (agar bog'lanmagan bo'lsa)
+            if not group.direction_id and demo_direction:
+                group.direction_id = demo_direction.id
+            # Fakultet va kurs ma'lumotlarini yangilash (o'z o'rnida qolishi uchun)
+            if group.faculty_id != faculties[g['faculty']].id:
+                group.faculty_id = faculties[g['faculty']].id
+            if group.course_year != g['course_year']:
+                group.course_year = g['course_year']
         groups[g['name']] = group
     
     db.session.commit()

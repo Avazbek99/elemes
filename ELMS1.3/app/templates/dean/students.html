@@ -65,16 +65,16 @@
                         <option value="{{ direction.id }}" {% if current_direction == direction.id %}selected{% endif %}>{{ direction.code }} - {{ direction.name }}</option>
                         {% endfor %}
                     </select>
-                </div>
+            </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Guruh</label>
                     <select name="group" id="groupSelect" class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm">
-                        <option value="">Barcha guruhlar</option>
-                        {% for group in groups %}
-                        <option value="{{ group.id }}" {% if current_group == group.id %}selected{% endif %}>{{ group.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                    <option value="">Barcha guruhlar</option>
+                    {% for group in groups %}
+                    <option value="{{ group.id }}" {% if current_group == group.id %}selected{% endif %}>{{ group.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             </div>
             
             <!-- Qidiruv -->
@@ -83,14 +83,14 @@
                     <input type="text" name="search" value="{{ search }}" placeholder="Qidirish (ism, login, pasport, JSHSHIR, telefon, email)..."
                         class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
-                <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
-                    Qidirish
-                </button>
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+                Qidirish
+            </button>
                 {% if search or current_group or current_course or current_semester or current_education_type or current_direction %}
-                <a href="{{ url_for('dean.students') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
-                    Tozalash
-                </a>
-                {% endif %}
+            <a href="{{ url_for('dean.students') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+                Tozalash
+            </a>
+            {% endif %}
             </div>
         </form>
     </div>

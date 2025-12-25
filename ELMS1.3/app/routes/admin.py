@@ -799,7 +799,11 @@ def faculties():
         faculty_deans[faculty.id] = deans_list if deans_list else None
         
         # Statistika: yo'nalishlar, guruhlar, talabalar soni
-        directions_count = Direction.query.filter_by(faculty_id=faculty.id).count()
+        # Faqat guruhlari bo'lgan yo'nalishlarni hisoblash (semestrlarda ko'rinadigan yo'nalishlar)
+        directions_count = db.session.query(Direction).join(Group).filter(
+            Direction.faculty_id == faculty.id,
+            Group.direction_id == Direction.id
+        ).distinct().count()
         groups_count = faculty.groups.count()
         # Talabalar soni (fakultetdagi barcha guruhlardagi talabalar)
         faculty_group_ids = [g.id for g in faculty.groups.all()]
@@ -939,16 +943,28 @@ def edit_faculty(id):
 def delete_faculty(id):
     faculty = Faculty.query.get_or_404(id)
     
-    if faculty.groups.count() > 0:
-        flash("Fakultetda guruhlar mavjud. Avval ularni o'chiring", 'error')
-    else:
-        # Fanlarning faculty_id ni None qilish (fanlar o'chib ketmasligi uchun)
-        for subject in faculty.subjects:
-            subject.faculty_id = None
-        
-        db.session.delete(faculty)
-        db.session.commit()
-        flash("Fakultet o'chirildi", 'success')
+    # Faqat guruhlari bo'lgan yo'nalishlarni tekshirish
+    # Agar yo'nalish ichida guruh bo'lmasa, u mavjud emas deb hisoblanadi
+    directions_with_groups = db.session.query(Direction).join(Group).filter(
+        Direction.faculty_id == faculty.id,
+        Group.direction_id == Direction.id
+    ).distinct().count()
+    
+    if directions_with_groups > 0:
+        flash("Fakultetda guruhlari bo'lgan yo'nalishlar mavjud. Avval guruhlarni o'chiring", 'error')
+        return redirect(url_for('admin.faculties'))
+    
+    # Guruhlari bo'lmagan yo'nalishlarni o'chirish (chunki ular mavjud emas deb hisoblanadi)
+    directions_without_groups = Direction.query.filter_by(faculty_id=faculty.id).all()
+    for direction in directions_without_groups:
+        # Agar yo'nalishda guruhlar yo'q bo'lsa, o'chirish
+        if direction.groups.count() == 0:
+            db.session.delete(direction)
+    
+    # Fanlar endi fakultetga bog'liq emas, shuning uchun ularni alohida tekshirish shart emas
+    db.session.delete(faculty)
+    db.session.commit()
+    flash("Fakultet o'chirildi", 'success')
     
     return redirect(url_for('admin.faculties'))
 
@@ -1008,14 +1024,26 @@ def faculty_detail(id):
     # Kurslar bo'yicha guruhlash (yo'nalishlarning course_year bo'yicha)
     courses_dict = {}
     
+    # Avval barcha kurslarni yaratish (1-4 kurslar)
+    # Fakultetdagi barcha kurslarni topish (guruhlar yoki yo'nalishlar orqali)
+    all_course_years = set()
+    for group in all_groups:
+        all_course_years.add(group.course_year)
+    for direction in all_directions:
+        all_course_years.add(direction.course_year)
+    
+    # Har doim 1-5 kurslarni yaratish (guruhlar yoki yo'nalishlar bo'lmasa ham)
+    all_course_years.update({1, 2, 3, 4, 5})
+    
+    # Barcha kurslarni yaratish
+    for course_year in all_course_years:
+        if course_year not in courses_dict:
+            courses_dict[course_year] = {}
+    
     # Barcha yo'nalishlarni kurs va semestr bo'yicha guruhlash
     for direction in all_directions:
         course_year = direction.course_year
         semester = direction.semester
-        
-        # Kurs yaratish
-        if course_year not in courses_dict:
-            courses_dict[course_year] = {}
         
         # Semestr bo'yicha guruhlash (1-semestr, 2-semestr, ...)
         if semester not in courses_dict[course_year]:
@@ -1023,6 +1051,10 @@ def faculty_detail(id):
         
         # Bu yo'nalishga tegishli guruhlarni topish
         direction_groups = [g for g in all_groups if g.direction_id == direction.id]
+        
+        # Faqat guruhlari bo'lgan yo'nalishlarni ko'rsatish
+        if not direction_groups:
+            continue
         
         # Yo'nalishni semestr ichiga qo'shish
         direction_id = direction.id
@@ -1101,20 +1133,33 @@ def faculty_detail(id):
         # Semestrlar ro'yxatini tartiblash (faqat int bo'lganlar)
         semesters_list = sorted([s for s in course_data.keys() if isinstance(s, int)])
         
-        # Semestrlar bo'yicha yo'nalishlarni birlashtirish
+        # Semestrlar bo'yicha yo'nalishlarni birlashtirish (faqat guruhlari bo'lganlar)
         for semester in semesters_list:
             for direction_id, direction_data in course_data[semester].items():
-                all_directions[direction_id] = direction_data
+                # Faqat guruhlari bo'lgan yo'nalishlarni qo'shish
+                if direction_data.get('groups'):
+                    all_directions[direction_id] = direction_data
         
         # Semestrlar bo'yicha ajratilgan struktura (template uchun)
+        # Faqat yo'nalishlari bo'lgan semestrlarni qo'shish
         semesters_dict = {}
         for semester in semesters_list:
-            semesters_dict[semester] = course_data[semester]
+            # Faqat guruhlari bo'lgan yo'nalishlar bo'lishi kerak
+            filtered_directions = {
+                direction_id: direction_data 
+                for direction_id, direction_data in course_data[semester].items()
+                if direction_data.get('groups')  # Guruhlari bo'lgan yo'nalishlar
+            }
+            if filtered_directions:  # Faqat bo'sh bo'lmagan semestrlarni qo'shish
+                semesters_dict[semester] = filtered_directions
+        
+        # semesters_list ni faqat semesters_dict da mavjud bo'lgan semestrlar bilan yangilash
+        filtered_semesters_list = sorted([s for s in semesters_list if s in semesters_dict])
         
         formatted_courses_dict[course_year] = {
             'directions': all_directions,  # Barcha semestrlar birlashtirilgan
             'semesters': semesters_dict,  # Semestrlar bo'yicha ajratilgan (template uchun)
-            'semesters_list': semesters_list,  # Tartiblangan semestrlar ro'yxati
+            'semesters_list': filtered_semesters_list,  # Faqat guruhlari bo'lgan semestrlar ro'yxati
             'total_directions': course_data.get('total_directions', len(all_directions)),
             'total_groups': course_data.get('total_groups', 0),
             'total_students': course_data.get('total_students', 0)
@@ -1122,7 +1167,11 @@ def faculty_detail(id):
     
     # Filtrlar uchun ma'lumotlar
     courses_list = sorted(set([g.course_year for g in faculty.groups.all()]))
-    directions_list = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+    directions_list = Direction.query.filter_by(faculty_id=faculty.id).order_by(
+        Direction.course_year, 
+        Direction.semester, 
+        Direction.name
+    ).all()
     groups_list = faculty.groups.order_by(Group.name).all()
     
     return render_template('admin/faculty_detail.html',
@@ -2172,10 +2221,8 @@ def edit_group(id):
         
         db.session.commit()
         flash("Guruh yangilandi", 'success')
-        # Fakultet detail sahifasiga qaytish
-        if request.args.get('from_faculty'):
-            return redirect(url_for('admin.faculty_detail', id=group.faculty_id))
-        return redirect(url_for('admin.groups'))
+        # Yo'nalishga qaytish
+        return redirect(url_for('admin.direction_detail', id=direction_id))
     
     # GET request - ma'lumotlarni tayyorlash
     faculty = group.faculty
@@ -2605,21 +2652,8 @@ def delete_assignment(id):
 @login_required
 @admin_required
 def directions():
-    """Admin uchun barcha yo'nalishlar"""
-    directions_list = Direction.query.order_by(Direction.name).all()
-    faculties = Faculty.query.order_by(Faculty.name).all()
-    unassigned_groups = Group.query.filter_by(direction_id=None).order_by(Group.name).all()
-    
-    direction_groups = {}
-    for direction in directions_list:
-        direction_groups[direction.id] = Group.query.filter_by(direction_id=direction.id).all()
-    
-    return render_template('dean/directions.html',
-                         faculty=None,
-                         directions=directions_list,
-                         unassigned_groups=unassigned_groups,
-                         direction_groups=direction_groups,
-                         is_admin=True)
+    """Admin uchun barcha yo'nalishlar - fakultetlar sahifasiga redirect"""
+    return redirect(url_for('admin.faculties'))
 
 @bp.route('/students/create', methods=['GET', 'POST'])
 @login_required
