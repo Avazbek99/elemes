@@ -864,7 +864,7 @@ def create_subjects_excel(subjects):
     
     # Sarlavha
     title = "Fanlar ro'yxati"
-    ws.merge_cells('A1:C1')
+    ws.merge_cells('A1:B1')
     title_cell = ws['A1']
     title_cell.value = title
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -873,15 +873,14 @@ def create_subjects_excel(subjects):
     
     # Sana
     ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ws.merge_cells('A2:C2')
+    ws.merge_cells('A2:B2')
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
     # Jadval sarlavhalari
     headers = [
         "Fan nomi",      # A
-        "Fan kodi",      # B
-        "Tavsif"         # C
+        "Tavsif"         # B
     ]
     header_row = 3
     
@@ -901,8 +900,7 @@ def create_subjects_excel(subjects):
     # Ma'lumotlar
     for row_num, subject in enumerate(subjects, start=header_row + 1):
         ws.cell(row=row_num, column=1, value=subject.name)
-        ws.cell(row=row_num, column=2, value=subject.code)
-        ws.cell(row=row_num, column=3, value=subject.description or '')
+        ws.cell(row=row_num, column=2, value=subject.description or '')
         
         # Stil
         for col_num in range(1, len(headers) + 1):
@@ -918,7 +916,7 @@ def create_subjects_excel(subjects):
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
     # Ustun kengliklarini sozlash
-    column_widths = [30, 15, 50]
+    column_widths = [40, 50]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     
@@ -958,7 +956,7 @@ def create_curriculum_excel(direction, curriculum_items):
             title = f"{direction.enrollment_year} - {title}"
         title += f" ({semester}-semestr)"
         
-        ws.merge_cells('A1:J1')
+        ws.merge_cells('A1:I1')
         title_cell = ws['A1']
         title_cell.value = title
         title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -967,22 +965,21 @@ def create_curriculum_excel(direction, curriculum_items):
         
         # Sana
         ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-        ws.merge_cells('A2:J2')
+        ws.merge_cells('A2:I2')
         ws['A2'].font = Font(size=10, italic=True)
         ws['A2'].alignment = Alignment(horizontal='center')
         
         # Jadval sarlavhalari
         headers = [
-            "Fan kodi",      # A
-            "Fan nomi",      # B
-            "Semestr",       # C
-            "Maruza (M)",    # D
-            "Amaliyot (A)",  # E
-            "Laboratoriya (L)", # F
-            "Seminar (S)",   # G
-            "Kurs ishi (K)", # H
-            "Mustaqil ta'lim (MT)", # I
-            "Jami soat"      # J
+            "Fan nomi",      # A
+            "Semestr",       # B
+            "Maruza (M)",    # C
+            "Amaliyot (A)",  # D
+            "Laboratoriya (L)", # E
+            "Seminar (S)",   # F
+            "Kurs ishi (K)", # G
+            "Mustaqil ta'lim (MT)", # H
+            "Jami soat"      # I
         ]
         header_row = 3
         
@@ -1027,21 +1024,20 @@ def create_curriculum_excel(direction, curriculum_items):
             total_mustaqil += mustaqil
             total_jami += jami
             
-            ws.cell(row=row_num, column=1, value=subject.code)
-            ws.cell(row=row_num, column=2, value=subject.name)
-            ws.cell(row=row_num, column=3, value=item.semester)
-            ws.cell(row=row_num, column=4, value=maruza)
-            ws.cell(row=row_num, column=5, value=amaliyot)
-            ws.cell(row=row_num, column=6, value=laboratoriya)
-            ws.cell(row=row_num, column=7, value=seminar)
-            ws.cell(row=row_num, column=8, value=kurs_ishi)
-            ws.cell(row=row_num, column=9, value=mustaqil)
-            ws.cell(row=row_num, column=10, value=jami)
+            ws.cell(row=row_num, column=1, value=subject.name)
+            ws.cell(row=row_num, column=2, value=item.semester)
+            ws.cell(row=row_num, column=3, value=maruza)
+            ws.cell(row=row_num, column=4, value=amaliyot)
+            ws.cell(row=row_num, column=5, value=laboratoriya)
+            ws.cell(row=row_num, column=6, value=seminar)
+            ws.cell(row=row_num, column=7, value=kurs_ishi)
+            ws.cell(row=row_num, column=8, value=mustaqil)
+            ws.cell(row=row_num, column=9, value=jami)
             
             # Stil
             for col_num in range(1, len(headers) + 1):
                 cell = ws.cell(row=row_num, column=col_num)
-                cell.alignment = Alignment(horizontal='left' if col_num <= 3 else 'center', vertical='center')
+                cell.alignment = Alignment(horizontal='left' if col_num <= 2 else 'center', vertical='center')
                 cell.border = Border(
                     left=Side(style='thin'),
                     right=Side(style='thin'),
@@ -1055,23 +1051,23 @@ def create_curriculum_excel(direction, curriculum_items):
         summary_row = header_row + len(semester_items) + 2
         ws.cell(row=summary_row, column=1, value="JAMI:")
         ws.cell(row=summary_row, column=1).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=4, value=total_maruza)
+        ws.cell(row=summary_row, column=3, value=total_maruza)
+        ws.cell(row=summary_row, column=3).font = Font(bold=True, size=12)
+        ws.cell(row=summary_row, column=4, value=total_amaliyot)
         ws.cell(row=summary_row, column=4).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=5, value=total_amaliyot)
+        ws.cell(row=summary_row, column=5, value=total_laboratoriya)
         ws.cell(row=summary_row, column=5).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=6, value=total_laboratoriya)
+        ws.cell(row=summary_row, column=6, value=total_seminar)
         ws.cell(row=summary_row, column=6).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=7, value=total_seminar)
+        ws.cell(row=summary_row, column=7, value=total_kurs_ishi)
         ws.cell(row=summary_row, column=7).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=8, value=total_kurs_ishi)
+        ws.cell(row=summary_row, column=8, value=total_mustaqil)
         ws.cell(row=summary_row, column=8).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=9, value=total_mustaqil)
+        ws.cell(row=summary_row, column=9, value=total_jami)
         ws.cell(row=summary_row, column=9).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=10, value=total_jami)
-        ws.cell(row=summary_row, column=10).font = Font(bold=True, size=12)
         
         # Ustun kengliklarini sozlash
-        column_widths = [15, 40, 10, 12, 12, 15, 12, 12, 18, 12]
+        column_widths = [40, 10, 12, 12, 15, 12, 12, 18, 12]
         for col_num, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col_num)].width = width
     

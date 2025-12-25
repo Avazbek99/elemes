@@ -1028,8 +1028,7 @@ def generate_subjects_sample_file():
     # Jadval sarlavhalari
     headers = [
         "Fan nomi",      # A
-        "Fan kodi",      # B
-        "Tavsif"         # C
+        "Tavsif"         # B
     ]
 
     header_row = 3
@@ -1048,9 +1047,9 @@ def generate_subjects_sample_file():
 
     # Namuna ma'lumotlar
     sample_data = [
-        ["Dasturlash asoslari", "DA101", "Dasturlashning asosiy tushunchalari va algoritmlar"],
-        ["Ma'lumotlar bazasi", "MB201", "Ma'lumotlar bazasi dizayni va SQL so'rovlari"],
-        ["Web dasturlash", "WD301", "Web texnologiyalari va frameworklar"]
+        ["Dasturlash asoslari", "Dasturlashning asosiy tushunchalari va algoritmlar"],
+        ["Ma'lumotlar bazasi", "Ma'lumotlar bazasi dizayni va SQL so'rovlari"],
+        ["Web dasturlash", "Web texnologiyalari va frameworklar"]
     ]
 
     for row_num, row_data in enumerate(sample_data, start=header_row + 1):
@@ -1065,7 +1064,7 @@ def generate_subjects_sample_file():
             )
 
     # Ustun kengliklarini sozlash
-    column_widths = [30, 15, 50]
+    column_widths = [40, 50]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
 
@@ -1093,7 +1092,7 @@ def import_subjects_from_excel(file):
         # Sarlavha qatorini topish (3-qator)
         header_row = 3
         headers = {}
-        for col_num in range(1, 4):  # A, B, C ustunlari
+        for col_num in range(1, 3):  # A, B ustunlari
             cell_value = ws.cell(row=header_row, column=col_num).value
             if cell_value:
                 headers[cell_value] = col_num
@@ -1103,30 +1102,27 @@ def import_subjects_from_excel(file):
             try:
                 # Ustunlardan ma'lumotlarni olish
                 name = ws.cell(row=row_num, column=headers.get("Fan nomi", 1)).value
-                code = ws.cell(row=row_num, column=headers.get("Fan kodi", 2)).value
-                description = ws.cell(row=row_num, column=headers.get("Tavsif", 3)).value
+                description = ws.cell(row=row_num, column=headers.get("Tavsif", 2)).value
 
                 # Bo'sh qatorlarni o'tkazib yuborish
-                if not name or not code:
+                if not name:
                     continue
 
                 name = str(name).strip()
-                code = str(code).strip().upper()
                 description = str(description).strip() if description else None
 
-                # Fan kodini tekshirish
-                existing_subject = Subject.query.filter_by(code=code).first()
+                # Fan nomi bo'yicha tekshirish
+                existing_subject = Subject.query.filter_by(name=name).first()
 
                 if existing_subject:
                     # Yangilash
-                    existing_subject.name = name
                     existing_subject.description = description
                     updated += 1
                 else:
                     # Yaratish
                     subject = Subject(
                         name=name,
-                        code=code,
+                        code='',  # Bo'sh kod (kerak emas)
                         description=description,
                         credits=3,  # Default
                         semester=1  # Default
@@ -1200,7 +1196,7 @@ def import_curriculum_from_excel(file, direction_id):
             header_row = None
             for row_num in range(1, min(10, ws.max_row + 1)):
                 first_cell = ws.cell(row=row_num, column=1).value
-                if first_cell and ("Fan kodi" in str(first_cell) or "Fan nomi" in str(first_cell)):
+                if first_cell and "Fan nomi" in str(first_cell):
                     header_row = row_num
                     break
             
@@ -1218,35 +1214,28 @@ def import_curriculum_from_excel(file, direction_id):
             # Ma'lumotlarni o'qish
             for row_num in range(header_row + 1, ws.max_row + 1):
                 try:
-                    # Fan kodi yoki nomi
-                    subject_code = ws.cell(row=row_num, column=headers.get("Fan kodi", 1)).value
-                    subject_name = ws.cell(row=row_num, column=headers.get("Fan nomi", 2)).value
+                    # Fan nomi
+                    subject_name = ws.cell(row=row_num, column=headers.get("Fan nomi", 1)).value
                     
                     # Bo'sh qatorlarni o'tkazib yuborish
-                    if not subject_code and not subject_name:
+                    if not subject_name:
                         continue
                     
                     # Fan topish
-                    subject = None
-                    if subject_code:
-                        subject_code = str(subject_code).strip().upper()
-                        subject = Subject.query.filter_by(code=subject_code).first()
-                    
-                    if not subject and subject_name:
-                        subject_name = str(subject_name).strip()
-                        subject = Subject.query.filter_by(name=subject_name).first()
+                    subject_name = str(subject_name).strip()
+                    subject = Subject.query.filter_by(name=subject_name).first()
                     
                     if not subject:
-                        errors.append(f"Qator {row_num}: Fan topilmadi (Kod: {subject_code or '-'}, Nom: {subject_name or '-'})")
+                        errors.append(f"Qator {row_num}: Fan topilmadi (Nom: {subject_name})")
                         continue
                     
                     # Soatlar
-                    maruza = ws.cell(row=row_num, column=headers.get("Maruza (M)", 4)).value or 0
-                    amaliyot = ws.cell(row=row_num, column=headers.get("Amaliyot (A)", 5)).value or 0
-                    laboratoriya = ws.cell(row=row_num, column=headers.get("Laboratoriya (L)", 6)).value or 0
-                    seminar = ws.cell(row=row_num, column=headers.get("Seminar (S)", 7)).value or 0
-                    kurs_ishi = ws.cell(row=row_num, column=headers.get("Kurs ishi (K)", 8)).value or 0
-                    mustaqil = ws.cell(row=row_num, column=headers.get("Mustaqil ta'lim (MT)", 9)).value or 0
+                    maruza = ws.cell(row=row_num, column=headers.get("Maruza (M)", 3)).value or 0
+                    amaliyot = ws.cell(row=row_num, column=headers.get("Amaliyot (A)", 4)).value or 0
+                    laboratoriya = ws.cell(row=row_num, column=headers.get("Laboratoriya (L)", 5)).value or 0
+                    seminar = ws.cell(row=row_num, column=headers.get("Seminar (S)", 6)).value or 0
+                    kurs_ishi = ws.cell(row=row_num, column=headers.get("Kurs ishi (K)", 7)).value or 0
+                    mustaqil = ws.cell(row=row_num, column=headers.get("Mustaqil ta'lim (MT)", 8)).value or 0
                     
                     # Raqamlarga o'tkazish
                     try:

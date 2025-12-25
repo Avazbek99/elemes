@@ -1788,11 +1788,10 @@ def subjects():
     query = Subject.query
     if search:
         query = query.filter(
-            (Subject.name.ilike(f'%{search}%')) |
-            (Subject.code.ilike(f'%{search}%'))
+            Subject.name.ilike(f'%{search}%')
         )
     
-    subjects = query.order_by(Subject.code).all()
+    subjects = query.order_by(Subject.name).all()
     
     return render_template('admin/subjects.html', subjects=subjects, search=search)
 
@@ -1818,21 +1817,16 @@ def download_sample_import():
 @admin_required
 def create_subject():
     if request.method == 'POST':
-        code = request.form.get('code', '').strip().upper()
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
         
-        if not code or not name:
-            flash("Fan nomi va kodi majburiy maydonlar", 'error')
-            return render_template('admin/create_subject.html')
-        
-        if Subject.query.filter_by(code=code).first():
-            flash("Bu fan kodi allaqachon mavjud", 'error')
+        if not name:
+            flash("Fan nomi majburiy maydon", 'error')
             return render_template('admin/create_subject.html')
         
         subject = Subject(
             name=name,
-            code=code,
+            code='',  # Bo'sh kod (kerak emas)
             description=description if description else None,
             credits=3,  # Default value
             semester=1  # Default value
@@ -1853,22 +1847,14 @@ def edit_subject(id):
     subject = Subject.query.get_or_404(id)
     
     if request.method == 'POST':
-        code = request.form.get('code', '').strip().upper()
         name = request.form.get('name', '').strip()
         description = request.form.get('description', '').strip()
         
-        if not code or not name:
-            flash("Fan nomi va kodi majburiy maydonlar", 'error')
-            return render_template('admin/edit_subject.html', subject=subject)
-        
-        # Kod unikalligini tekshirish (joriy fanni hisobga olmasdan)
-        existing_subject = Subject.query.filter_by(code=code).first()
-        if existing_subject and existing_subject.id != subject.id:
-            flash("Bu fan kodi allaqachon boshqa fanda mavjud", 'error')
+        if not name:
+            flash("Fan nomi majburiy maydon", 'error')
             return render_template('admin/edit_subject.html', subject=subject)
         
         subject.name = name
-        subject.code = code
         subject.description = description if description else None
         
         db.session.commit()
@@ -1895,7 +1881,7 @@ def delete_subject(id):
 def export_subjects():
     """Fanlarni Excel formatida export qilish"""
     try:
-        subjects = Subject.query.order_by(Subject.code).all()
+        subjects = Subject.query.order_by(Subject.name).all()
         excel_file = create_subjects_excel(subjects)
         
         filename = f"fanlar_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -2910,7 +2896,7 @@ def assignments():
     for faculty in faculties:
         faculty.subjects_list = Subject.query.join(TeacherSubject).join(Group).filter(
             Group.faculty_id == faculty.id
-        ).distinct().order_by(Subject.code).all()
+        ).distinct().order_by(Subject.name).all()
     # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
     teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
     teacher_user_ids = [uid[0] for uid in teacher_user_ids]
@@ -3656,7 +3642,7 @@ def schedule():
 def create_schedule():
     """Admin uchun dars jadvaliga qo'shish"""
     groups = Group.query.order_by(Group.name).all()
-    subjects = Subject.query.order_by(Subject.code).all()
+    subjects = Subject.query.order_by(Subject.name).all()
     # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
     teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
     teacher_user_ids = [uid[0] for uid in teacher_user_ids]
@@ -3731,7 +3717,7 @@ def edit_schedule(id):
     schedule = Schedule.query.get_or_404(id)
     
     groups = Group.query.order_by(Group.name).all()
-    subjects = Subject.query.order_by(Subject.code).all()
+    subjects = Subject.query.order_by(Subject.name).all()
     # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
     teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
     teacher_user_ids = [uid[0] for uid in teacher_user_ids]

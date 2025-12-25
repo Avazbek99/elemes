@@ -63,13 +63,12 @@
                 <div class="space-y-2 max-h-[600px] overflow-y-auto" id="subjects-list">
                     {% for subject in all_subjects %}
                     <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer subject-item" 
-                           data-name="{{ subject.name|lower }}" data-code="{{ subject.code|lower }}">
+                           data-name="{{ subject.name|lower }}">
                         <input type="checkbox" name="subject_ids" value="{{ subject.id }}" 
                                class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 subject-checkbox"
                                onchange="updateSelectedCount()">
                         <div class="flex-1">
                             <div class="text-sm font-medium text-gray-900">{{ subject.name }}</div>
-                            <div class="text-xs text-gray-500">{{ subject.code }}</div>
                         </div>
                     </label>
                     {% endfor %}
@@ -289,7 +288,7 @@
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <option value="">Tanlang...</option>
                         {% for subject in all_subjects %}
-                        <option value="{{ subject.id }}">{{ subject.code }} - {{ subject.name }}</option>
+                        <option value="{{ subject.id }}">{{ subject.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -326,8 +325,7 @@ document.getElementById('subject-search').addEventListener('input', function(e) 
     
     items.forEach(item => {
         const name = item.dataset.name;
-        const code = item.dataset.code;
-        if (name.includes(searchTerm) || code.includes(searchTerm)) {
+        if (name.includes(searchTerm)) {
             item.style.display = 'flex';
         } else {
             item.style.display = 'none';

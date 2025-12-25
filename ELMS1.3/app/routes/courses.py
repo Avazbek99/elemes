@@ -44,8 +44,7 @@ def index():
     
     if search:
         query = query.filter(
-            (Subject.name.ilike(f'%{search}%')) |
-            (Subject.code.ilike(f'%{search}%'))
+            Subject.name.ilike(f'%{search}%')
         )
     
     # Semestr bo'yicha guruhlash va tartiblash (o'qituvchi va talaba uchun)

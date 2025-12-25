@@ -50,18 +50,14 @@
                 {% set has_issue = (current_user.role in ['teacher', 'dean', 'admin']) and subject.has_lessons_without_content() %}
                 <a href="{{ url_for('courses.detail', id=subject.id) }}" class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
                     <div class="relative h-36 overflow-hidden {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %} flex items-center justify-center">
-                        <div class="text-center">
-                            <span class="text-4xl font-bold text-white/30">{{ subject.code }}</span>
-                        </div>
                         <div class="absolute bottom-3 left-3 flex gap-2">
                             <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits }} kredit</span>
                             <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ semester }}-semestr</span>
                         </div>
                     </div>
                     <div class="p-5">
-                        <div class="flex items-start justify-between mb-2">
+                        <div class="mb-2">
                             <h3 class="text-lg font-semibold {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</h3>
-                            <span class="px-2 py-1 text-xs font-medium rounded-full {% if has_issue %}bg-red-100 text-red-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">{{ subject.code }}</span>
                         </div>
                         {% if has_issue %}
                         <div class="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
