@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, url_for as flask_url_for
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_required, current_user
 from app.models import User, Subject, Assignment, Announcement, Schedule, Submission, Message, Group, Faculty, TeacherSubject
 from app import db
@@ -147,7 +147,7 @@ def dashboard():
             stats = {
                 'total_students': User.query.join(Group).filter(Group.faculty_id == faculty.id, User.role == 'student').count(),
                 'total_teachers': User.query.filter_by(role='teacher').count(),
-                'total_subjects': Subject.query.filter_by(faculty_id=faculty.id).count(),
+                'total_subjects': Subject.query.count(),  # Subject modelida faculty_id maydoni yo'q
                 'total_groups': Group.query.filter_by(faculty_id=faculty.id).count()
             }
             

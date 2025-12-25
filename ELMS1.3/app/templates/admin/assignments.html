@@ -144,7 +144,7 @@
                     <option value="">Tanlang...</option>
                     {% for faculty in faculties %}
                     <optgroup label="{{ faculty.name }}">
-                        {% for subject in faculty.subjects %}
+                        {% for subject in faculty.subjects_list %}
                         <option value="{{ subject.id }}">{{ subject.name }} ({{ subject.code }})</option>
                         {% endfor %}
                     </optgroup>

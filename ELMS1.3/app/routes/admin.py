@@ -1687,7 +1687,9 @@ def reports():
         faculty_stats.append({
             'faculty': faculty,
             'groups': faculty.groups.count(),
-            'subjects': faculty.subjects.count(),
+            'subjects': Subject.query.join(TeacherSubject).join(Group).filter(
+                Group.faculty_id == faculty.id
+            ).distinct().count(),
             'students': User.query.join(Group).filter(Group.faculty_id == faculty.id).count()
         })
     
@@ -2591,6 +2593,11 @@ def assignments():
         
     assignments_list = query.all()
     faculties = Faculty.query.all()
+    # Har bir fakultet uchun fanlarni guruhlar orqali olish
+    for faculty in faculties:
+        faculty.subjects_list = Subject.query.join(TeacherSubject).join(Group).filter(
+            Group.faculty_id == faculty.id
+        ).distinct().order_by(Subject.code).all()
     # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
     teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
     teacher_user_ids = [uid[0] for uid in teacher_user_ids]

@@ -537,9 +537,9 @@ def teacher_assignments():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    # Fakultetdagi fanlar uchun biriktirmalar
-    assignments = TeacherSubject.query.join(Subject).filter(
-        Subject.faculty_id == faculty.id
+    # Fakultetdagi fanlar uchun biriktirmalar (guruhlar orqali)
+    assignments = TeacherSubject.query.join(Group).filter(
+        Group.faculty_id == faculty.id
     ).order_by(Subject.code).all()
     
     return render_template('dean/teacher_assignments.html', faculty=faculty, assignments=assignments)
@@ -554,7 +554,10 @@ def create_assignment():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    subjects = faculty.subjects.order_by(Subject.code).all()
+    # Fanlarni guruhlar orqali olish
+    subjects = Subject.query.join(TeacherSubject).join(Group).filter(
+        Group.faculty_id == faculty.id
+    ).distinct().order_by(Subject.code).all()
     groups = faculty.groups.order_by(Group.name).all()
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
@@ -1340,9 +1343,9 @@ def teachers():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    # Fakultetda dars beradigan o'qituvchilar
-    teacher_ids = db.session.query(TeacherSubject.teacher_id).join(Subject).filter(
-        Subject.faculty_id == faculty.id
+    # Fakultetda dars beradigan o'qituvchilar (guruhlar orqali)
+    teacher_ids = db.session.query(TeacherSubject.teacher_id).join(Group).filter(
+        Group.faculty_id == faculty.id
     ).distinct().all()
     teacher_ids = [t[0] for t in teacher_ids]
     
@@ -1366,11 +1369,11 @@ def teachers():
     
     teachers = User.query.filter(User.id.in_(all_teacher_ids)).order_by(User.full_name).all() if all_teacher_ids else []
     
-    # Har bir o'qituvchining fanlari
+    # Har bir o'qituvchining fanlari (guruhlar orqali)
     teacher_subjects = {}
     for teacher in teachers:
-        subjects = TeacherSubject.query.filter_by(teacher_id=teacher.id).join(Subject).filter(
-            Subject.faculty_id == faculty.id
+        subjects = TeacherSubject.query.filter_by(teacher_id=teacher.id).join(Group).filter(
+            Group.faculty_id == faculty.id
         ).all()
         teacher_subjects[teacher.id] = subjects
     
@@ -2016,7 +2019,10 @@ def create_schedule():
         return redirect(url_for('main.dashboard'))
     
     groups = faculty.groups.order_by(Group.name).all()
-    subjects = faculty.subjects.order_by(Subject.code).all()
+    # Fanlarni guruhlar orqali olish
+    subjects = Subject.query.join(TeacherSubject).join(Group).filter(
+        Group.faculty_id == faculty.id
+    ).distinct().order_by(Subject.code).all()
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
     # GET parametrlar orqali kelgan default sana va guruh
@@ -2101,7 +2107,10 @@ def edit_schedule(id):
     
     faculty = Faculty.query.get(current_user.faculty_id)
     groups = faculty.groups.order_by(Group.name).all()
-    subjects = faculty.subjects.order_by(Subject.code).all()
+    # Fanlarni guruhlar orqali olish
+    subjects = Subject.query.join(TeacherSubject).join(Group).filter(
+        Group.faculty_id == faculty.id
+    ).distinct().order_by(Subject.code).all()
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
     # Eski sana
@@ -2177,13 +2186,15 @@ def reports():
     
     stats = {
         'total_groups': faculty.groups.count(),
-        'total_subjects': faculty.subjects.count(),
+        'total_subjects': Subject.query.join(TeacherSubject).join(Group).filter(
+            Group.faculty_id == faculty.id
+        ).distinct().count(),
         'total_students': User.query.filter(
             User.role == 'student',
             User.group_id.in_(faculty_group_ids)
         ).count(),
-        'total_teachers': db.session.query(TeacherSubject.teacher_id).join(Subject).filter(
-            Subject.faculty_id == faculty.id
+        'total_teachers': db.session.query(TeacherSubject.teacher_id).join(Group).filter(
+            Group.faculty_id == faculty.id
         ).distinct().count(),
     }
     
