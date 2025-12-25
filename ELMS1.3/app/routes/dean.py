@@ -540,7 +540,7 @@ def teacher_assignments():
     # Fakultetdagi fanlar uchun biriktirmalar (guruhlar orqali)
     assignments = TeacherSubject.query.join(Group).join(Subject).filter(
         Group.faculty_id == faculty.id
-    ).order_by(Subject.code).all()
+    ).order_by(Subject.name).all()
     
     return render_template('dean/teacher_assignments.html', faculty=faculty, assignments=assignments)
 
@@ -557,7 +557,7 @@ def create_assignment():
     # Fanlarni guruhlar orqali olish
     subjects = Subject.query.join(TeacherSubject).join(Group).filter(
         Group.faculty_id == faculty.id
-    ).distinct().order_by(Subject.code).all()
+    ).distinct().order_by(Subject.name).all()
     groups = faculty.groups.order_by(Group.name).all()
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
@@ -2358,7 +2358,7 @@ def create_schedule():
     # Fanlarni guruhlar orqali olish
     subjects = Subject.query.join(TeacherSubject).join(Group).filter(
         Group.faculty_id == faculty.id
-    ).distinct().order_by(Subject.code).all()
+    ).distinct().order_by(Subject.name).all()
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
     # GET parametrlar orqali kelgan default sana va guruh
@@ -2446,7 +2446,7 @@ def edit_schedule(id):
     # Fanlarni guruhlar orqali olish
     subjects = Subject.query.join(TeacherSubject).join(Group).filter(
         Group.faculty_id == faculty.id
-    ).distinct().order_by(Subject.code).all()
+    ).distinct().order_by(Subject.name).all()
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
     # Eski sana

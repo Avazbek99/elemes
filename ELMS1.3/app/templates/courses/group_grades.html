@@ -11,7 +11,7 @@
             <p class="text-gray-500 mt-1">{{ group.name }} guruhi • {{ students|length }} talaba</p>
         </div>
         <div class="flex items-center gap-2">
-            <span class="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">{{ subject.code }}</span>
+            <span class="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">{{ subject.name[:10] }}</span>
             <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">{{ group.name }}</span>
                 <a href="{{ url_for('courses.export_group_grades', subject_id=subject.id, group_id=group.id) }}"
                    class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold shadow-sm transition">

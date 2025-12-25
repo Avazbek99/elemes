@@ -755,27 +755,26 @@ def create_demo_data():
     
     # ===== FANLAR =====
     subjects_data = [
-        {'name': 'Dasturlash asoslari', 'code': 'DA101', 'faculty': 'IT', 'credits': 4, 'semester': 1},
-        {'name': 'Web dasturlash', 'code': 'WD201', 'faculty': 'IT', 'credits': 3, 'semester': 3},
-        {'name': "Ma'lumotlar bazasi", 'code': 'MB301', 'faculty': 'IT', 'credits': 4, 'semester': 3},
-        {'name': 'Algoritmlar', 'code': 'AL201', 'faculty': 'IT', 'credits': 3, 'semester': 2},
-        {'name': 'Kompyuter tarmoqlari', 'code': 'KT401', 'faculty': 'IT', 'credits': 3, 'semester': 4},
-        {'name': 'Makroiqtisodiyot', 'code': 'MI101', 'faculty': 'IQ', 'credits': 3, 'semester': 1},
+        {'name': 'Dasturlash asoslari', 'faculty': 'IT', 'credits': 4, 'semester': 1},
+        {'name': 'Web dasturlash', 'faculty': 'IT', 'credits': 3, 'semester': 3},
+        {'name': "Ma'lumotlar bazasi", 'faculty': 'IT', 'credits': 4, 'semester': 3},
+        {'name': 'Algoritmlar', 'faculty': 'IT', 'credits': 3, 'semester': 2},
+        {'name': 'Kompyuter tarmoqlari', 'faculty': 'IT', 'credits': 3, 'semester': 4},
+        {'name': 'Makroiqtisodiyot', 'faculty': 'IQ', 'credits': 3, 'semester': 1},
     ]
     
     subjects = {}
     for s in subjects_data:
-        subject = Subject.query.filter_by(code=s['code']).first()
+        subject = Subject.query.filter_by(name=s['name']).first()
         if not subject:
             subject = Subject(
                 name=s['name'],
-                code=s['code'],
                 credits=s['credits'],
                 semester=s['semester'],
                 description=f"{s['name']} fani bo'yicha ma'ruzalar va amaliy mashg'ulotlar"
             )
             db.session.add(subject)
-        subjects[s['code']] = subject
+        subjects[s['name']] = subject
     
     db.session.commit()
     
@@ -811,12 +810,12 @@ def create_demo_data():
     
     # ===== O'QITUVCHI-FAN BIRIKTIRISH =====
     assignments_data = [
-        {'teacher': teachers[0], 'subject': 'DA101', 'group': 'DI-23'},
-        {'teacher': teachers[0], 'subject': 'WD201', 'group': 'DI-21'},
-        {'teacher': teachers[1], 'subject': 'AL201', 'group': 'DI-22'},
-        {'teacher': teachers[2], 'subject': 'MB301', 'group': 'DI-21'},
-        {'teacher': teachers[2], 'subject': 'KT401', 'group': 'DI-21'},
-        {'teacher': teachers[3], 'subject': 'MI101', 'group': 'IQ-21'},
+        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23'},
+        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-21'},
+        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-22'},
+        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-21'},
+        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21'},
+        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21'},
     ]
     
     for a in assignments_data:
@@ -833,7 +832,7 @@ def create_demo_data():
     db.session.commit()
     
     # ===== DARSLAR =====
-    for code, subject in subjects.items():
+    for name, subject in subjects.items():
         for i in range(1, 6):
             lesson = Lesson(
                 title=f"{i}-mavzu: {subject.name}",
@@ -846,13 +845,13 @@ def create_demo_data():
             db.session.add(lesson)
     
     # ===== TOPSHIRIQLAR =====
-    for code, subject in list(subjects.items())[:3]:
+    for name, subject in list(subjects.items())[:3]:
         for i in range(1, 3):
             assignment = Assignment(
                 title=f"Amaliy topshiriq #{i}",
                 description=f"{subject.name} bo'yicha {i}-amaliy topshiriq. Barcha vazifalarni bajarib, muddatida topshiring.",
                 subject_id=subject.id,
-                group_id=groups['DI-21'].id if code != 'MI101' else groups['IQ-21'].id,
+                group_id=groups['DI-21'].id if name != 'Makroiqtisodiyot' else groups['IQ-21'].id,
                 max_score=100,
                 due_date=datetime(2024, 12, 15 + i),
                 created_by=teachers[0].id
@@ -877,11 +876,11 @@ def create_demo_data():
     
     # ===== DARS JADVALI =====
     schedule_data = [
-        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 0, 'start': '09:00', 'end': '10:30', 'link': '', 'type': 'lecture'},
-        {'subject': 'DA101', 'group': 'DI-23', 'teacher': teachers[0], 'day': 2, 'start': '14:00', 'end': '16:00', 'link': '', 'type': 'lab'},
-        {'subject': 'WD201', 'group': 'DI-21', 'teacher': teachers[0], 'day': 1, 'start': '09:00', 'end': '10:30', 'link': '', 'type': 'lecture'},
-        {'subject': 'MB301', 'group': 'DI-21', 'teacher': teachers[2], 'day': 3, 'start': '11:00', 'end': '12:30', 'link': '', 'type': 'lecture'},
-        {'subject': 'AL201', 'group': 'DI-22', 'teacher': teachers[1], 'day': 1, 'start': '14:00', 'end': '15:30', 'link': '', 'type': 'lecture'},
+        {'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'teacher': teachers[0], 'day': 0, 'start': '09:00', 'end': '10:30', 'link': '', 'type': 'lecture'},
+        {'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'teacher': teachers[0], 'day': 2, 'start': '14:00', 'end': '16:00', 'link': '', 'type': 'lab'},
+        {'subject': 'Web dasturlash', 'group': 'DI-21', 'teacher': teachers[0], 'day': 1, 'start': '09:00', 'end': '10:30', 'link': '', 'type': 'lecture'},
+        {'subject': "Ma'lumotlar bazasi", 'group': 'DI-21', 'teacher': teachers[2], 'day': 3, 'start': '11:00', 'end': '12:30', 'link': '', 'type': 'lecture'},
+        {'subject': 'Algoritmlar', 'group': 'DI-22', 'teacher': teachers[1], 'day': 1, 'start': '14:00', 'end': '15:30', 'link': '', 'type': 'lecture'},
     ]
     
     for s in schedule_data:

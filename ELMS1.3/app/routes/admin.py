@@ -962,9 +962,9 @@ def delete_faculty(id):
             db.session.delete(direction)
     
     # Fanlar endi fakultetga bog'liq emas, shuning uchun ularni alohida tekshirish shart emas
-        db.session.delete(faculty)
-        db.session.commit()
-        flash("Fakultet o'chirildi", 'success')
+    db.session.delete(faculty)
+    db.session.commit()
+    flash("Fakultet o'chirildi", 'success')
     
     return redirect(url_for('admin.faculties'))
 

@@ -205,7 +205,6 @@
                                             {% if loop.first %}
                                             <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell" rowspan="{{ lessons|length }}">
                                                 <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
-                                                <div class="text-xs text-gray-500 mt-0.5">{{ subject.code }}</div>
                                             </td>
                                             {% endif %}
                                             <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-700 clickable-cell">{{ lesson.type }}</td>
@@ -228,7 +227,6 @@
                                             data-href="{{ url_for('courses.detail', id=subject.id) }}?direction_id={{ direction.id }}">
                                             <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell">
                                                 <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
-                                                <div class="text-xs text-gray-500 mt-0.5">{{ subject.code }}</div>
                                             </td>
                                             <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">-</td>
                                             <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">-</td>

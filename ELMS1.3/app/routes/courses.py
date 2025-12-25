@@ -78,7 +78,7 @@ def index():
                         all_subjects_list.append(item.subject)
         else:
             # Agar yo'nalish bo'lmasa, oddiy tartibda
-            subjects = query.order_by(Subject.code).paginate(page=page, per_page=12)
+            subjects = query.order_by(Subject.name).paginate(page=page, per_page=12)
             all_subjects_list = list(subjects.items)
     elif current_user.role == 'teacher' or current_user.has_role('teacher'):
         # O'qituvchi uchun - semestr bo'yicha guruhlash
@@ -1614,7 +1614,7 @@ def export_group_grades(subject_id, group_id):
         return redirect(url_for('courses.group_grades', subject_id=subject_id, group_id=group_id))
     
     excel_file = create_group_grades_excel(subject, group, student_rows)
-    filename = f"baholar_{subject.code}_{group.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"baholar_{subject.id}_{group.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     
     return Response(
         excel_file,

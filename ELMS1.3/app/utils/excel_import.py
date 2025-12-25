@@ -26,7 +26,7 @@ def generate_sample_file():
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    
+
     # Import talablari
     from datetime import datetime
     ws['A2'] = "IMPORT TALABLARI:"
@@ -1122,7 +1122,6 @@ def import_subjects_from_excel(file):
                     # Yaratish
                     subject = Subject(
                         name=name,
-                        code='',  # Bo'sh kod (kerak emas)
                         description=description,
                         credits=3,  # Default
                         semester=1  # Default

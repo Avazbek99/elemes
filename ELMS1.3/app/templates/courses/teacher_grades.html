@@ -16,11 +16,11 @@
             <div class="p-5 flex items-center justify-between bg-gray-50 border-b border-gray-100">
                 <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-xl bg-primary-100 flex items-center justify-center">
-                        <span class="text-primary-600 font-bold text-sm">{{ data.subject.code[:3] }}</span>
+                        <span class="text-primary-600 font-bold text-sm">{{ data.subject.name[:3]|upper }}</span>
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">{{ data.subject.name }}</h3>
-                        <p class="text-sm text-gray-500">{{ data.subject.code }} • {{ data.groups|length }} guruh</p>
+                        <p class="text-sm text-gray-500">{{ data.groups|length }} guruh</p>
                     </div>
                 </div>
             </div>

@@ -47,7 +47,7 @@
             <div class="flex flex-wrap gap-2">
                 {% for ts in teacher_subjects[teacher.id] %}
                 <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-                    {{ ts.subject.code }} ({{ ts.group.name }})
+                    {{ ts.subject.name }} ({{ ts.group.name }})
                 </span>
                 {% endfor %}
             </div>
