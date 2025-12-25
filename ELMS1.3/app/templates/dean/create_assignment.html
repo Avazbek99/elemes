@@ -21,7 +21,7 @@
                 <select name="subject_id" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="">Fanni tanlang...</option>
                     {% for subject in subjects %}
-                    <option value="{{ subject.id }}">{{ subject.code }} - {{ subject.name }}</option>
+                    <option value="{{ subject.id }}">{% if subject.code %}{{ subject.code }} - {% endif %}{{ subject.name }}</option>
                     {% endfor %}
                 </select>
             </div>

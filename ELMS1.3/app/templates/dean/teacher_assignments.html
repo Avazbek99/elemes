@@ -32,11 +32,11 @@
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                            <span class="text-purple-600 font-semibold text-xs">{{ assignment.subject.code[:3] }}</span>
+                            <span class="text-purple-600 font-semibold text-xs">{% if assignment.subject.code %}{{ assignment.subject.code[:3] }}{% else %}{{ assignment.subject.name[:3] }}{% endif %}</span>
                         </div>
                         <div>
                             <p class="font-medium text-gray-900">{{ assignment.subject.name }}</p>
-                            <p class="text-sm text-gray-500">{{ assignment.subject.code }}</p>
+                            <p class="text-sm text-gray-500">{% if assignment.subject.code %}{{ assignment.subject.code }}{% else %}{{ assignment.subject.name }}{% endif %}</p>
                         </div>
                     </div>
                 </td>

@@ -145,7 +145,7 @@
                     {% for faculty in faculties %}
                     <optgroup label="{{ faculty.name }}">
                         {% for subject in faculty.subjects_list %}
-                        <option value="{{ subject.id }}">{{ subject.name }} ({{ subject.code }})</option>
+                        <option value="{{ subject.id }}">{{ subject.name }}{% if subject.code %} ({{ subject.code }}){% endif %}</option>
                         {% endfor %}
                     </optgroup>
                     {% endfor %}
