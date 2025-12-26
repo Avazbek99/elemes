@@ -162,6 +162,14 @@
             </h1>
             <p class="text-gray-600 mt-1">Fanlar</p>
         </div>
+        <div class="flex gap-3">
+            <a href="{{ url_for('admin.direction_curriculum', id=direction.id) }}" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                O'quv reja
+            </a>
+        </div>
     </div>
     
     <!-- Semestrlar -->
@@ -210,15 +218,38 @@
                                             <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-700 clickable-cell">{{ lesson.type }}</td>
                                             <td class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-gray-900 bg-gray-100 clickable-cell">{{ lesson.hours }}</td>
                                             <td class="px-3 py-2 border-r border-gray-200" onclick="event.stopPropagation();">
-                                                <select name="teacher_{{ lesson.type|lower }}_{{ curriculum_item.id }}" 
-                                                        class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                                    <option value="">O'qituvchi qidirish...</option>
-                                                    {% for teacher in teachers %}
-                                                    <option value="{{ teacher.id }}" {% if lesson.teacher and lesson.teacher.id == teacher.id %}selected{% endif %}>
-                                                        {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or teacher.email else '-' }}
-                                                    </option>
-                                                    {% endfor %}
-                                                </select>
+                                                {% if 'Amaliyot' in lesson.type or 'Lobaratoriya' in lesson.type or 'Kurs ishi' in lesson.type %}
+                                                    {# Amaliyot, Lobaratoriya va Kurs ishi uchun bitta o'qituvchi #}
+                                                    <select name="teacher_practical_{{ curriculum_item.id }}" 
+                                                            class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                                        <option value="">O'qituvchi qidirish...</option>
+                                                        {% for teacher in teachers %}
+                                                        <option value="{{ teacher.id }}" {% if lesson.teacher and lesson.teacher.id == teacher.id %}selected{% endif %}>
+                                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or teacher.email else '-' }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                {% elif lesson.type == 'Maruza' %}
+                                                    <select name="teacher_maruza_{{ curriculum_item.id }}" 
+                                                            class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                                        <option value="">O'qituvchi qidirish...</option>
+                                                        {% for teacher in teachers %}
+                                                        <option value="{{ teacher.id }}" {% if lesson.teacher and lesson.teacher.id == teacher.id %}selected{% endif %}>
+                                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or teacher.email else '-' }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                {% elif lesson.type == 'Seminar' %}
+                                                    <select name="teacher_seminar_{{ curriculum_item.id }}" 
+                                                            class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                                        <option value="">O'qituvchi qidirish...</option>
+                                                        {% for teacher in teachers %}
+                                                        <option value="{{ teacher.id }}" {% if lesson.teacher and lesson.teacher.id == teacher.id %}selected{% endif %}>
+                                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or teacher.email else '-' }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                {% endif %}
                                             </td>
                                         </tr>
                                         {% endfor %}

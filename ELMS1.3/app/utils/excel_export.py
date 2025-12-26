@@ -929,7 +929,7 @@ def create_subjects_excel(subjects):
 
 
 def create_curriculum_excel(direction, curriculum_items):
-    """O'quv rejani Excel formatida yaratish"""
+    """O'quv rejani Excel formatida yaratish (rasmdagi formatga mos)"""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -938,142 +938,136 @@ def create_curriculum_excel(direction, curriculum_items):
         raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
     
     wb = Workbook()
+    ws = wb.active
+    ws.title = "O'quv reja"
     
-    # Semestr bo'yicha guruhlash
-    from collections import defaultdict
-    items_by_semester = defaultdict(list)
+    # Sarlavha
+    title = f"O'quv reja - {direction.code} - {direction.name}"
+    if direction.enrollment_year:
+        title = f"{direction.enrollment_year} - {title}"
     
-    for item in curriculum_items:
-        items_by_semester[item.semester].append(item)
+    ws.merge_cells('A1:I1')
+    title_cell = ws['A1']
+    title_cell.value = title
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     
-    # Har bir semestr uchun alohida worksheet
-    for semester in sorted(items_by_semester.keys()):
-        ws = wb.create_sheet(title=f"{semester}-semestr")
+    # Sana
+    ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ws.merge_cells('A2:I2')
+    ws['A2'].font = Font(size=10, italic=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Jadval sarlavhalari (rasmdagi tartibda)
+    headers = [
+        "Semestr",          # A
+        "Fan nomi",         # B
+        "Maruza (M)",       # C
+        "Amaliyot (A)",     # D
+        "Laboratoriya (L)", # E
+        "Seminar (S)",      # F
+        "Kurs ishi (K)",    # G
+        "Mustaqil ta'lim (MT)", # H
+        "Jami soat"         # I
+    ]
+    header_row = 3
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+    
+    # Ma'lumotlarni semestr bo'yicha tartiblash
+    sorted_items = sorted(curriculum_items, key=lambda x: (x.semester, x.subject.name))
+    
+    total_maruza = 0
+    total_amaliyot = 0
+    total_laboratoriya = 0
+    total_seminar = 0
+    total_kurs_ishi = 0
+    total_mustaqil = 0
+    total_jami = 0
+    
+    for row_num, item in enumerate(sorted_items, start=header_row + 1):
+        subject = item.subject
+        maruza = item.hours_maruza or 0
+        amaliyot = item.hours_amaliyot or 0
+        laboratoriya = item.hours_laboratoriya or 0
+        seminar = item.hours_seminar or 0
+        kurs_ishi = item.hours_kurs_ishi or 0
+        mustaqil = item.hours_mustaqil or 0
+        # Kurs ishi jami soatga qo'shilmaydi
+        jami = maruza + amaliyot + laboratoriya + seminar + mustaqil
         
-        # Sarlavha
-        title = f"O'quv reja - {direction.code} - {direction.name}"
-        if direction.enrollment_year:
-            title = f"{direction.enrollment_year} - {title}"
-        title += f" ({semester}-semestr)"
+        total_maruza += maruza
+        total_amaliyot += amaliyot
+        total_laboratoriya += laboratoriya
+        total_seminar += seminar
+        total_kurs_ishi += kurs_ishi
+        total_mustaqil += mustaqil
+        total_jami += jami
         
-        ws.merge_cells('A1:I1')
-        title_cell = ws['A1']
-        title_cell.value = title
-        title_cell.font = Font(size=16, bold=True, color="FFFFFF")
-        title_cell.alignment = Alignment(horizontal='center', vertical='center')
-        title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        # Semestr (1-semestr formatida)
+        ws.cell(row=row_num, column=1, value=f"{item.semester}-semestr")
+        # Fan nomi
+        ws.cell(row=row_num, column=2, value=subject.name)
+        # Soatlar - 0 bo'lsa bo'sh qoldiriladi
+        ws.cell(row=row_num, column=3, value=maruza if maruza > 0 else None)
+        ws.cell(row=row_num, column=4, value=amaliyot if amaliyot > 0 else None)
+        ws.cell(row=row_num, column=5, value=laboratoriya if laboratoriya > 0 else None)
+        ws.cell(row=row_num, column=6, value=seminar if seminar > 0 else None)
+        # Kurs ishi - bor bo'lsa "Bor", yo'q bo'lsa bo'sh
+        kurs_ishi_text = "Bor" if kurs_ishi > 0 else None
+        ws.cell(row=row_num, column=7, value=kurs_ishi_text)
+        ws.cell(row=row_num, column=8, value=mustaqil if mustaqil > 0 else None)
+        ws.cell(row=row_num, column=9, value=jami)
         
-        # Sana
-        ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-        ws.merge_cells('A2:I2')
-        ws['A2'].font = Font(size=10, italic=True)
-        ws['A2'].alignment = Alignment(horizontal='center')
-        
-        # Jadval sarlavhalari
-        headers = [
-            "Fan nomi",      # A
-            "Semestr",       # B
-            "Maruza (M)",    # C
-            "Amaliyot (A)",  # D
-            "Laboratoriya (L)", # E
-            "Seminar (S)",   # F
-            "Kurs ishi (K)", # G
-            "Mustaqil ta'lim (MT)", # H
-            "Jami soat"      # I
-        ]
-        header_row = 3
-        
-        for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=header_row, column=col_num)
-            cell.value = header
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.alignment = Alignment(horizontal='center', vertical='center')
-            cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        # Stil
+        for col_num in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.alignment = Alignment(horizontal='left' if col_num <= 2 else 'center', vertical='center')
             cell.border = Border(
                 left=Side(style='thin'),
                 right=Side(style='thin'),
                 top=Side(style='thin'),
                 bottom=Side(style='thin')
             )
-        
-        # Ma'lumotlar
-        semester_items = items_by_semester[semester]
-        total_maruza = 0
-        total_amaliyot = 0
-        total_laboratoriya = 0
-        total_seminar = 0
-        total_kurs_ishi = 0
-        total_mustaqil = 0
-        total_jami = 0
-        
-        for row_num, item in enumerate(semester_items, start=header_row + 1):
-            subject = item.subject
-            maruza = item.hours_maruza or 0
-            amaliyot = item.hours_amaliyot or 0
-            laboratoriya = item.hours_laboratoriya or 0
-            seminar = item.hours_seminar or 0
-            kurs_ishi = item.hours_kurs_ishi or 0
-            mustaqil = item.hours_mustaqil or 0
-            jami = maruza + amaliyot + laboratoriya + seminar + mustaqil  # Kurs ishi jami soatga qo'shilmaydi
-            
-            total_maruza += maruza
-            total_amaliyot += amaliyot
-            total_laboratoriya += laboratoriya
-            total_seminar += seminar
-            total_kurs_ishi += kurs_ishi
-            total_mustaqil += mustaqil
-            total_jami += jami
-            
-            ws.cell(row=row_num, column=1, value=subject.name)
-            ws.cell(row=row_num, column=2, value=item.semester)
-            ws.cell(row=row_num, column=3, value=maruza)
-            ws.cell(row=row_num, column=4, value=amaliyot)
-            ws.cell(row=row_num, column=5, value=laboratoriya)
-            ws.cell(row=row_num, column=6, value=seminar)
-            ws.cell(row=row_num, column=7, value=kurs_ishi)
-            ws.cell(row=row_num, column=8, value=mustaqil)
-            ws.cell(row=row_num, column=9, value=jami)
-            
-            # Stil
-            for col_num in range(1, len(headers) + 1):
-                cell = ws.cell(row=row_num, column=col_num)
-                cell.alignment = Alignment(horizontal='left' if col_num <= 2 else 'center', vertical='center')
-                cell.border = Border(
-                    left=Side(style='thin'),
-                    right=Side(style='thin'),
-                    top=Side(style='thin'),
-                    bottom=Side(style='thin')
-                )
-                if row_num % 2 == 0:
-                    cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-        
-        # Jami qator
-        summary_row = header_row + len(semester_items) + 2
-        ws.cell(row=summary_row, column=1, value="JAMI:")
-        ws.cell(row=summary_row, column=1).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=3, value=total_maruza)
-        ws.cell(row=summary_row, column=3).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=4, value=total_amaliyot)
-        ws.cell(row=summary_row, column=4).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=5, value=total_laboratoriya)
-        ws.cell(row=summary_row, column=5).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=6, value=total_seminar)
-        ws.cell(row=summary_row, column=6).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=7, value=total_kurs_ishi)
-        ws.cell(row=summary_row, column=7).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=8, value=total_mustaqil)
-        ws.cell(row=summary_row, column=8).font = Font(bold=True, size=12)
-        ws.cell(row=summary_row, column=9, value=total_jami)
-        ws.cell(row=summary_row, column=9).font = Font(bold=True, size=12)
-        
-        # Ustun kengliklarini sozlash
-        column_widths = [40, 10, 12, 12, 15, 12, 12, 18, 12]
-        for col_num, width in enumerate(column_widths, 1):
-            ws.column_dimensions[get_column_letter(col_num)].width = width
+            if row_num % 2 == 0:
+                cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
-    # Bosh worksheet'ni o'chirish
-    if 'Sheet' in wb.sheetnames:
-        wb.remove(wb['Sheet'])
+    # Jami qator
+    summary_row = header_row + len(sorted_items) + 2
+    ws.cell(row=summary_row, column=1, value="JAMI:")
+    ws.cell(row=summary_row, column=1).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=3, value=total_maruza)
+    ws.cell(row=summary_row, column=3).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=4, value=total_amaliyot)
+    ws.cell(row=summary_row, column=4).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=5, value=total_laboratoriya)
+    ws.cell(row=summary_row, column=5).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=6, value=total_seminar)
+    ws.cell(row=summary_row, column=6).font = Font(bold=True, size=12)
+    # Kurs ishi jami - faqat "Bor" yoki "Yo'q" ko'rsatiladi
+    ws.cell(row=summary_row, column=7, value="")
+    ws.cell(row=summary_row, column=7).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=8, value=total_mustaqil)
+    ws.cell(row=summary_row, column=8).font = Font(bold=True, size=12)
+    ws.cell(row=summary_row, column=9, value=total_jami)
+    ws.cell(row=summary_row, column=9).font = Font(bold=True, size=12)
+    
+    # Ustun kengliklarini sozlash
+    column_widths = [15, 40, 12, 12, 15, 12, 12, 18, 12]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
     
     # Excel faylni qaytarish
     output = io.BytesIO()

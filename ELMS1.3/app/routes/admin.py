@@ -1325,9 +1325,13 @@ def import_curriculum(id):
         
         result = import_curriculum_from_excel(file, direction.id)
         
+        result = import_curriculum_from_excel(file, direction.id)
+        
         if result['success']:
             if result['imported'] > 0 or result['updated'] > 0:
                 message = f"Muvaffaqiyatli! {result['imported']} ta yangi qo'shildi, {result['updated']} ta yangilandi."
+                if result.get('subjects_created', 0) > 0:
+                    message += f" {result['subjects_created']} ta yangi fan yaratildi."
                 if result['errors']:
                     message += f" {len(result['errors'])} ta xatolik yuz berdi."
                 flash(message, 'success' if not result['errors'] else 'warning')
@@ -1343,6 +1347,26 @@ def import_curriculum(id):
         return redirect(url_for('admin.direction_curriculum', id=id))
     
     return render_template('admin/import_curriculum.html', direction=direction)
+
+
+@bp.route('/directions/<int:id>/curriculum/import/sample')
+@login_required
+@admin_required
+def download_curriculum_sample(id):
+    """O'quv reja import uchun namuna fayl yuklab olish"""
+    from app.utils.excel_import import generate_curriculum_sample_file
+    
+    direction = Direction.query.get_or_404(id)
+    
+    excel_file = generate_curriculum_sample_file()
+    
+    filename = f"oquv_reja_import_namuna_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return send_file(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
+    )
 
 
 @bp.route('/directions/<int:id>/subjects', methods=['GET', 'POST'])
@@ -1391,21 +1415,22 @@ def direction_subjects(id):
                 if teacher_subject:
                     db.session.delete(teacher_subject)
             
-            # Amaliyot o'qituvchisi (faqat amaliyot/lobaratoriya soatlari bo'lsa)
-            if (item.hours_amaliyot or 0) > 0 or (item.hours_laboratoriya or 0) > 0:
-                amaliyot_teacher_id = request.form.get(f'teacher_amaliyot_{item.id}', type=int)
+            # Amaliyot/Lobaratoriya/Kurs ishi o'qituvchisi (bitta o'qituvchi)
+            if (item.hours_amaliyot or 0) > 0 or (item.hours_laboratoriya or 0) > 0 or (item.hours_kurs_ishi or 0) > 0:
+                # Bitta o'qituvchi tanlanadi (amaliyot, lobaratoriya va kurs ishi uchun)
+                practical_teacher_id = request.form.get(f'teacher_practical_{item.id}', type=int)
                 teacher_subject = TeacherSubject.query.filter_by(
                     subject_id=item.subject_id,
                     group_id=groups[0].id,
                     lesson_type='amaliyot'
                 ).first()
                 
-                if amaliyot_teacher_id:
+                if practical_teacher_id:
                     if teacher_subject:
-                        teacher_subject.teacher_id = amaliyot_teacher_id
+                        teacher_subject.teacher_id = practical_teacher_id
                     else:
                         teacher_subject = TeacherSubject(
-                            teacher_id=amaliyot_teacher_id,
+                            teacher_id=practical_teacher_id,
                             subject_id=item.subject_id,
                             group_id=groups[0].id,
                             lesson_type='amaliyot'
@@ -1484,9 +1509,14 @@ def direction_subjects(id):
                 'teacher': teacher
             })
         
-        # Amaliyot (amaliyot + lobaratoriya, kurs ishi qo'shilmaydi)
-        amaliyot_hours = (item.hours_amaliyot or 0) + (item.hours_laboratoriya or 0)
-        if amaliyot_hours > 0:
+        # Amaliyot, Lobaratoriya va Kurs ishi bitta yacheykada
+        amaliyot_hours = item.hours_amaliyot or 0
+        lobaratoriya_hours = item.hours_laboratoriya or 0
+        kurs_ishi_hours = item.hours_kurs_ishi or 0
+        # Kurs ishi soatlari umumiy soatlar yig'indisiga qo'shilmaydi
+        total_practical_hours = amaliyot_hours + lobaratoriya_hours
+        
+        if total_practical_hours > 0 or kurs_ishi_hours > 0:
             # O'qituvchini topish
             teacher = None
             if groups:
@@ -1498,27 +1528,25 @@ def direction_subjects(id):
                 if teacher_subject:
                     teacher = teacher_subject.teacher
             
-            subject_data['lessons'].append({
-                'type': 'Amaliyot',
-                'hours': amaliyot_hours,
-                'teacher': teacher
-            })
-        # Agar amaliyot yo'q bo'lsa, faqat lobaratoriya bo'lsa
-        elif (item.hours_laboratoriya or 0) > 0:
-            teacher = None
-            if groups:
-                teacher_subject = TeacherSubject.query.filter_by(
-                    subject_id=item.subject_id,
-                    group_id=groups[0].id,
-                    lesson_type='amaliyot'
-                ).first()
-                if teacher_subject:
-                    teacher = teacher_subject.teacher
+            # Dars turlarini tartib bilan yig'ish
+            lesson_types = []
+            if amaliyot_hours > 0:
+                lesson_types.append('Amaliyot')
+            if lobaratoriya_hours > 0:
+                lesson_types.append('Lobaratoriya')
+            if kurs_ishi_hours > 0:
+                lesson_types.append('Kurs ishi')
+            
+            lesson_type_name = ', '.join(lesson_types)
+            # Kurs ishi soatlari ko'rsatiladi, lekin umumiy soatlar yig'indisiga qo'shilmaydi
+            # Ko'rsatiladigan soatlar: amaliyot + lobaratoriya (kurs ishi qo'shilmaydi)
+            display_hours = total_practical_hours
             
             subject_data['lessons'].append({
-                'type': 'Amaliyot',
-                'hours': item.hours_laboratoriya,
-                'teacher': teacher
+                'type': lesson_type_name,
+                'hours': display_hours,
+                'teacher': teacher,
+                'curriculum_item_id': item.id
             })
         
         # Seminar

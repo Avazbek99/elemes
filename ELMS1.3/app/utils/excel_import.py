@@ -1151,7 +1151,7 @@ def import_subjects_from_excel(file):
 
 
 def import_curriculum_from_excel(file, direction_id):
-    """Excel fayldan o'quv rejani import qilish"""
+    """Excel fayldan o'quv rejani import qilish (rasmdagi formatga mos)"""
     try:
         from openpyxl import load_workbook
         from app.models import Direction, Subject, DirectionCurriculum
@@ -1178,111 +1178,142 @@ def import_curriculum_from_excel(file, direction_id):
         
         imported = 0
         updated = 0
+        subjects_created = 0
         errors = []
         
-        # Har bir worksheet'ni o'qish (semestr bo'yicha)
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            
-            # Semestr nomini olish (masalan: "1-semestr" -> 1)
+        # Birinchi worksheet'ni olish
+        ws = wb.active
+        
+        # Sarlavha qatorini topish
+        header_row = None
+        for row_num in range(1, min(10, ws.max_row + 1)):
+            first_cell = ws.cell(row=row_num, column=1).value
+            if first_cell and ("Semestr" in str(first_cell) or "Fan nomi" in str(first_cell)):
+                header_row = row_num
+                break
+        
+        if not header_row:
+            errors.append("Sarlavha qatori topilmadi.")
+            return {
+                'success': False,
+                'imported': 0,
+                'updated': 0,
+                'errors': errors
+            }
+        
+        # Sarlavhalarni olish
+        headers = {}
+        for col_num in range(1, ws.max_column + 1):
+            cell_value = ws.cell(row=header_row, column=col_num).value
+            if cell_value:
+                headers[str(cell_value).strip()] = col_num
+        
+        # Ma'lumotlarni o'qish
+        for row_num in range(header_row + 1, ws.max_row + 1):
             try:
-                semester = int(sheet_name.split('-')[0])
-            except (ValueError, IndexError):
-                errors.append(f"Sheet '{sheet_name}' nomi noto'g'ri formatda. Semestr raqamini olish mumkin emas.")
-                continue
-            
-            # Sarlavha qatorini topish
-            header_row = None
-            for row_num in range(1, min(10, ws.max_row + 1)):
-                first_cell = ws.cell(row=row_num, column=1).value
-                if first_cell and "Fan nomi" in str(first_cell):
-                    header_row = row_num
-                    break
-            
-            if not header_row:
-                errors.append(f"Sheet '{sheet_name}' da sarlavha qatori topilmadi.")
-                continue
-            
-            # Sarlavhalarni olish
-            headers = {}
-            for col_num in range(1, ws.max_column + 1):
-                cell_value = ws.cell(row=header_row, column=col_num).value
-                if cell_value:
-                    headers[str(cell_value).strip()] = col_num
-            
-            # Ma'lumotlarni o'qish
-            for row_num in range(header_row + 1, ws.max_row + 1):
+                # Semestr (1-semestr formatida yoki faqat raqam)
+                semester_cell = ws.cell(row=row_num, column=headers.get("Semestr", 1)).value
+                if not semester_cell:
+                    continue
+                
+                # Semestr raqamini olish
+                semester_str = str(semester_cell).strip()
+                if '-semestr' in semester_str:
+                    semester = int(semester_str.split('-')[0])
+                else:
+                    semester = int(float(semester_str))
+                
+                # Fan nomi
+                subject_name = ws.cell(row=row_num, column=headers.get("Fan nomi", 2)).value
+                
+                # Bo'sh qatorlarni o'tkazib yuborish
+                if not subject_name:
+                    continue
+                
+                # Fan topish yoki yaratish
+                subject_name = str(subject_name).strip()
+                subject = Subject.query.filter_by(name=subject_name).first()
+                
+                if not subject:
+                    # Yangi fan yaratish
+                    subject = Subject(
+                        name=subject_name,
+                        code='',
+                        description=f"Import qilingan fan: {subject_name}",
+                        credits=3,
+                        semester=semester
+                    )
+                    db.session.add(subject)
+                    db.session.flush()  # ID olish uchun
+                    subjects_created += 1
+                
+                # Soatlar (yangi tartibda: Semestr, Fan nomi, Maruza, Amaliyot, ...)
+                maruza = ws.cell(row=row_num, column=headers.get("Maruza (M)", 3)).value
+                amaliyot = ws.cell(row=row_num, column=headers.get("Amaliyot (A)", 4)).value
+                laboratoriya = ws.cell(row=row_num, column=headers.get("Laboratoriya (L)", 5)).value
+                seminar = ws.cell(row=row_num, column=headers.get("Seminar (S)", 6)).value
+                kurs_ishi_value = ws.cell(row=row_num, column=headers.get("Kurs ishi (K)", 7)).value
+                mustaqil = ws.cell(row=row_num, column=headers.get("Mustaqil ta'lim (MT)", 8)).value
+                
+                # Raqamlarga o'tkazish - bo'sh bo'lsa 0
                 try:
-                    # Fan nomi
-                    subject_name = ws.cell(row=row_num, column=headers.get("Fan nomi", 1)).value
-                    
-                    # Bo'sh qatorlarni o'tkazib yuborish
-                    if not subject_name:
-                        continue
-                    
-                    # Fan topish
-                    subject_name = str(subject_name).strip()
-                    subject = Subject.query.filter_by(name=subject_name).first()
-                    
-                    if not subject:
-                        errors.append(f"Qator {row_num}: Fan topilmadi (Nom: {subject_name})")
-                        continue
-                    
-                    # Soatlar
-                    maruza = ws.cell(row=row_num, column=headers.get("Maruza (M)", 3)).value or 0
-                    amaliyot = ws.cell(row=row_num, column=headers.get("Amaliyot (A)", 4)).value or 0
-                    laboratoriya = ws.cell(row=row_num, column=headers.get("Laboratoriya (L)", 5)).value or 0
-                    seminar = ws.cell(row=row_num, column=headers.get("Seminar (S)", 6)).value or 0
-                    kurs_ishi = ws.cell(row=row_num, column=headers.get("Kurs ishi (K)", 7)).value or 0
-                    mustaqil = ws.cell(row=row_num, column=headers.get("Mustaqil ta'lim (MT)", 8)).value or 0
-                    
-                    # Raqamlarga o'tkazish
-                    try:
-                        maruza = int(float(maruza)) if maruza else 0
-                        amaliyot = int(float(amaliyot)) if amaliyot else 0
-                        laboratoriya = int(float(laboratoriya)) if laboratoriya else 0
-                        seminar = int(float(seminar)) if seminar else 0
-                        kurs_ishi = int(float(kurs_ishi)) if kurs_ishi else 0
-                        mustaqil = int(float(mustaqil)) if mustaqil else 0
-                    except (ValueError, TypeError):
-                        errors.append(f"Qator {row_num}: Soatlar noto'g'ri formatda")
-                        continue
-                    
-                    # Mavjud o'quv reja elementini topish yoki yaratish
-                    curriculum_item = DirectionCurriculum.query.filter_by(
+                    maruza = int(float(maruza)) if maruza else 0
+                    amaliyot = int(float(amaliyot)) if amaliyot else 0
+                    laboratoriya = int(float(laboratoriya)) if laboratoriya else 0
+                    seminar = int(float(seminar)) if seminar else 0
+                    # Kurs ishi - "Bor" bo'lsa 1, bo'sh yoki "Yo'q" bo'lsa 0
+                    if kurs_ishi_value:
+                        kurs_ishi_str = str(kurs_ishi_value).strip()
+                        if kurs_ishi_str.lower() in ['bor', 'да', 'yes', '1', 'true']:
+                            kurs_ishi = 1  # Agar mavjud bo'lsa, 1 soat deb belgilanadi
+                        elif kurs_ishi_str.lower() in ["yo'q", "yoq", "нет", "no", "0", "false"]:
+                            kurs_ishi = 0
+                        else:
+                            # Raqam formatida bo'lsa
+                            kurs_ishi = int(float(kurs_ishi_str)) if kurs_ishi_str else 0
+                    else:
+                        # Bo'sh bo'lsa 0
+                        kurs_ishi = 0
+                    mustaqil = int(float(mustaqil)) if mustaqil else 0
+                except (ValueError, TypeError):
+                    errors.append(f"Qator {row_num}: Soatlar noto'g'ri formatda")
+                    continue
+                
+                # Mavjud o'quv reja elementini topish yoki yaratish
+                curriculum_item = DirectionCurriculum.query.filter_by(
+                    direction_id=direction_id,
+                    subject_id=subject.id,
+                    semester=semester
+                ).first()
+                
+                if curriculum_item:
+                    # Yangilash
+                    curriculum_item.hours_maruza = maruza
+                    curriculum_item.hours_amaliyot = amaliyot
+                    curriculum_item.hours_laboratoriya = laboratoriya
+                    curriculum_item.hours_seminar = seminar
+                    curriculum_item.hours_kurs_ishi = kurs_ishi
+                    curriculum_item.hours_mustaqil = mustaqil
+                    updated += 1
+                else:
+                    # Yaratish
+                    curriculum_item = DirectionCurriculum(
                         direction_id=direction_id,
                         subject_id=subject.id,
-                        semester=semester
-                    ).first()
-                    
-                    if curriculum_item:
-                        # Yangilash
-                        curriculum_item.hours_maruza = maruza
-                        curriculum_item.hours_amaliyot = amaliyot
-                        curriculum_item.hours_laboratoriya = laboratoriya
-                        curriculum_item.hours_seminar = seminar
-                        curriculum_item.hours_kurs_ishi = kurs_ishi
-                        curriculum_item.hours_mustaqil = mustaqil
-                        updated += 1
-                    else:
-                        # Yaratish
-                        curriculum_item = DirectionCurriculum(
-                            direction_id=direction_id,
-                            subject_id=subject.id,
-                            semester=semester,
-                            hours_maruza=maruza,
-                            hours_amaliyot=amaliyot,
-                            hours_laboratoriya=laboratoriya,
-                            hours_seminar=seminar,
-                            hours_kurs_ishi=kurs_ishi,
-                            hours_mustaqil=mustaqil
-                        )
-                        db.session.add(curriculum_item)
-                        imported += 1
-                
-                except Exception as e:
-                    errors.append(f"Qator {row_num}: {str(e)}")
-                    continue
+                        semester=semester,
+                        hours_maruza=maruza,
+                        hours_amaliyot=amaliyot,
+                        hours_laboratoriya=laboratoriya,
+                        hours_seminar=seminar,
+                        hours_kurs_ishi=kurs_ishi,
+                        hours_mustaqil=mustaqil
+                    )
+                    db.session.add(curriculum_item)
+                    imported += 1
+            
+            except Exception as e:
+                errors.append(f"Qator {row_num}: {str(e)}")
+                continue
         
         db.session.commit()
         
@@ -1290,6 +1321,7 @@ def import_curriculum_from_excel(file, direction_id):
             'success': True,
             'imported': imported,
             'updated': updated,
+            'subjects_created': subjects_created,
             'errors': errors
         }
     
@@ -1301,3 +1333,125 @@ def import_curriculum_from_excel(file, direction_id):
             'updated': 0,
             'errors': [f"Fayl o'qishda xatolik: {str(e)}"]
         }
+
+
+def generate_curriculum_sample_file():
+    """O'quv rejani import qilish uchun namuna Excel fayl"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "O'quv reja"
+
+    # Sarlavha
+    ws.merge_cells('A1:I1')
+    title_cell = ws['A1']
+    title_cell.value = "O'quv reja import uchun namuna fayl"
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    
+    # Sana
+    ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ws.merge_cells('A2:I2')
+    ws['A2'].font = Font(size=10, italic=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Eslatma va talablar
+    ws['A3'] = "ESLATMA VA TALABLAR:"
+    ws.merge_cells('A3:I3')
+    ws['A3'].font = Font(size=11, bold=True, color="000000")
+    ws['A3'].alignment = Alignment(horizontal='left', vertical='center')
+    
+    notes = [
+        "1. Semestr - fan o'qitiladigan semestr (masalan: 1-semestr yoki 1)",
+        "2. Fan nomi - fanning to'liq nomi (majburiy)",
+        "3. Maruza (M) - maruza soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh qoldiriladi)",
+        "4. Amaliyot (A) - amaliyot soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh qoldiriladi)",
+        "5. Laboratoriya (L) - laboratoriya soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh qoldiriladi)",
+        "6. Seminar (S) - seminar soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh qoldiriladi)",
+        "7. Kurs ishi (K) - \"Bor\" yoki bo'sh (majburiy emas). Agar \"Bor\" bo'lsa, kurs ishi mavjud deb hisoblanadi. Bo'sh qoldirilsa, kurs ishi yo'q deb hisoblanadi. Kurs ishi soatlari jami soatga qo'shilmaydi.",
+        "8. Mustaqil ta'lim (MT) - mustaqil ta'lim soatlari (butun son, 0 yoki bo'sh bo'lishi mumkin)",
+        "9. Jami soat - avtomatik hisoblanadi (Maruza + Amaliyot + Laboratoriya + Seminar + Mustaqil ta'lim). Kurs ishi qo'shilmaydi.",
+        "10. Agar fan topilmasa, yangi fan avtomatik yaratiladi.",
+        "11. Bir xil semestr va fan nomi bo'lgan qatorlar yangilanadi."
+    ]
+    
+    note_row = 4
+    for note in notes:
+        ws.cell(row=note_row, column=1, value=note)
+        ws.merge_cells(f'A{note_row}:I{note_row}')
+        ws.cell(row=note_row, column=1).font = Font(size=9, italic=True)
+        ws.cell(row=note_row, column=1).alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        note_row += 1
+    
+    # Jadval sarlavhalari
+    headers = [
+        "Semestr",          # A
+        "Fan nomi",         # B
+        "Maruza (M)",       # C
+        "Amaliyot (A)",     # D
+        "Laboratoriya (L)", # E
+        "Seminar (S)",      # F
+        "Kurs ishi (K)",    # G
+        "Mustaqil ta'lim (MT)", # H
+        "Jami soat"         # I
+    ]
+    header_row = note_row + 1
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+    
+    # Namuna ma'lumotlar (0 soatlar bo'sh qoldiriladi, kurs ishi yo'q bo'lsa bo'sh)
+    sample_data = [
+        ["1-semestr", "Amaliy matematika", 60, 12, None, 15, None, 60, 147],
+        ["1-semestr", "Iqtisodiy ta'limotlar tarixi", 90, None, None, 11, None, 90, 191],
+        ["2-semestr", "Iqtisodiyot nazariyasi", 60, 10, None, 11, "Bor", 60, 141],
+        ["4-semestr", "O'zbek (rus) tili", 60, None, None, 10, None, 60, 130],
+        ["5-semestr", "O'zbek (rus) tili", 60, None, None, 10, None, 60, 130],
+        ["6-semestr", "Xorijiy til", 60, None, None, 10, None, 60, 130],
+        ["9-semestr", "Iqtisodiyotda axborot kommunikasiya texnol", 60, 11, 5, None, None, 60, 136]
+    ]
+    
+    for row_num, row_data in enumerate(sample_data, start=header_row + 1):
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            # None qiymatlar bo'sh qoldiriladi
+            if value is not None:
+                cell.value = value
+            cell.alignment = Alignment(horizontal='left' if col_num <= 2 else 'center', vertical='center')
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            if row_num % 2 == 0:
+                cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+    
+    # Ustun kengliklarini sozlash
+    column_widths = [15, 40, 12, 12, 15, 12, 12, 18, 12]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+    
+    # Excel faylni qaytarish
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return output

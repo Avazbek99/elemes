@@ -8,10 +8,16 @@
         <h1 class="text-2xl font-bold text-gray-900">O'qituvchi-Fan biriktirmalar</h1>
         <p class="text-gray-600">{{ faculty.name }}</p>
     </div>
-    <a href="{{ url_for('dean.create_assignment') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-        Yangi biriktirish
-    </a>
+    <div class="flex gap-3">
+        <a href="{{ url_for('dean.courses') }}" class="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            O'quv reja
+        </a>
+        <a href="{{ url_for('dean.create_assignment') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Yangi biriktirish
+        </a>
+    </div>
 </div>
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
