@@ -302,10 +302,14 @@ class Lesson(db.Model):
     order = db.Column(db.Integer, default=0)
     lesson_type = db.Column(db.String(20), default='maruza')  # maruza yoki amaliyot
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)  # Qaysi guruh uchun
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)  # Qaysi yo'nalish uchun
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     creator = db.relationship('User', backref='created_lessons')
+    group = db.relationship('Group', backref='lessons')
+    direction = db.relationship('Direction', backref='lessons')
     
     # Video ko'rish yozuvlari
     views = db.relationship('LessonView', backref='lesson', lazy='dynamic', cascade='all, delete-orphan')
@@ -373,6 +377,7 @@ class Announcement(db.Model):
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    author_role = db.Column(db.String(50))  # E'lon yaratilganda foydalanuvchining tanlangan roli
     is_important = db.Column(db.Boolean, default=False)
     target_roles = db.Column(db.String(100))  # comma-separated: student,teacher,dean
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'))  # Faqat shu fakultet uchun

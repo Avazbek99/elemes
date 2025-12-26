@@ -528,101 +528,24 @@ def courses():
 
 
 # ==================== O'QITUVCHI-FAN BIRIKTIRISH ====================
-@bp.route('/assignments')
-@login_required
-@dean_required
-def teacher_assignments():
-    faculty = Faculty.query.get(current_user.faculty_id)
-    if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
-        return redirect(url_for('main.dashboard'))
-    
-    # Fakultetdagi fanlar uchun biriktirmalar (guruhlar orqali)
-    assignments = TeacherSubject.query.join(Group).join(Subject).filter(
-        Group.faculty_id == faculty.id
-    ).order_by(Subject.name).all()
-    
-    return render_template('dean/teacher_assignments.html', faculty=faculty, assignments=assignments)
+# Assignments sahifasi o'chirildi - o'qituvchi biriktirish endi yo'nalish-semestr fanlaridan amalga oshiriladi
+# @bp.route('/assignments')
+# @login_required
+# @dean_required
+# def teacher_assignments():
+#     ...
 
+# @bp.route('/assignments/create', methods=['GET', 'POST'])
+# @login_required
+# @dean_required
+# def create_assignment():
+#     ...
 
-@bp.route('/assignments/create', methods=['GET', 'POST'])
-@login_required
-@dean_required
-def create_assignment():
-    faculty = Faculty.query.get(current_user.faculty_id)
-    if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
-        return redirect(url_for('main.dashboard'))
-    
-    # Fanlarni guruhlar orqali olish
-    subjects = Subject.query.join(TeacherSubject).join(Group).filter(
-        Group.faculty_id == faculty.id
-    ).distinct().order_by(Subject.name).all()
-    groups = faculty.groups.order_by(Group.name).all()
-    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
-    
-    if request.method == 'POST':
-        teacher_id = request.form.get('teacher_id', type=int)
-        subject_id = request.form.get('subject_id', type=int)
-        group_id = request.form.get('group_id', type=int)
-        academic_year = request.form.get('academic_year')
-        semester = request.form.get('semester', 1, type=int)
-        
-        lesson_type = request.form.get('lesson_type', 'maruza')
-        
-        # Mavjudligini tekshirish (xuddi shu tur uchun)
-        existing = TeacherSubject.query.filter_by(
-            subject_id=subject_id,
-            group_id=group_id,
-            lesson_type=lesson_type,
-            academic_year=academic_year,
-            semester=semester
-        ).first()
-        
-        if existing:
-            lesson_type_display = "Maruza" if lesson_type == 'maruza' else "Amaliyot"
-            flash(f"Bu fan uchun bu guruhga {lesson_type_display} bo'limi uchun allaqachon o'qituvchi biriktirilgan", 'error')
-            return render_template('dean/create_assignment.html', 
-                                 faculty=faculty, subjects=subjects, groups=groups, teachers=teachers)
-        
-        assignment = TeacherSubject(
-            teacher_id=teacher_id,
-            subject_id=subject_id,
-            group_id=group_id,
-            lesson_type=lesson_type,
-            academic_year=academic_year,
-            semester=semester,
-            assigned_by=current_user.id
-        )
-        db.session.add(assignment)
-        db.session.commit()
-        
-        teacher = User.query.get(teacher_id)
-        subject = Subject.query.get(subject_id)
-        group = Group.query.get(group_id)
-        flash(f"{teacher.full_name} {subject.name} faniga {group.name} guruhi uchun biriktirildi", 'success')
-        return redirect(url_for('dean.teacher_assignments'))
-    
-    return render_template('dean/create_assignment.html', 
-                         faculty=faculty, subjects=subjects, groups=groups, teachers=teachers)
-
-
-@bp.route('/assignments/<int:id>/delete', methods=['POST'])
-@login_required
-@dean_required
-def delete_assignment(id):
-    assignment = TeacherSubject.query.get_or_404(id)
-    
-    # Faqat o'z fakultetidagi biriktirmalarni o'chirishi mumkin
-    if assignment.subject.faculty_id != current_user.faculty_id:
-        flash("Sizda bu biriktirmani o'chirish huquqi yo'q", 'error')
-        return redirect(url_for('dean.teacher_assignments'))
-    
-    db.session.delete(assignment)
-    db.session.commit()
-    flash("Biriktirma o'chirildi", 'success')
-    
-    return redirect(url_for('dean.teacher_assignments'))
+# @bp.route('/assignments/<int:id>/delete', methods=['POST'])
+# @login_required
+# @dean_required
+# def delete_assignment(id):
+#     ...
 
 
 # ==================== TALABALAR ====================
@@ -711,7 +634,7 @@ def students():
         else:
             query = query.filter(User.id == -1)
     
-    students = query.order_by(User.full_name).paginate(page=page, per_page=20)
+    students = query.order_by(User.full_name).paginate(page=page, per_page=50, error_out=False)
     
     # Filtrlar uchun ma'lumotlar (faqat o'z fakulteti doirasida)
     groups = Group.query.filter_by(faculty_id=faculty.id).order_by(Group.name).all()

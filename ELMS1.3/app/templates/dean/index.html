@@ -76,18 +76,6 @@
         </div>
     </a>
     
-    <a href="{{ url_for('dean.create_assignment') }}" class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-            </div>
-            <div>
-                <h3 class="font-semibold text-lg">Fan biriktirish</h3>
-                <p class="text-emerald-100 text-sm">O'qituvchini fanga biriktirish</p>
-            </div>
-        </div>
-    </a>
-    
     <a href="{{ url_for('dean.create_schedule') }}" class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white hover:shadow-lg transition-shadow">
         <div class="flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -139,9 +127,8 @@
     
     <!-- Subjects -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
-        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+        <div class="p-6 border-b border-gray-100">
             <h2 class="text-lg font-semibold text-gray-900">Fanlar</h2>
-            <a href="{{ url_for('dean.teacher_assignments') }}" class="text-primary-600 text-sm hover:underline">Biriktirmalar</a>
         </div>
         <div class="divide-y divide-gray-100">
             {% for subject in subjects[:5] %}

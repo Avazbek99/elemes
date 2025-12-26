@@ -9,10 +9,6 @@
         <p class="text-gray-600">Barcha fanlar ro'yxati</p>
     </div>
     <div class="flex gap-3">
-        <a href="{{ url_for('admin.directions') }}" class="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            O'quv reja
-        </a>
         <a href="{{ url_for('admin.export_subjects') }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             Export
@@ -105,6 +101,57 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Pagination -->
+{% if subjects.pages > 1 %}
+<div class="mt-6 flex flex-col items-center gap-4">
+    <!-- Pagination buttons -->
+    <div class="flex items-center gap-2">
+            {% if subjects.has_prev %}
+            <a href="{{ url_for('admin.subjects', page=1, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">Birinchi</a>
+            <a href="{{ url_for('admin.subjects', page=subjects.prev_num, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">«</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Birinchi</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+            {% endif %}
+        
+        {% for page_num in subjects.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+                {% if page_num == subjects.page %}
+                <span class="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium">{{ page_num }}</span>
+                {% else %}
+                <a href="{{ url_for('admin.subjects', page=page_num, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">{{ page_num }}</a>
+                {% endif %}
+            {% else %}
+                <span class="px-2 text-gray-400">...</span>
+            {% endif %}
+        {% endfor %}
+        
+            {% if subjects.has_next %}
+            <a href="{{ url_for('admin.subjects', page=subjects.next_num, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">»</a>
+            <a href="{{ url_for('admin.subjects', page=subjects.pages, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">Oxirgi</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Oxirgi</span>
+            {% endif %}
+    </div>
+    
+    <!-- Item count -->
+    <div class="text-sm text-gray-600">
+        {% set start = (subjects.page - 1) * subjects.per_page + 1 %}
+        {% set end = subjects.page * subjects.per_page if subjects.page * subjects.per_page <= subjects.total else subjects.total %}
+        {{ start }}-{{ end }} / jami {{ "{:,}".format(subjects.total) }} ta
+    </div>
+</div>
+{% else %}
+{% if subjects.total > 0 %}
+<div class="mt-6 text-center text-sm text-gray-600">
+    {% set start = (subjects.page - 1) * subjects.per_page + 1 %}
+    {% set end = subjects.page * subjects.per_page if subjects.page * subjects.per_page <= subjects.total else subjects.total %}
+    {{ start }}-{{ end }} / jami {{ "{:,}".format(subjects.total) }} ta
+</div>
+{% endif %}
+{% endif %}
 {% endblock %}
 
 

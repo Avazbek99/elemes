@@ -470,7 +470,7 @@ def staff():
             (User.email.ilike(f'%{search}%'))
         )
     
-    users = query.order_by(User.created_at.desc()).paginate(page=page, per_page=20)
+    users = query.order_by(User.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
     
     return render_template('admin/staff.html', users=users, search=search)
 
@@ -1811,6 +1811,7 @@ def change_faculty_dean(id):
 @login_required
 @admin_required
 def subjects():
+    page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
     
     query = Subject.query
@@ -1819,7 +1820,7 @@ def subjects():
             Subject.name.ilike(f'%{search}%')
         )
     
-    subjects = query.order_by(Subject.name).all()
+    subjects = query.order_by(Subject.name).paginate(page=page, per_page=50, error_out=False)
     
     return render_template('admin/subjects.html', subjects=subjects, search=search)
 
@@ -2903,96 +2904,24 @@ def delete_direction(id):
 
 
 # ==================== O'QITUVCHI BIRIKTIRISH ====================
-@bp.route('/assignments')
-@login_required
-@admin_required
-def assignments():
-    faculty_id = request.args.get('faculty_id', type=int)
-    search = request.args.get('search', '')
-    
-    query = TeacherSubject.query
-    if faculty_id:
-        query = query.join(Group).filter(Group.faculty_id == faculty_id)
-        
-    if search:
-        query = query.join(User, TeacherSubject.teacher_id == User.id)\
-                     .filter(User.full_name.ilike(f'%{search}%'))
-        
-    assignments_list = query.all()
-    faculties = Faculty.query.all()
-    # Har bir fakultet uchun fanlarni guruhlar orqali olish
-    for faculty in faculties:
-        faculty.subjects_list = Subject.query.join(TeacherSubject).join(Group).filter(
-            Group.faculty_id == faculty.id
-        ).distinct().order_by(Subject.name).all()
-    # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
-    teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
-    teacher_user_ids = [uid[0] for uid in teacher_user_ids]
-    
-    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
-    if not teacher_user_ids:
-        teachers_by_role = User.query.filter_by(role='teacher').all()
-        teacher_user_ids = [t.id for t in teachers_by_role]
-    
-    # Agar hali ham topilmasa, get_roles() orqali qidirish
-    if not teacher_user_ids:
-        all_users = User.query.all()
-        teacher_user_ids = [u.id for u in all_users if 'teacher' in u.get_roles()]
-    
-    teachers = User.query.filter(User.id.in_(teacher_user_ids)).order_by(User.full_name).all() if teacher_user_ids else []
-    
-    return render_template('admin/assignments.html', assignments=assignments_list, faculties=faculties, teachers=teachers, current_faculty=faculty_id, search=search)
+# Assignments sahifasi o'chirildi - o'qituvchi biriktirish endi yo'nalish-semestr fanlaridan amalga oshiriladi
+# @bp.route('/assignments')
+# @login_required
+# @admin_required
+# def assignments():
+#     ...
 
+# @bp.route('/assignments/create', methods=['POST'])
+# @login_required
+# @admin_required
+# def create_assignment():
+#     ...
 
-@bp.route('/assignments/create', methods=['POST'])
-@login_required
-@admin_required
-def create_assignment():
-    try:
-        teacher_id = request.form.get('teacher_id', type=int)
-        group_id = request.form.get('group_id', type=int)
-        subject_id = request.form.get('subject_id', type=int)
-        lesson_type = request.form.get('lesson_type', 'maruza')
-        
-        # Check if already exists
-        exists = TeacherSubject.query.filter_by(
-            teacher_id=teacher_id,
-            group_id=group_id,
-            subject_id=subject_id,
-            lesson_type=lesson_type
-        ).first()
-        
-        if exists:
-            flash("Bu o'qituvchi ushbu guruh va fanga allaqachon biriktirilgan", 'error')
-        else:
-            assignment = TeacherSubject(
-                teacher_id=teacher_id,
-                group_id=group_id,
-                subject_id=subject_id,
-                lesson_type=lesson_type,
-                assigned_by=current_user.id,
-                semester=1 # Default
-            )
-            db.session.add(assignment)
-            db.session.commit()
-            flash("O'qituvchi muvaffaqiyatli biriktirildi", 'success')
-            
-    except Exception as e:
-        db.session.rollback()
-        flash(f"Xatolik yuz berdi: {str(e)}", 'error')
-        
-    return redirect(request.referrer or url_for('admin.assignments'))
-
-
-@bp.route('/assignments/<int:id>/delete', methods=['POST'])
-@login_required
-@admin_required
-def delete_assignment(id):
-    assignment = TeacherSubject.query.get_or_404(id)
-    db.session.delete(assignment)
-    db.session.commit()
-    flash("Biriktirish o'chirildi", 'success')
-    return redirect(url_for('admin.assignments'))
+# @bp.route('/assignments/<int:id>/delete', methods=['POST'])
+# @login_required
+# @admin_required
+# def delete_assignment(id):
+#     ...
 
 
 # ==================== ADMIN UCHUN DEKAN FUNKSIYALARI ====================
@@ -3265,7 +3194,7 @@ def students():
         else:
             query = query.filter(User.id == -1)
     
-    students = query.order_by(User.full_name).paginate(page=page, per_page=20)
+    students = query.order_by(User.full_name).paginate(page=page, per_page=50, error_out=False)
     
     # Filtrlar uchun ma'lumotlar
     groups = Group.query.order_by(Group.name).all()

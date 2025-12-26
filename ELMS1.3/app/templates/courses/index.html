@@ -48,17 +48,72 @@
                 {% for subject_data in subjects_by_semester[semester] %}
                 {% set subject = subject_data.subject %}
                 {% set has_issue = (current_user.role in ['teacher', 'dean', 'admin']) and subject.has_lessons_without_content() %}
-                <a href="{{ url_for('courses.detail', id=subject.id) }}" class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
-                    <div class="relative h-36 overflow-hidden {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %} flex items-center justify-center">
-                        <div class="absolute bottom-3 left-3 flex gap-2">
-                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits }} kredit</span>
-                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ semester }}-semestr</span>
+                {% if current_user.role == 'teacher' or current_user.has_role('teacher') %}
+                {# O'qituvchi uchun - yo'nalish bo'yicha alohida card #}
+                <a href="{{ url_for('courses.detail', id=subject.id, direction_id=subject_data.direction.id if subject_data.direction else None) }}" class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
+                    <div class="relative p-5 {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %}">
+                        <div class="absolute top-4 right-4 flex flex-col gap-2">
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject_data.semester }}-semestr</span>
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject_data.credits }} kredit</span>
+                        </div>
+                        <div class="pr-24">
+                            <h3 class="text-2xl font-bold text-white mb-3">{{ subject.name }}</h3>
+                            {% if subject_data.direction %}
+                            <p class="text-lg font-medium text-white/95 mb-3">
+                                {% if subject_data.direction.enrollment_year %}
+                                {{ subject_data.direction.enrollment_year }}
+                                {% endif %}
+                                {% if subject_data.direction.enrollment_year and subject_data.direction.code %} - {% endif %}
+                                {% if subject_data.direction.code %}
+                                {{ subject_data.direction.code }}
+                                {% endif %}
+                                {% if (subject_data.direction.enrollment_year or subject_data.direction.code) and subject_data.direction.name %} - {% endif %}
+                                {{ subject_data.direction.name }}
+                            </p>
+                            {% endif %}
+                            {% if subject_data.groups %}
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                {% for group in subject_data.groups|sort(attribute='name') %}
+                                <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">{{ group.name }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if subject_data.direction and subject_lesson_types %}
+                                {% set lesson_key = subject.id ~ '_' ~ subject_data.direction.id %}
+                                {% if lesson_key in subject_lesson_types %}
+                                <div class="flex flex-wrap gap-3 mt-2">
+                                    {% for lesson in subject_lesson_types[lesson_key] %}
+                                    <span class="text-xs font-medium text-white/95">
+                                        {{ lesson.type }}: 
+                                        {% if lesson.hours > 0 %}
+                                        {{ lesson.hours }} soat
+                                        {% else %}
+                                        Bor
+                                        {% endif %}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            {% endif %}
                         </div>
                     </div>
                     <div class="p-5">
-                        <div class="mb-2">
-                            <h3 class="text-lg font-semibold {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</h3>
+                {% else %}
+                {# Talaba uchun - oddiy card #}
+                <a href="{{ url_for('courses.detail', id=subject.id) }}" class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
+                    <div class="relative h-36 overflow-hidden {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %} flex items-center justify-center">
+                        <div class="absolute top-3 left-3">
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ semester }}-semestr</span>
                         </div>
+                        <div class="absolute top-3 right-3">
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits }} kredit</span>
+                        </div>
+                        <div class="text-center px-4">
+                            <h3 class="text-xl font-bold text-white">{{ subject.name }}</h3>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                {% endif %}
                         {% if has_issue %}
                         <div class="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
                             <p class="text-xs text-red-700 font-medium">⚠️ Darslar mavjud, lekin videolar/fayllar yo'q</p>
@@ -66,29 +121,25 @@
                         {% endif %}
                         <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ subject.description or 'Tavsif mavjud emas' }}</p>
                         
-                        {% if subject_lesson_types and subject_lesson_types[subject.id] %}
-                        <!-- Dars turlari -->
-                        <div class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
-                            <p class="text-xs font-medium text-blue-700 mb-2">Dars turlari:</p>
-                            <div class="space-y-1.5">
-                                {% for lesson in subject_lesson_types[subject.id] %}
-                                <div class="flex items-center justify-between text-xs">
-                                    <span class="text-gray-700 font-medium">{{ lesson.type }}</span>
-                                    <div class="flex items-center gap-2">
+                        {% if not (current_user.role == 'teacher' or current_user.has_role('teacher')) %}
+                            {% if subject_lesson_types and subject_lesson_types[subject.id] %}
+                            <!-- Dars turlari -->
+                            <div class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                                <p class="text-xs font-medium text-blue-700 mb-2">Dars turlari:</p>
+                                <div class="space-y-1.5">
+                                    {% for lesson in subject_lesson_types[subject.id] %}
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="text-gray-700 font-medium">{{ lesson.type }}</span>
+                                        {% if lesson.hours > 0 %}
                                         <span class="text-gray-600">{{ lesson.hours }} soat</span>
-                                        {% if lesson.teacher %}
-                                        <span class="text-gray-500">•</span>
-                                        <span class="text-gray-600">{{ (lesson.teacher.full_name or lesson.teacher.email).upper() if lesson.teacher.full_name or lesson.teacher.email else '-' }}</span>
-                                        {% endif %}
-                                        {% if lesson.group %}
-                                        <span class="text-gray-500">•</span>
-                                        <span class="text-gray-600">{{ lesson.group.name }}</span>
+                                        {% else %}
+                                        <span class="text-gray-600">Bor</span>
                                         {% endif %}
                                     </div>
+                                    {% endfor %}
                                 </div>
-                                {% endfor %}
                             </div>
-                        </div>
+                            {% endif %}
                         {% endif %}
                         
                         {% if current_user.role == 'student' and subject_grades and subject_grades[subject.id] %}
@@ -141,7 +192,6 @@
                         </div>
                     </div>
                 </a>
-                {% endif %}
                 {% endfor %}
             </div>
         </div>
@@ -154,17 +204,20 @@
         {% set has_issue = (current_user.role in ['teacher', 'dean', 'admin']) and subject.has_lessons_without_content() %}
         <a href="{{ url_for('courses.detail', id=subject.id) }}" class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
             <div class="relative h-36 overflow-hidden {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %} flex items-center justify-center">
-                <div class="text-center">
-                    <span class="text-4xl font-bold text-white/30">{{ subject.name[:3]|upper }}</span>
-                </div>
-                <div class="absolute bottom-3 left-3 flex gap-2">
-                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits }} kredit</span>
+                <div class="absolute top-3 left-3">
+                    {% if subject.semester %}
                     <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.semester }}-semestr</span>
+                    {% endif %}
+                </div>
+                <div class="absolute top-3 right-3">
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits }} kredit</span>
+                </div>
+                <div class="text-center px-4">
+                    <h3 class="text-xl font-bold text-white">{{ subject.name }}</h3>
                 </div>
             </div>
             <div class="p-5">
                 <div class="flex items-start justify-between mb-2">
-                    <h3 class="text-lg font-semibold {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</h3>
                     <span class="px-2 py-1 text-xs font-medium rounded-full {% if has_issue %}bg-red-100 text-red-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">{{ subject.faculty.code }}</span>
                 </div>
                 {% if has_issue %}
@@ -182,17 +235,11 @@
                         {% for lesson in subject_lesson_types[subject.id] %}
                         <div class="flex items-center justify-between text-xs">
                             <span class="text-gray-700 font-medium">{{ lesson.type }}</span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-gray-600">{{ lesson.hours }} soat</span>
-                                {% if lesson.teacher %}
-                                <span class="text-gray-500">•</span>
-                                <span class="text-gray-600">{{ lesson.teacher.full_name or lesson.teacher.email }}</span>
-                                {% endif %}
-                                {% if lesson.group %}
-                                <span class="text-gray-500">•</span>
-                                <span class="text-gray-600">{{ lesson.group.name }}</span>
-                                {% endif %}
-                            </div>
+                            {% if lesson.hours > 0 %}
+                            <span class="text-gray-600">{{ lesson.hours }} soat</span>
+                            {% else %}
+                            <span class="text-gray-600">Bor</span>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
@@ -249,7 +296,8 @@
                 </div>
             </div>
         </a>
-        {% else %}
+        {% endfor %}
+        {% if not subjects.items %}
         <div class="col-span-full text-center py-12">
             <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
             <h3 class="text-lg font-medium text-gray-600">Fanlar topilmadi</h3>
@@ -259,8 +307,9 @@
             <p class="text-gray-400">Qidiruv so'zini o'zgartiring</p>
             {% endif %}
         </div>
-        {% endfor %}
+        {% endif %}
     </div>
+    {% endif %}
     
     <!-- Pagination -->
     {% if subjects.pages > 1 %}

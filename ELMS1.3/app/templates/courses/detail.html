@@ -6,6 +6,57 @@
 <div class="space-y-6">
     <!-- Header -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {% if direction %}
+        {# Barcha rollar uchun - yo'nalish va guruhlar bilan #}
+        <div class="relative p-5 bg-gradient-to-br from-primary-500 to-primary-600">
+            <div class="absolute top-4 right-4 flex flex-col gap-2">
+                {% if direction_lesson_types %}
+                <div class="flex flex-col gap-1.5">
+                    {% for lesson in direction_lesson_types %}
+                    <span class="text-xs font-medium text-white/95">
+                        {{ lesson.type }}: 
+                        {% if lesson.hours > 0 %}
+                        {{ lesson.hours }} soat
+                        {% else %}
+                        Bor
+                        {% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if direction_credits %}
+                <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white mt-1">{{ direction_credits }} kredit</span>
+                {% endif %}
+            </div>
+            <div class="pr-24">
+                {% if direction_semester %}
+                <div class="mb-2">
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ direction_semester }}-semestr</span>
+                </div>
+                {% endif %}
+                <h1 class="text-3xl font-bold text-white mb-3">{{ subject.name }}</h1>
+                <p class="text-xl font-medium text-white/95 mb-3">
+                    {% if direction.enrollment_year %}
+                    {{ direction.enrollment_year }}
+                    {% endif %}
+                    {% if direction.enrollment_year and direction.code %} - {% endif %}
+                    {% if direction.code %}
+                    {{ direction.code }}
+                    {% endif %}
+                    {% if (direction.enrollment_year or direction.code) and direction.name %} - {% endif %}
+                    {{ direction.name }}
+                </p>
+                {% if direction_groups %}
+                <div class="flex flex-wrap gap-2">
+                    {% for group in direction_groups|sort(attribute='name') %}
+                    <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">{{ group.name }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        {# Direction mavjud bo'lmaganda - oddiy header #}
         <div class="relative h-48 bg-gradient-to-br from-primary-500 to-primary-600">
             <div class="absolute bottom-0 left-0 right-0 p-6">
                 <div class="flex gap-2 mb-3">
@@ -17,6 +68,7 @@
                 <h1 class="text-2xl font-bold text-white">{{ subject.name }}</h1>
             </div>
         </div>
+        {% endif %}
         
         <div class="p-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex-1">
@@ -30,40 +82,18 @@
                         {{ assignments|length }} topshiriq
                     </div>
                 </div>
-                
-                {% if lesson_types %}
-                <!-- Dars turlari -->
-                <div class="p-3 bg-blue-50 rounded-xl border border-blue-200">
-                    <p class="text-xs font-medium text-blue-700 mb-2">Dars turlari:</p>
-                    <div class="space-y-1.5">
-                        {% for lesson in lesson_types %}
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-700 font-medium">{{ lesson.type }}</span>
-                            <div class="flex items-center gap-2">
-                                <span class="text-gray-600">{{ lesson.hours }} soat</span>
-                                {% if lesson.teacher %}
-                                <span class="text-gray-500">•</span>
-                                <span class="text-gray-600">{{ lesson.teacher.full_name or lesson.teacher.email }}</span>
-                                {% endif %}
-                                {% if lesson.group %}
-                                <span class="text-gray-500">•</span>
-                                <span class="text-gray-600">{{ lesson.group.name }}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
             </div>
             
-            {% if is_teacher %}
+            {% set current_role = session.get('current_role', current_user.role) %}
+            {% set has_teacher_role = current_user.role == 'teacher' or current_user.has_role('teacher') %}
+            {% set is_teacher_role = current_role == 'teacher' %}
+            {% if is_teacher or (has_teacher_role and is_teacher_role) %}
             <div class="flex gap-2">
-                <a href="{{ url_for('courses.create_lesson', id=subject.id) }}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                <a href="{{ url_for('courses.create_lesson', id=subject.id, direction_id=direction_id) }}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
                     + Dars qo'shish
                 </a>
-                <a href="{{ url_for('courses.create_assignment', id=subject.id) }}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
-                    + Topshiriq
+                <a href="{{ url_for('courses.create_assignment', id=subject.id, direction_id=direction_id) }}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+                    + Topshiriq qo'shish
                 </a>
             </div>
             {% endif %}
@@ -82,117 +112,98 @@
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-6">Darslar</h2>
                 
-                <!-- Tabs -->
-                <div class="flex gap-2 mb-6 border-b border-gray-200">
-                    <button onclick="showTab('maruza')" id="tab-maruza" class="flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 border-blue-600 text-blue-600 transition-colors">
-                        <div class="flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                            <span>Maruza</span>
-                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{{ maruza_lessons|length }}</span>
-                        </div>
-                    </button>
-                    <button onclick="showTab('amaliyot')" id="tab-amaliyot" class="flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 border-transparent text-gray-500 hover:text-green-600 transition-colors">
-                        <div class="flex items-center justify-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-                            <span>Amaliyot</span>
-                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">{{ amaliyot_lessons|length }}</span>
-                        </div>
-                    </button>
+                <!-- Tabs - Barcha dars turlari uchun -->
+                {% set lesson_types_tabs = [
+                    {'key': 'maruza', 'name': 'Maruza', 'lessons': maruza_lessons, 'color': 'blue', 'icon': 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'},
+                    {'key': 'amaliyot', 'name': 'Amaliyot', 'lessons': amaliyot_lessons, 'color': 'green', 'icon': 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'},
+                    {'key': 'laboratoriya', 'name': 'Laboratoriya', 'lessons': laboratoriya_lessons, 'color': 'purple', 'icon': 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z'},
+                    {'key': 'seminar', 'name': 'Seminar', 'lessons': seminar_lessons, 'color': 'orange', 'icon': 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'},
+                    {'key': 'kurs_ishi', 'name': 'Kurs ishi', 'lessons': kurs_ishi_lessons, 'color': 'indigo', 'icon': 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'}
+                ] %}
+                <div class="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
+                    {% for lesson_type in lesson_types_tabs %}
+                        {% if lesson_type.lessons|length > 0 or (direction_lesson_types and lesson_type.key in ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']) %}
+                            {% set is_active = loop.first %}
+                            <button onclick="showTab('{{ lesson_type.key }}')" id="tab-{{ lesson_type.key }}" class="flex-shrink-0 px-4 py-3 text-sm font-medium text-center border-b-2 {% if is_active %}border-{{ lesson_type.color }}-600 text-{{ lesson_type.color }}-600{% else %}border-transparent text-gray-500 hover:text-{{ lesson_type.color }}-600{% endif %} transition-colors">
+                                <div class="flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ lesson_type.icon }}"/></svg>
+                                    <span>{{ lesson_type.name }}</span>
+                                    <span class="px-2 py-0.5 text-xs font-medium rounded-full {% if is_active %}bg-{{ lesson_type.color }}-100 text-{{ lesson_type.color }}-700{% else %}bg-gray-100 text-gray-600{% endif %}">{{ lesson_type.lessons|length }}</span>
+                                </div>
+                            </button>
+                        {% endif %}
+                    {% endfor %}
                 </div>
                 
-                <!-- Maruza darslari -->
-                <div id="content-maruza" class="tab-content">
-                    <div class="space-y-3">
-                        {% for lesson in maruza_lessons %}
-                        {% set is_locked = lesson_locked_status.get(lesson.id, False) if lesson_locked_status else False %}
-                        {% if current_user.role == 'student' and is_locked %}
-                        <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl opacity-60 cursor-not-allowed">
-                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 font-semibold">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="text-sm font-medium text-gray-500">{{ lesson.title }}</h3>
-                                <div class="flex items-center gap-2 text-xs text-gray-400">
-                                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Qulflangan</span>
-                                    <span>Avval oldingi videolarni to'liq ko'rib chiqing</span>
-                                </div>
-                            </div>
-                        </div>
-                        {% else %}
-                        <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
-                            <div class="w-10 h-10 {% if lesson.video_file or lesson.video_url %}bg-purple-100{% else %}bg-blue-100{% endif %} rounded-lg flex items-center justify-center {% if lesson.video_file or lesson.video_url %}text-purple-600{% else %}text-blue-600{% endif %} font-semibold">
-                                {% if lesson.video_file or lesson.video_url %}
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                {# Barcha dars turlari uchun kontentlar #}
+                {% for lesson_type in lesson_types_tabs %}
+                    {% if lesson_type.lessons|length > 0 or (direction_lesson_types and lesson_type.key in ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']) %}
+                        <div id="content-{{ lesson_type.key }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
+                            <div class="space-y-3">
+                                {% if lesson_type.lessons|length > 0 %}
+                                    {% for lesson in lesson_type.lessons %}
+                                        {% set is_locked = lesson_locked_status.get(lesson.id, False) if lesson_locked_status else False %}
+                                        {% if current_user.role == 'student' and is_locked %}
+                                            <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl opacity-60 cursor-not-allowed">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="text-sm font-semibold text-gray-400 min-w-[2rem]">{{ lesson.order }}.</span>
+                                                    <div>
+                                                        <h3 class="text-sm font-medium text-gray-500">{{ lesson.title }}</h3>
+                                                        <div class="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                                                            {% if lesson.group %}
+                                                            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{{ lesson.group.name }}</span>
+                                                            {% endif %}
+                                                            <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Qulflangan</span>
+                                                            <span>Avval oldingi videolarni to'liq ko'rib chiqing</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
+                                                <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="flex items-center gap-3 flex-1">
+                                                    <div class="flex items-center gap-3">
+                                                        <span class="text-sm font-semibold text-gray-600 min-w-[2rem]">{{ lesson.order }}.</span>
+                                                        <div>
+                                                            <h3 class="text-sm font-medium text-gray-900 group-hover:text-primary-600">{{ lesson.title }}</h3>
+                                                            <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                                                {% if lesson.group %}
+                                                                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{{ lesson.group.name }}</span>
+                                                                {% endif %}
+                                                                {% if lesson.duration %}
+                                                                <span>{{ lesson.duration }} daqiqa</span>
+                                                                {% endif %}
+                                                                {% if lesson.video_file or lesson.video_url %}
+                                                                <span class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">Video dars</span>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </a>
+                                                <div class="flex items-center gap-2">
+                                                    {% set can_edit_lesson = (current_user.role == 'admin') or (is_teacher and lesson.created_by == current_user.id) %}
+                                                    {% if can_edit_lesson %}
+                                                    <a href="{{ url_for('courses.edit_lesson', id=lesson.id) }}{% if direction_id %}?direction_id={{ direction_id }}{% endif %}" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Tahrirlash">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                    </a>
+                                                    <form method="POST" action="{{ url_for('courses.delete_lesson', id=lesson.id) }}{% if direction_id %}?direction_id={{ direction_id }}{% endif %}" onsubmit="return confirm('Darsni o\'chirishni tasdiqlaysizmi?');" class="inline">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                        <button type="submit" class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="O'chirish">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                        </button>
+                                                    </form>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
                                 {% else %}
-                                {{ lesson.order }}
+                                    <p class="text-gray-500 text-center py-8 text-sm">{{ lesson_type.name }} darslari hali qo'shilmagan</p>
                                 {% endif %}
                             </div>
-                            <div class="flex-1">
-                                <h3 class="text-sm font-medium text-gray-900 group-hover:text-primary-600">{{ lesson.title }}</h3>
-                                <div class="flex items-center gap-2 text-xs text-gray-500">
-                                    {% if lesson.duration %}
-                                    <span>{{ lesson.duration }} daqiqa</span>
-                                    {% endif %}
-                                    {% if lesson.video_file or lesson.video_url %}
-                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">Video dars</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <svg class="w-5 h-5 text-gray-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </a>
-                        {% endif %}
-                        {% else %}
-                        <p class="text-gray-500 text-center py-8 text-sm">Maruza darslari hali qo'shilmagan</p>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <!-- Amaliyot darslari -->
-                <div id="content-amaliyot" class="tab-content hidden">
-                    <div class="space-y-3">
-                        {% for lesson in amaliyot_lessons %}
-                        {% set is_locked = lesson_locked_status.get(lesson.id, False) if lesson_locked_status else False %}
-                        {% if current_user.role == 'student' and is_locked %}
-                        <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl opacity-60 cursor-not-allowed">
-                            <div class="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 font-semibold">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="text-sm font-medium text-gray-500">{{ lesson.title }}</h3>
-                                <div class="flex items-center gap-2 text-xs text-gray-400">
-                                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Qulflangan</span>
-                                    <span>Avval oldingi videolarni to'liq ko'rib chiqing</span>
-                                </div>
-                            </div>
                         </div>
-                        {% else %}
-                        <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}" class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
-                            <div class="w-10 h-10 {% if lesson.video_file or lesson.video_url %}bg-purple-100{% else %}bg-green-100{% endif %} rounded-lg flex items-center justify-center {% if lesson.video_file or lesson.video_url %}text-purple-600{% else %}text-green-600{% endif %} font-semibold">
-                                {% if lesson.video_file or lesson.video_url %}
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                {% else %}
-                                {{ lesson.order }}
-                                {% endif %}
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="text-sm font-medium text-gray-900 group-hover:text-primary-600">{{ lesson.title }}</h3>
-                                <div class="flex items-center gap-2 text-xs text-gray-500">
-                                    {% if lesson.duration %}
-                                    <span>{{ lesson.duration }} daqiqa</span>
-                                    {% endif %}
-                                    {% if lesson.video_file or lesson.video_url %}
-                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">Video dars</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <svg class="w-5 h-5 text-gray-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </a>
-                        {% endif %}
-                        {% else %}
-                        <p class="text-gray-500 text-center py-8 text-sm">Amaliyot darslari hali qo'shilmagan</p>
-                        {% endfor %}
-                    </div>
-                </div>
+                    {% endif %}
+                {% endfor %}
             </div>
             
             <script>
@@ -203,41 +214,52 @@
                 });
                 
                 // Barcha tab tugmalarini reset qilish
-                const maruzaTab = document.getElementById('tab-maruza');
-                const amaliyotTab = document.getElementById('tab-amaliyot');
+                const tabColors = {
+                    'maruza': 'blue',
+                    'amaliyot': 'green',
+                    'laboratoriya': 'purple',
+                    'seminar': 'orange',
+                    'kurs_ishi': 'indigo'
+                };
                 
-                if (tabName === 'maruza') {
-                    // Maruza tabni aktiv qilish
-                    maruzaTab.classList.remove('border-transparent', 'text-gray-500');
-                    maruzaTab.classList.add('border-blue-600', 'text-blue-600');
-                    maruzaTab.querySelector('span:last-child').classList.remove('bg-gray-100', 'text-gray-600');
-                    maruzaTab.querySelector('span:last-child').classList.add('bg-blue-100', 'text-blue-700');
-                    
-                    // Amaliyot tabni deaktiv qilish
-                    amaliyotTab.classList.remove('border-green-600', 'text-green-600');
-                    amaliyotTab.classList.add('border-transparent', 'text-gray-500');
-                    amaliyotTab.querySelector('span:last-child').classList.remove('bg-green-100', 'text-green-700');
-                    amaliyotTab.querySelector('span:last-child').classList.add('bg-gray-100', 'text-gray-600');
-                } else {
-                    // Amaliyot tabni aktiv qilish
-                    amaliyotTab.classList.remove('border-transparent', 'text-gray-500');
-                    amaliyotTab.classList.add('border-green-600', 'text-green-600');
-                    amaliyotTab.querySelector('span:last-child').classList.remove('bg-gray-100', 'text-gray-600');
-                    amaliyotTab.querySelector('span:last-child').classList.add('bg-green-100', 'text-green-700');
-                    
-                    // Maruza tabni deaktiv qilish
-                    maruzaTab.classList.remove('border-blue-600', 'text-blue-600');
-                    maruzaTab.classList.add('border-transparent', 'text-gray-500');
-                    maruzaTab.querySelector('span:last-child').classList.remove('bg-blue-100', 'text-blue-700');
-                    maruzaTab.querySelector('span:last-child').classList.add('bg-gray-100', 'text-gray-600');
+                document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                    const tabKey = tab.id.replace('tab-', '');
+                    const color = tabColors[tabKey] || 'gray';
+                    tab.classList.remove(`border-${color}-600`, `text-${color}-600`);
+                    tab.classList.add('border-transparent', 'text-gray-500');
+                    const badge = tab.querySelector('span:last-child');
+                    if (badge) {
+                        badge.classList.remove(`bg-${color}-100`, `text-${color}-700`);
+                        badge.classList.add('bg-gray-100', 'text-gray-600');
+                    }
+                });
+                
+                // Tanlangan tabni aktiv qilish
+                const activeTab = document.getElementById('tab-' + tabName);
+                if (activeTab) {
+                    const color = tabColors[tabName] || 'gray';
+                    activeTab.classList.remove('border-transparent', 'text-gray-500');
+                    activeTab.classList.add(`border-${color}-600`, `text-${color}-600`);
+                    const badge = activeTab.querySelector('span:last-child');
+                    if (badge) {
+                        badge.classList.remove('bg-gray-100', 'text-gray-600');
+                        badge.classList.add(`bg-${color}-100`, `text-${color}-700`);
+                    }
                 }
                 
                 // Tanlangan tab kontentini ko'rsatish
-                document.getElementById('content-' + tabName).classList.remove('hidden');
+                const content = document.getElementById('content-' + tabName);
+                if (content) {
+                    content.classList.remove('hidden');
+                }
             }
             
-            // Dastlabki tabni ko'rsatish
-            showTab('maruza');
+            // Dastlabki tabni ko'rsatish (birinchi mavjud tab)
+            const firstTab = document.querySelector('[id^="tab-"]');
+            if (firstTab) {
+                const firstTabName = firstTab.id.replace('tab-', '');
+                showTab(firstTabName);
+            }
             </script>
         </div>
         
@@ -364,79 +386,52 @@
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-4">O'qituvchilar</h2>
                 <div class="space-y-4">
-                    {% if maruza_teachers %}
-                    <div>
-                        <h3 class="text-sm font-medium text-blue-700 mb-2 flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                            Maruza
-                        </h3>
-                        <div class="space-y-2">
-                            {% if current_user.role == 'student' %}
-                            {% for teacher in maruza_teachers %}
-                            <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
-                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                                    {{ teacher.full_name[0] }}
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</p>
-                                </div>
-                            </div>
-                            {% endfor %}
-                            {% else %}
-                            {% for ta in maruza_teachers %}
-                            <div class="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
-                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                                    {{ ta.teacher.full_name[0] }}
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">{{ ta.teacher.full_name.upper() if ta.teacher.full_name else '-' }}</p>
-                                    <p class="text-xs text-gray-500">{{ ta.group.name }} guruhi</p>
-                                </div>
-                            </div>
-                            {% endfor %}
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    {% if amaliyot_teachers %}
-                    <div>
-                        <h3 class="text-sm font-medium text-green-700 mb-2 flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-                            Amaliyot
-                        </h3>
-                        <div class="space-y-2">
-                            {% if current_user.role == 'student' %}
-                            {% for teacher in amaliyot_teachers %}
-                            <div class="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
-                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
-                                    {{ teacher.full_name[0] }}
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</p>
-                                </div>
-                            </div>
-                            {% endfor %}
-                            {% else %}
-                            {% for ta in amaliyot_teachers %}
-                            <div class="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
-                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
-                                    {{ ta.teacher.full_name[0] }}
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-gray-900">{{ ta.teacher.full_name.upper() if ta.teacher.full_name else '-' }}</p>
-                                    <p class="text-xs text-gray-500">{{ ta.group.name }} guruhi</p>
-                                </div>
-                            </div>
-                            {% endfor %}
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    {% if not maruza_teachers and not amaliyot_teachers %}
+                    {% set teachers_list = [
+                        {'key': 'maruza', 'name': 'Maruza', 'teachers': maruza_teachers, 'color': 'blue', 'icon': 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'},
+                        {'key': 'amaliyot', 'name': 'Amaliyot', 'teachers': amaliyot_teachers, 'color': 'green', 'icon': 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'},
+                        {'key': 'laboratoriya', 'name': 'Laboratoriya', 'teachers': laboratoriya_teachers, 'color': 'purple', 'icon': 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z'},
+                        {'key': 'seminar', 'name': 'Seminar', 'teachers': seminar_teachers, 'color': 'orange', 'icon': 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'},
+                        {'key': 'kurs_ishi', 'name': 'Kurs ishi', 'teachers': kurs_ishi_teachers, 'color': 'indigo', 'icon': 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'}
+                    ] %}
+                    {% set has_any_teachers = maruza_teachers or amaliyot_teachers or laboratoriya_teachers or seminar_teachers or kurs_ishi_teachers %}
+                    {% if not has_any_teachers %}
                     <p class="text-gray-500 text-center py-2">O'qituvchi biriktirilmagan</p>
                     {% endif %}
+                    {% for teacher_type in teachers_list %}
+                        {% if teacher_type.teachers %}
+                            <div>
+                                <h3 class="text-sm font-medium text-{{ teacher_type.color }}-700 mb-2 flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ teacher_type.icon }}"/></svg>
+                                    {{ teacher_type.name }}
+                                </h3>
+                                <div class="space-y-2">
+                                    {% if current_user.role == 'student' %}
+                                        {% for teacher in teacher_type.teachers %}
+                                        <div class="flex items-center gap-3 p-3 bg-{{ teacher_type.color }}-50 rounded-xl border border-{{ teacher_type.color }}-200">
+                                            <div class="w-10 h-10 bg-{{ teacher_type.color }}-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                                {{ teacher.full_name[0] }}
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-900">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</p>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        {% for teacher in teacher_type.teachers %}
+                                        <div class="flex items-center gap-3 p-3 bg-{{ teacher_type.color }}-50 rounded-xl border border-{{ teacher_type.color }}-200">
+                                            <div class="w-10 h-10 bg-{{ teacher_type.color }}-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                                {{ teacher.full_name[0] if teacher.full_name else '-' }}
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="text-sm font-medium text-gray-900">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</p>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
                 </div>
             </div>
         </div>

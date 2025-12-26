@@ -188,7 +188,11 @@ def announcements():
     # Foydalanuvchi roliga qarab e'lonlarni filtrlash
     query = Announcement.query
     
-    if user.role == 'student':
+    # Admin barcha e'lonlarni ko'radi
+    if user.has_role('admin'):
+        # Admin uchun filtrlash yo'q, barcha e'lonlar
+        pass
+    elif user.role == 'student':
         query = query.filter(
             (Announcement.target_roles.contains('student')) |
             (Announcement.target_roles == None)
@@ -207,7 +211,7 @@ def announcements():
     
     announcements = query.order_by(Announcement.created_at.desc()).paginate(
         page=page,
-        per_page=10,
+        per_page=50,
         error_out=False
     )
     
@@ -234,13 +238,17 @@ def create_announcement():
         # Target roles ni string sifatida saqlash
         target_roles_str = ','.join(target_roles) if target_roles else None
         
+        # Joriy rolni olish (session'dan yoki asosiy roldan)
+        current_role = session.get('current_role', current_user.role)
+        
         announcement = Announcement(
             title=title,
             content=content,
             target_roles=target_roles_str,
             is_important=is_important,
             author_id=current_user.id,
-            faculty_id=current_user.faculty_id if current_user.role == 'dean' else None
+            author_role=current_role,  # E'lon yaratilganda tanlangan rol
+            faculty_id=current_user.faculty_id if current_role == 'dean' else None
         )
         
         db.session.add(announcement)
@@ -257,8 +265,15 @@ def edit_announcement(id):
     """E'lonni tahrirlash"""
     announcement = Announcement.query.get_or_404(id)
     
+    # Joriy rolni olish (session'dan yoki asosiy roldan)
+    current_role = session.get('current_role', current_user.role)
+    
     # Ruxsat tekshiruvi
-    if current_user.role != 'admin' and announcement.author_id != current_user.id:
+    # Admin faqat admin roli tanlangan bo'lsa barcha e'lonlarni tahrirlay oladi
+    # Boshqa foydalanuvchilar faqat o'z e'lonlarini tahrirlay oladi
+    is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
+    
+    if not is_admin_with_admin_role and announcement.author_id != current_user.id:
         flash("Sizda bu e'lonni tahrirlash huquqi yo'q", 'error')
         return redirect(url_for('main.announcements'))
     
@@ -296,22 +311,52 @@ def delete_announcement(id):
     # Joriy rolni olish (session'dan yoki asosiy roldan)
     current_role = session.get('current_role', current_user.role)
     
-    # Ruxsat tekshiruvi
-    # Faqat admin roliga o'tgan foydalanuvchi barcha e'lonlarni o'chira oladi
-    # Dekan roliga o'tgan admin faqat o'z e'lonlarini o'chira oladi
-    if current_role != 'admin' and announcement.author_id != current_user.id:
+    # Admin faqat admin roli tanlangan bo'lsa barcha e'lonlarni o'chira oladi
+    # Boshqa foydalanuvchilar faqat o'z e'lonlarini o'chira oladi
+    is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
+    
+    if not is_admin_with_admin_role and announcement.author_id != current_user.id:
         flash("Sizda bu e'lonni o'chirish huquqi yo'q", 'error')
         return redirect(url_for('main.announcements'))
     
-    # Dekan roliga o'tgan admin boshqalarni yaratgan e'lonlarini o'chira olmasin
-    if current_role == 'dean' and announcement.author_id != current_user.id:
-        flash("Sizda bu e'lonni o'chirish huquqi yo'q", 'error')
+    try:
+        db.session.delete(announcement)
+        db.session.commit()
+        flash("E'lon o'chirildi", 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f"E'lonni o'chirishda xatolik yuz berdi: {str(e)}", 'error')
+    
+    return redirect(url_for('main.announcements'))
+
+@bp.route('/announcements/delete-all', methods=['POST'])
+@login_required
+def delete_all_announcements():
+    """Barcha e'lonlarni o'chirish (faqat admin roli tanlangan bo'lsa)"""
+    # Joriy rolni olish (session'dan yoki asosiy roldan)
+    current_role = session.get('current_role', current_user.role)
+    
+    # Admin faqat admin roli tanlangan bo'lsa barcha e'lonlarni o'chira oladi
+    is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
+    
+    if not is_admin_with_admin_role:
+        flash("Sizda barcha e'lonlarni o'chirish huquqi yo'q", 'error')
         return redirect(url_for('main.announcements'))
     
-    db.session.delete(announcement)
-    db.session.commit()
+    try:
+        # Barcha e'lonlarni olish va o'chirish
+        all_announcements = Announcement.query.all()
+        count = len(all_announcements)
+        
+        for announcement in all_announcements:
+            db.session.delete(announcement)
+        
+        db.session.commit()
+        flash(f"Barcha {count} ta e'lon o'chirildi", 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f"E'lonlarni o'chirishda xatolik yuz berdi: {str(e)}", 'error')
     
-    flash("E'lon o'chirildi", 'success')
     return redirect(url_for('main.announcements'))
 
 @bp.route('/messages')

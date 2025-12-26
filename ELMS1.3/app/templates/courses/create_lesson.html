@@ -26,6 +26,21 @@
                 </select>
             </div>
             
+            {% if current_user.role == 'teacher' or current_user.has_role('teacher') %}
+            {% if direction_id and groups %}
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <p class="text-sm text-gray-700">
+                    <span class="font-medium">Dars avtomatik ravishda quyidagi guruhlar uchun yaratiladi:</span>
+                </p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                    {% for group in groups %}
+                    <span class="px-3 py-1 text-xs font-medium rounded-lg bg-white text-gray-800 border border-blue-200">{{ group.name }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+            
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Dars mazmuni</label>
                 <textarea name="content" rows="6" placeholder="Dars mazmunini yozing..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
@@ -127,7 +142,7 @@
             </div>
             
             <div class="flex justify-end gap-3 pt-4">
-                <a href="{{ url_for('courses.detail', id=subject.id) }}" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Bekor qilish</a>
+                <a href="{{ url_for('courses.detail', id=subject.id, direction_id=direction_id) }}" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">Bekor qilish</a>
                 <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">Qo'shish</button>
             </div>
         </form>

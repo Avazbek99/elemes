@@ -194,15 +194,53 @@
     
     <!-- Pagination -->
     {% if students.pages > 1 %}
-    <div class="flex justify-center gap-2">
-        {% if students.has_prev %}
-        <a href="{{ url_for('dean.students', page=students.prev_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Oldingi</a>
-        {% endif %}
-        <span class="px-4 py-2 bg-primary-600 text-white rounded-xl">{{ students.page }} / {{ students.pages }}</span>
-        {% if students.has_next %}
-        <a href="{{ url_for('dean.students', page=students.next_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Keyingi</a>
-        {% endif %}
+    <div class="mt-6 flex flex-col items-center gap-4">
+        <!-- Pagination buttons -->
+        <div class="flex items-center gap-2">
+            {% if students.has_prev %}
+            <a href="{{ url_for('dean.students', page=1, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">Birinchi</a>
+            <a href="{{ url_for('dean.students', page=students.prev_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">«</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Birinchi</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+            {% endif %}
+            
+            {% for page_num in students.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == students.page %}
+                    <span class="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium">{{ page_num }}</span>
+                    {% else %}
+                    <a href="{{ url_for('dean.students', page=page_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">{{ page_num }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="px-2 text-gray-400">...</span>
+                {% endif %}
+            {% endfor %}
+            
+            {% if students.has_next %}
+            <a href="{{ url_for('dean.students', page=students.next_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">»</a>
+            <a href="{{ url_for('dean.students', page=students.pages, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">Oxirgi</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Oxirgi</span>
+            {% endif %}
+        </div>
+        
+        <!-- Item count -->
+        <div class="text-sm text-gray-600">
+            {% set start = (students.page - 1) * students.per_page + 1 %}
+            {% set end = students.page * students.per_page if students.page * students.per_page <= students.total else students.total %}
+            {{ start }}-{{ end }} / jami {{ "{:,}".format(students.total) }} ta
+        </div>
     </div>
+    {% else %}
+    {% if students.total > 0 %}
+    <div class="mt-6 text-center text-sm text-gray-600">
+        {% set start = (students.page - 1) * students.per_page + 1 %}
+        {% set end = students.page * students.per_page if students.page * students.per_page <= students.total else students.total %}
+        {{ start }}-{{ end }} / jami {{ "{:,}".format(students.total) }} ta
+    </div>
+    {% endif %}
     {% endif %}
 </div>
 

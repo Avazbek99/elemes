@@ -158,15 +158,53 @@
     
     <!-- Pagination -->
     {% if users.pages > 1 %}
-    <div class="flex justify-center gap-2">
-        {% if users.has_prev %}
-        <a href="{{ url_for('admin.staff', page=users.prev_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Oldingi</a>
-        {% endif %}
-        <span class="px-4 py-2 bg-primary-600 text-white rounded-xl">{{ users.page }} / {{ users.pages }}</span>
-        {% if users.has_next %}
-        <a href="{{ url_for('admin.staff', page=users.next_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Keyingi</a>
-        {% endif %}
+    <div class="mt-6 flex flex-col items-center gap-4">
+        <!-- Pagination buttons -->
+        <div class="flex items-center gap-2">
+            {% if users.has_prev %}
+            <a href="{{ url_for('admin.staff', page=1, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">Birinchi</a>
+            <a href="{{ url_for('admin.staff', page=users.prev_num, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">«</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Birinchi</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+            {% endif %}
+            
+            {% for page_num in users.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == users.page %}
+                    <span class="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium">{{ page_num }}</span>
+                    {% else %}
+                    <a href="{{ url_for('admin.staff', page=page_num, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">{{ page_num }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="px-2 text-gray-400">...</span>
+                {% endif %}
+            {% endfor %}
+            
+            {% if users.has_next %}
+            <a href="{{ url_for('admin.staff', page=users.next_num, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">»</a>
+            <a href="{{ url_for('admin.staff', page=users.pages, search=search) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">Oxirgi</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Oxirgi</span>
+            {% endif %}
+        </div>
+        
+        <!-- Item count -->
+        <div class="text-sm text-gray-600">
+            {% set start = (users.page - 1) * users.per_page + 1 %}
+            {% set end = users.page * users.per_page if users.page * users.per_page <= users.total else users.total %}
+            {{ start }}-{{ end }} / jami {{ "{:,}".format(users.total) }} ta
+        </div>
     </div>
+    {% else %}
+    {% if users.total > 0 %}
+    <div class="mt-6 text-center text-sm text-gray-600">
+        {% set start = (users.page - 1) * users.per_page + 1 %}
+        {% set end = users.page * users.per_page if users.page * users.per_page <= users.total else users.total %}
+        {{ start }}-{{ end }} / jami {{ "{:,}".format(users.total) }} ta
+    </div>
+    {% endif %}
     {% endif %}
 </div>
 {% endblock %}
