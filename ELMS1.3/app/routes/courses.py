@@ -597,7 +597,14 @@ def detail(id):
     
     # Topshiriqlar
     if current_user.role == 'student' and current_user.group_id:
-        assignments = subject.assignments.filter_by(group_id=current_user.group_id).all()
+        # Talaba uchun - faqat o'z guruhining topshiriqlari
+        assignments_query = subject.assignments.filter_by(group_id=current_user.group_id)
+        # Agar direction_id berilgan bo'lsa, shu yo'nalishga tegishli topshiriqlar
+        if direction_id:
+            assignments_query = assignments_query.filter(
+                (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
+            )
+        assignments = assignments_query.all()
     elif current_user.role == 'teacher' or current_user.has_role('teacher'):
         # O'qituvchi o'zi dars beradigan guruhlarning topshiriqlarini ko'radi
         # Agar direction_id berilgan bo'lsa, faqat shu yo'nalishdagi guruhlar
@@ -615,22 +622,41 @@ def detail(id):
         
         group_ids = [ts.group_id for ts in teacher_groups if ts.group_id]
         if group_ids:
-            assignments = subject.assignments.filter(
+            assignments_query = subject.assignments.filter(
                 (Assignment.group_id.in_(group_ids)) | (Assignment.group_id.is_(None))
-            ).all()
+            )
+            # Agar direction_id berilgan bo'lsa, shu yo'nalishga tegishli topshiriqlar
+            if direction_id:
+                assignments_query = assignments_query.filter(
+                    (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
+                )
+            assignments = assignments_query.all()
         else:
-            assignments = subject.assignments.filter(Assignment.group_id.is_(None)).all()
+            assignments_query = subject.assignments.filter(Assignment.group_id.is_(None))
+            if direction_id:
+                assignments_query = assignments_query.filter(
+                    (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
+                )
+            assignments = assignments_query.all()
     else:
-        assignments = subject.assignments.all()
+        assignments_query = subject.assignments
+        # Agar direction_id berilgan bo'lsa, shu yo'nalishga tegishli topshiriqlar
+        if direction_id:
+            assignments_query = assignments_query.filter(
+                (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
+            )
+        assignments = assignments_query.all()
     
     # Talaba uchun topshiriqlar holati va ballar
     assignment_status = {}
     student_grades = None
     if current_user.role == 'student':
         for assignment in assignments:
+            # Faol submission topish (oxirgi yuborilgan)
             submission = Submission.query.filter_by(
                 student_id=current_user.id,
-                assignment_id=assignment.id
+                assignment_id=assignment.id,
+                is_active=True
             ).first()
             assignment_status[assignment.id] = submission
         
@@ -2061,43 +2087,205 @@ def create_assignment(id):
     """Yangi topshiriq yaratish"""
     subject = Subject.query.get_or_404(id)
     
+    # Yo'nalish ID (query parametrdan)
+    direction_id = request.args.get('direction_id', type=int)
+
     # Tanlangan rol
     current_role = session.get('current_role', current_user.role)
+    is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
     
-    # O'qituvchi dars beradigan guruhlar
-    teacher_groups = TeacherSubject.query.filter_by(
-        teacher_id=current_user.id,
-        subject_id=subject.id
-    ).all()
+    # O'qituvchiga biriktirilgan dars turlarini topish (dars qo'shish funksiyasidagi mantiq bilan bir xil)
+    allowed_lesson_types = []
+    if is_acting_as_teacher:
+        lesson_types_set = set()
+        
+        if direction_id:
+            # Faqat shu yo'nalishdagi guruhlar
+            direction_group_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
+            
+            # Faqat shu yo'nalishdagi guruhlarga biriktirilgan TeacherSubject'lar
+            teacher_assignments = TeacherSubject.query.filter(
+                TeacherSubject.teacher_id == current_user.id,
+                TeacherSubject.subject_id == subject.id,
+                TeacherSubject.group_id.in_(direction_group_ids)
+            ).all()
+            
+            # Barcha biriktirilgan dars turlarini to'plash
+            for ta in teacher_assignments:
+                if ta.lesson_type:
+                    lesson_types_set.add(ta.lesson_type)
+            
+            # DirectionCurriculum jadvalidan "laboratoriya" va "kurs_ishi" tekshiruvi
+            curriculum_item = DirectionCurriculum.query.filter_by(
+                direction_id=direction_id,
+                subject_id=subject.id
+            ).first()
+            
+            if curriculum_item:
+                # Laboratoriya tekshiruvi
+                if (curriculum_item.hours_laboratoriya or 0) > 0:
+                    lab_teacher_assignment = TeacherSubject.query.filter(
+                        TeacherSubject.subject_id == subject.id,
+                        TeacherSubject.group_id.in_(direction_group_ids),
+                        TeacherSubject.teacher_id == current_user.id,
+                        TeacherSubject.lesson_type == 'laboratoriya'
+                    ).first()
+                    
+                    if not lab_teacher_assignment:
+                        lab_teacher_assignment = TeacherSubject.query.filter(
+                            TeacherSubject.subject_id == subject.id,
+                            TeacherSubject.group_id.in_(direction_group_ids),
+                            TeacherSubject.teacher_id == current_user.id,
+                            TeacherSubject.lesson_type == 'amaliyot'
+                        ).first()
+                    
+                    if lab_teacher_assignment:
+                        lesson_types_set.add('laboratoriya')
+                
+                # Kurs ishi tekshiruvi
+                if (curriculum_item.hours_kurs_ishi or 0) > 0:
+                    kurs_teacher_assignment = TeacherSubject.query.filter(
+                        TeacherSubject.subject_id == subject.id,
+                        TeacherSubject.group_id.in_(direction_group_ids),
+                        TeacherSubject.teacher_id == current_user.id,
+                        TeacherSubject.lesson_type == 'kurs_ishi'
+                    ).first()
+                    
+                    if not kurs_teacher_assignment:
+                        kurs_teacher_assignment = TeacherSubject.query.filter(
+                            TeacherSubject.subject_id == subject.id,
+                            TeacherSubject.group_id.in_(direction_group_ids),
+                            TeacherSubject.teacher_id == current_user.id,
+                            TeacherSubject.lesson_type == 'amaliyot'
+                        ).first()
+                    
+                    if kurs_teacher_assignment:
+                        lesson_types_set.add('kurs_ishi')
+        
+        # Dars turlari nomlari
+        lesson_type_names_map = {
+            'maruza': 'Maruza',
+            'amaliyot': 'Amaliyot',
+            'laboratoriya': 'Laboratoriya',
+            'seminar': 'Seminar',
+            'kurs_ishi': 'Kurs ishi'
+        }
+        
+        # Tartib bo'yicha dars turlarini yaratish
+        lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
+        for lesson_type_key in lesson_type_order:
+            if lesson_type_key in lesson_types_set:
+                allowed_lesson_types.append({
+                    'value': lesson_type_key,
+                    'name': lesson_type_names_map.get(lesson_type_key, lesson_type_key.capitalize())
+                })
+    else:
+        # Faqat admin roli bo'lsa va o'qituvchi roli bo'lmasa, barcha dars turlari
+        if current_user.role == 'admin' and current_role != 'teacher':
+            allowed_lesson_types = [
+                {'value': 'maruza', 'name': 'Maruza'},
+                {'value': 'amaliyot', 'name': 'Amaliyot'},
+                {'value': 'laboratoriya', 'name': 'Laboratoriya'},
+                {'value': 'seminar', 'name': 'Seminar'},
+                {'value': 'kurs_ishi', 'name': 'Kurs ishi'}
+            ]
     
-    # Bir nechta rol belgilangan o'qituvchilar faqatgina o'qituvchi rolida o'ziga biriktirilgan fan uchun topshiriq yarata olishi kerak
-    if current_role != 'teacher' or not teacher_groups:
+    # Ushbu yo'nalishdagi barcha guruhlar (avtomatik yaratish uchun)
+    direction_groups = Group.query.filter_by(direction_id=direction_id).all() if direction_id else []
+    
+    # O'qituvchiga biriktirilgan guruhlar
+    if is_acting_as_teacher and direction_id:
+        direction_group_ids = [g.id for g in direction_groups]
+        teacher_groups_query = TeacherSubject.query.filter(
+            TeacherSubject.teacher_id == current_user.id,
+            TeacherSubject.subject_id == subject.id,
+            TeacherSubject.group_id.in_(direction_group_ids)
+        ).all()
+        
+        # Takrorlanmas guruhlar
+        seen_group_ids = set()
+        groups = []
+        for tg in teacher_groups_query:
+            if tg.group and tg.group_id not in seen_group_ids:
+                seen_group_ids.add(tg.group_id)
+                groups.append(tg.group)
+    else:
+        groups = direction_groups if direction_id else []
+    
+    # Darslar (mavzular) ro'yxati
+    lessons = []
+    if direction_id:
+        lessons = Lesson.query.filter_by(
+            subject_id=subject.id,
+            direction_id=direction_id
+        ).order_by(Lesson.order).all()
+    
+    # Faqat mavzulari mavjud bo'lgan dars turlarini ko'rsatish
+    if lessons and allowed_lesson_types:
+        # Har bir dars turi uchun mavzular bor-yo'qligini tekshirish
+        lesson_types_with_lessons = set()
+        for lesson in lessons:
+            if lesson.lesson_type:
+                lesson_types_with_lessons.add(lesson.lesson_type)
+        
+        # Faqat mavzulari bo'lgan dars turlarini qoldirish
+        filtered_lesson_types = []
+        for lt in allowed_lesson_types:
+            if lt['value'] in lesson_types_with_lessons:
+                filtered_lesson_types.append(lt)
+        allowed_lesson_types = filtered_lesson_types
+    
+    # Admin uchun ham faqat mavzulari bo'lgan dars turlarini ko'rsatish
+    if current_user.role == 'admin' and current_role != 'teacher' and lessons:
+        lesson_types_with_lessons = set()
+        for lesson in lessons:
+            if lesson.lesson_type:
+                lesson_types_with_lessons.add(lesson.lesson_type)
+        
+        filtered_lesson_types = []
+        for lt in allowed_lesson_types:
+            if lt['value'] in lesson_types_with_lessons:
+                filtered_lesson_types.append(lt)
+        allowed_lesson_types = filtered_lesson_types
+    
+    # Ruxsat tekshiruvi
+    if is_acting_as_teacher and not allowed_lesson_types and not groups:
         if current_user.role != 'admin':
-            flash("Sizda topshiriq yaratish uchun ruxsat yo'q. Faqat o'qituvchi rolida va o'ziga biriktirilgan fanlar uchun topshiriq yarata olasiz.", 'error')
-            return redirect(url_for('courses.detail', id=id))
-    
-    groups = [tg.group for tg in teacher_groups]
+            flash("Sizda topshiriq yaratish uchun ruxsat yo'q. Faqat o'ziga biriktirilgan fanlar uchun topshiriq yarata olasiz.", 'error')
+            return redirect(url_for('courses.detail', id=id, direction_id=direction_id))
     
     if request.method == 'POST':
+        # Dars turi majburiy
+        selected_lesson_type = request.form.get('lesson_type', '').strip()
+        if not selected_lesson_type:
+            flash("Dars turini tanlash majburiy!", 'error')
+            return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
+        
+        # O'qituvchi uchun tanlangan dars turini tekshirish
+        if is_acting_as_teacher:
+            allowed_values = [lt['value'] for lt in allowed_lesson_types]
+            if selected_lesson_type not in allowed_values:
+                flash(f"Siz tanlagan dars turiga ushbu yo'nalishda biriktirilmagansiz.", 'error')
+                return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
+        
+        # Tanlangan mavzular (lesson_ids)
+        selected_lesson_ids = request.form.getlist('lesson_ids')
+        lesson_ids_json = json.dumps([int(lesson_id) for lesson_id in selected_lesson_ids]) if selected_lesson_ids else None
+        
         due_date_str = request.form.get('due_date')
         due_date = datetime.strptime(due_date_str, '%Y-%m-%d') if due_date_str else None
         
-        # Tanlangan guruhlar (ko'p tanlash mumkin)
-        selected_group_ids = request.form.getlist('group_ids')
-        
-        # O'qituvchi uchun kamida bitta guruh tanlash majburiy
-        if not selected_group_ids and current_role == 'teacher':
-            flash("Kamida bitta guruh tanlashingiz kerak", 'error')
-            return render_template('courses/create_assignment.html', subject=subject, groups=groups)
-        
-        # Admin uchun guruh tanlash ixtiyoriy (agar tanlanmagan bo'lsa, group_id None bo'ladi)
-        if not selected_group_ids and current_user.role == 'admin':
-            selected_group_ids = [None]  # Bitta None yaratish uchun
+        # Avtomatik ravishda ushbu yo'nalishdagi barcha guruhlar uchun yaratish
+        if direction_id and groups:
+            # Ushbu yo'nalishdagi barcha guruhlar
+            selected_group_ids = [str(g.id) for g in groups]
+        else:
+            flash("Guruhlar topilmadi yoki yo'nalish tanlanmagan", 'error')
+            return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
         
         # Har bir tanlangan guruh uchun alohida topshiriq yaratish
         created_count = 0
         for group_id_str in selected_group_ids:
-            # Admin uchun group_id None bo'lishi mumkin
             group_id = int(group_id_str) if group_id_str and group_id_str != 'None' else None
             
             if group_id:
@@ -2105,7 +2293,7 @@ def create_assignment(id):
                 if not group:
                     continue
             else:
-                group = None
+                continue
             
             assignment = Assignment(
                 title=request.form.get('title'),
@@ -2114,6 +2302,9 @@ def create_assignment(id):
                 due_date=due_date,
                 subject_id=id,
                 group_id=group_id,
+                direction_id=direction_id,
+                lesson_type=selected_lesson_type,
+                lesson_ids=lesson_ids_json,
                 file_required=bool(request.form.get('file_required')),
                 created_by=current_user.id
             )
@@ -2129,7 +2320,7 @@ def create_assignment(id):
         
         return redirect(url_for('courses.detail', id=id, direction_id=direction_id))
     
-    return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id)
+    return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
 
 
 @bp.route('/assignments/<int:id>')
@@ -2147,7 +2338,8 @@ def assignment_detail(id):
     ).first() is not None
     
     if is_teacher or current_user.role == 'admin':
-        submissions = assignment.submissions.all()
+        # Faol submissions (oxirgi yuborilgan)
+        submissions = assignment.submissions.filter_by(is_active=True).all()
         
         # Guruh talabalari
         group_students = User.query.filter_by(
@@ -2164,13 +2356,36 @@ def assignment_detail(id):
                              submissions=submissions,
                              not_submitted=not_submitted)
     else:
+        # Talaba uchun - faol submission (oxirgi yuborilgan)
         submission = Submission.query.filter_by(
             student_id=current_user.id,
-            assignment_id=id
+            assignment_id=id,
+            is_active=True
         ).first()
+        
+        # Qayta topshirish imkoniyati
+        can_resubmit = True
+        resubmission_count = 0
+        if submission:
+            resubmission_count = submission.resubmission_count
+            can_resubmit = submission.can_resubmit(max_resubmissions=3)
+        
+        # Muddat o'tganligini tekshirish
+        is_overdue = assignment.due_date and datetime.utcnow() > assignment.due_date
+        
+        # Tegishli mavzular
+        lesson_ids = assignment.get_lesson_ids_list() if assignment.lesson_ids else []
+        related_lessons = []
+        if lesson_ids:
+            related_lessons = Lesson.query.filter(Lesson.id.in_(lesson_ids)).all()
+        
         return render_template('courses/assignment_detail.html',
                              assignment=assignment,
-                             submission=submission)
+                             submission=submission,
+                             can_resubmit=can_resubmit,
+                             resubmission_count=resubmission_count,
+                             is_overdue=is_overdue,
+                             related_lessons=related_lessons)
 
 
 @bp.route('/assignments/<int:id>/submit', methods=['POST'])
@@ -2228,37 +2443,80 @@ def submit_assignment(id):
         flash("Javob yoki fayl yuborishingiz kerak", 'error')
         return redirect(url_for('courses.assignment_detail', id=id))
     
-    existing = Submission.query.filter_by(
+    # Muddat tekshiruvi
+    if assignment.due_date and datetime.utcnow() > assignment.due_date:
+        flash("Topshiriq muddati o'tgan. Qayta topshirish mumkin emas.", 'error')
+        return redirect(url_for('courses.assignment_detail', id=id))
+    
+    # Faol submission topish (oxirgi yuborilgan)
+    active_submission = Submission.query.filter_by(
         student_id=current_user.id,
-        assignment_id=id
+        assignment_id=id,
+        is_active=True
     ).first()
     
-    if existing:
-        existing.content = content
-        if file_url:
-            # Eski faylni o'chirish
-            if existing.file_url:
-                old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'submissions', existing.file_url)
-                if os.path.exists(old_file_path):
-                    try:
-                        os.remove(old_file_path)
-                    except:
-                        pass
-            existing.file_url = file_url
-        existing.submitted_at = datetime.utcnow()
-        flash("Javobingiz yangilandi", 'success')
+    if active_submission:
+        # Qayta topshirish imkoniyati tekshiruvi
+        if not active_submission.can_resubmit(max_resubmissions=3):
+            flash("Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun o'qituvchi bilan bog'laning.", 'error')
+            return redirect(url_for('courses.assignment_detail', id=id))
+        
+        # Eski submission'ni faol emas qilish
+        active_submission.is_active = False
+        
+        # Yangi submission yaratish
+        new_submission = Submission(
+            student_id=current_user.id,
+            assignment_id=id,
+            content=content,
+            file_url=file_url,
+            resubmission_count=active_submission.resubmission_count + 1,
+            is_active=True
+        )
+        db.session.add(new_submission)
+        flash(f"Javobingiz qayta yuborildi ({new_submission.resubmission_count}/3)", 'success')
     else:
+        # Birinchi marta topshirish
         submission = Submission(
             student_id=current_user.id,
             assignment_id=id,
             content=content,
-            file_url=file_url
+            file_url=file_url,
+            resubmission_count=0,
+            is_active=True
         )
         db.session.add(submission)
-        flash("Javobingiz muvaffaqiyatli yuborildi", 'success')
+        flash("Javobingiz qabul qilindi", 'success')
     
     db.session.commit()
     return redirect(url_for('courses.assignment_detail', id=id))
+
+
+@bp.route('/submissions/<int:id>/allow-resubmission', methods=['POST'])
+@login_required
+def allow_resubmission(id):
+    """O'qituvchi qayta topshirish imkonini berish"""
+    submission = Submission.query.get_or_404(id)
+    assignment = submission.assignment
+    subject = assignment.subject
+    
+    # O'qituvchi yoki adminmi?
+    is_teacher = TeacherSubject.query.filter_by(
+        teacher_id=current_user.id,
+        subject_id=subject.id,
+        group_id=assignment.group_id
+    ).first() is not None
+    
+    if not (is_teacher or current_user.role == 'admin'):
+        flash("Sizda bu amalni bajarish uchun ruxsat yo'q", 'error')
+        return redirect(url_for('courses.assignment_detail', id=assignment.id))
+    
+    # Qayta topshirish imkonini berish
+    submission.allow_resubmission = True
+    db.session.commit()
+    
+    flash("Talabaga qayta topshirish imkoni berildi", 'success')
+    return redirect(url_for('courses.assignment_detail', id=assignment.id))
 
 
 @bp.route('/submissions/<int:id>/grade', methods=['POST'])

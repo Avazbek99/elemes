@@ -338,6 +338,9 @@ class Assignment(db.Model):
     description = db.Column(db.Text)
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'))  # Qaysi guruh uchun
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)  # Qaysi yo'nalish uchun
+    lesson_type = db.Column(db.String(20), nullable=True)  # Qaysi dars turi uchun (maruza, amaliyot, etc.)
+    lesson_ids = db.Column(db.Text)  # Qaysi mavzularga tegishli (JSON array: [1, 2, 3])
     due_date = db.Column(db.DateTime)
     max_score = db.Column(db.Integer, default=100)
     file_required = db.Column(db.Boolean, default=False)  # Fayl yuklash majburiy yoki ixtiyoriy
@@ -348,9 +351,21 @@ class Assignment(db.Model):
     submissions = db.relationship('Submission', backref='assignment', lazy='dynamic', cascade='all, delete-orphan')
     creator = db.relationship('User', backref='created_assignments')
     group = db.relationship('Group', backref='assignments')
+    direction = db.relationship('Direction', backref='assignments')
+    # subject relationship - Subject modelida allaqachon backref mavjud
     
     def get_submission_count(self):
         return self.submissions.count()
+    
+    def get_lesson_ids_list(self):
+        """Lesson IDs ni list sifatida qaytarish"""
+        if self.lesson_ids:
+            try:
+                import json
+                return json.loads(self.lesson_ids)
+            except:
+                return []
+        return []
 
 
 # ==================== JAVOB ====================
@@ -366,8 +381,17 @@ class Submission(db.Model):
     feedback = db.Column(db.Text)
     graded_at = db.Column(db.DateTime)
     graded_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    resubmission_count = db.Column(db.Integer, default=0)  # Qayta topshirishlar soni
+    allow_resubmission = db.Column(db.Boolean, default=False)  # O'qituvchi qo'shimcha imkon berishi mumkin
+    is_active = db.Column(db.Boolean, default=True)  # Faol topshiriq (oxirgi yuborilgan)
     
     grader = db.relationship('User', foreign_keys=[graded_by], backref='graded_submissions')
+    
+    def can_resubmit(self, max_resubmissions=3):
+        """Qayta topshirish mumkinligini tekshirish"""
+        if self.allow_resubmission:
+            return True  # O'qituvchi maxsus ruxsat bergan
+        return self.resubmission_count < max_resubmissions
 
 
 # ==================== E'LON ====================

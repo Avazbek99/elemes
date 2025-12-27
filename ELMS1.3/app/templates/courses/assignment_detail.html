@@ -13,7 +13,22 @@
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div class="flex items-start justify-between mb-4">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">{{ assignment.title }}</h1>
+                <div class="flex items-center gap-2 mb-2">
+                    <h1 class="text-2xl font-bold text-gray-900">{{ assignment.title }}</h1>
+                    {% if assignment.lesson_type %}
+                    {% if assignment.lesson_type == 'maruza' %}
+                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">Maruza</span>
+                    {% elif assignment.lesson_type == 'amaliyot' %}
+                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">Amaliyot</span>
+                    {% elif assignment.lesson_type == 'laboratoriya' %}
+                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200">Laboratoriya</span>
+                    {% elif assignment.lesson_type == 'seminar' %}
+                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">Seminar</span>
+                    {% elif assignment.lesson_type == 'kurs_ishi' %}
+                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200">Kurs ishi</span>
+                    {% endif %}
+                    {% endif %}
+                </div>
                 <p class="text-gray-500 mt-1">{{ assignment.subject.name }}</p>
                 {% if assignment.group %}
                 <span class="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">{{ assignment.group.name }}</span>
@@ -29,6 +44,22 @@
         <div class="flex items-center gap-2 p-3 bg-amber-50 rounded-xl mb-4">
             <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span class="text-sm text-amber-700">Muddat: {{ assignment.due_date.strftime('%d.%m.%Y') }}</span>
+            {% if is_overdue %}
+            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium ml-auto">Muddat o'tgan</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if related_lessons %}
+        <div class="mb-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">Tegishli mavzular:</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for lesson in related_lessons %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md bg-gray-100 text-gray-700 border border-gray-200">
+                    {{ lesson.order }}. {{ lesson.title }}
+                </span>
+                {% endfor %}
+            </div>
         </div>
         {% endif %}
         
@@ -41,7 +72,14 @@
     <!-- Submission -->
     {% if submission %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Sizning javobingiz</h2>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Sizning javobingiz</h2>
+            {% if resubmission_count > 0 %}
+            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                Qayta topshirilgan: {{ resubmission_count }}/3
+            </span>
+            {% endif %}
+        </div>
         
         <div class="p-4 bg-gray-50 rounded-xl mb-4">
             {% if submission.content %}
@@ -72,7 +110,7 @@
         </div>
         
         {% if submission.score is not none %}
-        <div class="p-4 bg-green-50 rounded-xl border border-green-200">
+        <div class="p-4 bg-green-50 rounded-xl border border-green-200 mb-4">
             <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-green-700">Baho qo'yilgan</span>
                 <span class="text-2xl font-bold text-green-600">{{ submission.score }}/{{ assignment.max_score }}</span>
@@ -82,20 +120,53 @@
             {% endif %}
         </div>
         {% else %}
-        <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+        <div class="p-4 bg-blue-50 rounded-xl border border-blue-200 mb-4">
             <p class="text-sm text-blue-700">⏳ Javobingiz tekshirilmoqda...</p>
+        </div>
+        {% endif %}
+        
+        <!-- Qayta topshirish -->
+        {% if can_resubmit and not is_overdue %}
+        <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <p class="text-sm text-blue-700 mb-3">Siz javobingizni qayta topshirishingiz mumkin ({{ resubmission_count }}/3)</p>
+            <a href="#submit-form" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors inline-block">
+                Qayta topshirish
+            </a>
+        </div>
+        {% elif not can_resubmit and not submission.allow_resubmission %}
+        <div class="p-4 bg-red-50 rounded-xl border border-red-200">
+            <p class="text-sm text-red-700">⚠️ Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun o'qituvchi bilan bog'laning.</p>
         </div>
         {% endif %}
     </div>
     {% else %}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <div id="submit-form" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Javob yuborish</h2>
+            <h2 class="text-lg font-semibold text-gray-900">
+                {% if submission and can_resubmit %}
+                Javobni qayta yuborish
+                {% else %}
+                Javob yuborish
+                {% endif %}
+            </h2>
             {% if assignment.file_required %}
             <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Fayl majburiy</span>
             {% endif %}
         </div>
         
+        {% if is_overdue %}
+        <div class="p-4 bg-red-50 rounded-xl border border-red-200 mb-4">
+            <p class="text-sm text-red-700">⚠️ Topshiriq muddati o'tgan. Qayta topshirish mumkin emas.</p>
+        </div>
+        {% endif %}
+        
+        {% if not can_resubmit and not is_overdue %}
+        <div class="p-4 bg-red-50 rounded-xl border border-red-200 mb-4">
+            <p class="text-sm text-red-700">⚠️ Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun o'qituvchi bilan bog'laning.</p>
+        </div>
+        {% endif %}
+        
+        {% if not is_overdue and (not submission or can_resubmit) %}
         <form method="POST" action="{{ url_for('courses.submit_assignment', id=assignment.id) }}" enctype="multipart/form-data" class="space-y-4">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div>
@@ -139,11 +210,18 @@
             </div>
             
             <div class="flex justify-end">
-                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                <button type="submit" 
+                        {% if not can_resubmit and submission %}disabled{% endif %}
+                        class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors {% if not can_resubmit and submission %}opacity-50 cursor-not-allowed{% endif %}">
+                    {% if submission %}
+                    Qayta yuborish
+                    {% else %}
                     Yuborish
+                    {% endif %}
                 </button>
             </div>
         </form>
+        {% endif %}
         
         <script>
         function updateFileName(input) {

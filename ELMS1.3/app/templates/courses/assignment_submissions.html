@@ -12,7 +12,22 @@
     
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">{{ assignment.title }}</h1>
+            <div class="flex items-center gap-2 mb-2">
+                <h1 class="text-2xl font-bold text-gray-900">{{ assignment.title }}</h1>
+                {% if assignment.lesson_type %}
+                {% if assignment.lesson_type == 'maruza' %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">Maruza</span>
+                {% elif assignment.lesson_type == 'amaliyot' %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">Amaliyot</span>
+                {% elif assignment.lesson_type == 'laboratoriya' %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200">Laboratoriya</span>
+                {% elif assignment.lesson_type == 'seminar' %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">Seminar</span>
+                {% elif assignment.lesson_type == 'kurs_ishi' %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200">Kurs ishi</span>
+                {% endif %}
+                {% endif %}
+            </div>
             <p class="text-gray-500 mt-1">{{ assignment.group.name if assignment.group else '' }} • Talaba javoblari</p>
         </div>
         <div class="flex items-center gap-4 text-sm text-gray-500">
@@ -60,18 +75,31 @@
                         <div>
                             <p class="font-medium text-gray-900">{{ submission.student.full_name.upper() if submission.student.full_name else '-' }}</p>
                             <p class="text-xs text-gray-500">{{ submission.submitted_at.strftime('%d.%m.%Y, %H:%M') }}</p>
+                            {% if submission.resubmission_count > 0 %}
+                            <p class="text-xs text-blue-600 mt-1">Qayta topshirilgan: {{ submission.resubmission_count }} marta</p>
+                            {% endif %}
                         </div>
                     </div>
                     
-                    {% if submission.score is not none %}
-                    <span class="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-700">
-                        {{ submission.score }}/{{ assignment.max_score }}
-                    </span>
-                    {% else %}
-                    <span class="px-3 py-1 text-sm font-medium rounded-full bg-amber-100 text-amber-700">
-                        Baholanmagan
-                    </span>
-                    {% endif %}
+                    <div class="flex items-center gap-2">
+                        {% if submission.score is not none %}
+                        <span class="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-700">
+                            {{ submission.score }}/{{ assignment.max_score }}
+                        </span>
+                        {% else %}
+                        <span class="px-3 py-1 text-sm font-medium rounded-full bg-amber-100 text-amber-700">
+                            Baholanmagan
+                        </span>
+                        {% endif %}
+                        {% if not submission.allow_resubmission and submission.resubmission_count >= 3 %}
+                        <form method="POST" action="{{ url_for('courses.allow_resubmission', id=submission.id) }}" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">
+                                Qayta topshirish ruxsati
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
                 
                 <div class="p-4 bg-gray-50 rounded-xl mb-4">
