@@ -413,6 +413,15 @@
                                             </div>
                                             <div class="flex-1">
                                                 <p class="text-sm font-medium text-gray-900">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</p>
+                                                {% if teacher_lesson_types and teacher_lesson_types.get(teacher.id) %}
+                                                <div class="flex flex-wrap gap-1.5 mt-1.5">
+                                                    {% for lesson_type in teacher_lesson_types[teacher.id] %}
+                                                    <span class="px-2 py-0.5 text-xs font-medium rounded-md bg-{{ teacher_type.color }}-100 text-{{ teacher_type.color }}-700 border border-{{ teacher_type.color }}-200">
+                                                        {{ lesson_type }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endif %}
                                             </div>
                                         </div>
                                         {% endfor %}
@@ -424,6 +433,15 @@
                                             </div>
                                             <div class="flex-1">
                                                 <p class="text-sm font-medium text-gray-900">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</p>
+                                                {% if teacher_lesson_types and teacher_lesson_types.get(teacher.id) %}
+                                                <div class="flex flex-wrap gap-1.5 mt-1.5">
+                                                    {% for lesson_type in teacher_lesson_types[teacher.id] %}
+                                                    <span class="px-2 py-0.5 text-xs font-medium rounded-md bg-{{ teacher_type.color }}-100 text-{{ teacher_type.color }}-700 border border-{{ teacher_type.color }}-200">
+                                                        {{ lesson_type }}
+                                                    </span>
+                                                    {% endfor %}
+                                                </div>
+                                                {% endif %}
                                             </div>
                                         </div>
                                         {% endfor %}
