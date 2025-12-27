@@ -132,7 +132,15 @@
                 {% for subject in my_subjects[:4] %}
                 <a href="{{ url_for('courses.detail', id=subject.id) }}" class="block p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                     <p class="text-sm font-medium text-gray-900">{{ subject.name }}</p>
-                    <p class="text-xs text-gray-500">{% if subject.code %}{{ subject.code }}{% if subject.credits %} • {% endif %}{% endif %}{% if subject.credits %}{{ subject.credits }} kredit{% endif %}</p>
+                    <p class="text-xs text-gray-500">
+                        {% if my_subjects_info and my_subjects_info.get(subject.id) %}
+                            {% set info = my_subjects_info[subject.id] %}
+                            {{ info.course_year }}-kurs, {{ info.semester }}-semestr
+                            {% if subject.credits %} • {{ subject.credits }} kredit{% endif %}
+                        {% else %}
+                            {% if subject.code %}{{ subject.code }}{% if subject.credits %} • {% endif %}{% endif %}{% if subject.credits %}{{ subject.credits }} kredit{% endif %}
+                        {% endif %}
+                    </p>
                 </a>
                 {% else %}
                 <p class="text-sm text-gray-500">Fanlar biriktirilmagan</p>
