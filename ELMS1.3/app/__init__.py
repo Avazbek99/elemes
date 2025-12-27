@@ -73,40 +73,30 @@ def create_app(config_class=Config):
             if 'assignment' in inspector.get_table_names():
                 assignment_columns = [col['name'] for col in inspector.get_columns('assignment')]
                 
-                if 'direction_id' not in assignment_columns:
-                    with db.engine.connect() as conn:
+                with db.engine.begin() as conn:
+                    if 'direction_id' not in assignment_columns:
                         conn.execute(text("ALTER TABLE assignment ADD COLUMN direction_id INTEGER"))
-                        conn.commit()
-                
-                if 'lesson_type' not in assignment_columns:
-                    with db.engine.connect() as conn:
+                    
+                    if 'lesson_type' not in assignment_columns:
                         conn.execute(text("ALTER TABLE assignment ADD COLUMN lesson_type VARCHAR(20)"))
-                        conn.commit()
-                
-                if 'lesson_ids' not in assignment_columns:
-                    with db.engine.connect() as conn:
+                    
+                    if 'lesson_ids' not in assignment_columns:
                         conn.execute(text("ALTER TABLE assignment ADD COLUMN lesson_ids TEXT"))
-                        conn.commit()
             
             # Submission jadvalini tekshirish
             if 'submission' in inspector.get_table_names():
                 submission_columns = [col['name'] for col in inspector.get_columns('submission')]
                 
-                if 'resubmission_count' not in submission_columns:
-                    with db.engine.connect() as conn:
+                with db.engine.begin() as conn:
+                    if 'resubmission_count' not in submission_columns:
                         conn.execute(text("ALTER TABLE submission ADD COLUMN resubmission_count INTEGER DEFAULT 0"))
-                        conn.commit()
-                
-                if 'allow_resubmission' not in submission_columns:
-                    with db.engine.connect() as conn:
+                    
+                    if 'allow_resubmission' not in submission_columns:
                         conn.execute(text("ALTER TABLE submission ADD COLUMN allow_resubmission BOOLEAN DEFAULT 0"))
-                        conn.commit()
-                
-                if 'is_active' not in submission_columns:
-                    with db.engine.connect() as conn:
+                    
+                    if 'is_active' not in submission_columns:
                         conn.execute(text("ALTER TABLE submission ADD COLUMN is_active BOOLEAN DEFAULT 1"))
                         conn.execute(text("UPDATE submission SET is_active = 1 WHERE is_active IS NULL"))
-                        conn.commit()
         except Exception as e:
             # Migration xatosi bo'lsa, xato log qilish lekin dasturni ishga tushirish
             app.logger.warning(f"Migration xatosi (bu normal bo'lishi mumkin): {e}")
