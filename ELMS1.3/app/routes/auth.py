@@ -95,35 +95,71 @@ def forgot_password():
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
-        email = request.form.get('email')
-        user = User.query.filter_by(email=email).first()
+        action = request.form.get('action')
         
-        if user:
-            # Faqat teacher, dean va student uchun
-            if user.role not in ['teacher', 'dean', 'student']:
-                flash("Bu funksiya faqat o'qituvchi, dekan va talabalar uchun mavjud", 'error')
+        if action == 'check':
+            # Login, talaba ID yoki email orqali foydalanuvchini qidirish
+            login_input = request.form.get('login_input', '').strip()
+            
+            if not login_input:
+                flash("Iltimos, login, talaba ID yoki email kiriting", 'error')
                 return render_template('auth/forgot_password.html')
             
-            # Eski tokenlarni o'chirish
-            PasswordResetToken.query.filter_by(user_id=user.id, is_used=False).delete()
+            # Foydalanuvchini qidirish
+            user = None
+            # Avval email orqali qidirish
+            user = User.query.filter_by(email=login_input).first()
+            # Agar topilmasa, login orqali qidirish
+            if not user:
+                user = User.query.filter_by(login=login_input).first()
+            # Agar hali ham topilmasa, talaba ID orqali qidirish
+            if not user:
+                user = User.query.filter_by(student_id=login_input).first()
             
-            # Yangi token yaratish
-            token = secrets.token_urlsafe(32)
-            expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 soat muddat
+            if not user:
+                flash("Bu login, talaba ID yoki email bilan foydalanuvchi topilmadi", 'error')
+                return render_template('auth/forgot_password.html')
             
-            reset_token = PasswordResetToken(
-                user_id=user.id,
-                token=token,
-                expires_at=expires_at
-            )
-            db.session.add(reset_token)
+            # Faqat talaba va o'qituvchi uchun
+            if user.role not in ['teacher', 'student']:
+                flash("Bu funksiya faqat o'qituvchi va talabalar uchun mavjud", 'error')
+                return render_template('auth/forgot_password.html')
+            
+            # Foydalanuvchi topildi, pasport inputini ko'rsatish
+            return render_template('auth/forgot_password.html', user_found=True, user_id=user.id)
+        
+        elif action == 'reset':
+            # Pasport orqali tekshirish va parolni reset qilish
+            user_id = request.form.get('user_id')
+            passport = request.form.get('passport', '').strip().upper()
+            
+            if not user_id or not passport:
+                flash("Iltimos, pasport seriya raqamini kiriting", 'error')
+                return render_template('auth/forgot_password.html', user_found=True, user_id=user_id)
+            
+            user = User.query.get(user_id)
+            if not user:
+                flash("Foydalanuvchi topilmadi", 'error')
+                return render_template('auth/forgot_password.html')
+            
+            # Faqat talaba va o'qituvchi uchun
+            if user.role not in ['teacher', 'student']:
+                flash("Bu funksiya faqat o'qituvchi va talabalar uchun mavjud", 'error')
+                return render_template('auth/forgot_password.html')
+            
+            # Pasportni tekshirish
+            if not user.passport_number or user.passport_number.upper() != passport:
+                flash("Pasport seriya raqami noto'g'ri", 'error')
+                return render_template('auth/forgot_password.html', user_found=True, user_id=user_id)
+            
+            # Parolni boshlang'ich holatga qaytarish
+            # Talabalar uchun: student123, O'qituvchilar uchun: teacher123
+            default_password = 'student123' if user.role == 'student' else 'teacher123'
+            user.set_password(default_password)
             db.session.commit()
             
-            # Token bilan reset sahifasiga yo'naltirish
-            flash("Parolni tiklash uchun quyidagi havolaga o'ting", 'success')
-            return redirect(url_for('auth.reset_password', token=token))
-        else:
-            flash("Bu email bilan foydalanuvchi topilmadi", 'error')
+            flash(f"Parol muvaffaqiyatli boshlang'ich holatga qaytarildi! Parol: {default_password}", 'success')
+            return redirect(url_for('auth.login'))
     
     return render_template('auth/forgot_password.html')
 
