@@ -243,19 +243,12 @@
                             {% endif %}
                         </div>
                         <div class="flex-1 min-w-0">
-                            {% if current_user.role != 'student' %}
-                                <p class="text-sm font-medium text-white truncate">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
-                                <p class="text-xs text-primary-400">{{ current_user.login or '-' }}</p>
-                            {% else %}
-                                <p class="text-sm font-medium text-white truncate">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
-                                <p class="text-xs text-primary-400">
-                                    {% if current_user.group %}
-                                        {{ current_user.group.name }}
-                                    {% else %}
-                                        Guruh belgilanmagan
-                                    {% endif %}
-                                </p>
-                            {% endif %}
+                            <p class="text-sm font-medium text-white truncate">{{ current_user.full_name.upper() if current_user.full_name else '-' }}</p>
+                            <p class="text-xs text-primary-400">
+                                {% set current_role = session.get('current_role', current_user.role) %}
+                                {% set role_names = {'admin': 'Administrator', 'dean': 'Dekan', 'teacher': "O'qituvchi", 'student': 'Talaba', 'accounting': 'Buxgalteriya'} %}
+                                {{ role_names.get(current_role, current_role) }}
+                            </p>
                         </div>
                     </div>
                 </a>
