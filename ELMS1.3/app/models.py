@@ -844,18 +844,19 @@ def create_demo_data():
     it_direction = demo_directions.get('IT')
     if it_direction:
         it_subjects = [
-            {'subject': 'Dasturlash asoslari', 'semester': 1, 'credits': 4, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
-            {'subject': 'Algoritmlar', 'semester': 2, 'credits': 3, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
-            {'subject': 'Web dasturlash', 'semester': 3, 'credits': 3, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
-            {'subject': "Ma'lumotlar bazasi", 'semester': 3, 'credits': 4, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
-            {'subject': 'Kompyuter tarmoqlari', 'semester': 4, 'credits': 3, 'hours_maruza': 20, 'hours_amaliyot': 20, 'hours_laboratoriya': 10, 'hours_kurs_ishi': 0},
+            {'subject': 'Dasturlash asoslari', 'semester': 1, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Algoritmlar', 'semester': 2, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Web dasturlash', 'semester': 3, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': "Ma'lumotlar bazasi", 'semester': 3, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Kompyuter tarmoqlari', 'semester': 4, 'hours_maruza': 20, 'hours_amaliyot': 20, 'hours_laboratoriya': 10, 'hours_kurs_ishi': 0},
         ]
         
         for s in it_subjects:
             if s['subject'] in subjects:
                 existing = DirectionCurriculum.query.filter_by(
                     direction_id=it_direction.id,
-                    subject_id=subjects[s['subject']].id
+                    subject_id=subjects[s['subject']].id,
+                    semester=s['semester']
                 ).first()
                 
                 if not existing:
@@ -863,7 +864,6 @@ def create_demo_data():
                         direction_id=it_direction.id,
                         subject_id=subjects[s['subject']].id,
                         semester=s['semester'],
-                        credits=s['credits'],
                         hours_maruza=s['hours_maruza'],
                         hours_amaliyot=s['hours_amaliyot'],
                         hours_laboratoriya=s['hours_laboratoriya'],
@@ -875,14 +875,15 @@ def create_demo_data():
     iq_direction = demo_directions.get('IQ')
     if iq_direction:
         iq_subjects = [
-            {'subject': 'Makroiqtisodiyot', 'semester': 1, 'credits': 3, 'hours_maruza': 30, 'hours_amaliyot': 20, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Makroiqtisodiyot', 'semester': 1, 'hours_maruza': 30, 'hours_amaliyot': 20, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
         ]
         
         for s in iq_subjects:
             if s['subject'] in subjects:
                 existing = DirectionCurriculum.query.filter_by(
                     direction_id=iq_direction.id,
-                    subject_id=subjects[s['subject']].id
+                    subject_id=subjects[s['subject']].id,
+                    semester=s['semester']
                 ).first()
                 
                 if not existing:
@@ -890,7 +891,6 @@ def create_demo_data():
                         direction_id=iq_direction.id,
                         subject_id=subjects[s['subject']].id,
                         semester=s['semester'],
-                        credits=s['credits'],
                         hours_maruza=s['hours_maruza'],
                         hours_amaliyot=s['hours_amaliyot'],
                         hours_laboratoriya=s['hours_laboratoriya'],
