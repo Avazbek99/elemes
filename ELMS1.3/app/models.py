@@ -865,31 +865,48 @@ def create_demo_data():
     db.session.commit()
     
     # ===== TALABALAR =====
+    # Kurs va semestr munosabati: 1-kurs=1-2 semestr, 2-kurs=3-4 semestr, 3-kurs=5-6 semestr
+    # Har bir kursning birinchi semestri: 1-kurs=1-semestr, 2-kurs=3-semestr, 3-kurs=5-semestr
     students_data = [
-        {'email': 'student1@university.uz', 'full_name': 'Dilshod Rahimov', 'student_id': 'ST2021001', 'group': 'DI-21'},
-        {'email': 'student2@university.uz', 'full_name': 'Malika Karimova', 'student_id': 'ST2021002', 'group': 'DI-21'},
-        {'email': 'student3@university.uz', 'full_name': 'Jasur Toshmatov', 'student_id': 'ST2022001', 'group': 'DI-22'},
-        {'email': 'student4@university.uz', 'full_name': 'Nodira Aliyeva', 'student_id': 'ST2022002', 'group': 'DI-22'},
-        {'email': 'student5@university.uz', 'full_name': 'Sardor Mahmudov', 'student_id': 'ST2023001', 'group': 'DI-23'},
-        {'email': 'student6@university.uz', 'full_name': 'Gulnora Rahimova', 'student_id': 'ST2021003', 'group': 'IQ-21'},
+        {'email': 'student1@university.uz', 'full_name': 'Dilshod Rahimov', 'student_id': 'ST2021001', 'group': 'DI-21', 'semester': 5},  # 3-kurs
+        {'email': 'student2@university.uz', 'full_name': 'Malika Karimova', 'student_id': 'ST2021002', 'group': 'DI-21', 'semester': 5},  # 3-kurs
+        {'email': 'student3@university.uz', 'full_name': 'Jasur Toshmatov', 'student_id': 'ST2022001', 'group': 'DI-22', 'semester': 3},  # 2-kurs
+        {'email': 'student4@university.uz', 'full_name': 'Nodira Aliyeva', 'student_id': 'ST2022002', 'group': 'DI-22', 'semester': 3},  # 2-kurs
+        {'email': 'student5@university.uz', 'full_name': 'Sardor Mahmudov', 'student_id': 'ST2023001', 'group': 'DI-23', 'semester': 1},  # 1-kurs
+        {'email': 'student6@university.uz', 'full_name': 'Gulnora Rahimova', 'student_id': 'ST2021003', 'group': 'IQ-21', 'semester': 5}, # 3-kurs
     ]
     
     students = []
     for s in students_data:
         # Talabalar uchun student_id orqali qidirish
         student = User.query.filter_by(student_id=s['student_id']).first()
+        group = groups[s['group']]
+        course_year = group.course_year if group else 1
+        
+        # Kurs bo'yicha birinchi semestr: 1-kurs=1, 2-kurs=3, 3-kurs=5, 4-kurs=7
+        default_semester = (course_year - 1) * 2 + 1
+        semester = s.get('semester', default_semester)
+        
         if not student:
             student = User(
                 email=s['email'] if s.get('email') else None,
                 full_name=s['full_name'],
                 role='student',
                 student_id=s['student_id'],
-                group_id=groups[s['group']].id,
+                group_id=group.id if group else None,
                 enrollment_year=int('20' + s['group'][-2:]),
-                semester=1
+                semester=semester
             )
             student.set_password('student123')
             db.session.add(student)
+        else:
+            # Mavjud talabani yangilash
+            if student.group_id != group.id:
+                student.group_id = group.id
+            if student.semester != semester:
+                student.semester = semester
+            if student.enrollment_year != int('20' + s['group'][-2:]):
+                student.enrollment_year = int('20' + s['group'][-2:])
         students.append(student)
     
     db.session.commit()
