@@ -36,10 +36,11 @@
     {% if subjects_by_semester %}
     <div class="space-y-8">
         {% for semester in subjects_by_semester.keys()|sort %}
+        {% set course_year = ((semester - 1) // 2) + 1 %}
         <div>
             <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <span class="w-1 h-8 bg-primary-600 rounded"></span>
-                {{ semester }}-semestr
+                {{ course_year }}-kurs, {{ semester }}-semestr
                 <span class="text-base font-normal text-gray-500 ml-2">
                     ({{ subjects_by_semester[semester]|length }} fan)
                 </span>
@@ -53,7 +54,8 @@
                 <a href="{{ url_for('courses.detail', id=subject.id, direction_id=subject_data.direction.id if subject_data.direction else None) }}" class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
                     <div class="relative p-5 {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %}">
                         <div class="absolute top-4 right-4 flex flex-col gap-2">
-                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject_data.semester }}-semestr</span>
+                            {% set course_year = ((subject_data.semester - 1) // 2) + 1 %}
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ course_year }}-kurs, {{ subject_data.semester }}-semestr</span>
                             <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ "%.2f"|format(subject_data.credits) }} kredit</span>
                         </div>
                         <div class="pr-24">

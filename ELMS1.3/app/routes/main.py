@@ -100,9 +100,40 @@ def dashboard():
     
     elif user.role == 'teacher' or user.has_role('teacher'):
         # O'qituvchi uchun
+        from app.models import DirectionCurriculum, Direction
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
         subject_ids = [ts.subject_id for ts in teacher_subjects]
-        my_subjects = Subject.query.filter(Subject.id.in_(subject_ids)).all() if subject_ids else []
+        
+        # Fanlarni semester va kurs ma'lumotlari bilan yig'ish
+        my_subjects_data = []
+        for ts in teacher_subjects:
+            group = Group.query.get(ts.group_id)
+            if group and group.direction_id:
+                curriculum_item = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    subject_id=ts.subject_id
+                ).first()
+                if curriculum_item:
+                    subject = Subject.query.get(ts.subject_id)
+                    if subject:
+                        course_year = ((curriculum_item.semester - 1) // 2) + 1
+                        my_subjects_data.append({
+                            'subject': subject,
+                            'semester': curriculum_item.semester,
+                            'course_year': course_year,
+                            'direction': Direction.query.get(group.direction_id)
+                        })
+        
+        # Takrorlanmas fanlar (birinchi topilgan ma'lumotlar bilan)
+        seen_subject_ids = set()
+        my_subjects_list = []
+        for item in my_subjects_data:
+            if item['subject'].id not in seen_subject_ids:
+                seen_subject_ids.add(item['subject'].id)
+                my_subjects_list.append(item)
+        
+        my_subjects = [item['subject'] for item in my_subjects_list]
+        my_subjects_info = {item['subject'].id: item for item in my_subjects_list}
         
         stats = {
             'subjects': my_subjects,
@@ -174,9 +205,28 @@ def dashboard():
     if 'today_schedule' not in locals():
         today_schedule = []
     
+    # O'qituvchi uchun fanlar ma'lumotlari
+    my_subjects_info = {}
+    if user.role == 'teacher' or user.has_role('teacher'):
+        from app.models import DirectionCurriculum, Direction
+        teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
+        for ts in teacher_subjects:
+            group = Group.query.get(ts.group_id)
+            if group and group.direction_id:
+                curriculum_item = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    subject_id=ts.subject_id
+                ).first()
+                if curriculum_item and ts.subject_id not in my_subjects_info:
+                    course_year = ((curriculum_item.semester - 1) // 2) + 1
+                    my_subjects_info[ts.subject_id] = {
+                        'semester': curriculum_item.semester,
+                        'course_year': course_year
+                    }
+    
     return render_template('dashboard.html', stats=stats, announcements=announcements, 
                          recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules,
-                         my_subjects=my_subjects, today_schedule=today_schedule)
+                         my_subjects=my_subjects, today_schedule=today_schedule, my_subjects_info=my_subjects_info)
 
 @bp.route('/announcements')
 @login_required
