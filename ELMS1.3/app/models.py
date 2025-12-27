@@ -709,38 +709,82 @@ def create_demo_data():
             db.session.commit()
         demo_directions[faculty_code] = demo_direction
     
+    # ===== YO'NALISHLAR (kunduzgi ta'lim uchun) =====
+    # Har bir fakultet uchun kunduzgi va sirtqi yo'nalishlar yaratish
+    directions = {}
+    for faculty_code, faculty in faculties.items():
+        # Kunduzgi yo'nalish
+        direction_code = f'{faculty_code}-KUNDUZGI'
+        direction = Direction.query.filter_by(code=direction_code, education_type='kunduzgi').first()
+        if not direction:
+            direction = Direction(
+                name=f'Kunduzgi Ta\'lim Yo\'nalishi ({faculty.name})',
+                code=direction_code,
+                description=f'{faculty.name} kunduzgi ta\'lim yo\'nalishi',
+                faculty_id=faculty.id,
+                course_year=1,
+                semester=1,
+                education_type='kunduzgi',
+                enrollment_year=2024
+            )
+            db.session.add(direction)
+            db.session.commit()
+        directions[f'{faculty_code}-KUNDUZGI'] = direction
+        
+        # Sirtqi yo'nalish (faqat IT uchun)
+        if faculty_code == 'IT':
+            direction_code_sirtqi = f'{faculty_code}-SIRTQI'
+            direction_sirtqi = Direction.query.filter_by(code=direction_code_sirtqi, education_type='sirtqi').first()
+            if not direction_sirtqi:
+                direction_sirtqi = Direction(
+                    name=f'Sirtqi Ta\'lim Yo\'nalishi ({faculty.name})',
+                    code=direction_code_sirtqi,
+                    description=f'{faculty.name} sirtqi ta\'lim yo\'nalishi',
+                    faculty_id=faculty.id,
+                    course_year=1,
+                    semester=1,
+                    education_type='sirtqi',
+                    enrollment_year=2024
+                )
+                db.session.add(direction_sirtqi)
+                db.session.commit()
+            directions[f'{faculty_code}-SIRTQI'] = direction_sirtqi
+    
     # ===== GURUHLAR =====
+    # Kurs va semestr munosabati: 1-kurs=1-2 semestr, 2-kurs=3-4 semestr, 3-kurs=5-6 semestr
     groups_data = [
-        {'name': 'DI-21', 'faculty': 'IT', 'course_year': 3, 'education_type': 'kunduzgi'},
-        {'name': 'DI-22', 'faculty': 'IT', 'course_year': 2, 'education_type': 'kunduzgi'},
-        {'name': 'DI-23', 'faculty': 'IT', 'course_year': 1, 'education_type': 'kunduzgi'},
-        {'name': 'DS-22', 'faculty': 'IT', 'course_year': 2, 'education_type': 'sirtqi'},
-        {'name': 'IQ-21', 'faculty': 'IQ', 'course_year': 3, 'education_type': 'kunduzgi'},
+        {'name': 'DI-21', 'faculty': 'IT', 'course_year': 3, 'education_type': 'kunduzgi', 'direction': 'IT-KUNDUZGI'},  # 5-6 semestr
+        {'name': 'DI-22', 'faculty': 'IT', 'course_year': 2, 'education_type': 'kunduzgi', 'direction': 'IT-KUNDUZGI'},  # 3-4 semestr
+        {'name': 'DI-23', 'faculty': 'IT', 'course_year': 1, 'education_type': 'kunduzgi', 'direction': 'IT-KUNDUZGI'},  # 1-2 semestr
+        {'name': 'DS-22', 'faculty': 'IT', 'course_year': 2, 'education_type': 'sirtqi', 'direction': 'IT-SIRTQI'},     # 3-4 semestr
+        {'name': 'IQ-21', 'faculty': 'IQ', 'course_year': 3, 'education_type': 'kunduzgi', 'direction': 'IQ-KUNDUZGI'}, # 5-6 semestr
     ]
     
     groups = {}
     for g in groups_data:
         group = Group.query.filter_by(name=g['name']).first()
-        # Har bir guruh uchun o'z fakultetiga tegishli masofaviy yo'nalishni topish
-        demo_direction = demo_directions.get(g['faculty'])
+        direction = directions.get(g['direction'])
+        
         if not group:
             group = Group(
                 name=g['name'],
                 faculty_id=faculties[g['faculty']].id,
-                course_year=g['course_year'],  # Guruh o'z kursida qoladi
+                course_year=g['course_year'],
                 education_type=g['education_type'],
-                direction_id=demo_direction.id if demo_direction else None  # O'z fakultetiga tegishli masofaviy yo'nalishga bog'lash
+                direction_id=direction.id if direction else None
             )
             db.session.add(group)
         else:
-            # Mavjud guruhni o'z fakultetiga tegishli masofaviy yo'nalishga bog'lash (agar bog'lanmagan bo'lsa)
-            if not group.direction_id and demo_direction:
-                group.direction_id = demo_direction.id
-            # Fakultet va kurs ma'lumotlarini yangilash (o'z o'rnida qolishi uchun)
+            # Mavjud guruhni to'g'ri yo'nalishga bog'lash
+            if direction and group.direction_id != direction.id:
+                group.direction_id = direction.id
+            # Fakultet va kurs ma'lumotlarini yangilash
             if group.faculty_id != faculties[g['faculty']].id:
                 group.faculty_id = faculties[g['faculty']].id
             if group.course_year != g['course_year']:
                 group.course_year = g['course_year']
+            if group.education_type != g['education_type']:
+                group.education_type = g['education_type']
         groups[g['name']] = group
     
     db.session.commit()
@@ -784,13 +828,19 @@ def create_demo_data():
     db.session.commit()
     
     # ===== FANLAR =====
+    # Kurs va semestr munosabati: 1-kurs=1-2 semestr, 2-kurs=3-4 semestr, 3-kurs=5-6 semestr
     subjects_data = [
-        {'name': 'Dasturlash asoslari', 'faculty': 'IT', 'credits': 4, 'semester': 1},
-        {'name': 'Web dasturlash', 'faculty': 'IT', 'credits': 3, 'semester': 3},
-        {'name': "Ma'lumotlar bazasi", 'faculty': 'IT', 'credits': 4, 'semester': 3},
-        {'name': 'Algoritmlar', 'faculty': 'IT', 'credits': 3, 'semester': 2},
-        {'name': 'Kompyuter tarmoqlari', 'faculty': 'IT', 'credits': 3, 'semester': 4},
-        {'name': 'Makroiqtisodiyot', 'faculty': 'IQ', 'credits': 3, 'semester': 1},
+        # 1-kurs (1-2 semestr) - DI-23 uchun
+        {'name': 'Dasturlash asoslari', 'faculty': 'IT', 'credits': 4, 'semester': 1},  # 1-kurs, 1-semestr
+        {'name': 'Algoritmlar', 'faculty': 'IT', 'credits': 3, 'semester': 2},          # 1-kurs, 2-semestr
+        
+        # 2-kurs (3-4 semestr) - DI-22 va DS-22 uchun
+        {'name': 'Web dasturlash', 'faculty': 'IT', 'credits': 3, 'semester': 3},       # 2-kurs, 3-semestr
+        {'name': "Ma'lumotlar bazasi", 'faculty': 'IT', 'credits': 4, 'semester': 3},  # 2-kurs, 3-semestr
+        {'name': 'Kompyuter tarmoqlari', 'faculty': 'IT', 'credits': 3, 'semester': 4}, # 2-kurs, 4-semestr
+        
+        # 3-kurs (5-6 semestr) - DI-21 va IQ-21 uchun
+        {'name': 'Makroiqtisodiyot', 'faculty': 'IQ', 'credits': 3, 'semester': 5},     # 3-kurs, 5-semestr (IQ-21 uchun)
     ]
     
     subjects = {}
@@ -804,6 +854,12 @@ def create_demo_data():
                 description=f"{s['name']} fani bo'yicha ma'ruzalar va amaliy mashg'ulotlar"
             )
             db.session.add(subject)
+        else:
+            # Mavjud fanni yangilash
+            if subject.semester != s['semester']:
+                subject.semester = s['semester']
+            if subject.credits != s['credits']:
+                subject.credits = s['credits']
         subjects[s['name']] = subject
     
     db.session.commit()
@@ -840,28 +896,32 @@ def create_demo_data():
     
     # ===== O'QUV REJA (DIRECTION CURRICULUM) =====
     # Har bir yo'nalish va fanga o'quv reja yaratish
-    # IT fakulteti uchun demo yo'nalish
-    it_direction = demo_directions.get('IT')
-    if it_direction:
-        it_subjects = [
+    # Kurs va semestr munosabati: 1-kurs=1-2 semestr, 2-kurs=3-4 semestr, 3-kurs=5-6 semestr
+    
+    # IT fakulteti - Kunduzgi yo'nalish
+    it_kunduzgi_direction = directions.get('IT-KUNDUZGI')
+    if it_kunduzgi_direction:
+        it_kunduzgi_curriculum = [
+            # 1-kurs (1-2 semestr)
             {'subject': 'Dasturlash asoslari', 'semester': 1, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
             {'subject': 'Algoritmlar', 'semester': 2, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            # 2-kurs (3-4 semestr)
             {'subject': 'Web dasturlash', 'semester': 3, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
             {'subject': "Ma'lumotlar bazasi", 'semester': 3, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
             {'subject': 'Kompyuter tarmoqlari', 'semester': 4, 'hours_maruza': 20, 'hours_amaliyot': 20, 'hours_laboratoriya': 10, 'hours_kurs_ishi': 0},
         ]
         
-        for s in it_subjects:
+        for s in it_kunduzgi_curriculum:
             if s['subject'] in subjects:
                 existing = DirectionCurriculum.query.filter_by(
-                    direction_id=it_direction.id,
+                    direction_id=it_kunduzgi_direction.id,
                     subject_id=subjects[s['subject']].id,
                     semester=s['semester']
                 ).first()
                 
                 if not existing:
                     curriculum = DirectionCurriculum(
-                        direction_id=it_direction.id,
+                        direction_id=it_kunduzgi_direction.id,
                         subject_id=subjects[s['subject']].id,
                         semester=s['semester'],
                         hours_maruza=s['hours_maruza'],
@@ -871,24 +931,55 @@ def create_demo_data():
                     )
                     db.session.add(curriculum)
     
-    # IQ fakulteti uchun demo yo'nalish
-    iq_direction = demo_directions.get('IQ')
-    if iq_direction:
-        iq_subjects = [
-            {'subject': 'Makroiqtisodiyot', 'semester': 1, 'hours_maruza': 30, 'hours_amaliyot': 20, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+    # IT fakulteti - Sirtqi yo'nalish
+    it_sirtqi_direction = directions.get('IT-SIRTQI')
+    if it_sirtqi_direction:
+        it_sirtqi_curriculum = [
+            # 2-kurs (3-4 semestr)
+            {'subject': 'Web dasturlash', 'semester': 3, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': "Ma'lumotlar bazasi", 'semester': 3, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Kompyuter tarmoqlari', 'semester': 4, 'hours_maruza': 20, 'hours_amaliyot': 20, 'hours_laboratoriya': 10, 'hours_kurs_ishi': 0},
         ]
         
-        for s in iq_subjects:
+        for s in it_sirtqi_curriculum:
             if s['subject'] in subjects:
                 existing = DirectionCurriculum.query.filter_by(
-                    direction_id=iq_direction.id,
+                    direction_id=it_sirtqi_direction.id,
                     subject_id=subjects[s['subject']].id,
                     semester=s['semester']
                 ).first()
                 
                 if not existing:
                     curriculum = DirectionCurriculum(
-                        direction_id=iq_direction.id,
+                        direction_id=it_sirtqi_direction.id,
+                        subject_id=subjects[s['subject']].id,
+                        semester=s['semester'],
+                        hours_maruza=s['hours_maruza'],
+                        hours_amaliyot=s['hours_amaliyot'],
+                        hours_laboratoriya=s['hours_laboratoriya'],
+                        hours_kurs_ishi=s['hours_kurs_ishi']
+                    )
+                    db.session.add(curriculum)
+    
+    # IQ fakulteti - Kunduzgi yo'nalish
+    iq_kunduzgi_direction = directions.get('IQ-KUNDUZGI')
+    if iq_kunduzgi_direction:
+        iq_kunduzgi_curriculum = [
+            # 3-kurs (5-6 semestr)
+            {'subject': 'Makroiqtisodiyot', 'semester': 5, 'hours_maruza': 30, 'hours_amaliyot': 20, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+        ]
+        
+        for s in iq_kunduzgi_curriculum:
+            if s['subject'] in subjects:
+                existing = DirectionCurriculum.query.filter_by(
+                    direction_id=iq_kunduzgi_direction.id,
+                    subject_id=subjects[s['subject']].id,
+                    semester=s['semester']
+                ).first()
+                
+                if not existing:
+                    curriculum = DirectionCurriculum(
+                        direction_id=iq_kunduzgi_direction.id,
                         subject_id=subjects[s['subject']].id,
                         semester=s['semester'],
                         hours_maruza=s['hours_maruza'],
@@ -901,20 +992,32 @@ def create_demo_data():
     db.session.commit()
     
     # ===== O'QITUVCHI-FAN BIRIKTIRISH =====
+    # Kurs va semestr munosabati: 1-kurs=1-2 semestr, 2-kurs=3-4 semestr, 3-kurs=5-6 semestr
+    # DI-21: 3-kurs (5-6 semestr), DI-22: 2-kurs (3-4 semestr), DI-23: 1-kurs (1-2 semestr)
+    # DS-22: 2-kurs (3-4 semestr), IQ-21: 3-kurs (5-6 semestr)
     assignments_data = [
-        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'lesson_type': 'maruza'},
-        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'lesson_type': 'amaliyot'},
-        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-21', 'lesson_type': 'maruza'},
-        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-21', 'lesson_type': 'amaliyot'},
-        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-22', 'lesson_type': 'maruza'},
-        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-22', 'lesson_type': 'amaliyot'},
-        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-21', 'lesson_type': 'maruza'},
-        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-21', 'lesson_type': 'amaliyot'},
-        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21', 'lesson_type': 'maruza'},
-        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21', 'lesson_type': 'amaliyot'},
-        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21', 'lesson_type': 'laboratoriya'},
-        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'lesson_type': 'maruza'},
-        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'lesson_type': 'amaliyot'},
+        # DI-23: 1-kurs (1-2 semestr)
+        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'lesson_type': 'maruza', 'semester': 1},
+        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'lesson_type': 'amaliyot', 'semester': 1},
+        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-23', 'lesson_type': 'maruza', 'semester': 2},
+        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-23', 'lesson_type': 'amaliyot', 'semester': 2},
+        
+        # DI-22: 2-kurs (3-4 semestr)
+        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-22', 'lesson_type': 'maruza', 'semester': 3},
+        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-22', 'lesson_type': 'amaliyot', 'semester': 3},
+        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-22', 'lesson_type': 'maruza', 'semester': 3},
+        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-22', 'lesson_type': 'amaliyot', 'semester': 3},
+        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-22', 'lesson_type': 'maruza', 'semester': 4},
+        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-22', 'lesson_type': 'amaliyot', 'semester': 4},
+        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-22', 'lesson_type': 'laboratoriya', 'semester': 4},
+        
+        # DS-22: 2-kurs (3-4 semestr) - sirtqi
+        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DS-22', 'lesson_type': 'maruza', 'semester': 3},
+        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DS-22', 'lesson_type': 'amaliyot', 'semester': 3},
+        
+        # IQ-21: 3-kurs (5-6 semestr)
+        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'lesson_type': 'maruza', 'semester': 5},
+        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'lesson_type': 'amaliyot', 'semester': 5},
     ]
     
     for a in assignments_data:
@@ -927,31 +1030,81 @@ def create_demo_data():
         ).first()
         
         if not existing:
+            # Guruhning yo'nalishini olish
+            group = groups[a['group']]
+            direction_id = group.direction_id if group else None
+            
             ta = TeacherSubject(
                 teacher_id=a['teacher'].id,
                 subject_id=subjects[a['subject']].id,
                 group_id=groups[a['group']].id,
                 lesson_type=a['lesson_type'],
                 academic_year='2024-2025',
-                semester=1,
-                assigned_by=deans['IT'].id if 'D' in a['group'] else deans['IQ'].id
+                semester=a['semester'],
+                assigned_by=deans['IT'].id if 'D' in a['group'] or a['group'].startswith('DS') else deans['IQ'].id
             )
             db.session.add(ta)
     
     db.session.commit()
     
-    # ===== DARSLAR =====
-    for name, subject in subjects.items():
-        for i in range(1, 6):
-            lesson = Lesson(
-                title=f"{i}-mavzu: {subject.name}",
-                content=f"Bu {subject.name} fanining {i}-mavzusi. Ushbu mavzuda asosiy tushunchalar bilan tanishamiz.",
-                duration=80,
-                order=i,
-                subject_id=subject.id,
-                created_by=teachers[0].id
-            )
-            db.session.add(lesson)
+    # ===== DARSLAR (MAVZULAR) =====
+    # Har bir fan uchun mavzular yaratish, yo'nalish va dars turiga mos
+    lessons_data = [
+        # DI-23 (1-kurs, 1-semestr): Dasturlash asoslari
+        {'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'maruza', 'order': 1, 'title': '1-mavzu: Dasturlashning asoslari'},
+        {'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'maruza', 'order': 2, 'title': '2-mavzu: O\'zgaruvchilar va ma\'lumotlar turlari'},
+        {'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'amaliyot', 'order': 1, 'title': 'Amaliy mashg\'ulot 1: Dasturlash muhitini o\'rganish'},
+        
+        # DI-23 (1-kurs, 2-semestr): Algoritmlar
+        {'subject': 'Algoritmlar', 'group': 'DI-23', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'maruza', 'order': 1, 'title': '1-mavzu: Algoritm tushunchasi'},
+        {'subject': 'Algoritmlar', 'group': 'DI-23', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'amaliyot', 'order': 1, 'title': 'Amaliy mashg\'ulot 1: Algoritm yaratish'},
+        
+        # DI-22 (2-kurs, 3-semestr): Web dasturlash va Ma'lumotlar bazasi
+        {'subject': 'Web dasturlash', 'group': 'DI-22', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'maruza', 'order': 1, 'title': '1-mavzu: HTML va CSS asoslari'},
+        {'subject': 'Web dasturlash', 'group': 'DI-22', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'maruza', 'order': 2, 'title': '2-mavzu: JavaScript asoslari'},
+        {'subject': 'Web dasturlash', 'group': 'DI-22', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'amaliyot', 'order': 1, 'title': 'Amaliy mashg\'ulot 1: Web sahifa yaratish'},
+        
+        {'subject': "Ma'lumotlar bazasi", 'group': 'DI-22', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'maruza', 'order': 1, 'title': '1-mavzu: Ma\'lumotlar bazasi tushunchasi'},
+        {'subject': "Ma'lumotlar bazasi", 'group': 'DI-22', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'amaliyot', 'order': 1, 'title': 'Amaliy mashg\'ulot 1: SQL so\'rovlar'},
+        
+        # DI-22 (2-kurs, 4-semestr): Kompyuter tarmoqlari
+        {'subject': 'Kompyuter tarmoqlari', 'group': 'DI-22', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'maruza', 'order': 1, 'title': '1-mavzu: Tarmoq arxitekturasi'},
+        {'subject': 'Kompyuter tarmoqlari', 'group': 'DI-22', 'direction': 'IT-KUNDUZGI', 'lesson_type': 'laboratoriya', 'order': 1, 'title': 'Laboratoriya 1: Tarmoq sozlash'},
+        
+        # IQ-21 (3-kurs, 5-semestr): Makroiqtisodiyot
+        {'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'direction': 'IQ-KUNDUZGI', 'lesson_type': 'maruza', 'order': 1, 'title': '1-mavzu: Makroiqtisodiyotning asoslari'},
+        {'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'direction': 'IQ-KUNDUZGI', 'lesson_type': 'amaliyot', 'order': 1, 'title': 'Amaliy mashg\'ulot 1: Iqtisodiy ko\'rsatkichlar'},
+    ]
+    
+    for lesson_data in lessons_data:
+        if lesson_data['subject'] in subjects:
+            subject = subjects[lesson_data['subject']]
+            group = groups.get(lesson_data['group'])
+            direction = directions.get(lesson_data['direction'])
+            
+            if group and direction:
+                # Mavjud darsni tekshirish
+                existing = Lesson.query.filter_by(
+                    subject_id=subject.id,
+                    group_id=group.id,
+                    direction_id=direction.id,
+                    lesson_type=lesson_data['lesson_type'],
+                    order=lesson_data['order']
+                ).first()
+                
+                if not existing:
+                    lesson = Lesson(
+                        title=lesson_data['title'],
+                        content=f"Bu {subject.name} fanining {lesson_data['title']} mavzusi.",
+                        duration=80,
+                        order=lesson_data['order'],
+                        lesson_type=lesson_data['lesson_type'],
+                        subject_id=subject.id,
+                        group_id=group.id,
+                        direction_id=direction.id,
+                        created_by=teachers[0].id
+                    )
+                    db.session.add(lesson)
     
     # ===== TOPSHIRIQLAR =====
     for name, subject in list(subjects.items())[:3]:
