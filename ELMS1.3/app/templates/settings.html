@@ -127,18 +127,36 @@
         <div class="grid grid-cols-2 gap-4 text-sm">
             {% if current_user.role == 'student' %}
             <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">Guruh</p>
-                <p class="font-medium text-gray-900">{{ current_user.group.name if current_user.group else '-' }}</p>
+                <p class="text-gray-500">Fakultet</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group and current_user.group.direction and current_user.group.direction.faculty %}
+                        {{ current_user.group.direction.faculty.name }}
+                    {% elif current_user.group and current_user.group.faculty %}
+                        {{ current_user.group.faculty.name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </p>
             </div>
             <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">Yo'nalish</p>
+                <p class="text-gray-500">Kurs</p>
                 <p class="font-medium text-gray-900">
                     {% if current_user.group and current_user.group.direction %}
-                        {{ current_user.group.direction.code }} - {{ current_user.group.direction.name }}
-                    {% elif current_user.specialty_code and current_user.specialty %}
-                        {{ current_user.specialty_code }} - {{ current_user.specialty }}
-                    {% elif current_user.specialty %}
-                        {{ current_user.specialty }}
+                        {{ current_user.group.direction.course_year or '-' }}-kurs
+                    {% elif current_user.group %}
+                        {{ current_user.group.course_year or '-' }}-kurs
+                    {% else %}
+                        -
+                    {% endif %}
+                </p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">Semestr</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group and current_user.group.direction %}
+                        {{ current_user.group.direction.semester or '-' }}-semestr
+                    {% elif current_user.semester %}
+                        {{ current_user.semester }}-semestr
                     {% else %}
                         -
                     {% endif %}
@@ -159,40 +177,22 @@
                 </p>
             </div>
             <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">Semestr</p>
+                <p class="text-gray-500">Yo'nalish</p>
                 <p class="font-medium text-gray-900">
                     {% if current_user.group and current_user.group.direction %}
-                        {{ current_user.group.direction.semester or '-' }}-semestr
-                    {% elif current_user.semester %}
-                        {{ current_user.semester }}-semestr
+                        {{ current_user.group.direction.code }} - {{ current_user.group.direction.name }}
+                    {% elif current_user.specialty_code and current_user.specialty %}
+                        {{ current_user.specialty_code }} - {{ current_user.specialty }}
+                    {% elif current_user.specialty %}
+                        {{ current_user.specialty }}
                     {% else %}
                         -
                     {% endif %}
                 </p>
             </div>
             <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">Kurs</p>
-                <p class="font-medium text-gray-900">
-                    {% if current_user.group and current_user.group.direction %}
-                        {{ current_user.group.direction.course_year or '-' }}-kurs
-                    {% elif current_user.group %}
-                        {{ current_user.group.course_year or '-' }}-kurs
-                    {% else %}
-                        -
-                    {% endif %}
-                </p>
-            </div>
-            <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">Fakultet</p>
-                <p class="font-medium text-gray-900">
-                    {% if current_user.group and current_user.group.direction and current_user.group.direction.faculty %}
-                        {{ current_user.group.direction.faculty.name }}
-                    {% elif current_user.group and current_user.group.faculty %}
-                        {{ current_user.group.faculty.name }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </p>
+                <p class="text-gray-500">Guruh</p>
+                <p class="font-medium text-gray-900">{{ current_user.group.name if current_user.group else '-' }}</p>
             </div>
 
             {% elif current_user.role != 'student' %}
