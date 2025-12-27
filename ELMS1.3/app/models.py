@@ -838,26 +838,105 @@ def create_demo_data():
     
     db.session.commit()
     
+    # ===== O'QUV REJA (DIRECTION CURRICULUM) =====
+    # Har bir yo'nalish va fanga o'quv reja yaratish
+    # IT fakulteti uchun demo yo'nalish
+    it_direction = demo_directions.get('IT')
+    if it_direction:
+        it_subjects = [
+            {'subject': 'Dasturlash asoslari', 'semester': 1, 'credits': 4, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Algoritmlar', 'semester': 2, 'credits': 3, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Web dasturlash', 'semester': 3, 'credits': 3, 'hours_maruza': 20, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': "Ma'lumotlar bazasi", 'semester': 3, 'credits': 4, 'hours_maruza': 30, 'hours_amaliyot': 30, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+            {'subject': 'Kompyuter tarmoqlari', 'semester': 4, 'credits': 3, 'hours_maruza': 20, 'hours_amaliyot': 20, 'hours_laboratoriya': 10, 'hours_kurs_ishi': 0},
+        ]
+        
+        for s in it_subjects:
+            if s['subject'] in subjects:
+                existing = DirectionCurriculum.query.filter_by(
+                    direction_id=it_direction.id,
+                    subject_id=subjects[s['subject']].id
+                ).first()
+                
+                if not existing:
+                    curriculum = DirectionCurriculum(
+                        direction_id=it_direction.id,
+                        subject_id=subjects[s['subject']].id,
+                        semester=s['semester'],
+                        credits=s['credits'],
+                        hours_maruza=s['hours_maruza'],
+                        hours_amaliyot=s['hours_amaliyot'],
+                        hours_laboratoriya=s['hours_laboratoriya'],
+                        hours_kurs_ishi=s['hours_kurs_ishi']
+                    )
+                    db.session.add(curriculum)
+    
+    # IQ fakulteti uchun demo yo'nalish
+    iq_direction = demo_directions.get('IQ')
+    if iq_direction:
+        iq_subjects = [
+            {'subject': 'Makroiqtisodiyot', 'semester': 1, 'credits': 3, 'hours_maruza': 30, 'hours_amaliyot': 20, 'hours_laboratoriya': 0, 'hours_kurs_ishi': 0},
+        ]
+        
+        for s in iq_subjects:
+            if s['subject'] in subjects:
+                existing = DirectionCurriculum.query.filter_by(
+                    direction_id=iq_direction.id,
+                    subject_id=subjects[s['subject']].id
+                ).first()
+                
+                if not existing:
+                    curriculum = DirectionCurriculum(
+                        direction_id=iq_direction.id,
+                        subject_id=subjects[s['subject']].id,
+                        semester=s['semester'],
+                        credits=s['credits'],
+                        hours_maruza=s['hours_maruza'],
+                        hours_amaliyot=s['hours_amaliyot'],
+                        hours_laboratoriya=s['hours_laboratoriya'],
+                        hours_kurs_ishi=s['hours_kurs_ishi']
+                    )
+                    db.session.add(curriculum)
+    
+    db.session.commit()
+    
     # ===== O'QITUVCHI-FAN BIRIKTIRISH =====
     assignments_data = [
-        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23'},
-        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-21'},
-        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-22'},
-        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-21'},
-        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21'},
-        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21'},
+        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'lesson_type': 'maruza'},
+        {'teacher': teachers[0], 'subject': 'Dasturlash asoslari', 'group': 'DI-23', 'lesson_type': 'amaliyot'},
+        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-21', 'lesson_type': 'maruza'},
+        {'teacher': teachers[0], 'subject': 'Web dasturlash', 'group': 'DI-21', 'lesson_type': 'amaliyot'},
+        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-22', 'lesson_type': 'maruza'},
+        {'teacher': teachers[1], 'subject': 'Algoritmlar', 'group': 'DI-22', 'lesson_type': 'amaliyot'},
+        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-21', 'lesson_type': 'maruza'},
+        {'teacher': teachers[2], 'subject': "Ma'lumotlar bazasi", 'group': 'DI-21', 'lesson_type': 'amaliyot'},
+        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21', 'lesson_type': 'maruza'},
+        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21', 'lesson_type': 'amaliyot'},
+        {'teacher': teachers[2], 'subject': 'Kompyuter tarmoqlari', 'group': 'DI-21', 'lesson_type': 'laboratoriya'},
+        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'lesson_type': 'maruza'},
+        {'teacher': teachers[3], 'subject': 'Makroiqtisodiyot', 'group': 'IQ-21', 'lesson_type': 'amaliyot'},
     ]
     
     for a in assignments_data:
-        ta = TeacherSubject(
+        # Agar bunday biriktirish allaqachon mavjud bo'lsa, o'tkazib yuborish
+        existing = TeacherSubject.query.filter_by(
             teacher_id=a['teacher'].id,
             subject_id=subjects[a['subject']].id,
             group_id=groups[a['group']].id,
-            academic_year='2024-2025',
-            semester=1,
-            assigned_by=deans['IT'].id if 'D' in a['group'] else deans['IQ'].id
-        )
-        db.session.add(ta)
+            lesson_type=a['lesson_type']
+        ).first()
+        
+        if not existing:
+            ta = TeacherSubject(
+                teacher_id=a['teacher'].id,
+                subject_id=subjects[a['subject']].id,
+                group_id=groups[a['group']].id,
+                lesson_type=a['lesson_type'],
+                academic_year='2024-2025',
+                semester=1,
+                assigned_by=deans['IT'].id if 'D' in a['group'] else deans['IQ'].id
+            )
+            db.session.add(ta)
     
     db.session.commit()
     
