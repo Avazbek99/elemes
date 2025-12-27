@@ -197,18 +197,6 @@
 
             {% elif current_user.role != 'student' %}
             <!-- Xodimlar uchun qo'shimcha ma'lumotlar -->
-            <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">Pasport</p>
-                <p class="font-medium text-gray-900">{{ current_user.passport_number or '-' }}</p>
-            </div>
-            <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">JSHSHIR (PINFL)</p>
-                <p class="font-medium text-gray-900">{{ current_user.pinfl or '-' }}</p>
-            </div>
-            <div class="p-3 bg-gray-50 rounded-xl">
-                <p class="text-gray-500">Tug'ilgan sana</p>
-                <p class="font-medium text-gray-900">{{ current_user.birth_date.strftime('%d.%m.%Y') if current_user.birth_date else '-' }}</p>
-            </div>
             {% if current_user.description %}
             <div class="p-3 bg-gray-50 rounded-xl col-span-2">
                 <p class="text-gray-500">Tavsif</p>
