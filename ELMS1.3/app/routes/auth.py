@@ -61,32 +61,9 @@ def logout():
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.dashboard'))
-    
-    if request.method == 'POST':
-        email = request.form.get('email')
-        full_name = request.form.get('full_name')
-        password = request.form.get('password')
-        password2 = request.form.get('password2')
-        
-        if password != password2:
-            flash("Parollar mos kelmaydi", 'error')
-            return render_template('auth/register.html')
-        
-        if User.query.filter_by(email=email).first():
-            flash("Bu email allaqachon ro'yxatdan o'tgan", 'error')
-            return render_template('auth/register.html')
-        
-        user = User(email=email, full_name=full_name, role='student')
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        
-        flash("Muvaffaqiyatli ro'yxatdan o'tdingiz!", 'success')
-        return redirect(url_for('auth.login'))
-    
-    return render_template('auth/register.html')
+    # Ro'yxatdan o'tish funksiyasi yopilgan - foydalanuvchilar admin tomonidan qo'shiladi
+    flash("Ro'yxatdan o'tish funksiyasi yopilgan. Iltimos, administrator bilan bog'laning.", 'error')
+    return redirect(url_for('auth.login'))
 
 @bp.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
@@ -152,13 +129,16 @@ def forgot_password():
                 flash("Pasport seriya raqami noto'g'ri", 'error')
                 return render_template('auth/forgot_password.html', user_found=True, user_id=user_id)
             
-            # Parolni boshlang'ich holatga qaytarish
-            # Talabalar uchun: student123, O'qituvchilar uchun: teacher123
-            default_password = 'student123' if user.role == 'student' else 'teacher123'
-            user.set_password(default_password)
+            # Parolni boshlang'ich holatga qaytarish (pasport seriya raqamiga)
+            if not user.passport_number:
+                flash("Foydalanuvchida pasport seriya raqami mavjud emas", 'error')
+                return render_template('auth/forgot_password.html', user_found=True, user_id=user_id)
+            
+            new_password = user.passport_number
+            user.set_password(new_password)
             db.session.commit()
             
-            flash(f"Parol muvaffaqiyatli boshlang'ich holatga qaytarildi! Parol: {default_password}", 'success')
+            flash(f"Parol muvaffaqiyatli boshlang'ich holatga qaytarildi! Parol: {new_password}", 'success')
             return redirect(url_for('auth.login'))
     
     return render_template('auth/forgot_password.html')

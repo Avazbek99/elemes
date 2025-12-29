@@ -340,45 +340,17 @@ def reset_user_password(id):
     """Parolni boshlang'ich holatga qaytarish (pasport raqami yoki default parol)"""
     user = User.query.get_or_404(id)
     
-    # Demo hisoblar uchun maxsus tekshirish
-    demo_logins = ['admin', 'accounting', 'a_karimov', 'b_aliyev', 'd_toshmatov', 'n_rahimova', 'dean_it', 'dean_iq']
-    is_demo_account = user.login in demo_logins or (user.email and '@university.uz' in user.email and user.email.split('@')[0] in ['admin', 'accounting', 'a.karimov', 'b.aliyev', 'd.toshmatov', 'n.rahimova', 'dean.it', 'dean.iq'])
+    # Parolni pasport seriya raqamiga qaytarish
+    if not user.passport_number:
+        flash("Bu foydalanuvchida pasport seriya raqami mavjud emas", 'error')
+        referer = request.referrer or url_for('admin.users')
+        if 'staff' in referer:
+            return redirect(url_for('admin.staff'))
+        elif 'students' in referer:
+            return redirect(url_for('admin.students'))
+        return redirect(url_for('admin.users'))
     
-    if is_demo_account:
-        # Demo hisoblar uchun default parollar
-        if user.role == 'admin' or user.login == 'admin':
-            new_password = 'admin123'
-        elif user.role == 'dean' or (user.login and 'dean' in user.login):
-            new_password = 'dean123'
-        elif user.role == 'teacher' or (user.login and user.login in ['a_karimov', 'b_aliyev', 'd_toshmatov', 'n_rahimova']):
-            new_password = 'teacher123'
-        elif user.role == 'accounting' or user.login == 'accounting':
-            new_password = 'accounting123'
-        else:
-            new_password = 'student123'
-    elif user.passport_number:
-        # Oddiy foydalanuvchilar uchun pasport raqami
-        new_password = user.passport_number
-    else:
-        # Pasport raqami yo'q bo'lsa, default parollar
-        if user.role == 'admin':
-            new_password = 'admin123'
-        elif user.role == 'dean':
-            new_password = 'dean123'
-        elif user.role == 'teacher':
-            new_password = 'teacher123'
-        elif user.role == 'accounting':
-            new_password = 'accounting123'
-        elif user.role == 'student':
-            new_password = 'student123'
-        else:
-            flash("Bu foydalanuvchida pasport raqami mavjud emas va default parol aniqlanmadi", 'error')
-            referer = request.referrer or url_for('admin.users')
-            if 'staff' in referer:
-                return redirect(url_for('admin.staff'))
-            elif 'students' in referer:
-                return redirect(url_for('admin.students'))
-            return redirect(url_for('admin.users'))
+    new_password = user.passport_number
     
     user.set_password(new_password)
     db.session.commit()
@@ -3000,7 +2972,10 @@ def create_student():
             student.email = email_value
         
         # Parolni pasport raqamiga o'rnatish
-        student.set_password(passport_number)
+        if passport_number:
+            student.set_password(passport_number)
+        else:
+            student.set_password('student123')
         
         db.session.add(student)
         
@@ -3501,17 +3476,15 @@ def reset_student_password(id):
         flash("Bu foydalanuvchi talaba emas", 'error')
         return redirect(url_for('admin.students'))
     
+    # Parolni pasport seriya raqamiga qaytarish
     if not student.passport_number:
-        # Pasport raqami yo'q bo'lsa, default parol
-        new_password = 'student123'
-        student.set_password(new_password)
-        db.session.commit()
-        flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
-    else:
-        new_password = student.passport_number
-        student.set_password(new_password)
-        db.session.commit()
-        flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
+        flash("Bu talabada pasport seriya raqami mavjud emas", 'error')
+        return redirect(url_for('admin.students'))
+    
+    new_password = student.passport_number
+    student.set_password(new_password)
+    db.session.commit()
+    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
     return redirect(url_for('admin.students'))
 
 @bp.route('/schedule')

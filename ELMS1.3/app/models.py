@@ -1,7 +1,7 @@
 from app import db, login_manager
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 @login_manager.user_loader
 def load_user(id):
@@ -616,46 +616,60 @@ def create_demo_data():
     # ===== ADMIN =====
     admin = User.query.filter_by(login='admin').first()
     if not admin:
-        # Demo admin uchun pasport raqami: ADMIN123
+        # Demo admin uchun tahminiy ma'lumotlar
         admin = User(
             email='admin@university.uz',
             login='admin',
             full_name='Tizim Administratori',
             role='admin',
-            passport_number='ADMIN123'
+            passport_number='AA1234567',
+            pinfl='12345678901234',
+            birth_date=date(1985, 5, 15)
         )
-        admin.set_password('admin123')
+        admin.set_password(admin.passport_number)
         db.session.add(admin)
     else:
-        # Mavjud admin uchun pasport raqami yo'q bo'lsa, qo'shamiz
+        # Mavjud admin uchun ma'lumotlarni to'ldirish
         if not admin.passport_number:
-            admin.passport_number = 'ADMIN123'
-            db.session.commit()
+            admin.passport_number = 'AA1234567'
+        if not admin.pinfl:
+            admin.pinfl = '12345678901234'
+        if not admin.birth_date:
+            admin.birth_date = date(1985, 5, 15)
+        # Parolni pasport raqamiga yangilash
+        admin.set_password(admin.passport_number)
+        db.session.commit()
     
     # ===== BUXGALTERIYA =====
     accounting = User.query.filter_by(login='accounting').first()
     if not accounting:
-        # Demo accounting uchun pasport raqami: ACCOUNTING123
+        # Demo accounting uchun tahminiy ma'lumotlar
         accounting = User(
             email='accounting@university.uz',
             login='accounting',
             full_name='Buxgalteriya Bo\'limi',
             role='accounting',
             phone='+998 90 123 45 68',
-            passport_number='ACCOUNTING123'
+            passport_number='AB1234568',
+            pinfl='23456789012345',
+            birth_date=date(1988, 8, 20)
         )
         accounting.set_password('accounting123')
         db.session.add(accounting)
     else:
-        # Mavjud accounting uchun pasport raqami yo'q bo'lsa, qo'shamiz
+        # Mavjud accounting uchun ma'lumotlarni to'ldirish
         if not accounting.passport_number:
-            accounting.passport_number = 'ACCOUNTING123'
-            db.session.commit()
+            accounting.passport_number = 'AB1234568'
+        if not accounting.pinfl:
+            accounting.pinfl = '23456789012345'
+        if not accounting.birth_date:
+            accounting.birth_date = date(1988, 8, 20)
+        db.session.commit()
     
     # ===== DEKANLAR =====
     deans_data = [
-        {'email': 'dean.it@university.uz', 'full_name': 'Sherzod Karimov', 'faculty': 'IT', 'position': 'Dekan'},
-        {'email': 'dean.iq@university.uz', 'full_name': 'Aziza Rahimova', 'faculty': 'IQ', 'position': 'Dekan'},
+        {'email': 'dean.it@university.uz', 'full_name': 'Sherzod Karimov', 'faculty': 'IT', 'position': 'Dekan', 'passport': 'AC1234569', 'pinfl': '34567890123456', 'birth_date': date(1975, 3, 10)},
+        {'email': 'dean.iq@university.uz', 'full_name': 'Aziza Rahimova', 'faculty': 'IQ', 'position': 'Dekan', 'passport': 'AD1234570', 'pinfl': '45678901234567', 'birth_date': date(1978, 7, 25)},
     ]
     
     deans = {}
@@ -664,8 +678,7 @@ def create_demo_data():
         login = d['email'].split('@')[0].replace('.', '_')
         dean = User.query.filter_by(login=login).first()
         if not dean:
-            # Demo hisoblar uchun pasport raqami: login + "123" (masalan: DEAN_IT123)
-            passport_number = login.upper() + '123'
+            # Demo hisoblar uchun tahminiy ma'lumotlar
             dean = User(
                 email=d['email'],
                 login=login,
@@ -674,16 +687,23 @@ def create_demo_data():
                 position=d['position'],
                 faculty_id=faculties[d['faculty']].id,
                 phone='+998 90 123 45 67',
-                passport_number=passport_number
+                passport_number=d['passport'],
+                pinfl=d['pinfl'],
+                birth_date=d['birth_date']
             )
-            dean.set_password('dean123')
+            dean.set_password(d['passport'])
             db.session.add(dean)
         else:
-            # Mavjud dean uchun pasport raqami yo'q bo'lsa, qo'shamiz
+            # Mavjud dean uchun ma'lumotlarni to'ldirish
             if not dean.passport_number:
-                passport_number = login.upper() + '123'
-                dean.passport_number = passport_number
-                db.session.commit()
+                dean.passport_number = d['passport']
+            if not dean.pinfl:
+                dean.pinfl = d['pinfl']
+            if not dean.birth_date:
+                dean.birth_date = d['birth_date']
+            # Parolni pasport raqamiga yangilash
+            dean.set_password(dean.passport_number)
+            db.session.commit()
         deans[d['faculty']] = dean
     
     db.session.commit()
@@ -791,10 +811,10 @@ def create_demo_data():
     
     # ===== O'QITUVCHILAR =====
     teachers_data = [
-        {'email': 'a.karimov@university.uz', 'full_name': 'Aziz Karimov', 'department': 'Dasturiy injiniring', 'position': 'Dotsent'},
-        {'email': 'b.aliyev@university.uz', 'full_name': 'Bobur Aliyev', 'department': 'Dasturiy injiniring', 'position': "Katta o'qituvchi"},
-        {'email': 'd.toshmatov@university.uz', 'full_name': 'Dilshod Toshmatov', 'department': 'Kompyuter fanlari', 'position': 'Professor'},
-        {'email': 'n.rahimova@university.uz', 'full_name': 'Nilufar Rahimova', 'department': 'Iqtisodiyot', 'position': 'Dotsent'},
+        {'email': 'a.karimov@university.uz', 'full_name': 'Aziz Karimov', 'department': 'Dasturiy injiniring', 'position': 'Dotsent', 'passport': 'AE1234571', 'pinfl': '56789012345678', 'birth_date': date(1980, 1, 12)},
+        {'email': 'b.aliyev@university.uz', 'full_name': 'Bobur Aliyev', 'department': 'Dasturiy injiniring', 'position': "Katta o'qituvchi", 'passport': 'AF1234572', 'pinfl': '67890123456789', 'birth_date': date(1982, 4, 18)},
+        {'email': 'd.toshmatov@university.uz', 'full_name': 'Dilshod Toshmatov', 'department': 'Kompyuter fanlari', 'position': 'Professor', 'passport': 'AG1234573', 'pinfl': '78901234567890', 'birth_date': date(1970, 9, 5)},
+        {'email': 'n.rahimova@university.uz', 'full_name': 'Nilufar Rahimova', 'department': 'Iqtisodiyot', 'position': 'Dotsent', 'passport': 'AH1234574', 'pinfl': '89012345678901', 'birth_date': date(1983, 11, 22)},
     ]
     
     teachers = []
@@ -803,8 +823,7 @@ def create_demo_data():
         login = t['email'].split('@')[0].replace('.', '_')
         teacher = User.query.filter_by(login=login).first()
         if not teacher:
-            # Demo hisoblar uchun pasport raqami: login + "123" (masalan: a_karimov123)
-            passport_number = login.upper() + '123'
+            # Demo hisoblar uchun tahminiy ma'lumotlar
             teacher = User(
                 email=t['email'],
                 login=login,
@@ -813,16 +832,21 @@ def create_demo_data():
                 department=t['department'],
                 position=t['position'],
                 phone='+998 91 234 56 78',
-                passport_number=passport_number
+                passport_number=t['passport'],
+                pinfl=t['pinfl'],
+                birth_date=t['birth_date']
             )
             teacher.set_password('teacher123')
             db.session.add(teacher)
         else:
-            # Mavjud teacher uchun pasport raqami yo'q bo'lsa, qo'shamiz
+            # Mavjud teacher uchun ma'lumotlarni to'ldirish
             if not teacher.passport_number:
-                passport_number = login.upper() + '123'
-                teacher.passport_number = passport_number
-                db.session.commit()
+                teacher.passport_number = t['passport']
+            if not teacher.pinfl:
+                teacher.pinfl = t['pinfl']
+            if not teacher.birth_date:
+                teacher.birth_date = t['birth_date']
+            db.session.commit()
         teachers.append(teacher)
     
     db.session.commit()
@@ -868,12 +892,12 @@ def create_demo_data():
     # Kurs va semestr munosabati: 1-kurs=1-2 semestr, 2-kurs=3-4 semestr, 3-kurs=5-6 semestr
     # Har bir kursning birinchi semestri: 1-kurs=1-semestr, 2-kurs=3-semestr, 3-kurs=5-semestr
     students_data = [
-        {'email': 'student1@university.uz', 'full_name': 'Dilshod Rahimov', 'student_id': 'ST2021001', 'group': 'DI-21', 'semester': 5},  # 3-kurs
-        {'email': 'student2@university.uz', 'full_name': 'Malika Karimova', 'student_id': 'ST2021002', 'group': 'DI-21', 'semester': 5},  # 3-kurs
-        {'email': 'student3@university.uz', 'full_name': 'Jasur Toshmatov', 'student_id': 'ST2022001', 'group': 'DI-22', 'semester': 3},  # 2-kurs
-        {'email': 'student4@university.uz', 'full_name': 'Nodira Aliyeva', 'student_id': 'ST2022002', 'group': 'DI-22', 'semester': 3},  # 2-kurs
-        {'email': 'student5@university.uz', 'full_name': 'Sardor Mahmudov', 'student_id': 'ST2023001', 'group': 'DI-23', 'semester': 1},  # 1-kurs
-        {'email': 'student6@university.uz', 'full_name': 'Gulnora Rahimova', 'student_id': 'ST2021003', 'group': 'IQ-21', 'semester': 5}, # 3-kurs
+        {'email': 'student1@university.uz', 'full_name': 'Dilshod Rahimov', 'student_id': 'ST2021001', 'group': 'DI-21', 'semester': 5, 'passport': 'AI1234575', 'pinfl': '90123456789012', 'birth_date': date(2003, 2, 14)},  # 3-kurs
+        {'email': 'student2@university.uz', 'full_name': 'Malika Karimova', 'student_id': 'ST2021002', 'group': 'DI-21', 'semester': 5, 'passport': 'AJ1234576', 'pinfl': '01234567890123', 'birth_date': date(2003, 6, 8)},  # 3-kurs
+        {'email': 'student3@university.uz', 'full_name': 'Jasur Toshmatov', 'student_id': 'ST2022001', 'group': 'DI-22', 'semester': 3, 'passport': 'AK1234577', 'pinfl': '12345678901230', 'birth_date': date(2004, 3, 20)},  # 2-kurs
+        {'email': 'student4@university.uz', 'full_name': 'Nodira Aliyeva', 'student_id': 'ST2022002', 'group': 'DI-22', 'semester': 3, 'passport': 'AL1234578', 'pinfl': '23456789012301', 'birth_date': date(2004, 8, 15)},  # 2-kurs
+        {'email': 'student5@university.uz', 'full_name': 'Sardor Mahmudov', 'student_id': 'ST2023001', 'group': 'DI-23', 'semester': 1, 'passport': 'AM1234579', 'pinfl': '34567890123012', 'birth_date': date(2005, 1, 10)},  # 1-kurs
+        {'email': 'student6@university.uz', 'full_name': 'Gulnora Rahimova', 'student_id': 'ST2021003', 'group': 'IQ-21', 'semester': 5, 'passport': 'AN1234580', 'pinfl': '45678901230123', 'birth_date': date(2003, 10, 5)}, # 3-kurs
     ]
     
     students = []
@@ -895,9 +919,12 @@ def create_demo_data():
                 student_id=s['student_id'],
                 group_id=group.id if group else None,
                 enrollment_year=int('20' + s['group'][-2:]),
-                semester=semester
+                semester=semester,
+                passport_number=s['passport'],
+                pinfl=s['pinfl'],
+                birth_date=s['birth_date']
             )
-            student.set_password('student123')
+            student.set_password(s['passport'])
             db.session.add(student)
         else:
             # Mavjud talabani yangilash
@@ -907,6 +934,17 @@ def create_demo_data():
                 student.semester = semester
             if student.enrollment_year != int('20' + s['group'][-2:]):
                 student.enrollment_year = int('20' + s['group'][-2:])
+            # Ma'lumotlarni to'ldirish
+            if not student.passport_number:
+                student.passport_number = s['passport']
+            if not student.pinfl:
+                student.pinfl = s['pinfl']
+            if not student.birth_date:
+                student.birth_date = s['birth_date']
+            # Parolni pasport raqamiga yangilash
+            if student.passport_number:
+                student.set_password(student.passport_number)
+            db.session.commit()
         students.append(student)
     
     db.session.commit()
@@ -1124,18 +1162,7 @@ def create_demo_data():
                     db.session.add(lesson)
     
     # ===== TOPSHIRIQLAR =====
-    for name, subject in list(subjects.items())[:3]:
-        for i in range(1, 3):
-            assignment = Assignment(
-                title=f"Amaliy topshiriq #{i}",
-                description=f"{subject.name} bo'yicha {i}-amaliy topshiriq. Barcha vazifalarni bajarib, muddatida topshiring.",
-                subject_id=subject.id,
-                group_id=groups['DI-21'].id if name != 'Makroiqtisodiyot' else groups['IQ-21'].id,
-                max_score=100,
-                due_date=datetime(2024, 12, 15 + i),
-                created_by=teachers[0].id
-            )
-            db.session.add(assignment)
+    # Demo topshiriqlar o'chirildi
     
     # ===== E'LONLAR =====
     announcements_data = [
