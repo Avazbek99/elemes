@@ -1,8 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_required, current_user
-from app.models import User, Subject, Assignment, Announcement, Schedule, Submission, Message, Group, Faculty, TeacherSubject
+from app.models import User, Subject, Assignment, Announcement, Schedule, Submission, Message, Group, Faculty, TeacherSubject, StudentPayment
 from app import db
 from datetime import datetime, timedelta, date
+
+def get_tashkent_time():
+    """Toshkent vaqtini qaytaradi (UTC+5)"""
+    return datetime.utcnow() + timedelta(hours=5)
 from sqlalchemy import func
 from app.utils.translations import get_translation, get_current_language
 import calendar
@@ -62,17 +66,199 @@ def dashboard():
     
     # my_subjects o'zgaruvchisini barcha rollar uchun yaratish
     my_subjects = []
+    semester_progress = 0
+    semester_grade = None
+    payment_info = None
     
     if user.role == 'student':
         # Talaba uchun
-        my_subjects = user.get_subjects() if hasattr(user, 'get_subjects') else []
+        from app.models import DirectionCurriculum
+        current_semester = user.semester if user.semester else 1
+        
+        # Faqat joriy semestrdagi fanlarni olish
+        my_subjects = []
+        current_semester_subjects_count = 0
+        my_subjects_info = {}
+        
+        if user.group_id:
+            group = Group.query.get(user.group_id)
+            if group and group.direction_id:
+                # Faqat joriy semestrdagi fanlarni olish
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    semester=current_semester
+                ).all()
+                
+                # Fanlarni olish
+                subject_ids = [item.subject_id for item in curriculum_items]
+                my_subjects = Subject.query.filter(Subject.id.in_(subject_ids)).all() if subject_ids else []
+                
+                for item in curriculum_items:
+                    course_year = ((item.semester - 1) // 2) + 1
+                    # Kreditni hisoblash (jami soat / 30) - Fanlar bo'limidagi kabi yaxlitlamasdan
+                    # (maruza + amaliyot + laboratoriya + seminar + mustaqil) / 30
+                    # Kurs ishi kreditga kiritilmaydi
+                    total_hours = (item.hours_maruza or 0) + (item.hours_amaliyot or 0) + \
+                                 (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
+                                 (item.hours_mustaqil or 0)
+                    # Fanlar bo'limidagi kabi: yaxlitlamasdan va subject.credits fallback
+                    subject = Subject.query.get(item.subject_id)
+                    # Fanlar bo'limidagi kabi: total_hours > 0 bo'lsa total_hours/30, aks holda subject.credits
+                    if total_hours > 0:
+                        credits = total_hours / 30
+                    else:
+                        # Agar total_hours 0 bo'lsa, subject.credits dan olamiz
+                        if subject and subject.credits:
+                            credits = subject.credits
+                        else:
+                            credits = None
+                    
+                    # Kreditni dictionary'ga qo'shish (None bo'lsa ham qo'shamiz, lekin template'da tekshiramiz)
+                    my_subjects_info[item.subject_id] = {
+                        'semester': item.semester,
+                        'course_year': course_year,
+                        'credits': credits
+                    }
+                
+                current_semester_subjects_count = len(curriculum_items)
+                
+                # Har bir fan uchun o'zlashtirish ko'rsatkichini hisoblash
+                if group and group.direction_id:
+                    for subject_id in subject_ids:
+                        # Ushbu fan bo'yicha barcha topshiriqlar
+                        subject_assignments = Assignment.query.filter(
+                            Assignment.subject_id == subject_id,
+                            Assignment.direction_id == group.direction_id,
+                            (Assignment.group_id == user.group_id) | (Assignment.group_id.is_(None))
+                        ).all()
+                        
+                        total_assignments = len(subject_assignments)
+                        graded_count = 0
+                        total_score = 0.0
+                        total_max_score = 0.0
+                        
+                        if subject_assignments:
+                            assignment_ids = [a.id for a in subject_assignments]
+                            # Barcha topshiriqlarning maksimal ball yig'indisi
+                            for assignment in subject_assignments:
+                                if assignment.max_score:
+                                    total_max_score += assignment.max_score
+                            
+                            # Baholangan topshiriqlar
+                            graded_submissions = Submission.query.filter(
+                                Submission.student_id == user.id,
+                                Submission.assignment_id.in_(assignment_ids),
+                                Submission.is_active == True,
+                                Submission.score != None
+                            ).all()
+                            graded_count = len(graded_submissions)
+                            
+                            # Jami ball hisoblash (faqat baholangan topshiriqlar)
+                            for submission in graded_submissions:
+                                if submission.score is not None:
+                                    total_score += submission.score
+                        
+                        # O'zlashtirish foizi - talabaning olgan ballaridan hisoblanadi
+                        # total_score / total_max_score * 100
+                        progress_percent = 0.0
+                        if total_max_score > 0:
+                            progress_percent = round((total_score / total_max_score) * 100, 1)
+                        
+                        # my_subjects_info ga qo'shish - progress har doim qo'shiladi (0 bo'lsa ham)
+                        progress_score_value = round(total_score, 0)
+                        progress_max_value = round(total_max_score, 0) if total_max_score > 0 else 100
+                        
+                        if subject_id in my_subjects_info:
+                            my_subjects_info[subject_id]['progress'] = progress_percent
+                            my_subjects_info[subject_id]['graded_count'] = graded_count
+                            my_subjects_info[subject_id]['total_assignments'] = total_assignments
+                            my_subjects_info[subject_id]['progress_score'] = progress_score_value
+                            my_subjects_info[subject_id]['progress_max'] = progress_max_value
+                        else:
+                            # Agar subject_id my_subjects_info da yo'q bo'lsa, yaratish
+                            my_subjects_info[subject_id] = {
+                                'progress': progress_percent,
+                                'graded_count': graded_count,
+                                'total_assignments': total_assignments,
+                                'progress_score': progress_score_value,
+                                'progress_max': progress_max_value,
+                                'semester': None,
+                                'course_year': None
+                            }
+            else:
+                my_subjects = user.get_subjects() if hasattr(user, 'get_subjects') else []
+        else:
+            my_subjects = user.get_subjects() if hasattr(user, 'get_subjects') else []
+        
+        # Barcha topshiriqlar (talabaning guruhiga tegishli va joriy semestrdagi fanlar uchun)
+        all_assignments = []
+        if user.group_id:
+            group = Group.query.get(user.group_id)
+            if group and group.direction_id:
+                # Joriy semestrdagi fanlar
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    semester=current_semester
+                ).all()
+                current_semester_subject_ids = [item.subject_id for item in curriculum_items]
+                
+                if current_semester_subject_ids:
+                    # Faqat joriy semestrdagi fanlarga tegishli topshiriqlar
+                    # Filterlash mantiqi courses.grades dagi kabi bo'lishi kerak
+                    all_assignments = Assignment.query.filter(
+                        Assignment.subject_id.in_(current_semester_subject_ids),
+                        (Assignment.group_id == user.group_id) | (Assignment.group_id.is_(None)),
+                        (Assignment.direction_id == group.direction_id) | (Assignment.direction_id.is_(None))
+                    ).order_by(Assignment.due_date.desc()).all()
+                else:
+                    all_assignments = []
+        
+        # Topshirilgan topshiriqlar (baholangan) - faqat joriy semestrdagi topshiriqlar uchun
+        graded_submissions = []
+        graded_assignment_ids = []
+        if all_assignments:
+            assignment_ids = [a.id for a in all_assignments]
+            graded_submissions = Submission.query.join(Assignment).filter(
+                Submission.student_id == user.id,
+                Submission.is_active == True,
+                Submission.score != None,
+                Assignment.id.in_(assignment_ids)
+            ).all()
+            graded_assignment_ids = [s.assignment_id for s in graded_submissions]
+        
+        # Topshirilgan lekin baholanmagan - faqat joriy semestrdagi topshiriqlar uchun
+        submitted_ungraded = []
+        submitted_ungraded_ids = []
+        if all_assignments:
+            assignment_ids = [a.id for a in all_assignments]
+            submitted_ungraded = Submission.query.join(Assignment).filter(
+                Submission.student_id == user.id,
+                Submission.is_active == True,
+                Submission.score == None,
+                Assignment.id.in_(assignment_ids)
+            ).all()
+            submitted_ungraded_ids = [s.assignment_id for s in submitted_ungraded]
+        
+        # Topshirilmagan topshiriqlar
+        all_assignment_ids = [a.id for a in all_assignments]
+        submitted_ids = graded_assignment_ids + submitted_ungraded_ids
+        not_submitted_ids = [aid for aid in all_assignment_ids if aid not in submitted_ids]
+        
+        graded_count = len(graded_assignment_ids)
+        submitted_count = len(submitted_ungraded_ids)
+        submitted_total_count = graded_count + submitted_count  # Barcha topshirilgan topshiriqlar (baholangan + yuborilgan)
+        not_submitted_count = len(not_submitted_ids)
+        
         stats = {
             'subjects': my_subjects,
-            'assignments': Assignment.query.join(Subject).join(TeacherSubject).filter(
-                TeacherSubject.group_id == user.group_id
-            ).count(),
+            'assignments': len(all_assignments),
             'submissions': Submission.query.filter_by(student_id=user.id).count(),
-            'completed_assignments': Submission.query.filter_by(student_id=user.id).filter(Submission.score != None).count()
+            'completed_assignments': graded_count,
+            'current_semester_subjects': current_semester_subjects_count,
+            'graded_assignments': graded_count,
+            'submitted_assignments': submitted_total_count,  # Barcha topshirilgan (baholangan + yuborilgan)
+            'not_submitted_assignments': not_submitted_count,
+            'overdue_assignments': 0  # Keyinroq yangilanadi
         }
         
         # E'lonlar
@@ -81,22 +267,229 @@ def dashboard():
             (Announcement.target_roles == None)
         ).order_by(Announcement.created_at.desc()).limit(5).all()
         
-        # Yaqin topshiriqlar
-        recent_assignments = Assignment.query.join(Subject).join(TeacherSubject).filter(
-            TeacherSubject.group_id == user.group_id
-        ).order_by(Assignment.due_date.desc()).limit(5).all()
+        # Barcha topshiriqlar (template'ga uzatish uchun)
+        recent_assignments = all_assignments
+        
+        # Joriy vaqt (Toshkent vaqti)
+        now_dt = get_tashkent_time()
+        
+        # Muddati yaqinlashgan topshiriqlar (faqat 36 soatdan kam qolganlar)
+        upcoming_due_assignments = []
+        if all_assignments and 'not_submitted_ids' in locals():
+            # Faqat topshirilmagan topshiriqlar ro'yxatidan olish
+            upcoming_assignments_temp = []
+            for assignment in all_assignments:
+                if assignment.id in not_submitted_ids and assignment.due_date:
+                    # assignment.due_date datetime bo'lishi kerak, lekin xavfsizlik uchun tekshiramiz
+                    assignment_due = assignment.due_date
+                    if assignment_due:
+                        # Timezone'ni olib tashlash
+                        if hasattr(assignment_due, 'tzinfo') and assignment_due.tzinfo:
+                            assignment_due = assignment_due.replace(tzinfo=None)
+                        
+                        now_clean = now_dt.replace(tzinfo=None) if now_dt.tzinfo else now_dt
+                        
+                        # Deadline kun oxirigacha (23:59:59) hisoblanadi
+                        if hasattr(assignment_due, 'replace') and hasattr(assignment_due, 'hour'):
+                            # Bu datetime
+                            deadline_end = assignment_due.replace(hour=23, minute=59, second=59)
+                        else:
+                            # Bu date, datetime ga o'tkazamiz
+                            from datetime import time as dt_time
+                            deadline_end = datetime.combine(assignment_due, dt_time(23, 59, 59))
+                        
+                        # Qolgan vaqtni hisoblash
+                        time_left = deadline_end - now_clean
+                        hours_left = time_left.total_seconds() / 3600
+                        
+                        # Agar manfiy bo'lsa, 0 qilib qo'yish
+                        if hours_left < 0:
+                            hours_left = 0
+                        
+                        # Faqat 36 soatdan kam qolgan topshiriqlar (0 soatni ham kiritmaymiz)
+                        if 0 < hours_left <= 36:
+                            assignment_date = deadline_end.date()
+                            now_date = now_clean.date()
+                            days_left = (assignment_date - now_date).days
+                            if days_left < 0:
+                                days_left = 0
+                            
+                            # Progress percent hisoblash (36 soat = 100%, 0 soat = 0%)
+                            progress_percent = (hours_left / 36) * 100
+                            
+                            upcoming_assignments_temp.append({
+                                'assignment': assignment,
+                                'status': 'upcoming',
+                                'submission': None,
+                                'days_left': days_left,
+                                'hours_left': hours_left,
+                                'progress_percent': progress_percent
+                            })
+            
+            # Topshiriqlarni muddati bo'yicha tartiblash (eng yaqin muddat birinchi)
+            upcoming_due_assignments = sorted(upcoming_assignments_temp, key=lambda x: x['hours_left'])
+        
         
         # Dars jadvali
         if user.group_id:
             upcoming_schedules = Schedule.query.filter_by(group_id=user.group_id).all()
-            # Bugungi dars jadvali
-            today = date.today()
+            # Bugungi dars jadvali (Toshkent vaqti bo'yicha)
+            today = get_tashkent_time().date()
             today_weekday = today.weekday()  # 0 = Monday, 6 = Sunday
             today_schedule = Schedule.query.filter_by(group_id=user.group_id).filter(
                 Schedule.day_of_week == today_weekday
             ).order_by(Schedule.start_time).all()
         else:
             today_schedule = []
+        
+        # Topshiriqlar ma'lumotlari (har bir topshiriq uchun holat)
+        assignments_with_status = []
+        now_dt_check = get_tashkent_time()
+        for assignment in all_assignments:
+            submission = Submission.query.filter_by(
+                student_id=user.id,
+                assignment_id=assignment.id,
+                is_active=True
+            ).first()
+
+            status = 'not_submitted'
+            if submission:
+                if submission.score is not None:
+                    status = 'graded'
+                else:
+                    status = 'submitted'
+
+            # Qolgan vaqtni hisoblash (muddati yaqinlashgan topshiriqlar uchun)
+            days_left = None
+            hours_left = None
+            is_urgent = False
+            is_overdue = False
+            if assignment.due_date and status != 'graded':
+                assignment_due = assignment.due_date.replace(tzinfo=None) if assignment.due_date.tzinfo else assignment.due_date
+                now_clean = now_dt_check.replace(tzinfo=None) if now_dt_check.tzinfo else now_dt_check
+                # Deadline kun oxirigacha (23:59:59) hisoblanadi
+                if isinstance(assignment_due, datetime):
+                    deadline_end = assignment_due.replace(hour=23, minute=59, second=59)
+                else:
+                    from datetime import time as dt_time
+                    deadline_end = datetime.combine(assignment_due, dt_time(23, 59, 59))
+                # Qolgan vaqtni hisoblash
+                time_left = deadline_end - now_clean
+                hours_left = time_left.total_seconds() / 3600
+                deadline_date = deadline_end.date()
+                now_date = now_clean.date()
+                days_left = (deadline_date - now_date).days
+                
+                # Muddat o'tganligini tekshirish
+                if hours_left < 0:
+                    is_overdue = True
+                    hours_left = 0
+                    days_left = 0
+                else:
+                    is_overdue = False
+                
+                # 36 soat ichida va hali topshirilmagan bo'lsa - urgent
+                if 0 <= hours_left <= 36:
+                    is_urgent = True
+                
+                # Progress percent hisoblash (faqat 36 soatdan kam qolganlar uchun)
+                # 36 soat = 100%, 0 soat = 0%
+                progress_percent = None
+                if hours_left >= 0 and hours_left <= 36:
+                    # Faqat 36 soat ichida: progress = qancha vaqt qolgani (foizda)
+                    progress_percent = (hours_left / 36) * 100
+                # 36 soatdan ko'p qolgan yoki muddat o'tgan: progress_percent None qoladi (ko'rsatilmaydi)
+            else:
+                progress_percent = None
+
+            assignments_with_status.append({
+                'assignment': assignment,
+                'status': status,
+                'submission': submission,
+                'days_left': days_left,
+                'hours_left': hours_left,
+                'is_urgent': is_urgent,
+                'is_overdue': is_overdue,
+                'progress_percent': progress_percent
+            })
+
+        # Topshiriqlarni muddati bo'yicha tartiblash (eng yaqin muddat birinchi)
+        # hours_left bo'yicha tartiblaymiz (None bo'lsa, juda katta qiymat - oxiriga qo'yamiz)
+        def sort_key(item):
+            if item['hours_left'] is not None:
+                return item['hours_left']
+            # hours_left None bo'lsa (masalan, graded topshiriqlar yoki due_date yo'q topshiriqlar)
+            # ularni oxiriga qo'yamiz
+            return float('inf')
+        
+        pending_assignments = sorted(assignments_with_status, key=sort_key)
+        
+        # Muddati o'tgan topshiriqlar sonini stats'ga qo'shish va not_submitted_count'dan chiqarish
+        overdue_count = sum(1 for item in assignments_with_status if item.get('is_overdue', False) and item.get('status') == 'not_submitted')
+        stats['overdue_assignments'] = overdue_count
+        # Muddati o'tgan topshiriqlarni "Topshirilmagan" sonidan chiqarish
+        stats['not_submitted_assignments'] = stats['not_submitted_assignments'] - overdue_count
+        
+        # Semestr bo'yicha o'zlashtirish ko'rsatkichi
+        from app.models import DirectionCurriculum, GradeScale
+        
+        semester_progress = 0
+        semester_grade = None
+        
+        if user.group_id:
+            group = Group.query.get(user.group_id)
+            if group and group.direction_id:
+                # Faqat joriy semestrdagi fanlar
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    semester=current_semester
+                ).all()
+                
+                total_semester_score = 0
+                total_semester_max_score = 0
+                
+                for item in curriculum_items:
+                    # Ushbu fan bo'yicha barcha topshiriqlarni olish
+                    subject_assignments = Assignment.query.filter(
+                        Assignment.subject_id == item.subject_id,
+                        (Assignment.group_id == user.group_id) | (Assignment.group_id.is_(None)),
+                        (Assignment.direction_id == group.direction_id) | (Assignment.direction_id.is_(None))
+                    ).all()
+                    
+                    for assignment in subject_assignments:
+                        # Jami max_score ga har doim qo'shamiz
+                        total_semester_max_score += assignment.max_score
+                        
+                        # Baholangan topshiriqni qidiramiz
+                        submission = Submission.query.filter_by(
+                            student_id=user.id,
+                            assignment_id=assignment.id,
+                            is_active=True
+                        ).first()
+                        
+                        if submission and submission.score is not None:
+                            total_semester_score += submission.score
+                
+                if total_semester_max_score > 0:
+                    semester_progress = round((total_semester_score / total_semester_max_score) * 100)
+                    semester_grade = GradeScale.get_grade(semester_progress)
+        
+        # To'lov ma'lumotlari
+        payment_info = None
+        student_payments = StudentPayment.query.filter_by(student_id=user.id).order_by(StudentPayment.created_at.desc()).all()
+        if student_payments:
+            # Oxirgi to'lov ma'lumotlarini olish
+            latest_payment = student_payments[0]
+            total_contract = float(latest_payment.contract_amount)
+            total_paid = sum(float(p.paid_amount) for p in student_payments)
+            payment_percentage = round((total_paid / total_contract * 100), 1) if total_contract > 0 else 0
+            
+            payment_info = {
+                'contract': total_contract,
+                'paid': total_paid,
+                'remaining': total_contract - total_paid,
+                'percentage': payment_percentage
+            }
     
     elif user.role == 'teacher' or user.has_role('teacher'):
         # O'qituvchi uchun
@@ -156,8 +549,8 @@ def dashboard():
             Assignment.subject_id.in_(subject_ids)
         ).order_by(Assignment.due_date.desc()).limit(5).all() if subject_ids else []
         
-        # Dars jadvali (o'qituvchi uchun)
-        today = date.today()
+        # Dars jadvali (o'qituvchi uchun) - Toshkent vaqti
+        today = get_tashkent_time().date()
         today_weekday = today.weekday()  # 0 = Monday, 6 = Sunday
         # O'qituvchining guruhlari
         teacher_groups = [ts.group_id for ts in teacher_subjects]
@@ -224,9 +617,30 @@ def dashboard():
                         'course_year': course_year
                     }
     
+    # pending_assignments ni boshqa rollar uchun ham yaratish (agar mavjud bo'lmasa)
+    if user.role != 'student':
+        if 'pending_assignments' not in locals():
+            pending_assignments = []
+            if recent_assignments:
+                for assignment in recent_assignments[:5]:
+                    pending_assignments.append({
+                        'assignment': assignment,
+                        'status': 'not_submitted',
+                        'submission': None
+                    })
+    
+    # now o'zgaruvchisini barcha rollar uchun aniqlash (Toshkent vaqti)
+    if 'now_dt' not in locals():
+        now_dt = get_tashkent_time()
+    
     return render_template('dashboard.html', stats=stats, announcements=announcements, 
                          recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules,
-                         my_subjects=my_subjects, today_schedule=today_schedule, my_subjects_info=my_subjects_info)
+                         my_subjects=my_subjects, today_schedule=today_schedule, my_subjects_info=my_subjects_info,
+                         pending_assignments=pending_assignments if 'pending_assignments' in locals() else [],
+                         semester_progress=semester_progress if 'semester_progress' in locals() else 0,
+                         semester_grade=semester_grade if 'semester_grade' in locals() else None,
+                         payment_info=payment_info if 'payment_info' in locals() else None,
+                         upcoming_due_assignments=upcoming_due_assignments if 'upcoming_due_assignments' in locals() else [])
 
 @bp.route('/announcements')
 @login_required
@@ -535,20 +949,15 @@ def chat(user_id):
 @login_required
 def schedule():
     """Dars jadvali sahifasi (talaba va o'qituvchilar uchun)"""
-    from datetime import datetime, timedelta
+    from datetime import datetime
     import calendar
+    from app.models import Group, Subject, TeacherSubject, Schedule, DirectionCurriculum
     
-    # Joriy sana
+    user = current_user
     today = datetime.now()
-    today_year = today.year
-    today_month = today.month
-    today_day = today.day
+    year = request.args.get('year', today.year, type=int)
+    month = request.args.get('month', today.month, type=int)
     
-    # URL parametrlaridan oy va yilni olish
-    year = request.args.get('year', today_year, type=int)
-    month = request.args.get('month', today_month, type=int)
-    
-    # Oy va yilni tekshirish
     if month < 1:
         month = 12
         year -= 1
@@ -556,87 +965,92 @@ def schedule():
         month = 1
         year += 1
     
-    # Oldingi va keyingi oylar
-    if month == 1:
-        prev_month = 12
-        prev_year = year - 1
-    else:
-        prev_month = month - 1
-        prev_year = year
+    prev_month, prev_year = (12, year - 1) if month == 1 else (month - 1, year)
+    next_month, next_year = (1, year + 1) if month == 12 else (month + 1, year)
     
-    if month == 12:
-        next_month = 1
-        next_year = year + 1
-    else:
-        next_month = month + 1
-        next_year = year
-    
-    # Oyning birinchi kuni va kunlar soni
-    first_day = datetime(year, month, 1)
     days_in_month = calendar.monthrange(year, month)[1]
-    start_weekday = first_day.weekday()  # 0 = Monday, 6 = Sunday
+    start_weekday = datetime(year, month, 1).weekday()
     
-    # Jadvalni olish
-    user = current_user
+    # Filter parameters
+    group_id = request.args.get('group_id', type=int)
+    subject_id = request.args.get('subject_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     
-    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
     start_code = int(f"{year}{month:02d}01")
     end_code = int(f"{year}{month:02d}{days_in_month:02d}")
     
-    query = Schedule.query.filter(
-        Schedule.day_of_week.between(start_code, end_code)
-    )
+    # Date Range filtering
+    if start_date:
+        try:
+            dt = datetime.strptime(start_date, "%d.%m.%Y")
+            start_code = int(dt.strftime("%Y%m%d"))
+        except: pass
+    if end_date:
+        try:
+            dt = datetime.strptime(end_date, "%d.%m.%Y")
+            end_code = int(dt.strftime("%Y%m%d"))
+        except: pass
+
+    query = Schedule.query.filter(Schedule.day_of_week.between(start_code, end_code))
     
+    all_groups = []
+    all_subjects = []
+
     if user.role == 'student':
-        # Talaba uchun - faqat o'z guruhidagi darslar
         if user.group_id:
             query = query.filter_by(group_id=user.group_id)
+            # Talaba uchun faqat o'z guruhidagi fanlar
+            group = Group.query.get(user.group_id)
+            if group and group.direction_id:
+                curr_items = DirectionCurriculum.query.filter_by(direction_id=group.direction_id).all()
+                s_ids = [item.subject_id for item in curr_items]
+                all_subjects = Subject.query.filter(Subject.id.in_(s_ids)).order_by(Subject.name).all()
         else:
-            query = query.filter_by(id=None)  # Guruh yo'q bo'lsa, hech narsa ko'rsatma
+            query = query.filter_by(id=None)
+            
     elif user.role == 'teacher' or user.has_role('teacher'):
-        # O'qituvchi uchun - o'z o'qitayotgan guruhlardagi darslar
-        teacher_groups = Group.query.join(TeacherSubject).filter(
-            TeacherSubject.teacher_id == user.id
-        ).all()
-        if teacher_groups:
-            group_ids = [g.id for g in teacher_groups]
-            query = query.filter(Schedule.group_id.in_(group_ids))
-        else:
-            query = query.filter_by(id=None)  # Guruhlar yo'q bo'lsa, hech narsa ko'rsatma
+        # O'qituvchi faqat o'zi biriktirilgan darslarni ko'radi
+        query = query.filter_by(teacher_id=user.id)
+        
+        # O'qituvchi o'zi dars beradigan guruhlar va fanlarni filter qila oladi
+        ts_entries = TeacherSubject.query.filter_by(teacher_id=user.id).all()
+        g_ids = [ts.group_id for ts in ts_entries]
+        s_ids = [ts.subject_id for ts in ts_entries]
+        
+        all_groups = Group.query.filter(Group.id.in_(g_ids)).order_by(Group.name).all()
+        all_subjects = Subject.query.filter(Subject.id.in_(s_ids)).distinct().order_by(Subject.name).all()
+
+    # Apply additional filters
+    if group_id:
+        query = query.filter_by(group_id=group_id)
+    if subject_id:
+        query = query.filter_by(subject_id=subject_id)
     
-    # Barcha darslarni olish (day_of_week asosida)
     schedules = query.order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    # Kunlar bo'yicha guruhlash (har bir dars aniq sana bo'yicha)
     schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
     for s in schedules:
         try:
-            # day_of_week YYYYMMDD formatida (masalan: 20251210)
             code_str = str(s.day_of_week)
-            if len(code_str) == 8:  # YYYYMMDD formatida
-                day = int(code_str[-2:])  # Oxirgi 2 raqam - kun
-            else:
-                # Eski format (hafta kuni 0-6) - o'tkazib yuborish
-                continue
-        except (TypeError, ValueError):
-            continue
-        if 1 <= day <= days_in_month:
-            schedule_by_day[day].append(s)
-    
-    # Har bir kun uchun vaqt bo'yicha tartiblash
+            if len(code_str) == 8:
+                s_year = int(code_str[:4])
+                s_month = int(code_str[4:6])
+                if s_year == year and s_month == month:
+                    day = int(code_str[6:8])
+                    if 1 <= day <= days_in_month:
+                        schedule_by_day[day].append(s)
+        except: continue
+        
     for day in schedule_by_day:
         schedule_by_day[day].sort(key=lambda x: x.start_time or '')
     
     return render_template('schedule.html',
-                          year=year,
-                          month=month,
-                          today_year=today_year,
-                          today_month=today_month,
-                          today_day=today_day,
-                          prev_year=prev_year,
-                          prev_month=prev_month,
-                          next_year=next_year,
-                          next_month=next_month,
-                          days_in_month=days_in_month,
-                          start_weekday=start_weekday,
-                          schedule_by_day=schedule_by_day)
+                          year=year, month=month,
+                          today_year=today.year, today_month=today.month, today_day=today.day,
+                          prev_year=prev_year, prev_month=prev_month,
+                          next_year=next_year, next_month=next_month,
+                          days_in_month=days_in_month, start_weekday=start_weekday,
+                          schedule_by_day=schedule_by_day,
+                          all_groups=all_groups, all_subjects=all_subjects,
+                          current_group_id=group_id, current_subject_id=subject_id)

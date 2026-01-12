@@ -38,13 +38,28 @@ def create_app(config_class=Config):
     
     # Context processor for translations
     @app.context_processor
-    def inject_translations():
+    def inject_global_data():
         from flask import session
-        from app.utils.translations import get_translation, TRANSLATIONS
+        from flask_login import current_user
+        from app.utils.translations import get_translation
+        from app.models import Message
+        
         lang = session.get('language', 'uz')
+        
+        unread_msg_count = 0
+        if current_user.is_authenticated:
+            try:
+                unread_msg_count = Message.query.filter_by(
+                    receiver_id=current_user.id, 
+                    is_read=False
+                ).count()
+            except:
+                pass
+                
         return {
             't': lambda key: get_translation(key, lang),
             'current_lang': lang,
+            'unread_msg_count': unread_msg_count,
             'languages': {
                 'uz': {'code': 'uz', 'name': 'O\'zbek', 'flag': '🇺🇿'},
                 'ru': {'code': 'ru', 'name': 'Русский', 'flag': '🇷🇺'},

@@ -6,23 +6,25 @@
 <div class="max-w-2xl mx-auto">
     <div class="mb-6">
         <a href="{{ url_for('admin.staff') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
             Orqaga
         </a>
         <h1 class="text-2xl font-bold text-gray-900">Yangi xodim yaratish</h1>
     </div>
-    
+
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <form method="POST" class="space-y-6">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
             <!-- To'liq ism -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
                 <input type="text" name="full_name" required placeholder="Ism Familiya"
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
-            
+
             <!-- Login -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Login *</label>
@@ -30,83 +32,89 @@
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun login</p>
             </div>
-            
+
             <!-- Pasport ma'lumotlari -->
             <div class="space-y-4">
                 <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Pasport ma'lumotlari</h3>
-                
+
                 <!-- Pasport seriyasi va raqami -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pasport seriyasi va raqami *</label>
-                    <input type="text" name="passport_number" required placeholder="AD1234567" style="text-transform: uppercase;"
+                    <input type="text" name="passport_number" required placeholder="AD1234567"
+                        style="text-transform: uppercase;"
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <p class="text-xs text-gray-500 mt-1">Bu parol sifatida ishlatiladi</p>
                 </div>
-                
+
                 <!-- JSHSHIR (PINFL) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">JSHSHIR (PINFL)</label>
                     <input type="text" name="pinfl" placeholder="30202020200021" maxlength="14"
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
-                
+
                 <!-- Tug'ilgan sana -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tug'ilgan sana</label>
-                    <input type="text" name="birth_date" id="birth_date" placeholder="1999-02-06" pattern="\d{4}-\d{2}-\d{2}"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <input type="text" name="birth_date" placeholder="1999-02-06"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date-iso">
                 </div>
             </div>
-            
+
             <!-- Telefon -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Telefon</label>
                 <input type="text" name="phone" placeholder="+998 90 123 45 67"
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
-            
+
             <!-- Email -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                 <input type="email" name="email" placeholder="email@university.uz"
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
             </div>
-            
+
             <!-- Tavsif -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Tavsif</label>
                 <textarea name="description" rows="3" placeholder="Xodim haqida qisqacha ma'lumot..."
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
             </div>
-            
+
             <!-- Rollar -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Rollar *</label>
                 <p class="text-xs text-gray-500 mb-2">Bir nechta rol tanlash mumkin</p>
                 <div class="space-y-2">
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="admin" id="role_admin" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="admin" id="role_admin"
+                            class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">Administrator</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="dean" id="role_dean" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="dean" id="role_dean"
+                            class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">Dekan</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="teacher" id="role_teacher" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="teacher" id="role_teacher"
+                            class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">O'qituvchi</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="roles" value="accounting" id="role_accounting" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <input type="checkbox" name="roles" value="accounting" id="role_accounting"
+                            class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <span class="text-sm text-gray-700">Buxgalter</span>
                     </label>
                 </div>
             </div>
-            
+
             <!-- Fakultet (dekan roli uchun) -->
             <div id="faculty_field" class="hidden">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
-                <select name="faculty_id" id="faculty_select" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <select name="faculty_id" id="faculty_select"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                     <option value="">Fakultetni tanlang...</option>
                     {% for faculty in faculties %}
                     <option value="{{ faculty.id }}">{{ faculty.name }}</option>
@@ -114,12 +122,14 @@
                 </select>
                 <p class="text-xs text-gray-500 mt-1">Dekan roli uchun fakultet tanlash majburiy</p>
             </div>
-            
+
             <div class="pt-4 border-t border-gray-100 flex gap-3">
-                <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
                     Xodim yaratish
                 </button>
-                <a href="{{ url_for('admin.staff') }}" class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                <a href="{{ url_for('admin.staff') }}"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
                     Bekor qilish
                 </a>
             </div>
@@ -128,93 +138,29 @@
 </div>
 
 <script>
-// Tug'ilgan sana input'ini formatlash
-document.addEventListener('DOMContentLoaded', function() {
-    const birthDateInput = document.getElementById('birth_date');
-    
-    if (birthDateInput) {
-        // Date picker yaratish
-        const datePicker = document.createElement('input');
-        datePicker.type = 'date';
-        datePicker.style.position = 'absolute';
-        datePicker.style.opacity = '0';
-        datePicker.style.pointerEvents = 'none';
-        datePicker.style.width = '0';
-        datePicker.style.height = '0';
-        
-        // Date picker'ni input'ga qo'shish
-        birthDateInput.parentElement.style.position = 'relative';
-        birthDateInput.parentElement.appendChild(datePicker);
-        
-        // Date picker'ga bosilganda, text input'ga formatlangan qiymatni yozish
-        datePicker.addEventListener('change', function() {
-            if (this.value) {
-                birthDateInput.value = this.value; // yyyy-mm-dd formatida
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // Dekan roli tanlangan bo'lsa, fakultet maydonini ko'rsatish
+        const roleDeanCheckbox = document.getElementById('role_dean');
+        const facultyField = document.getElementById('faculty_field');
+        const facultySelect = document.getElementById('faculty_select');
+
+        if (roleDeanCheckbox && facultyField && facultySelect) {
+            function toggleFacultyField() {
+                if (roleDeanCheckbox.checked) {
+                    facultyField.classList.remove('hidden');
+                    facultySelect.setAttribute('required', 'required');
+                } else {
+                    facultyField.classList.add('hidden');
+                    facultySelect.removeAttribute('required');
+                    facultySelect.value = '';
+                }
             }
-        });
-        
-        // Text input'ga bosilganda, date picker'ni ochish
-        birthDateInput.addEventListener('focus', function() {
-            if (datePicker.value) {
-                datePicker.showPicker();
-            } else {
-                datePicker.showPicker();
-            }
-        });
-        
-        // Text input'ga yozilganda, formatni tekshirish
-        birthDateInput.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, ''); // Faqat raqamlarni qoldirish
-            
-            // Formatlash: yyyy-mm-dd
-            if (value.length > 4) {
-                value = value.substring(0, 4) + '-' + value.substring(4);
-            }
-            if (value.length > 7) {
-                value = value.substring(0, 7) + '-' + value.substring(7, 9);
-            }
-            
-            e.target.value = value;
-            
-            // Agar to'liq format bo'lsa, date picker'ga ham yozish
-            if (value.length === 10) {
-                datePicker.value = value;
-            }
-        });
-        
-        // Text input'dan focus chiqganda, formatni tekshirish
-        birthDateInput.addEventListener('blur', function() {
-            const value = this.value;
-            // Formatni tekshirish: yyyy-mm-dd
-            const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-            if (value && !datePattern.test(value)) {
-                // Format noto'g'ri bo'lsa, tozalash
-                this.value = '';
-            }
-        });
-    }
-    
-    // Dekan roli tanlangan bo'lsa, fakultet maydonini ko'rsatish
-    const roleDeanCheckbox = document.getElementById('role_dean');
-    const facultyField = document.getElementById('faculty_field');
-    const facultySelect = document.getElementById('faculty_select');
-    
-    if (roleDeanCheckbox && facultyField && facultySelect) {
-        function toggleFacultyField() {
-            if (roleDeanCheckbox.checked) {
-                facultyField.classList.remove('hidden');
-                facultySelect.setAttribute('required', 'required');
-            } else {
-                facultyField.classList.add('hidden');
-                facultySelect.removeAttribute('required');
-                facultySelect.value = '';
-            }
+
+            roleDeanCheckbox.addEventListener('change', toggleFacultyField);
+            // Sahifa yuklanganda ham tekshirish
+            toggleFacultyField();
         }
-        
-        roleDeanCheckbox.addEventListener('change', toggleFacultyField);
-        // Sahifa yuklanganda ham tekshirish
-        toggleFacultyField();
-    }
-});
+    });
 </script>
 {% endblock %}

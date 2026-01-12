@@ -4,71 +4,105 @@
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
-    <div class="flex items-center gap-2 text-sm text-gray-500">
-        <a href="{{ url_for('courses.detail', id=assignment.subject.id) }}" class="hover:text-primary-600">{{ assignment.subject.name }}</a>
-        <span>/</span>
-        <span>{{ assignment.title }}</span>
+    <div class="mb-4">
+        <a href="{{ url_for('courses.detail', id=assignment.subject.id, direction_id=direction_id) if direction_id else url_for('courses.detail', id=assignment.subject.id) }}"
+            class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Orqaga
+        </a>
     </div>
-    
+
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div class="flex items-start justify-between mb-4">
-            <div>
+            <div class="flex-1">
                 <div class="flex items-center gap-2 mb-2">
                     <h1 class="text-2xl font-bold text-gray-900">{{ assignment.title }}</h1>
                     {% if assignment.lesson_type %}
                     {% if assignment.lesson_type == 'maruza' %}
-                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">Maruza</span>
+                    <span
+                        class="px-2 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">Maruza</span>
                     {% elif assignment.lesson_type == 'amaliyot' %}
-                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">Amaliyot</span>
+                    <span
+                        class="px-2 py-1 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">Amaliyot</span>
                     {% elif assignment.lesson_type == 'laboratoriya' %}
-                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200">Laboratoriya</span>
+                    <span
+                        class="px-2 py-1 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200">Laboratoriya</span>
                     {% elif assignment.lesson_type == 'seminar' %}
-                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">Seminar</span>
+                    <span
+                        class="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">Seminar</span>
                     {% elif assignment.lesson_type == 'kurs_ishi' %}
-                    <span class="px-2 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200">Kurs ishi</span>
+                    <span
+                        class="px-2 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200">Kurs
+                        ishi</span>
                     {% endif %}
                     {% endif %}
                 </div>
                 <p class="text-gray-500 mt-1">{{ assignment.subject.name }}</p>
-                {% if assignment.group %}
-                <span class="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">{{ assignment.group.name }}</span>
-                {% endif %}
             </div>
             <div class="text-right">
                 <p class="text-sm text-gray-500">Maksimal ball</p>
                 <p class="text-2xl font-bold text-primary-600">{{ assignment.max_score }}</p>
+                {% if is_viewer_teacher or current_user.role == 'admin' %}
+                {% if total_submissions is not none %}
+                <div class="mt-4 pt-4 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 mb-1">Yollangan javoblar</p>
+                    <div class="flex items-center gap-2 justify-end">
+                        <span class="text-lg font-semibold text-gray-700">{{ total_submissions }}</span>
+                        {% if ungraded_count and ungraded_count > 0 %}
+                        <span class="relative">
+                            <span
+                                class="px-2 py-1 text-xs font-bold rounded-full bg-red-500 text-white animate-pulse">{{
+                                ungraded_count }}</span>
+                            <span class="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if ungraded_count and ungraded_count > 0 %}
+                    <p class="text-xs text-red-600 mt-1 font-medium">Tekshirilmagan: {{ ungraded_count }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endif %}
             </div>
         </div>
-        
+
         {% if assignment.due_date %}
         <div class="flex items-center gap-2 p-3 bg-amber-50 rounded-xl mb-4">
-            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span class="text-sm text-amber-700">Muddat: {{ assignment.due_date.strftime('%d.%m.%Y') }}</span>
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="text-sm text-amber-700">Muddat: {{ assignment.due_date.strftime('%d.%m.%Y') }}, Soat: 23:59 ga
+                qadar</span>
             {% if is_overdue %}
-            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium ml-auto">Muddat o'tgan</span>
+            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium ml-auto">Muddat
+                o'tgan</span>
             {% endif %}
         </div>
         {% endif %}
-        
+
         {% if related_lessons %}
         <div class="mb-4">
             <h3 class="text-sm font-semibold text-gray-700 mb-2">Tegishli mavzular:</h3>
             <div class="flex flex-wrap gap-2">
                 {% for lesson in related_lessons %}
-                <span class="px-2 py-1 text-xs font-medium rounded-md bg-gray-100 text-gray-700 border border-gray-200">
+                <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors">
                     {{ lesson.order }}. {{ lesson.title }}
-                </span>
+                </a>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
-        
+
         <div class="prose max-w-none">
             <h3 class="text-lg font-semibold text-gray-900 mb-2">Tavsif</h3>
             <p class="text-gray-600">{{ assignment.description or 'Tavsif mavjud emas' }}</p>
         </div>
     </div>
-    
+
     <!-- Submission -->
     {% if submission %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -80,35 +114,43 @@
             </span>
             {% endif %}
         </div>
-        
+
         <div class="p-4 bg-gray-50 rounded-xl mb-4">
             {% if submission.content %}
             <p class="text-gray-700 whitespace-pre-wrap">{{ submission.content }}</p>
             {% endif %}
-            
+
             {% if submission.file_url %}
             <div class="mt-4 p-3 bg-white rounded-lg border border-gray-200">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
                         </div>
                         <div>
                             <p class="text-sm font-medium text-gray-900">Yuklangan fayl</p>
                             <p class="text-xs text-gray-500">{{ submission.file_url.split('.')[-1].upper() }} fayl</p>
                         </div>
                     </div>
-                    <a href="{{ url_for('courses.serve_submission_file', filename=submission.file_url) }}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    <a href="{{ url_for('courses.serve_submission_file', filename=submission.file_url) }}"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
                         Yuklab olish
                     </a>
                 </div>
             </div>
             {% endif %}
-            
-            <p class="text-xs text-gray-400 mt-2">Yuborilgan: {{ submission.submitted_at.strftime('%d.%m.%Y, %H:%M') }}</p>
+
+            <p class="text-xs text-gray-400 mt-2">Yuborilgan: {{ submission.submitted_at.strftime('%d.%m.%Y, %H:%M') }}
+            </p>
         </div>
-        
+
         {% if submission.score is not none %}
         <div class="p-4 bg-green-50 rounded-xl border border-green-200 mb-4">
             <div class="flex items-center justify-between mb-2">
@@ -124,18 +166,21 @@
             <p class="text-sm text-blue-700">⏳ Javobingiz tekshirilmoqda...</p>
         </div>
         {% endif %}
-        
+
         <!-- Qayta topshirish -->
         {% if can_resubmit and not is_overdue %}
         <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
-            <p class="text-sm text-blue-700 mb-3">Siz javobingizni qayta topshirishingiz mumkin ({{ resubmission_count }}/3)</p>
-            <a href="#submit-form" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors inline-block">
+            <p class="text-sm text-blue-700 mb-3">Siz javobingizni qayta topshirishingiz mumkin ({{ resubmission_count
+                }}/3)</p>
+            <a href="#submit-form"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors inline-block">
                 Qayta topshirish
             </a>
         </div>
         {% elif not can_resubmit and not submission.allow_resubmission %}
         <div class="p-4 bg-red-50 rounded-xl border border-red-200">
-            <p class="text-sm text-red-700">⚠️ Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun o'qituvchi bilan bog'laning.</p>
+            <p class="text-sm text-red-700">⚠️ Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun
+                o'qituvchi bilan bog'laning.</p>
         </div>
         {% endif %}
     </div>
@@ -153,27 +198,30 @@
             <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Fayl majburiy</span>
             {% endif %}
         </div>
-        
+
         {% if is_overdue %}
         <div class="p-4 bg-red-50 rounded-xl border border-red-200 mb-4">
             <p class="text-sm text-red-700">⚠️ Topshiriq muddati o'tgan. Qayta topshirish mumkin emas.</p>
         </div>
         {% endif %}
-        
+
         {% if not can_resubmit and not is_overdue %}
         <div class="p-4 bg-red-50 rounded-xl border border-red-200 mb-4">
-            <p class="text-sm text-red-700">⚠️ Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun o'qituvchi bilan bog'laning.</p>
+            <p class="text-sm text-red-700">⚠️ Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun
+                o'qituvchi bilan bog'laning.</p>
         </div>
         {% endif %}
-        
+
         {% if not is_overdue and (not submission or can_resubmit) %}
-        <form method="POST" action="{{ url_for('courses.submit_assignment', id=assignment.id) }}" enctype="multipart/form-data" class="space-y-4">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <form method="POST" action="{{ url_for('courses.submit_assignment', id=assignment.id) }}"
+            enctype="multipart/form-data" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Javobingiz (ixtiyoriy)</label>
-                <textarea name="content" rows="6" placeholder="Javobingizni yozing..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
+                <textarea name="content" rows="6" placeholder="Javobingizni yozing..."
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
             </div>
-            
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Fayl yuklash
@@ -184,35 +232,46 @@
                     {% endif %}
                 </label>
                 <div class="relative">
-                    <input type="file" name="file" id="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.bmp,.txt,.rtf" 
-                           {% if assignment.file_required %}required{% endif %}
-                           class="hidden" onchange="updateFileName(this)">
-                    <label for="file-input" class="flex items-center justify-center w-full px-4 py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors">
+                    <input type="file" name="file" id="file-input"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.bmp,.txt,.rtf" {% if
+                        assignment.file_required %}required{% endif %} class="hidden" onchange="updateFileName(this)">
+                    <label for="file-input"
+                        class="flex items-center justify-center w-full px-4 py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors">
                         <div class="text-center">
-                            <svg class="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            <svg class="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
                             <p class="text-sm text-gray-600" id="file-label">Faylni tanlang yoki bu yerga tashlang</p>
-                            <p class="text-xs text-gray-400 mt-1">PDF, DOC, DOCX, XLS, XLSX, JPG, PNG va boshqalar (maks. 2 MB)</p>
+                            <p class="text-xs text-gray-400 mt-1">PDF, DOC, DOCX, XLS, XLSX, JPG, PNG va boshqalar
+                                (maks. 2 MB)</p>
                         </div>
                     </label>
                 </div>
                 <div id="file-info" class="hidden mt-2 p-3 bg-blue-50 rounded-xl border border-blue-200">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
                             <span id="file-name" class="text-sm font-medium text-blue-700"></span>
                         </div>
                         <button type="button" onclick="removeFile()" class="text-blue-600 hover:text-blue-800">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                         </button>
                     </div>
                     <p id="file-size" class="text-xs text-blue-600 mt-1"></p>
                 </div>
             </div>
-            
+
             <div class="flex justify-end">
-                <button type="submit" 
-                        {% if not can_resubmit and submission %}disabled{% endif %}
-                        class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors {% if not can_resubmit and submission %}opacity-50 cursor-not-allowed{% endif %}">
+                <button type="submit" {% if not can_resubmit and submission %}disabled{% endif %}
+                    class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors {% if not can_resubmit and submission %}opacity-50 cursor-not-allowed{% endif %}">
                     {% if submission %}
                     Qayta yuborish
                     {% else %}
@@ -222,38 +281,38 @@
             </div>
         </form>
         {% endif %}
-        
+
         <script>
-        function updateFileName(input) {
-            const label = document.getElementById('file-label');
-            const fileInfo = document.getElementById('file-info');
-            const fileName = document.getElementById('file-name');
-            const fileSize = document.getElementById('file-size');
-            
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                const maxSize = 2; // 2 MB
-                
-                if (file.size > maxSize * 1024 * 1024) {
-                    alert(`Fayl hajmi ${maxSize} MB dan oshmasligi kerak!`);
-                    input.value = '';
-                    fileInfo.classList.add('hidden');
-                    label.textContent = 'Faylni tanlang yoki bu yerga tashlang';
-                } else {
-                    fileName.textContent = file.name;
-                    fileSize.textContent = `Hajmi: ${sizeMB} MB`;
-                    fileInfo.classList.remove('hidden');
-                    label.textContent = file.name;
+            function updateFileName(input) {
+                const label = document.getElementById('file-label');
+                const fileInfo = document.getElementById('file-info');
+                const fileName = document.getElementById('file-name');
+                const fileSize = document.getElementById('file-size');
+
+                if (input.files && input.files[0]) {
+                    const file = input.files[0];
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    const maxSize = 2; // 2 MB
+
+                    if (file.size > maxSize * 1024 * 1024) {
+                        alert(`Fayl hajmi ${maxSize} MB dan oshmasligi kerak!`);
+                        input.value = '';
+                        fileInfo.classList.add('hidden');
+                        label.textContent = 'Faylni tanlang yoki bu yerga tashlang';
+                    } else {
+                        fileName.textContent = file.name;
+                        fileSize.textContent = `Hajmi: ${sizeMB} MB`;
+                        fileInfo.classList.remove('hidden');
+                        label.textContent = file.name;
+                    }
                 }
             }
-        }
-        
-        function removeFile() {
-            document.getElementById('file-input').value = '';
-            document.getElementById('file-info').classList.add('hidden');
-            document.getElementById('file-label').textContent = 'Faylni tanlang yoki bu yerga tashlang';
-        }
+
+            function removeFile() {
+                document.getElementById('file-input').value = '';
+                document.getElementById('file-info').classList.add('hidden');
+                document.getElementById('file-label').textContent = 'Faylni tanlang yoki bu yerga tashlang';
+            }
         </script>
     </div>
     {% endif %}

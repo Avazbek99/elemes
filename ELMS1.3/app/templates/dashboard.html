@@ -2,27 +2,90 @@
 
 {% block title %}Bosh sahifa{% endblock %}
 
+<style>
+    @keyframes flame-flicker {
+
+        0%,
+        100% {
+            transform: scale(1) rotate(0deg) translateY(0);
+            opacity: 1;
+            filter: drop-shadow(0 0 6px rgba(255, 69, 0, 0.8)) brightness(1);
+        }
+
+        15% {
+            transform: scale(1.15) rotate(-3deg) translateY(-3px);
+            opacity: 0.95;
+            filter: drop-shadow(0 0 8px rgba(255, 69, 0, 1)) brightness(1.2);
+        }
+
+        30% {
+            transform: scale(0.9) rotate(3deg) translateY(2px);
+            opacity: 0.98;
+            filter: drop-shadow(0 0 5px rgba(255, 140, 0, 0.9)) brightness(0.95);
+        }
+
+        45% {
+            transform: scale(1.1) rotate(-2deg) translateY(-2px);
+            opacity: 0.92;
+            filter: drop-shadow(0 0 7px rgba(255, 69, 0, 0.95)) brightness(1.1);
+        }
+
+        60% {
+            transform: scale(0.95) rotate(2deg) translateY(1px);
+            opacity: 0.96;
+            filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.85)) brightness(1.05);
+        }
+
+        75% {
+            transform: scale(1.08) rotate(-1.5deg) translateY(-2px);
+            opacity: 0.94;
+            filter: drop-shadow(0 0 7px rgba(255, 69, 0, 0.9)) brightness(1.15);
+        }
+
+        90% {
+            transform: scale(0.98) rotate(1deg) translateY(1px);
+            opacity: 0.97;
+            filter: drop-shadow(0 0 6px rgba(255, 140, 0, 0.88)) brightness(1);
+        }
+    }
+
+    .flame-animated {
+        animation: flame-flicker 0.6s ease-in-out infinite;
+        transform-origin: center bottom;
+    }
+
+    .flame-icon {
+        filter: drop-shadow(0 0 4px rgba(255, 69, 0, 0.9));
+    }
+</style>
+
 {% block content %}
 <div class="space-y-6">
     <!-- Welcome -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">{{ greeting }}, {{ current_user.full_name }}! 👋</h1>
+            <h1 class="text-2xl font-bold text-gray-900">{{ current_user.full_name.upper() }}! 👋</h1>
             <p class="text-gray-500 mt-1">Bugungi kunning umumiy ko'rinishi</p>
         </div>
         <div class="flex items-center gap-2 text-sm text-gray-500">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
             {{ today }}
         </div>
     </div>
-    
+
     {% if current_user.role == 'admin' %}
     <!-- Admin Dashboard -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-start justify-between">
                 <div class="p-3 bg-primary-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
                 </div>
             </div>
             <div class="mt-4">
@@ -33,7 +96,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-start justify-between">
                 <div class="p-3 bg-green-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
                 </div>
             </div>
             <div class="mt-4">
@@ -44,7 +110,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-start justify-between">
                 <div class="p-3 bg-violet-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
                 </div>
             </div>
             <div class="mt-4">
@@ -55,7 +124,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-start justify-between">
                 <div class="p-3 bg-amber-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                 </div>
             </div>
             <div class="mt-4">
@@ -64,7 +136,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Recent users -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Yangi foydalanuvchilar</h3>
@@ -72,7 +144,8 @@
             {% for user in recent_users %}
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold">
+                    <div
+                        class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold">
                         {{ user.full_name[0] }}
                     </div>
                     <div>
@@ -85,14 +158,17 @@
             {% endfor %}
         </div>
     </div>
-    
+
     {% elif current_user.role == 'teacher' %}
     <!-- Teacher Dashboard -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-primary-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ total_subjects }}</p>
@@ -103,7 +179,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-green-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ total_groups }}</p>
@@ -114,7 +193,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-amber-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ pending_submissions }}</p>
@@ -123,22 +205,24 @@
             </div>
         </div>
     </div>
-    
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- My subjects -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Mening fanlarim</h3>
             <div class="space-y-4">
                 {% for subject in my_subjects[:4] %}
-                <a href="{{ url_for('courses.detail', id=subject.id) }}" class="block p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                <a href="{{ url_for('courses.detail', id=subject.id) }}"
+                    class="block p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                     <p class="text-sm font-medium text-gray-900">{{ subject.name }}</p>
                     <p class="text-xs text-gray-500">
                         {% if my_subjects_info and my_subjects_info.get(subject.id) %}
-                            {% set info = my_subjects_info[subject.id] %}
-                            {{ info.course_year }}-kurs, {{ info.semester }}-semestr
-                            {% if subject.credits %} • {{ subject.credits }} kredit{% endif %}
+                        {% set info = my_subjects_info[subject.id] %}
+                        {{ info.course_year }}-kurs, {{ info.semester }}-semestr
+                        {% if subject.credits %} • {{ subject.credits }} kredit{% endif %}
                         {% else %}
-                            {% if subject.code %}{{ subject.code }}{% if subject.credits %} • {% endif %}{% endif %}{% if subject.credits %}{{ subject.credits }} kredit{% endif %}
+                        {% if subject.code %}{{ subject.code }}{% if subject.credits %} • {% endif %}{% endif %}{% if
+                        subject.credits %}{{ subject.credits }} kredit{% endif %}
                         {% endif %}
                     </p>
                 </a>
@@ -147,7 +231,7 @@
                 {% endfor %}
             </div>
         </div>
-        
+
         <!-- Today's schedule -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Bugungi darslar</h3>
@@ -156,13 +240,17 @@
                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                     <div class="flex items-center gap-3">
                         <div class="flex items-center justify-center w-12 h-12 bg-primary-100 rounded-xl">
-                            <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                         </div>
                         <div>
                             <p class="text-sm font-medium text-gray-900">{{ schedule.subject.name }}</p>
                             <p class="text-xs text-gray-500">
                                 {% if schedule.link %}
-                                <a href="{{ schedule.link }}" target="_blank" class="text-primary-600 hover:text-primary-800 underline">Link</a> • 
+                                <a href="{{ schedule.link }}" target="_blank"
+                                    class="text-primary-600 hover:text-primary-800 underline">Link</a> •
                                 {% endif %}
                                 {{ schedule.group.name }}
                             </p>
@@ -176,37 +264,222 @@
             </div>
         </div>
     </div>
-    
-    {% elif current_user.role == 'student' %}
+    {% endif %}
+
+    {% if current_user.role == 'student' %}
     <!-- Student Dashboard -->
+    <!-- O'zlashtirish ko'rsatkichi va To'lov ma'lumotlari -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- O'zlashtirish ko'rsatkichi -->
+        <div
+            class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl shadow-lg border border-primary-300 p-6 text-white">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold mb-1">Semestr o'zlashtirish ko'rsatkichi</h3>
+                    <p class="text-primary-100 text-sm">Barcha fanlar bo'yicha</p>
+                </div>
+                <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+            <div class="mb-4">
+                <div class="flex items-end gap-2 mb-2">
+                    <p class="text-4xl font-bold">{{ semester_progress|default(0) }}%</p>
+                    {% if semester_grade %}
+                    <span class="px-3 py-1 bg-white/20 rounded-full text-sm font-semibold mb-1">{{ semester_grade.letter
+                        }}</span>
+                    {% endif %}
+                </div>
+                <div class="w-full bg-white/20 rounded-full h-3">
+                    <div class="bg-white rounded-full h-3 transition-all duration-500"
+                        style="width: {{ semester_progress|default(0) }}%"></div>
+                </div>
+            </div>
+            {% if semester_grade %}
+            <p class="text-sm text-primary-100">{{ semester_grade.description or '' }}</p>
+            {% endif %}
+        </div>
+
+        <!-- To'lov ma'lumotlari -->
+        <div
+            class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg border border-purple-300 p-6 text-white">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold mb-1">To'lov ma'lumotlari</h3>
+                    <p class="text-purple-100 text-sm">Kontrakt to'lovlari</p>
+                </div>
+                <a href="{{ url_for('accounting.student_payments', student_id=current_user.id) }}"
+                    class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </a>
+            </div>
+            {% if payment_info %}
+            <div class="mb-4">
+                <div class="flex items-end gap-2 mb-2">
+                    <p class="text-3xl font-bold">{{ "{:,.0f}".format(payment_info.paid) }} / {{
+                        "{:,.0f}".format(payment_info.contract) }}</p>
+                    <span class="text-purple-100 text-sm mb-1">so'm</span>
+                </div>
+                <div class="w-full bg-white/20 rounded-full h-3 mb-2">
+                    <div class="bg-white rounded-full h-3 transition-all duration-500"
+                        style="width: {{ payment_info.percentage }}%"></div>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-purple-100">To'lagan: {{ payment_info.percentage }}%</span>
+                    <span class="font-semibold">Qolgan: {{ "{:,.0f}".format(payment_info.remaining) }} so'm</span>
+                </div>
+            </div>
+            {% if payment_info.percentage == 100 %}
+            <div class="px-3 py-1 bg-white/20 rounded-full text-sm font-medium inline-block">✅ To'liq to'landi</div>
+            {% elif payment_info.percentage >= 50 %}
+            <div class="px-3 py-1 bg-yellow-500/30 rounded-full text-sm font-medium inline-block">⚠️ Qisman to'langan
+            </div>
+            {% else %}
+            <div class="px-3 py-1 bg-red-500/30 rounded-full text-sm font-medium inline-block">❌ To'lov talab qilinadi
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="text-purple-100 text-sm">To'lov ma'lumotlari mavjud emas</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Muddati yaqinlashgan topshiriqlar -->
+    {% if upcoming_due_assignments %}
+    <div class="mb-6">
+        <!-- Muddati yaqinlashgan topshiriqlar -->
+        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl shadow-sm border border-red-200 p-6">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center relative">
+                    <!-- Uch qatlamli olov ikon (katta va harakatda) -->
+                    <svg class="w-10 h-10 absolute -top-2 -right-2 z-20 flame-animated" viewBox="0 0 24 24" fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <!-- Tashqi qatlam (qizil-to'q sariq) -->
+                        <path
+                            d="M12 2C10 5 8 6 7 8c-2 4 0 7 2 9 1 1 0 3 0 4 0 3 3 5 6 4s5-2 5-5c0-1-1-2-1-3 2-3 3-6 1-10-1-2-2-3-4-6z"
+                            fill="#ff4500" class="flame-icon" />
+                        <!-- O'rta qatlam (to'q sariq) -->
+                        <path
+                            d="M12 4C10.5 6 9 7 8 8.5c-1.5 3 0 5.5 1.5 7 0.5 1 0 2 0 3 0 2 2 3 4 3s4-1 4-3c0-1-0.5-1.5-0.5-2 1.5-2 2-4.5 0.5-7.5-0.5-1-1.5-2-3-4z"
+                            fill="#ff8c00" />
+                        <!-- Ichki qatlam (sariq) -->
+                        <path
+                            d="M12 8c-1 1.5-1.5 2-2 2.5-1 2 0 3.5 1 4.5 0.5 0.5 0 1.5 0 2 0 1.5 1.5 2 2.5 2s2.5-0.5 2.5-2c0-0.5-0.5-1-0.5-1.5 1-1.5 1-3 0-5-0.5-1-1-1.5-2-3z"
+                            fill="#ffd700" />
+                    </svg>
+                    <svg class="w-6 h-6 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">Yonayotgan topshiriqlar</h3>
+                <span class="px-2 py-1 bg-red-500 text-white rounded-full text-xs font-bold">{{
+                    upcoming_due_assignments|length }}</span>
+            </div>
+            <div class="space-y-2 max-h-[300px] overflow-y-auto">
+                {% for item in upcoming_due_assignments %}
+                <a href="{{ url_for('courses.assignment_detail', id=item.assignment.id) }}"
+                    class="block p-3 bg-white rounded-xl hover:shadow-md transition-all border border-red-200 relative">
+                    <!-- Uch qatlamli olov ikon (katta va harakatda) -->
+                    <div class="absolute top-2 right-2">
+                        <svg class="w-8 h-8 flame-animated" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <!-- Tashqi qatlam (qizil-to'q sariq) -->
+                            <path
+                                d="M12 2C10 5 8 6 7 8c-2 4 0 7 2 9 1 1 0 3 0 4 0 3 3 5 6 4s5-2 5-5c0-1-1-2-1-3 2-3 3-6 1-10-1-2-2-3-4-6z"
+                                fill="#ff4500" class="flame-icon" />
+                            <!-- O'rta qatlam (to'q sariq) -->
+                            <path
+                                d="M12 4C10.5 6 9 7 8 8.5c-1.5 3 0 5.5 1.5 7 0.5 1 0 2 0 3 0 2 2 3 4 3s4-1 4-3c0-1-0.5-1.5-0.5-2 1.5-2 2-4.5 0.5-7.5-0.5-1-1.5-2-3-4z"
+                                fill="#ff8c00" />
+                            <!-- Ichki qatlam (sariq) -->
+                            <path
+                                d="M12 8c-1 1.5-1.5 2-2 2.5-1 2 0 3.5 1 4.5 0.5 0.5 0 1.5 0 2 0 1.5 1.5 2 2.5 2s2.5-0.5 2.5-2c0-0.5-0.5-1-0.5-1.5 1-1.5 1-3 0-5-0.5-1-1-1.5-2-3z"
+                                fill="#ffd700" />
+                        </svg>
+                    </div>
+                    <div class="flex items-center justify-between mb-1 pr-10">
+                        <p class="text-sm font-medium text-gray-900 truncate flex-1">{{ item.assignment.subject.name }}
+                        </p>
+                        {% if item.assignment.due_date %}
+                        <span class="px-2 py-1 text-xs font-bold rounded-full bg-red-500 text-white ml-2 flex-shrink-0">
+                            Muddat: {{ item.assignment.due_date.strftime('%d.%m.%Y') }}, Soat: 23:59 ga qadar
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <p class="text-xs text-gray-600 truncate">{{ item.assignment.title }}</p>
+                        {% if item.assignment.lesson_type %}
+                        {% if item.assignment.lesson_type == 'maruza' %}
+                        <span
+                            class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">Maruza</span>
+                        {% elif item.assignment.lesson_type == 'amaliyot' %}
+                        <span
+                            class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200 flex-shrink-0">Amaliyot</span>
+                        {% elif item.assignment.lesson_type == 'laboratoriya' %}
+                        <span
+                            class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">Laboratoriya</span>
+                        {% elif item.assignment.lesson_type == 'seminar' %}
+                        <span
+                            class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">Seminar</span>
+                        {% elif item.assignment.lesson_type == 'kurs_ishi' %}
+                        <span
+                            class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200 flex-shrink-0">Kurs
+                            ishi</span>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    {% if item.progress_percent is not none %}
+                    <!-- Progress bar -->
+                    <div class="mt-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs text-gray-600">Qolgan vaqt:</span>
+                            {% if item.hours_left is defined %}
+                            {% if item.hours_left < 1 %} <span class="text-xs font-bold text-red-600">
+                                Topshirilmadi</span>
+                                {% elif item.hours_left < 24 %} <span class="text-xs font-bold text-orange-600">{{
+                                    item.hours_left|int }} soat</span>
+                                    {% else %}
+                                    <span class="text-xs font-bold text-green-600">{{ item.hours_left|int }} soat</span>
+                                    {% endif %}
+                                    {% endif %}
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                            <div class="h-2.5 rounded-full transition-all duration-300 {% if item.progress_percent <= 50 %}bg-red-500{% else %}bg-yellow-500{% endif %}"
+                                style="width: {{ item.progress_percent }}%"></div>
+                        </div>
+                    </div>
+                    {% elif item.hours_left is defined or item.days_left is defined %}
+                    <p class="text-xs text-red-600 font-bold mt-1">
+                        {% if item.hours_left is defined %}
+                        {% if item.hours_left < 1 %} ⚠️ 1 soatdan kam qoldi! {% elif item.hours_left < 24 %} ⚠️ {{
+                            item.hours_left|int }} soat qoldi {% elif item.days_left==1 %} ⚠️ Ertaga muddat {% else %}
+                            ⚠️ {{ item.days_left }} kun qoldi {% endif %} {% elif item.days_left==0 %} ⚠️ Bugun muddat!
+                            {% elif item.days_left==1 %} ⚠️ Ertaga muddat {% else %} {{ item.days_left }} kun qoldi {%
+                            endif %} </p>
+                            {% endif %}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <div class="flex items-center gap-4">
-                <div class="p-3 bg-primary-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-gray-900">{{ total_subjects }}</p>
-                    <p class="text-sm text-gray-500">Fanlarim</p>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <div class="flex items-center gap-4">
-                <div class="p-3 bg-amber-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-gray-900">{{ pending_assignments|length if pending_assignments else 0 }}</p>
-                    <p class="text-sm text-gray-500">Topshiriqlar</p>
-                </div>
-            </div>
-        </div>
         {% if group %}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-green-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ group.name }}</p>
@@ -216,13 +489,18 @@
         </div>
         {% endif %}
         {% if payment_info %}
-        <a href="{{ url_for('accounting.student_payments', student_id=current_user.id) }}" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+        <a href="{{ url_for('accounting.student_payments', student_id=current_user.id) }}"
+            class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-purple-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                 </div>
                 <div class="flex-1">
-                    <p class="text-lg font-bold text-gray-900">{{ "{:,.0f}".format(payment_info.paid) }} / {{ "{:,.0f}".format(payment_info.contract) }} so'm</p>
+                    <p class="text-lg font-bold text-gray-900">{{ "{:,.0f}".format(payment_info.paid) }} / {{
+                        "{:,.0f}".format(payment_info.contract) }} so'm</p>
                     <p class="text-sm text-gray-500">To'lov: {{ payment_info.percentage }}%</p>
                 </div>
                 <div class="text-right">
@@ -238,54 +516,379 @@
         </a>
         {% endif %}
     </div>
-    
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- My subjects -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Mening fanlarim</h3>
-            <div class="space-y-4">
-                {% for subject in my_subjects[:4] %}
-                <a href="{{ url_for('courses.detail', id=subject.id) }}" class="block p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                    <p class="text-sm font-medium text-gray-900">{{ subject.name }}</p>
-                    <p class="text-xs text-gray-500">
+        <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/50 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-lg font-semibold text-gray-900">Mening fanlarim</h3>
+                    <a href="{{ url_for('courses.index') }}"
+                        class="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-colors text-lg font-semibold"
+                        title="Barcha fanlarni ko'rish" aria-label="Barcha fanlarni ko'rish">
+                        +
+                    </a>
+                </div>
+                <div class="text-right">
+                    <p class="text-2xl font-bold text-primary-600">{{ stats.current_semester_subjects or
+                        my_subjects|length }}</p>
+                    <p class="text-xs text-gray-500">Fanlar</p>
+                </div>
+            </div>
+            <div class="space-y-4 max-h-[500px] overflow-y-auto">
+                {% for subject in my_subjects %}
+                <a href="{{ url_for('courses.detail', id=subject.id) }}"
+                    class="block p-4 bg-white rounded-xl hover:shadow-md transition-all border border-gray-200 shadow-sm relative z-10">
+                    <p class="text-sm font-bold text-gray-900 mb-3">{{ subject.name }}</p>
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center relative z-20">
+                            {% if my_subjects_info and my_subjects_info.get(subject.id) %}
+                            {% set subject_info = my_subjects_info[subject.id] %}
+                            {% set progress_value = subject_info.get('progress', 0) %}
+                            {% if progress_value is not none %}
+                            <span class="text-sm font-bold text-primary-600">{{ "%.0f"|format(progress_value) }}%</span>
+                            {% else %}
+                            <span class="text-sm font-bold text-primary-600">0%</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-sm font-bold text-primary-600">0%</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center relative z-20">
+                            {% if my_subjects_info and my_subjects_info.get(subject.id) %}
+                            {% set subject_info = my_subjects_info[subject.id] %}
+                            {% set progress_value = subject_info.get('progress', 0) %}
+                            {% if progress_value is not none %}
+                            <span class="text-sm font-bold text-primary-600">{{ "%.0f"|format(progress_value) }}%</span>
+                            {% else %}
+                            <span class="text-sm font-bold text-primary-600">0%</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-sm font-bold text-primary-600">0%</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="relative z-20">
                         {% if my_subjects_info and my_subjects_info.get(subject.id) %}
-                            {% set info = my_subjects_info[subject.id] %}
-                            {{ info.course_year }}-kurs, {{ info.semester }}-semestr
-                            {% if subject.credits %} • {{ subject.credits }} kredit{% endif %}
-                        {% else %}
-                            {% if subject.code %}{{ subject.code }}{% if subject.credits %} • {% endif %}{% endif %}{% if subject.credits %}{{ subject.credits }} kredit{% endif %}
+                        {% set info = my_subjects_info[subject.id] %}
+                        {% set credits_value = info.get('credits') %}
+                        {% if credits_value is not none and credits_value %}
+                        <p class="text-xs text-gray-500">{{ "%.2f"|format(credits_value) }} kredit</p>
                         {% endif %}
-                    </p>
+                        {% endif %}
+                    </div>
                 </a>
                 {% else %}
                 <p class="text-sm text-gray-500">Fanlar biriktirilmagan</p>
                 {% endfor %}
             </div>
         </div>
-        
-        <!-- Pending assignments -->
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Topshiriqlar</h3>
-            <div class="space-y-3">
-                {% for assignment in pending_assignments %}
-                <a href="{{ url_for('courses.assignment_detail', id=assignment.id) }}" class="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900">{{ assignment.title }}</p>
-                        <p class="text-xs text-gray-500">{{ assignment.subject.name }}</p>
+
+        <!-- Topshiriqlar: Topshirilgan va Topshirilmagan bitta cardda -->
+        <div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/50 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Topshiriqlar</h3>
+            </div>
+
+            <!-- Filter tugmalari -->
+            <div class="flex items-center gap-2 mb-4 flex-wrap">
+                <button type="button" onclick="filterAssignments('not_submitted')"
+                    class="filter-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                    data-filter="not_submitted">
+                    Topshirilmagan ({{ stats.not_submitted_assignments or 0 }})
+                </button>
+                <button type="button" onclick="filterAssignments('submitted')"
+                    class="filter-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                    data-filter="submitted">
+                    Topshirilgan ({{ stats.submitted_assignments or stats.graded_assignments or 0 }})
+                </button>
+                <button type="button" onclick="filterAssignments('overdue')"
+                    class="filter-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                    data-filter="overdue">
+                    Muddati o'tgan ({{ stats.overdue_assignments or 0 }})
+                </button>
+                <button type="button" onclick="filterAssignments('all')"
+                    class="filter-btn active px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-500 text-white transition-colors"
+                    data-filter="all">
+                    Barchasi ({{ (stats.submitted_assignments or stats.graded_assignments or 0) +
+                    (stats.not_submitted_assignments or 0) + (stats.overdue_assignments or 0) }})
+                </button>
+            </div>
+
+            <!-- Topshiriqlar ro'yxati -->
+            <div class="space-y-2 max-h-[400px] overflow-y-auto" id="assignmentsList">
+                <!-- Topshirilmagan topshiriqlar (birinchi navbatda) -->
+                {% for item in pending_assignments %}
+                {% set assignment = item.assignment if item.assignment else item %}
+                {% set status = item.status if item.status else 'not_submitted' %}
+                {% if status == 'not_submitted' and not item.get('is_overdue', False) %}
+                <a href="{{ url_for('courses.assignment_detail', id=assignment.id) }}"
+                    class="assignment-item flex items-center justify-between p-2 bg-white rounded-lg hover:shadow-sm transition-all border border-gray-200 relative"
+                    data-status="not_submitted">
+                    <!-- Uch qatlamli olov ikon (katta va harakatda) -->
+                    {% if item.is_urgent %}
+                    <div class="absolute top-1 right-1">
+                        <svg class="w-8 h-8 flame-animated" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <!-- Tashqi qatlam (qizil-to'q sariq) -->
+                            <path
+                                d="M12 2C10 5 8 6 7 8c-2 4 0 7 2 9 1 1 0 3 0 4 0 3 3 5 6 4s5-2 5-5c0-1-1-2-1-3 2-3 3-6 1-10-1-2-2-3-4-6z"
+                                fill="#ff4500" class="flame-icon" />
+                            <!-- O'rta qatlam (to'q sariq) -->
+                            <path
+                                d="M12 4C10.5 6 9 7 8 8.5c-1.5 3 0 5.5 1.5 7 0.5 1 0 2 0 3 0 2 2 3 4 3s4-1 4-3c0-1-0.5-1.5-0.5-2 1.5-2 2-4.5 0.5-7.5-0.5-1-1.5-2-3-4z"
+                                fill="#ff8c00" />
+                            <!-- Ichki qatlam (sariq) -->
+                            <path
+                                d="M12 8c-1 1.5-1.5 2-2 2.5-1 2 0 3.5 1 4.5 0.5 0.5 0 1.5 0 2 0 1.5 1.5 2 2.5 2s2.5-0.5 2.5-2c0-0.5-0.5-1-0.5-1.5 1-1.5 1-3 0-5-0.5-1-1-1.5-2-3z"
+                                fill="#ffd700" />
+                        </svg>
+                    </div>
+                    {% endif %}
+                    <div class="flex-1 min-w-0 {% if item.is_urgent %}pr-8{% endif %}">
+                        <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <p
+                                class="text-xs font-medium {% if item.is_urgent %}text-red-600 font-bold{% else %}text-gray-900{% endif %} truncate">
+                                {{ assignment.subject.name }}</p>
+                            {% if assignment.lesson_type %}
+                            {% if assignment.lesson_type == 'maruza' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">Maruza</span>
+                            {% elif assignment.lesson_type == 'amaliyot' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200 flex-shrink-0">Amaliyot</span>
+                            {% elif assignment.lesson_type == 'laboratoriya' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">Laboratoriya</span>
+                            {% elif assignment.lesson_type == 'seminar' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">Seminar</span>
+                            {% elif assignment.lesson_type == 'kurs_ishi' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200 flex-shrink-0">Kurs
+                                ishi</span>
+                            {% endif %}
+                            {% endif %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 flex-shrink-0">
+                                Topshirilmagan
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 truncate">{{ assignment.title }}</p>
+                        {% if item.progress_percent is not none %}
+                        <!-- Progress bar -->
+                        <div class="mt-1.5">
+                            <div class="flex items-center justify-between mb-0.5">
+                                <span class="text-xs text-gray-500">Qolgan vaqt:</span>
+                                {% if item.hours_left is not none %}
+                                {% if item.hours_left < 1 %} <span class="text-xs font-bold text-red-600">
+                                    Topshirilmadi</span>
+                                    {% elif item.hours_left < 24 %} <span class="text-xs font-bold text-orange-600">{{
+                                        item.hours_left|int }} soat</span>
+                                        {% else %}
+                                        <span class="text-xs font-bold text-green-600">{{ item.hours_left|int }}
+                                            soat</span>
+                                        {% endif %}
+                                        {% endif %}
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                <div class="h-2 rounded-full transition-all duration-300 {% if item.progress_percent <= 50 %}bg-red-500{% else %}bg-yellow-500{% endif %}"
+                                    style="width: {{ item.progress_percent }}%"></div>
+                            </div>
+                        </div>
+                        {% elif item.is_urgent and (item.hours_left is not none or item.days_left is not none) %}
+                        <p class="text-xs text-red-600 font-bold mt-0.5">
+                            {% if item.hours_left is not none %}
+                            {% if item.hours_left < 1 %} ⚠️ 1 soatdan kam qoldi! {% elif item.hours_left < 24 %} ⚠️ {{
+                                item.hours_left|int }} soat qoldi {% elif item.days_left==1 %} ⚠️ Ertaga muddat {% else
+                                %} ⚠️ {{ item.days_left }} kun qoldi {% endif %} {% elif item.days_left==0 %} ⚠️ Bugun
+                                muddat! {% elif item.days_left==1 %} ⚠️ Ertaga muddat {% else %} ⚠️ {{ item.days_left }}
+                                kun qoldi {% endif %} </p>
+                                {% endif %}
                     </div>
                     {% if assignment.due_date %}
-                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
-                        {{ assignment.due_date.strftime('%d.%m') }}
+                    <span
+                        class="px-2 py-0.5 text-xs font-medium rounded-full {% if item.is_urgent %}bg-red-500 text-white{% else %}bg-gray-100 text-gray-700{% endif %} ml-2 flex-shrink-0">
+                        {{ assignment.due_date.strftime('%d.%m.%Y') }}
                     </span>
                     {% endif %}
                 </a>
-                {% else %}
-                <p class="text-sm text-gray-500">Kutilayotgan topshiriqlar yo'q</p>
+                {% endif %}
                 {% endfor %}
+
+                <!-- Topshirilgan topshiriqlar -->
+                {% for item in pending_assignments %}
+                {% set assignment = item.assignment if item.assignment else item %}
+                {% set status = item.status if item.status else 'not_submitted' %}
+                {% if status == 'graded' or status == 'submitted' %}
+                <a href="{{ url_for('courses.assignment_detail', id=assignment.id) }}"
+                    class="assignment-item flex items-center justify-between p-2 bg-white rounded-lg hover:shadow-sm transition-all border border-gray-200"
+                    data-status="submitted">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <p class="text-xs font-medium text-gray-900 truncate">{{ assignment.subject.name }}</p>
+                            {% if assignment.lesson_type %}
+                            {% if assignment.lesson_type == 'maruza' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">Maruza</span>
+                            {% elif assignment.lesson_type == 'amaliyot' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200 flex-shrink-0">Amaliyot</span>
+                            {% elif assignment.lesson_type == 'laboratoriya' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">Laboratoriya</span>
+                            {% elif assignment.lesson_type == 'seminar' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">Seminar</span>
+                            {% elif assignment.lesson_type == 'kurs_ishi' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200 flex-shrink-0">Kurs
+                                ishi</span>
+                            {% endif %}
+                            {% endif %}
+                            {% if status == 'graded' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 flex-shrink-0">
+                                Baholangan
+                            </span>
+                            {% else %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 flex-shrink-0">
+                                Yuborilgan
+                            </span>
+                            {% endif %}
+                        </div>
+                        <p class="text-xs text-gray-500 truncate">{{ assignment.title }}</p>
+                    </div>
+                    {% if assignment.due_date %}
+                    <span
+                        class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-700 ml-2 flex-shrink-0">
+                        {{ assignment.due_date.strftime('%d.%m.%Y') }}
+                    </span>
+                    {% endif %}
+                </a>
+                {% endif %}
+                {% endfor %}
+
+                <!-- Muddati o'tgan lekin topshirilmagan topshiriqlar (faqat "Barchasi" tabida ko'rsatiladi) -->
+                {% for item in pending_assignments %}
+                {% set assignment = item.assignment if item.assignment else item %}
+                {% set status = item.status if item.status else 'not_submitted' %}
+                {% if status == 'not_submitted' and item.get('is_overdue', False) %}
+                <a href="{{ url_for('courses.assignment_detail', id=assignment.id) }}"
+                    class="assignment-item flex items-center justify-between p-2 bg-white rounded-lg hover:shadow-sm transition-all border border-gray-200 relative"
+                    data-status="not_submitted_overdue" style="display: none;">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <p class="text-xs font-medium text-gray-900 truncate">{{ assignment.subject.name }}</p>
+                            {% if assignment.lesson_type %}
+                            {% if assignment.lesson_type == 'maruza' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">Maruza</span>
+                            {% elif assignment.lesson_type == 'amaliyot' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200 flex-shrink-0">Amaliyot</span>
+                            {% elif assignment.lesson_type == 'laboratoriya' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">Laboratoriya</span>
+                            {% elif assignment.lesson_type == 'seminar' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">Seminar</span>
+                            {% elif assignment.lesson_type == 'kurs_ishi' %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200 flex-shrink-0">Kurs
+                                ishi</span>
+                            {% endif %}
+                            {% endif %}
+                            <span
+                                class="px-1.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 flex-shrink-0">
+                                Muddat o'tgan
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 truncate">{{ assignment.title }}</p>
+                    </div>
+                    {% if assignment.due_date %}
+                    <span
+                        class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 ml-2 flex-shrink-0">
+                        {{ assignment.due_date.strftime('%d.%m.%Y') }}
+                    </span>
+                    {% endif %}
+                </a>
+                {% endif %}
+                {% endfor %}
+
+                <!-- Bo'sh holat -->
+                <p class="text-xs text-gray-400 py-2 hidden" id="noAssignmentsMessage">Topshiriqlar topilmadi</p>
             </div>
         </div>
+
+        <script>
+            function filterAssignments(filter) {
+                const items = document.querySelectorAll('.assignment-item');
+                const buttons = document.querySelectorAll('.filter-btn');
+                const noMessage = document.getElementById('noAssignmentsMessage');
+                let visibleCount = 0;
+
+                // Tugmalarni yangilash
+                buttons.forEach(btn => {
+                    if (btn.dataset.filter === filter) {
+                        btn.classList.add('active', 'bg-primary-500', 'text-white');
+                        btn.classList.remove('bg-gray-100', 'text-gray-700');
+                    } else {
+                        btn.classList.remove('active', 'bg-primary-500', 'text-white');
+                        btn.classList.add('bg-gray-100', 'text-gray-700');
+                    }
+                });
+
+                // Topshiriqlarni filtrlash
+                items.forEach(item => {
+                    const status = item.dataset.status;
+                    if (filter === 'all') {
+                        // "Barchasi" tabida barcha topshiriqlar ko'rsatiladi (muddati o'tgan topshirilmaganlar ham)
+                        item.style.display = 'flex';
+                        visibleCount++;
+                    } else if (filter === 'submitted' && status === 'submitted') {
+                        item.style.display = 'flex';
+                        visibleCount++;
+                    } else if (filter === 'not_submitted' && status === 'not_submitted') {
+                        // "Topshirilmagan" tabida faqat muddati o'tmagan topshirilmagan topshiriqlar
+                        item.style.display = 'flex';
+                        visibleCount++;
+                    } else if (filter === 'overdue' && status === 'not_submitted_overdue') {
+                        // "Muddati o'tgan" tabida faqat muddati o'tgan topshirilmagan topshiriqlar
+                        item.style.display = 'flex';
+                        visibleCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                // Bo'sh xabar ko'rsatish/yashirish
+                if (visibleCount === 0) {
+                    noMessage.classList.remove('hidden');
+                } else {
+                    noMessage.classList.add('hidden');
+                }
+            }
+
+            // Dastlabki holat: topshirilmaganlar ko'rsatilsin
+            document.addEventListener('DOMContentLoaded', function () {
+                // Tugmalarni dastlabki holatga o'rnatish
+                const buttons = document.querySelectorAll('.filter-btn');
+                buttons.forEach(btn => {
+                    if (btn.dataset.filter === 'not_submitted') {
+                        btn.classList.add('active', 'bg-primary-500', 'text-white');
+                        btn.classList.remove('bg-gray-100', 'text-gray-700');
+                    } else {
+                        btn.classList.remove('active', 'bg-primary-500', 'text-white');
+                        btn.classList.add('bg-gray-100', 'text-gray-700');
+                    }
+                });
+                filterAssignments('not_submitted');
+            });
+        </script>
     </div>
-    
+
     <!-- Today's schedule -->
     {% if today_schedule %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -295,13 +898,17 @@
             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                 <div class="flex items-center gap-3">
                     <div class="flex items-center justify-center w-12 h-12 bg-primary-100 rounded-xl">
-                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                     </div>
                     <div>
                         <p class="text-sm font-medium text-gray-900">{{ schedule.subject.name }}</p>
                         <p class="text-xs text-gray-500">
                             {% if schedule.link %}
-                            <a href="{{ schedule.link }}" target="_blank" class="text-primary-600 hover:text-primary-800 underline">Link</a> • 
+                            <a href="{{ schedule.link }}" target="_blank"
+                                class="text-primary-600 hover:text-primary-800 underline">Link</a> •
                             {% endif %}
                             {{ schedule.teacher.full_name }}
                         </p>
@@ -313,14 +920,18 @@
         </div>
     </div>
     {% endif %}
-    
-    {% elif current_user.role == 'dean' %}
+    {% endif %}
+
+    {% if current_user.role == 'dean' %}
     <!-- Dean Dashboard -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-primary-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ total_students }}</p>
@@ -331,7 +942,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-green-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ total_groups }}</p>
@@ -342,7 +956,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-violet-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-2xl font-bold text-gray-900">{{ total_subjects }}</p>
@@ -354,7 +971,10 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-amber-500 rounded-xl">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
                 </div>
                 <div>
                     <p class="text-lg font-bold text-gray-900">{{ faculty.name }}</p>
@@ -364,19 +984,21 @@
         </div>
         {% endif %}
     </div>
-    
+
     <!-- Recent announcements -->
     {% if recent_announcements %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">So'nggi e'lonlar</h3>
         <div class="space-y-3">
             {% for announcement in recent_announcements %}
-            <div class="p-4 bg-gray-50 rounded-xl {% if announcement.is_important %}border-l-4 border-red-500{% endif %}">
+            <div
+                class="p-4 bg-gray-50 rounded-xl {% if announcement.is_important %}border-l-4 border-red-500{% endif %}">
                 <div class="flex items-start justify-between">
                     <div>
                         <div class="flex items-center gap-2">
                             {% if announcement.is_important %}
-                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Muhim</span>
+                            <span
+                                class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Muhim</span>
                             {% endif %}
                             <h4 class="text-sm font-medium text-gray-900">{{ announcement.title }}</h4>
                         </div>
@@ -390,22 +1012,25 @@
     </div>
     {% endif %}
     {% endif %}
-    
+
     <!-- Announcements -->
     {% if announcements %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-900">E'lonlar</h3>
-            <a href="{{ url_for('main.announcements') }}" class="text-sm text-primary-600 hover:text-primary-700">Barchasi</a>
+            <a href="{{ url_for('main.announcements') }}"
+                class="text-sm text-primary-600 hover:text-primary-700">Barchasi</a>
         </div>
         <div class="space-y-3">
             {% for announcement in announcements %}
-            <div class="p-4 bg-gray-50 rounded-xl {% if announcement.is_important %}border-l-4 border-red-500{% endif %}">
+            <div
+                class="p-4 bg-gray-50 rounded-xl {% if announcement.is_important %}border-l-4 border-red-500{% endif %}">
                 <div class="flex items-start justify-between">
                     <div>
                         <div class="flex items-center gap-2">
                             {% if announcement.is_important %}
-                            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Muhim</span>
+                            <span
+                                class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Muhim</span>
                             {% endif %}
                             <h4 class="text-sm font-medium text-gray-900">{{ announcement.title }}</h4>
                         </div>

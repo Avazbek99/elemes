@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, send_file, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, send_file, session, jsonify
 from flask_login import login_required, current_user
 from app.models import User, Faculty, Group, Subject, TeacherSubject, Schedule, Announcement, Direction, StudentPayment, DirectionCurriculum
 from app import db
@@ -7,6 +7,8 @@ from sqlalchemy import func
 from datetime import datetime
 import calendar
 from werkzeug.security import generate_password_hash
+from app.utils.excel_export import create_schedule_excel
+from app.utils.excel_import import generate_schedule_sample_file, import_schedule_from_excel
 
 bp = Blueprint('dean', __name__, url_prefix='/dean')
 
@@ -2231,6 +2233,7 @@ def schedule():
         year += 1
     days_in_month = calendar.monthrange(year, month)[1]
     start_weekday = calendar.monthrange(year, month)[0]  # 0=Monday
+
     # Oldingi va keyingi oylar
     if month == 1:
         prev_month, prev_year = 12, year - 1
@@ -2246,44 +2249,92 @@ def schedule():
     today_month = today.month
     today_day = today.day
     
-    # Joriy oy uchun sanalar diapazoni (YYYYMMDD ko'rinishida)
+    # Joriy oy uchun sanalar diapazoni
     start_code = int(f"{year}{month:02d}01")
     end_code = int(f"{year}{month:02d}{days_in_month:02d}")
     
-    group_id = request.args.get('group', type=int)
+    # Filter parametrlari
+    course_year = request.args.get('course_year', type=int)
+    semester = request.args.get('semester', type=int)
+    direction_id = request.args.get('direction_id', type=int)
+    group_id = request.args.get('group_id', type=int)
+    teacher_id = request.args.get('teacher_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Sana diapazoni bo'yicha filter (Admin kabi logic)
+    if start_date or end_date:
+        try:
+            if start_date and end_date:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                start_code = int(start_dt.strftime("%Y%m%d"))
+                end_code = int(end_dt.strftime("%Y%m%d"))
+            elif start_date:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                start_code = int(start_dt.strftime("%Y%m%d"))
+                end_code = 99991231
+            elif end_date:
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                start_code = 19000101
+                end_code = int(end_dt.strftime("%Y%m%d"))
+        except ValueError:
+            pass # Standard oy filteriga qaytish
+
+    # Query qurish
+    query = Schedule.query.join(Group).filter(
+        Group.faculty_id == faculty.id,
+        Schedule.day_of_week.between(start_code, end_code)
+    )
     
-    groups = faculty.groups.order_by(Group.name).all()
-    
+    if course_year:
+        query = query.filter(Group.course_year == course_year)
+    if direction_id:
+        query = query.filter(Group.direction_id == direction_id)
     if group_id:
-        schedules = Schedule.query.filter(
-            Schedule.group_id == group_id,
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
-    else:
-        group_ids = [g.id for g in groups]
-        schedules = Schedule.query.filter(
-            Schedule.group_id.in_(group_ids),
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
+        query = query.filter(Schedule.group_id == group_id)
+    if teacher_id:
+        query = query.filter(Schedule.teacher_id == teacher_id)
+    if semester:
+        query = query.join(Direction, Group.direction_id == Direction.id).filter(Direction.semester == semester)
+        
+    schedules = query.order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    # Oy kunlari bo'yicha guruhlash (har bir dars aniq sana bo'yicha)
+    # Oy kunlari bo'yicha guruhlash
     schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
     for s in schedules:
         try:
             code_str = str(s.day_of_week)
-            day = int(code_str[-2:])
+            # Agar yil va oy mos kelsa kunni olamiz
+            s_year = int(code_str[:4])
+            s_month = int(code_str[4:6])
+            
+            if s_year == year and s_month == month:
+                day = int(code_str[6:8])
+                if 1 <= day <= days_in_month:
+                    schedule_by_day[day].append(s)
         except (TypeError, ValueError):
             continue
-        if 1 <= day <= days_in_month:
-            schedule_by_day[day].append(s)
-    
+            
     for day in schedule_by_day:
         schedule_by_day[day].sort(key=lambda x: x.start_time or '')
+        
+    # Filtrlash uchun ma'lumotlar
+    all_courses = db.session.query(Group.course_year).filter_by(faculty_id=faculty.id).distinct().order_by(Group.course_year).all()
+    all_courses = [c[0] for c in all_courses if c[0]]
     
+    all_semesters = db.session.query(Direction.semester).filter_by(faculty_id=faculty.id).distinct().order_by(Direction.semester).all()
+    all_semesters = [s[0] for s in all_semesters if s[0]]
+
+    all_directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+    all_groups = Group.query.filter_by(faculty_id=faculty.id).order_by(Group.name).all()
+    
+    # O'qituvchilar (shu fakultetga dars beradigan)
+    # Oddiylashtirish uchun barcha o'qituvchilarni olib kelamiz yoki fakultetga bog'langanlarini
+    all_teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
+
     return render_template('dean/schedule.html', 
                          faculty=faculty,
-                         groups=groups,
-                         current_group=group_id,
                          schedule_by_day=schedule_by_day,
                          days_in_month=days_in_month,
                          start_weekday=start_weekday,
@@ -2296,8 +2347,206 @@ def schedule():
                          prev_year=prev_year,
                          prev_month=prev_month,
                          next_year=next_year,
-                         next_month=next_month)
+                         next_month=next_month,
+                         # Filters context
+                         all_courses=all_courses,
+                         all_semesters=all_semesters,
+                         all_directions=all_directions,
+                         all_groups=all_groups,
+                         all_teachers=all_teachers,
+                         current_course_year=course_year,
+                         current_semester=semester,
+                         current_direction_id=direction_id,
+                         current_group_id=group_id,
+                         current_teacher_id=teacher_id
+                         )
 
+@bp.route('/schedule/import', methods=['GET', 'POST'])
+@login_required
+@dean_required
+def import_schedule():
+    """Dars jadvalini Excel fayldan import qilish"""
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('dean.schedule'))
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash("Fayl tanlanmagan", 'error')
+            return redirect(url_for('dean.schedule'))
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            flash("Faqat Excel (.xlsx, .xls) fayllar qabul qilinadi", 'error')
+            return redirect(url_for('dean.schedule'))
+            
+        try:
+            # Import logic
+            result = import_schedule_from_excel(file)
+            
+            if result['success']:
+                msg = f"{result['imported']} ta dars jadvali import qilindi."
+                if result['errors']:
+                    msg += f" {len(result['errors'])} ta xatolik."
+                flash(msg, 'success' if not result['errors'] else 'warning')
+                
+                for err in result['errors'][:5]:
+                    flash(err, 'error')
+            else:
+                flash(f"Import xatosi: {'; '.join(result['errors'])}", 'error')
+                
+        except Exception as e:
+            flash(f"Xatolik yuz berdi: {str(e)}", 'error')
+            
+        return redirect(url_for('dean.schedule'))
+        
+    return render_template('dean/import_schedule.html')
+
+@bp.route('/schedule/sample')
+@login_required
+@dean_required
+def schedule_sample():
+    """Dars jadvali importi uchun namuna yuklab olish"""
+    try:
+        excel_file = generate_schedule_sample_file()
+        filename = f"dars_jadvali_namuna.xlsx"
+        return send_file(
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        flash(f"Namuna fayl yaratishda xatolik: {str(e)}", 'error')
+        return redirect(url_for('dean.schedule'))
+
+@bp.route('/schedule/export')
+@login_required
+@dean_required
+def export_schedule():
+    """Dars jadvalini Excelga eksport qilish"""
+    faculty = Faculty.query.get(current_user.faculty_id)
+    if not faculty:
+        flash("Fakultet topilmadi", 'error')
+        return redirect(url_for('dean.schedule'))
+
+    # Parametrlarni olish
+    course_year = request.args.get('course_year', type=int)
+    semester = request.args.get('semester', type=int)
+    direction_id = request.args.get('direction_id', type=int)
+    group_id = request.args.get('group_id', type=int)
+    teacher_id = request.args.get('teacher_id', type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Sana filteri (Admin kabi logic)
+    if start_date or end_date:
+        try:
+            if start_date and end_date:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                start_code = int(start_dt.strftime("%Y%m%d"))
+                end_code = int(end_dt.strftime("%Y%m%d"))
+            elif start_date:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                start_code = int(start_dt.strftime("%Y%m%d"))
+                end_code = 99991231
+            elif end_date:
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                start_code = 19000101
+                end_code = int(end_dt.strftime("%Y%m%d"))
+        except ValueError:
+            flash("Sana formati noto'g'ri", 'error')
+            return redirect(url_for('dean.schedule'))
+    else:
+        # Standart holatda barcha
+        start_code = 19000101
+        end_code = 99991231
+
+    query = Schedule.query.join(Group).filter(
+        Group.faculty_id == faculty.id,
+        Schedule.day_of_week.between(start_code, end_code)
+    )
+
+    if course_year:
+        query = query.filter(Group.course_year == course_year)
+    if direction_id:
+        query = query.filter(Group.direction_id == direction_id)
+    if group_id:
+        query = query.filter(Schedule.group_id == group_id)
+    if teacher_id:
+        query = query.filter(Schedule.teacher_id == teacher_id)
+    if semester:
+        query = query.join(Direction, Group.direction_id == Direction.id).filter(Direction.semester == semester)
+
+    schedules = query.order_by(Schedule.day_of_week, Schedule.start_time).all()
+
+    # Generate descriptive filename
+    filename_parts = ["dars_jadvali"]
+    if group_id and schedules:
+        filename_parts.append(schedules[0].group.name if schedules[0].group else "")
+    else:
+        filename_parts.append(faculty.name.replace(' ', '_'))
+    
+    if teacher_id:
+        teacher = User.query.get(teacher_id)
+        if teacher:
+            filename_parts.append(teacher.full_name.replace(' ', '_'))
+
+    if start_date and end_date:
+        filename_parts.append(f"{start_date}_{end_date}")
+    
+    filename = "_".join(filter(None, filename_parts)) + ".xlsx"
+
+    # Create Excel file
+    group_name = schedules[0].group.name if schedules and schedules[0].group else None
+    
+    excel_file = create_schedule_excel(schedules, group_name, faculty.name)
+    
+    return Response(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename={filename}'}
+    )
+
+
+@bp.route('/api/schedule/filters')
+@login_required
+@dean_required
+def api_schedule_filters():
+    """Dekan uchun dars jadvali filtrlarini dinamik qaytarish (faqat o'z fakulteti)"""
+    from app.models import Direction, Subject, TeacherSubject
+    
+    group_id = request.args.get('group_id', type=int)
+    subject_id = request.args.get('subject_id', type=int)
+    teacher_id = request.args.get('teacher_id', type=int)
+    
+    if group_id and not subject_id:
+        # Guruhga biriktirilgan fanlar (TeacherSubject orqali)
+        assignments = TeacherSubject.query.filter_by(group_id=group_id).all()
+        subjects_data = {}
+        for a in assignments:
+            if a.subject_id not in subjects_data:
+                subjects_data[a.subject_id] = {
+                    'id': a.subject.id,
+                    'name': a.subject.name,
+                    'code': a.subject.code
+                }
+        return jsonify(sorted(list(subjects_data.values()), key=lambda x: x['name']))
+    
+    if group_id and subject_id and not teacher_id:
+        # Guruh va fan uchun biriktirilgan o'qituvchilar
+        assignments = TeacherSubject.query.filter_by(group_id=group_id, subject_id=subject_id).all()
+        teachers_data = {}
+        for a in assignments:
+            if a.teacher_id not in teachers_data:
+                teachers_data[a.teacher_id] = {
+                    'id': a.teacher.id,
+                    'full_name': a.teacher.full_name
+                }
+        return jsonify(sorted(list(teachers_data.values()), key=lambda x: x['full_name']))
+        
+    return jsonify([])
 
 @bp.route('/schedule/create', methods=['GET', 'POST'])
 @login_required
@@ -2308,11 +2557,59 @@ def create_schedule():
         flash("Sizga fakultet biriktirilmagan", 'error')
         return redirect(url_for('main.dashboard'))
     
-    groups = faculty.groups.order_by(Group.name).all()
-    # Fanlarni guruhlar orqali olish
-    subjects = Subject.query.join(TeacherSubject).join(Group).filter(
-        Group.faculty_id == faculty.id
-    ).distinct().order_by(Subject.name).all()
+    faculty_id = faculty.id
+    
+    # Robust mapping logic (Group-driven)
+    faculty_courses = [course for (course,) in db.session.query(Group.course_year).filter(Group.faculty_id == faculty_id).distinct().order_by(Group.course_year).all() if course]
+    
+    faculty_course_semesters = {}
+    faculty_course_semester_education_directions = {}
+    direction_groups = {}
+    
+    all_groups = Group.query.filter_by(faculty_id=faculty_id).all()
+    for g in all_groups:
+        c = g.course_year
+        if not c: continue
+        
+        if g.direction:
+            d = g.direction
+            s = d.semester
+            
+            if c not in faculty_course_semesters:
+                faculty_course_semesters[c] = set()
+            faculty_course_semesters[c].add(s)
+            
+            if s not in faculty_course_semester_education_directions:
+                faculty_course_semester_education_directions[s] = {}
+            if c not in faculty_course_semester_education_directions[s]:
+                faculty_course_semester_education_directions[s][c] = {}
+            
+            etype = d.education_type or 'kunduzgi'
+            if etype not in faculty_course_semester_education_directions[s][c]:
+                faculty_course_semester_education_education_types = faculty_course_semester_education_directions[s][c]
+                faculty_course_semester_education_education_types[etype] = []
+            
+            if not any(item['id'] == d.id for item in faculty_course_semester_education_directions[s][c][etype]):
+                faculty_course_semester_education_directions[s][c][etype].append({
+                    'id': d.id,
+                    'name': d.name,
+                    'code': d.code,
+                    'enrollment_year': d.enrollment_year,
+                    'education_type': etype
+                })
+            
+            if d.id not in direction_groups:
+                direction_groups[d.id] = []
+            if not any(item['id'] == g.id for item in direction_groups[d.id]):
+                direction_groups[d.id].append({
+                    'id': g.id,
+                    'name': g.name
+                })
+
+    # Convert sets to sorted lists
+    for c in faculty_course_semesters:
+        faculty_course_semesters[c] = sorted(list(faculty_course_semesters[c]))
+
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
     # GET parametrlar orqali kelgan default sana va guruh
@@ -2321,46 +2618,82 @@ def create_schedule():
     
     if request.method == 'POST':
         # Sana (kalendardan) -> YYYYMMDD formatida int
+        faculty = current_user.managed_faculty
         date_str = request.form.get('schedule_date')
         date_code = None
+        parsed_date = None
         if date_str:
             try:
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
                 date_code = int(parsed_date.strftime("%Y%m%d"))
             except ValueError:
-                flash("Sana noto'g'ri formatda. Iltimos, kalendardan tanlang.", 'error')
+                flash("Sana noto'g'ri formatda", 'error')
                 return redirect(url_for('dean.create_schedule'))
         
         if not date_code:
             flash("Sana tanlanishi shart.", 'error')
             return redirect(url_for('dean.create_schedule'))
         
-        schedule = Schedule(
-            subject_id=request.form.get('subject_id', type=int),
-            group_id=request.form.get('group_id', type=int),
-            teacher_id=request.form.get('teacher_id', type=int),
+        # Takrorlanishni tekshirish
+        start_time = request.form.get('start_time')
+        group_id = request.form.get('group_id', type=int)
+        
+        existing = Schedule.query.filter_by(
+            group_id=group_id,
             day_of_week=date_code,
-            start_time=request.form.get('start_time'),
+            start_time=start_time
+        ).first()
+        
+        from app.models import TeacherSubject
+        subject_id = request.form.get('subject_id', type=int)
+        teacher_id = request.form.get('teacher_id', type=int)
+        
+        # O'qituvchiga biriktirilgan barcha dars turlarini topish
+        assignments = TeacherSubject.query.filter_by(
+            group_id=group_id,
+            subject_id=subject_id,
+            teacher_id=teacher_id
+        ).all()
+        
+        # Dars turlarini yig'ish
+        types_map = {
+            'maruza': 'Ma\'ruza',
+            'lecture': 'Ma\'ruza',
+            'amaliyot': 'Amaliyot',
+            'practice': 'Amaliyot',
+            'lab': 'Laboratoriya',
+            'seminar': 'Seminar'
+        }
+        found_types = sorted(list(set([types_map.get(a.lesson_type, a.lesson_type.capitalize()) for a in assignments if a.lesson_type])))
+        lesson_type_display = "/".join(found_types) if found_types else 'Ma\'ruza'
+
+        schedule = Schedule(
+            subject_id=subject_id,
+            group_id=group_id,
+            teacher_id=teacher_id,
+            day_of_week=date_code,
+            start_time=start_time,
             end_time=request.form.get('end_time') or None,
             link=request.form.get('link'),
-            lesson_type=request.form.get('lesson_type')
+            lesson_type=lesson_type_display[:20]
         )
         db.session.add(schedule)
         db.session.commit()
         
         flash("Dars jadvalga qo'shildi", 'success')
-        # Sana bo'yicha qayta ochish (shu oy/yil)
         return redirect(url_for(
             'dean.schedule',
             year=parsed_date.year,
             month=parsed_date.month,
-            group=schedule.group_id
+            group=group_id
         ))
     
     return render_template('dean/create_schedule.html',
                          faculty=faculty,
-                         groups=groups,
-                         subjects=subjects,
+                         faculty_courses=faculty_courses,
+                         faculty_course_semesters=faculty_course_semesters,
+                         faculty_course_semester_education_directions=faculty_course_semester_education_directions,
+                         direction_groups=direction_groups,
                          teachers=teachers,
                          default_date=default_date,
                          default_group_id=default_group_id)
@@ -2373,7 +2706,7 @@ def delete_schedule(id):
     schedule = Schedule.query.get_or_404(id)
     
     # Faqat o'z fakultetidagi jadvallarni o'chirishi mumkin
-    if schedule.subject.faculty_id != current_user.faculty_id:
+    if schedule.group.faculty_id != current_user.faculty_id:
         flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
         return redirect(url_for('dean.schedule'))
     
@@ -2391,16 +2724,63 @@ def edit_schedule(id):
     schedule = Schedule.query.get_or_404(id)
     
     # Faqat o'z fakultetidagi jadvallarni tahrirlashi mumkin
-    if schedule.subject.faculty_id != current_user.faculty_id:
+    if schedule.group.faculty_id != current_user.faculty_id:
         flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
         return redirect(url_for('dean.schedule'))
     
-    faculty = Faculty.query.get(current_user.faculty_id)
-    groups = faculty.groups.order_by(Group.name).all()
-    # Fanlarni guruhlar orqali olish
-    subjects = Subject.query.join(TeacherSubject).join(Group).filter(
-        Group.faculty_id == faculty.id
-    ).distinct().order_by(Subject.name).all()
+    faculty = current_user.managed_faculty
+    faculty_id = faculty.id
+    
+    # Robust mapping logic (Group-driven)
+    faculty_courses = [course for (course,) in db.session.query(Group.course_year).filter(Group.faculty_id == faculty_id).distinct().order_by(Group.course_year).all() if course]
+    
+    faculty_course_semesters = {}
+    faculty_course_semester_education_directions = {}
+    direction_groups = {}
+    
+    all_groups = Group.query.filter_by(faculty_id=faculty_id).all()
+    for g in all_groups:
+        c = g.course_year
+        if not c: continue
+        
+        if g.direction:
+            d = g.direction
+            s = d.semester
+            
+            if c not in faculty_course_semesters:
+                faculty_course_semesters[c] = set()
+            faculty_course_semesters[c].add(s)
+            
+            if s not in faculty_course_semester_education_directions:
+                faculty_course_semester_education_directions[s] = {}
+            if c not in faculty_course_semester_education_directions[s]:
+                faculty_course_semester_education_directions[s][c] = {}
+            
+            etype = d.education_type or 'kunduzgi'
+            if etype not in faculty_course_semester_education_directions[s][c]:
+                faculty_course_semester_education_directions[s][c][etype] = []
+            
+            if not any(item['id'] == d.id for item in faculty_course_semester_education_directions[s][c][etype]):
+                faculty_course_semester_education_directions[s][c][etype].append({
+                    'id': d.id,
+                    'name': d.name,
+                    'code': d.code,
+                    'enrollment_year': d.enrollment_year,
+                    'education_type': etype
+                })
+            
+            if d.id not in direction_groups:
+                direction_groups[d.id] = []
+            if not any(item['id'] == g.id for item in direction_groups[d.id]):
+                direction_groups[d.id].append({
+                    'id': g.id,
+                    'name': g.name
+                })
+
+    # Convert sets to sorted lists
+    for c in faculty_course_semesters:
+        faculty_course_semesters[c] = sorted(list(faculty_course_semesters[c]))
+
     teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
     
     # Eski sana
@@ -2418,7 +2798,7 @@ def edit_schedule(id):
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
                 date_code = int(parsed_date.strftime("%Y%m%d"))
             except ValueError:
-                flash("Sana noto'g'ri formatda. Iltimos, kalendardan tanlang.", 'error')
+                flash("Sana noto'g'ri formatda", 'error')
                 return redirect(url_for('dean.edit_schedule', id=id))
         
         if not date_code:
@@ -2432,7 +2812,25 @@ def edit_schedule(id):
         schedule.start_time = request.form.get('start_time')
         schedule.end_time = request.form.get('end_time') or None
         schedule.link = request.form.get('link')
-        schedule.lesson_type = request.form.get('lesson_type')
+        
+        # O'qituvchiga biriktirilgan barcha dars turlarini topish
+        assignments = TeacherSubject.query.filter_by(
+            group_id=schedule.group_id,
+            subject_id=schedule.subject_id,
+            teacher_id=schedule.teacher_id
+        ).all()
+        
+        # Dars turlarini yig'ish
+        types_map = {
+            'maruza': 'Ma\'ruza',
+            'lecture': 'Ma\'ruza',
+            'amaliyot': 'Amaliyot',
+            'practice': 'Amaliyot',
+            'lab': 'Laboratoriya',
+            'seminar': 'Seminar'
+        }
+        found_types = sorted(list(set([types_map.get(a.lesson_type, a.lesson_type.capitalize()) for a in assignments if a.lesson_type])))
+        schedule.lesson_type = "/".join(found_types) if found_types else 'Ma\'ruza'
         
         db.session.commit()
         
@@ -2451,13 +2849,19 @@ def edit_schedule(id):
     return render_template(
         'dean/edit_schedule.html',
         faculty=faculty,
-        groups=groups,
-        subjects=subjects,
+        faculty_courses=faculty_courses,
+        faculty_course_semesters=faculty_course_semesters,
+        faculty_course_semester_education_directions=faculty_course_semester_education_directions,
+        direction_groups=direction_groups,
         teachers=teachers,
         schedule=schedule,
         schedule_date=schedule_date,
         year=year,
-        month=month
+        month=month,
+        current_faculty_id=faculty_id,
+        current_course_year=schedule.group.course_year,
+        current_semester=schedule.group.direction.semester if schedule.group.direction else None,
+        current_direction_id=schedule.group.direction_id
     )
 
 
@@ -2500,60 +2904,5 @@ def reports():
     return render_template('dean/reports.html', faculty=faculty, stats=stats, group_stats=group_stats)
 
 
-@bp.route('/export/schedule')
-@login_required
-@dean_required
-def export_schedule():
-    """Dars jadvalini Excel formatida yuklab olish"""
-    try:
-        from app.utils.excel_export import create_schedule_excel
-    except ImportError:
-        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
-        return redirect(url_for('dean.schedule'))
-    
-    faculty = Faculty.query.get(current_user.faculty_id) if current_user.faculty_id else None
-    
-    if not faculty:
-        flash("Fakultet topilmadi", 'error')
-        return redirect(url_for('dean.index'))
-    
-    # Oy/yil parametrlari (jadval sahifasidagi kabi)
-    today = datetime.now()
-    year = request.args.get('year', type=int) or today.year
-    month = request.args.get('month', type=int) or today.month
-    if month < 1:
-        month = 12
-        year -= 1
-    elif month > 12:
-        month = 1
-        year += 1
-    
-    days_in_month = calendar.monthrange(year, month)[1]
-    start_code = int(f"{year}{month:02d}01")
-    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
-    
-    group_id = request.args.get('group', type=int)
-    
-    if group_id:
-        group = Group.query.filter_by(id=group_id, faculty_id=faculty.id).first_or_404()
-        schedules = Schedule.query.filter(
-            Schedule.group_id == group_id,
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
-        excel_file = create_schedule_excel(schedules, group.name, None)
-        filename = f"dars_jadvali_{group.name}_{year}_{month:02d}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    else:
-        group_ids = [g.id for g in faculty.groups.all()]
-        schedules = Schedule.query.filter(
-            Schedule.group_id.in_(group_ids),
-            Schedule.day_of_week.between(start_code, end_code)
-        ).order_by(Schedule.day_of_week, Schedule.start_time).all()
-        excel_file = create_schedule_excel(schedules, None, faculty.name)
-        filename = f"dars_jadvali_{faculty.name.replace(' ', '_')}_{year}_{month:02d}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    
-    return Response(
-        excel_file,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={'Content-Disposition': f'attachment; filename={filename}'}
-    )
+
 

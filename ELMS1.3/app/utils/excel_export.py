@@ -186,32 +186,28 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
     
     # Sarlavha
     title = "Dars jadvali"
-    if group_name:
-        title += f" - {group_name}"
-    elif faculty_name:
-        title += f" - {faculty_name}"
-    
-    ws.merge_cells('A1:G1')
+    # 10 ta ustun uchun sarlavha birlashtirish (A-J)
+    ws.merge_cells('A1:J1')
     title_cell = ws['A1']
     title_cell.value = title
-    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.font = Font(size=14, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
     
     # Sana
     ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ws.merge_cells('A2:G2')
+    ws.merge_cells('A2:J2')
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
     # Agar darslar bo'lmasa
     if not schedules:
         ws['A3'] = "Darslar yo'q"
-        ws.merge_cells('A3:G3')
+        ws.merge_cells('A3:J3')
         ws['A3'].font = Font(size=12, italic=True, color="666666")
         ws['A3'].alignment = Alignment(horizontal='center', vertical='center')
         # Ustun kengliklarini sozlash
-        column_widths = [5, 15, 20, 30, 25, 15, 15]
+        column_widths = [20, 10, 10, 20, 15, 20, 20, 15, 10, 25]
         for col_num, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(col_num)].width = width
         # Excel faylni qaytarish
@@ -221,55 +217,101 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
         return output
     
     # Jadval sarlavhalari
-    headers = ['№', 'Sana', 'Vaqt', 'Fan', 'O\'qituvchi', 'Video link', 'Dars turi']
+    # 1. Fakultet, 2. Kurs, 3. Semestr, 4. Yo'nalish, 5. Guruh, 6. Fan, 7. O'qituvchi, 8. Sana, 9. Vaqt, 10. Link
+    # Jadval sarlavhalari - "Yangi dars qo'shish" formasi bilan bir xil
+    # Asosiy: Guruh, Fan, O'qituvchi, Sana, Boshlanish vaqti, Tugash vaqti, Turi, Link
+    # Info: Fakultet, Kurs, Semestr, Yo'nalish
+    
+    # Jadval sarlavhalari - "Yangi dars qo'shish" formasi tartibida
+    # 1. Fakultet, 2. Kurs, 3. Semestr, 4. Yo'nalish, 5. Guruh, 6. Fan, 7. O'qituvchi, 8. Sana, 9. Boshlanish vaqti, 10. Link
+    # (Tugash vaqti va Turi olib tashlandi)
+    
+    headers = [
+        'Fakultet',                 # A
+        'Kurs',                     # B
+        'Semestr',                  # C
+        "Yo'nalish",                # D
+        'Guruh',                    # E
+        'Fan',                      # F
+        "O'qituvchi",               # G
+        'Sana (dd.mm.yyyy)',        # H
+        'Vaqt',                     # I
+        'Link'                      # J
+    ]
     header_row = 3
     
+    # Sarlavhalar
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=header_row, column=col_num)
         cell.value = header
         cell.font = Font(bold=True, color="FFFFFF")
         cell.alignment = Alignment(horizontal='center', vertical='center')
         cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        cell.border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
+        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     
     # Ma'lumotlar
     for row_num, schedule in enumerate(schedules, start=header_row + 1):
-        ws.cell(row=row_num, column=1, value=row_num - header_row)
-        if schedule.day_of_week:
-            code_str = str(schedule.day_of_week)
-            if len(code_str) == 8:
-                day_value = f"{code_str[6:8]}.{code_str[4:6]}.{code_str[0:4]}"
-            else:
-                day_value = code_str
-        else:
-            day_value = ''
-        ws.cell(row=row_num, column=2, value=day_value)
-        ws.cell(row=row_num, column=3, value=f"{schedule.start_time} - {schedule.end_time}")
-        ws.cell(row=row_num, column=4, value=schedule.subject.name if schedule.subject else '')
-        ws.cell(row=row_num, column=5, value=schedule.teacher.full_name.upper() if schedule.teacher and schedule.teacher.full_name else '')
-        ws.cell(row=row_num, column=6, value=schedule.link or '')
-        ws.cell(row=row_num, column=7, value=schedule.lesson_type or '')
+        # 1. Fakultet
+        faculty_val = ''
+        if schedule.group and schedule.group.faculty:
+            faculty_val = schedule.group.faculty.name
+        ws.cell(row=row_num, column=1, value=faculty_val)
         
-        # Stil
-        for col_num in range(1, 8):
+        # 2. Kurs
+        course_val = schedule.group.course_year if schedule.group else ''
+        ws.cell(row=row_num, column=2, value=f"{course_val}-kurs" if course_val else '')
+        
+        # 3. Semestr
+        semester_val = ''
+        if schedule.group and schedule.group.direction:
+            semester_val = schedule.group.direction.semester
+        ws.cell(row=row_num, column=3, value=f"{semester_val}-semestr" if semester_val else '')
+        
+        # 4. Yo'nalish
+        direction_val = ''
+        if schedule.group and schedule.group.direction:
+            direction_val = schedule.group.direction.name
+        ws.cell(row=row_num, column=4, value=direction_val)
+        
+        # 5. Guruh
+        ws.cell(row=row_num, column=5, value=schedule.group.name if schedule.group else '')
+        
+        # 6. Fan
+        ws.cell(row=row_num, column=6, value=schedule.subject.name if schedule.subject else '')
+        
+        # 7. O'qituvchi
+        teacher_val = ''
+        if schedule.teacher:
+            # User talabiga ko'ra o'qituvchi ismi chiqariladi
+            teacher_val = schedule.teacher.full_name or schedule.teacher.username
+        ws.cell(row=row_num, column=7, value=teacher_val or '')
+        
+        # 8. Sana
+        date_val = ''
+        if schedule.day_of_week:
+            s_date = str(schedule.day_of_week)
+            if len(s_date) == 8:
+                date_val = f"{s_date[6:8]}.{s_date[4:6]}.{s_date[0:4]}"
+            else:
+                date_val = s_date # Fallback
+        ws.cell(row=row_num, column=8, value=date_val)
+        
+        # 9. Vaqt
+        ws.cell(row=row_num, column=9, value=schedule.start_time or '')
+        
+        # 10. Link
+        ws.cell(row=row_num, column=10, value=schedule.link or '')
+
+        # Stil (barcha ustunlar uchun)
+        for col_num in range(1, len(headers) + 1):
             cell = ws.cell(row=row_num, column=col_num)
             cell.alignment = Alignment(horizontal='left', vertical='center')
-            cell.border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
-            )
+            cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
             if row_num % 2 == 0:
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
-    # Ustun kengliklarini sozlash
-    column_widths = [5, 15, 20, 30, 25, 15, 15]
+    # Ustun kengliklari
+    column_widths = [20, 10, 10, 20, 15, 25, 20, 15, 15, 20]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     
@@ -1074,4 +1116,127 @@ def create_curriculum_excel(direction, curriculum_items):
     wb.save(output)
     output.seek(0)
     
+    return output
+
+
+def create_detailed_assignment_export_excel(subject, group, assignments, matrix):
+    """Guruh bo'yicha batafsil topshiriq baholarini (ustunma-ustun) Excel formatida yaratish"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan.")
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Batafsil Baholar"
+    
+    # Sarlavha
+    title = f"{subject.name} - {group.name} guruhining batafsil baholari"
+    last_col_letter = get_column_letter(len(assignments) + 4)
+    ws.merge_cells(f'A1:{last_col_letter}1')
+    title_cell = ws['A1']
+    title_cell.value = title
+    title_cell.font = Font(size=14, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    
+    # Sana
+    ws.merge_cells(f'A2:{last_col_letter}2')
+    ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ws['A2'].font = Font(size=10, italic=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # 1-qator sarlavhalari (Titles)
+    headers1 = ['Talaba ID', "To'liq ism"]
+    for a in assignments:
+        headers1.append(a.title)
+    headers1.append('Jami ball')
+    headers1.append('O\'zlashtirish (%)')
+    
+    # 2-qator sarlavhalari (Sub-info)
+    headers2 = ['', '']
+    total_max = 0
+    for a in assignments:
+        lesson_type_display = {
+            'maruza': 'Maruza',
+            'amaliyot': 'Amaliyot',
+            'laboratoriya': 'Laboratoriya',
+            'seminar': 'Seminar',
+            'kurs_ishi': 'Kurs ishi'
+        }.get(a.lesson_type, a.lesson_type or '-')
+        headers2.append(f"{lesson_type_display} ({a.max_score})")
+        total_max += (a.max_score or 0)
+    headers2.append(f"Maks: {total_max}")
+    headers2.append("100%")
+    
+    header_row1 = 3
+    header_row2 = 4
+    
+    # Stil sozlamalari
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    sub_header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+    font_white = Font(bold=True, color="FFFFFF")
+    font_bold = Font(bold=True)
+    border_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    for col_num, val in enumerate(headers1, 1):
+        cell = ws.cell(row=header_row1, column=col_num, value=val)
+        cell.font = font_white
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = border_thin
+        
+    for col_num, val in enumerate(headers2, 1):
+        cell = ws.cell(row=header_row2, column=col_num, value=val)
+        cell.font = font_bold
+        cell.fill = sub_header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border_thin
+
+    # Ma'lumotlar
+    for row_num, row_data in enumerate(matrix, start=5):
+        # A: ID
+        ws.cell(row=row_num, column=1, value=row_data['student_id']).border = border_thin
+        # B: Name
+        ws.cell(row=row_num, column=2, value=row_data['student_name']).border = border_thin
+        
+        # C onwards: Scores
+        for col_idx, score in enumerate(row_data['scores'], start=3):
+            cell = ws.cell(row=row_num, column=col_idx, value=score)
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = border_thin
+            # Score ranglari
+            if assignments[col_idx-3].max_score:
+                ratio = score / assignments[col_idx-3].max_score
+                if ratio >= 0.86: cell.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+                elif ratio < 0.56: cell.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        
+        # Next: Total
+        total_col = len(assignments) + 3
+        cell_total = ws.cell(row=row_num, column=total_col, value=row_data['total_score'])
+        cell_total.font = font_bold
+        cell_total.alignment = Alignment(horizontal='center')
+        cell_total.border = border_thin
+        
+        # Last: Percent
+        percent_col = len(assignments) + 4
+        cell_percent = ws.cell(row=row_num, column=percent_col, value=f"{row_data['percent']}%")
+        cell_percent.font = font_bold
+        cell_percent.alignment = Alignment(horizontal='center')
+        cell_percent.border = border_thin
+        # Ranglar
+        if row_data['percent'] >= 86: cell_percent.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+        elif row_data['percent'] < 56: cell_percent.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+
+    # Ustun kengliklari
+    ws.column_dimensions['A'].width = 15
+    ws.column_dimensions['B'].width = 35
+    for i in range(3, percent_col + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 18
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
     return output

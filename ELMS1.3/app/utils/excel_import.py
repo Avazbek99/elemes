@@ -1455,3 +1455,337 @@ def generate_curriculum_sample_file():
     output.seek(0)
     
     return output
+
+# Jadvalni import qilish uchun namuna Excel fayl
+# Jadvalni import qilish uchun namuna Excel fayl
+def generate_schedule_sample_file():
+    """Jadvalni import qilish uchun namuna Excel fayl (Student import kabi)"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan.")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Jadval import"
+
+    # Ustunlar
+    headers = [
+        'Fakultet',             # A
+        'Kurs',                 # B
+        'Semestr',              # C
+        "Yo'nalish",            # D
+        'Guruh',                # E
+        'Fan',                  # F
+        "O'qituvchi",           # G
+        'Sana',                 # H
+        'Vaqt',                 # I
+        'Link',                 # J
+    ]
+    num_cols = len(headers)
+    last_col_letter = get_column_letter(num_cols)
+
+    # 1. Sarlavha (Title)
+    ws.merge_cells(f'A1:{last_col_letter}1')
+    title_cell = ws['A1']
+    title_cell.value = "Dars Jadvallarini Import uchun namuna fayl"
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+
+    # 2. Import talablari (Requirements)
+    ws['A2'] = "IMPORT TALABLARI:"
+    ws.merge_cells(f'A2:{last_col_letter}2')
+    ws['A2'].font = Font(size=11, bold=True, color="000000")
+    ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
+    ws['A2'].fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+
+    reqs = [
+        "1. Fakultet - ixtiyoriy maydon (ma'lumot uchun)",
+        "2. Kurs - ixtiyoriy maydon (masalan: 1-kurs, 2-kurs)",
+        "3. Semestr - ixtiyoriy maydon (masalan: 1-semestr)",
+        "4. Yo'nalish - ixtiyoriy maydon (ma'lumot uchun)",
+        "5. Guruh - majburiy maydon (tizimda mavjud bo'lishi shart)",
+        "6. Fan - majburiy maydon (tizimda mavjud bo'lishi shart)",
+        "7. O'qituvchi - majburiy maydon (Login, Passport yoki Ism-familiya)",
+        "8. Sana - majburiy maydon (DD.MM.YYYY formatida)",
+        "9. Vaqt - majburiy maydon (HH:MM formatida)",
+        "10. Link - ixtiyoriy maydon (Zoom/Teams havolasi)"
+    ]
+
+    current_row = 3
+    for req in reqs:
+        ws.merge_cells(f'A{current_row}:{last_col_letter}{current_row}')
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = req
+        cell.font = Font(size=10)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+        current_row += 1
+
+    # 3. Eslatma (Notes)
+    # Bo'sh qator tashlash shart emas, student importda darhol keladi, lekin o'rtada ajratuvchi yo'q. 
+    # Student importda eslatma requirementsdan keyin 3 qator tashlab emas, davomidan kelmoqda (koddagi logicga kora).
+    # Biz ham davom ettiramiz.
+    
+    ws.merge_cells(f'A{current_row}:{last_col_letter}{current_row}')
+    note_title_cell = ws.cell(row=current_row, column=1)
+    note_title_cell.value = "ESLATMA:"
+    note_title_cell.font = Font(size=11, bold=True, color="000000")
+    note_title_cell.alignment = Alignment(horizontal='left', vertical='center')
+    note_title_cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
+    current_row += 1
+
+    notes = [
+        "• Fayl .xlsx formatida bo'lishi kerak",
+        "• Majburiy maydonlar: Guruh, Fan, O'qituvchi, Sana, Vaqt",
+        "• Guruh nomi va Fan nomi tizimdagidek aniq yozilishi kerak",
+        "• Sana DD.MM.YYYY formatida (masalan: 13.01.2025)",
+        "• Vaqt HH:MM formatida (masalan: 09:00)",
+        "• Agar qatorda xatolik bo'lsa, o'sha qator tashlab ketiladi"
+    ]
+
+    for note in notes:
+        ws.merge_cells(f'A{current_row}:{last_col_letter}{current_row}')
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = note
+        cell.font = Font(size=10)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
+        current_row += 1
+
+    # 4. Jadval sarlavhalari
+    header_row = current_row
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+    # 5. Namuna ma'lumotlar
+    sample_data = [
+        ['Axborot texnologiyalari', "3-kurs", "5-semestr", 'Dasturiy injiniring', 'KI-21-01', 'Oliy matematika', 'Aziz Karimov', '13.01.2025', '09:00', ''],
+        ['Axborot texnologiyalari', "3-kurs", "5-semestr", 'Dasturiy injiniring', 'KI-21-01', 'Dasturlash asoslari', 'Bobur Aliyev', '13.01.2025', '11:00', 'https://zoom.us/j/123456'],
+    ]
+
+    for row_num, row_data in enumerate(sample_data, start=header_row + 1):
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.value = value
+            cell.alignment = Alignment(vertical='center', horizontal='left')
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+            # Sana (H=8) va Vaqt (I=9) ni markazlash
+            if col_num in [8, 9]:
+                cell.alignment = Alignment(vertical='center', horizontal='center')
+
+    # Ustun kengliklari
+    column_widths = [20, 10, 10, 20, 15, 20, 20, 15, 10, 25]
+    for col_num, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+# Excel fayldan jadvalni import qilish
+def import_schedule_from_excel(file):
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(file)
+        ws = wb.active
+        
+        success_count = 0
+        errors = []
+        
+        # Sarlavha qatorini topish (Header Row)
+        header_row_index = None
+        for row in ws.iter_rows(min_row=1, max_row=50, values_only=False):
+            # Qatordagi barcha qiymatlarni stringga o'tkazib tekshiramiz
+            row_values = [str(cell.value).strip() if cell.value else "" for cell in row]
+            if "Guruh" in row_values and "Fan" in row_values:
+                header_row_index = row[0].row # 1-based index
+                break
+        
+        if not header_row_index:
+            return 0, ["Sarlavha qatori topilmadi (Guruh va Fan ustunlari bo'lishi shart)"]
+
+        # Ma'lumotlarni o'qish
+        # Headerdan keyingi qatordan boshlaymiz
+        
+        from app.models import Group, Subject, User, Schedule
+        from sqlalchemy import func
+        from datetime import datetime, time, timedelta
+        
+        # Ustun indekslarini aniqlash (Header row boyicha)
+        header_map = {}
+        for cell in ws[header_row_index]:
+            if cell.value:
+                header_map[str(cell.value).strip()] = cell.column - 1 # 0-based index
+        
+        # Kerakli ustunlar indeksi
+        # Agar aniq topilmasa, default indekslarni ishlatamiz (A=0, E=4, F=5...)
+        # Lekin bizning namunada: A=Fakultet, B=Kurs, C=Semestr, D=Yonalish, E=Guruh(4), F=Fan(5), G=Oqituvchi(6), H=Sana(7), I=Vaqt(8), J=Link(9)
+        
+        idx_group = header_map.get('Guruh', 4)
+        idx_subject = header_map.get('Fan', 5)
+        # O'qituvchi har xil yozilishi mumkin
+        idx_teacher = header_map.get("O'qituvchi", 6)
+        if "O'qituvchi" not in header_map:
+             for k in header_map:
+                 if "qituvchi" in k:
+                     idx_teacher = header_map[k]
+                     break
+        
+        idx_date = header_map.get('Sana (dd.mm.yyyy)', 7)
+        if 'Sana (dd.mm.yyyy)' not in header_map:
+             idx_date = header_map.get('Sana', 7)
+
+        idx_time = header_map.get('Vaqt', 8)
+        idx_link = header_map.get('Link', 9)
+
+        # Iteratsiya
+        for row in ws.iter_rows(min_row=header_row_index + 1, values_only=False):
+            try:
+                # Helper to safe get value
+                def get_val(idx):
+                    if idx < len(row):
+                        return row[idx].value
+                    return None
+
+                group_name = get_val(idx_group)
+                subject_name = get_val(idx_subject)
+                teacher_identifier = get_val(idx_teacher)
+                date_val = get_val(idx_date)
+                start_time_val = get_val(idx_time)
+                link_val = get_val(idx_link)
+                
+                # Bo'sh qatorlarni o'tkazib yuborish
+                if not all([group_name, subject_name, teacher_identifier, date_val, start_time_val]):
+                    continue
+                    
+                # Guruhni topish
+                group = Group.query.filter_by(name=str(group_name)).first()
+                if not group:
+                    errors.append(f"Qator {row[0].row}: Guruh topilmadi - {group_name}")
+                    continue
+                    
+                # Fanni topish
+                subject = Subject.query.filter_by(name=str(subject_name)).first()
+                if not subject:
+                    errors.append(f"Qator {row[0].row}: Fan topilmadi - {subject_name}")
+                    continue
+                    
+                # O'qituvchini topish: Login, Passport yoki To'liq ism bo'yicha
+                teacher_val = str(teacher_identifier).strip()
+                teacher = None
+                
+                # 1. Login bo'yicha
+                teacher = User.query.filter_by(login=teacher_val).first()
+                # 2. Passport bo'yicha
+                if not teacher:
+                     teacher = User.query.filter_by(passport_number=teacher_val).first()
+                # 3. To'liq ism bo'yicha (Case insensitive)
+                if not teacher:
+                     teacher = User.query.filter(func.lower(User.full_name) == func.lower(teacher_val)).first()
+                
+                if not teacher:
+                    errors.append(f"Qator {row[0].row}: O'qituvchi topilmadi - {teacher_val}")
+                    continue
+                
+                # Sana formatlash
+                day_of_week_int = None
+                if isinstance(date_val, datetime):
+                    day_of_week_int = int(date_val.strftime('%Y%m%d'))
+                elif isinstance(date_val, str):
+                    for fmt in ['%d.%m.%Y', '%Y-%m-%d', '%d/%m/%Y']:
+                        try:
+                            dt = datetime.strptime(date_val, fmt)
+                            day_of_week_int = int(dt.strftime('%Y%m%d'))
+                            break
+                        except ValueError:
+                            continue
+                
+                if not day_of_week_int:
+                     errors.append(f"Qator {row[0].row}: Sana noto'g'ri formatda - {date_val}")
+                     continue
+
+                # Vaqt formatlash
+                def format_time(t):
+                    if isinstance(t, (datetime, time)):
+                        return t.strftime('%H:%M')
+                    return str(t)
+
+                start_time = format_time(start_time_val)
+                # Tugash vaqtini hisoblash (+80 min)
+                end_time = ''
+                try:
+                    st = datetime.strptime(start_time, '%H:%M')
+                    et = st + timedelta(minutes=80)
+                    end_time = et.strftime('%H:%M')
+                except:
+                    pass
+                
+                # O'qituvchiga biriktirilgan barcha dars turlarini topish
+                from app.models import TeacherSubject
+                assigned_types = TeacherSubject.query.filter_by(
+                    group_id=group.id,
+                    subject_id=subject.id,
+                    teacher_id=teacher.id
+                ).all()
+                
+                types_map = {
+                    'maruza': 'Ma\'ruza',
+                    'lecture': 'Ma\'ruza',
+                    'amaliyot': 'Amaliyot',
+                    'practice': 'Amaliyot',
+                    'lab': 'Laboratoriya',
+                    'seminar': 'Seminar'
+                }
+                found_types = sorted(list(set([types_map.get(a.lesson_type, str(a.lesson_type).capitalize()) for a in assigned_types if a.lesson_type])))
+                lesson_type_code = "/".join(found_types) if found_types else 'Ma\'ruza'
+
+                # Jadval yaratish
+                schedule = Schedule(
+                    group_id=group.id,
+                    subject_id=subject.id,
+                    teacher_id=teacher.id,
+                    day_of_week=day_of_week_int, # YYYYMMDD
+                    start_time=start_time,
+                    end_time=end_time,
+                    lesson_type=lesson_type_code[:20],
+                    link=link_val
+                )
+                db.session.add(schedule)
+                success_count += 1
+                
+            except Exception as e:
+                errors.append(f"Qator {row[0].row}: Xatolik - {str(e)}")
+                
+        db.session.commit()
+        return {
+            'success': True,
+            'imported': success_count,
+            'errors': errors
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'imported': 0,
+            'errors': [f"Fayl formati noto'g'ri yoki o'qishda xatolik: {str(e)}"]
+        }

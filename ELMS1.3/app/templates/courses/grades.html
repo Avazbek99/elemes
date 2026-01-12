@@ -8,12 +8,15 @@
         <h1 class="text-2xl font-bold text-gray-900">Baholar</h1>
         <p class="text-gray-500 mt-1">Sizning akademik natijalaringiz (ballik tizim)</p>
     </div>
-    
+
     {% if grades_by_subject %}
     <!-- Baho tizimi haqida (dinamik) -->
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100">
         <div class="flex items-center gap-2 mb-2">
-            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             <span class="font-medium text-blue-900">Baholash tizimi</span>
         </div>
         <div class="flex flex-wrap gap-3 text-sm">
@@ -24,13 +27,17 @@
             {% endfor %}
         </div>
     </div>
-    
+
     <!-- Overall stats -->
     {% set submission_count = namespace(value=0) %}
     {% for subject_id, data in grades_by_subject.items() %}
-        {% set submission_count.value = submission_count.value + data.submissions|length %}
+    {% for item in data.submissions %}
+    {% if item.submission and item.score is not none %}
+    {% set submission_count.value = submission_count.value + 1 %}
+    {% endif %}
     {% endfor %}
-    
+    {% endfor %}
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Umumiy ball -->
         {% set overall_bg_class = overall_classes.light %}
@@ -52,7 +59,7 @@
                 <p class="text-xs text-gray-500 mt-1">{{ overall_percent }}%</p>
             </div>
         </div>
-        
+
         <!-- Umumiy baho -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <p class="text-sm text-gray-500 mb-2">Umumiy baho</p>
@@ -70,14 +77,14 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Fanlar soni -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <p class="text-sm text-gray-500 mb-2">Fanlar</p>
             <p class="text-4xl font-bold text-gray-900">{{ grades_by_subject|length }}</p>
             <p class="text-sm text-gray-500 mt-2">ta fan bo'yicha baho</p>
         </div>
-        
+
         <!-- Baholangan topshiriqlar -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <p class="text-sm text-gray-500 mb-2">Baholangan</p>
@@ -85,18 +92,19 @@
             <p class="text-sm text-gray-500 mt-2">ta topshiriq</p>
         </div>
     </div>
-    
+
     <!-- Grades by subject -->
     <div class="space-y-4">
         <h2 class="text-lg font-semibold text-gray-900">Fanlar bo'yicha baholar</h2>
-        
+
         {% for subject_id, data in grades_by_subject.items() %}
         {% set percent = data.percent %}
         {% set grade_bg_class = data.classes.light %}
         {% set grade_text_class = data.classes.text %}
         {% set grade_bar_class = data.classes.bar %}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <button class="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">
+            <button class="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                onclick="this.nextElementSibling.classList.toggle('hidden')">
                 <div class="flex items-center gap-4">
                     <!-- Baho belgisi -->
                     <div class="w-14 h-14 rounded-xl flex items-center justify-center {{ grade_bg_class }}">
@@ -106,7 +114,7 @@
                     </div>
                     <div class="text-left">
                         <h3 class="text-lg font-semibold text-gray-900">{{ data.subject.name }}</h3>
-                        <p class="text-sm text-gray-500">{% if data.subject.code %}{{ data.subject.code }}{% else %}{{ data.subject.name }}{% endif %}</p>
+                        <p class="text-sm text-gray-500">{{ data.subject.description or 'Tavsif mavjud emas' }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-6">
@@ -116,10 +124,12 @@
                         </p>
                         <p class="text-sm text-gray-500">{{ percent }}% • {{ data.submissions|length }} topshiriq</p>
                     </div>
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                 </div>
             </button>
-            
+
             <div class="border-t border-gray-100 p-4 space-y-3 hidden">
                 <!-- Progress bar -->
                 <div class="mb-4">
@@ -132,18 +142,19 @@
                             {% elif percent >= 41 %}text-orange-600
                             {% else %}text-red-600{% endif %}">{{ percent }}%</span>
                     </div>
-                <div class="w-full bg-gray-200 rounded-full h-3">
-                    <div class="{{ 'h-3 rounded-full transition-all ' ~ grade_bar_class }}" 
-                        style="width: {{ percent }}%;"></div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="{{ 'h-3 rounded-full transition-all ' ~ grade_bar_class }}"
+                            style="width: {{ percent }}%;"></div>
+                    </div>
                 </div>
-                </div>
-                
+
                 <!-- Topshiriqlar ro'yxati -->
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
                             <tr class="text-left text-xs font-medium text-gray-500 uppercase">
                                 <th class="pb-3">Topshiriq</th>
+                                <th class="pb-3 text-center">Dars turi</th>
                                 <th class="pb-3 text-center">Ball</th>
                                 <th class="pb-3 text-center">Maks</th>
                                 <th class="pb-3 text-center">%</th>
@@ -153,15 +164,28 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             {% for sub in data.submissions %}
-                            {% set sub_percent = ((sub.score / sub.assignment.max_score) * 100)|round|int if sub.assignment.max_score > 0 else 0 %}
+                            {% set sub_percent = ((sub.score / sub.assignment.max_score) * 100)|round|int if
+                            sub.assignment.max_score > 0 else 0 %}
                             <tr class="hover:bg-gray-50">
                                 <td class="py-3">
-                                    <p class="font-medium text-gray-900">{{ sub.assignment.title }}</p>
+                                    <a href="{{ url_for('courses.assignment_detail', id=sub.assignment.id) }}"
+                                        class="font-medium text-gray-900 hover:text-primary-600 transition-colors">
+                                        {{ sub.assignment.title }}
+                                    </a>
                                     {% if sub.feedback %}
                                     <p class="text-xs text-primary-600 mt-1">💬 {{ sub.feedback }}</p>
                                     {% endif %}
                                 </td>
+                                <td class="py-3 text-center text-sm text-gray-500">
+                                    {% if sub.assignment.lesson_type == 'maruza' %}Maruza
+                                    {% elif sub.assignment.lesson_type == 'amaliyot' %}Amaliyot
+                                    {% elif sub.assignment.lesson_type == 'laboratoriya' %}Laboratoriya
+                                    {% elif sub.assignment.lesson_type == 'seminar' %}Seminar
+                                    {% elif sub.assignment.lesson_type == 'kurs_ishi' %}Kurs ishi
+                                    {% else %}{{ sub.assignment.lesson_type or '-' }}{% endif %}
+                                </td>
                                 <td class="py-3 text-center">
+                                    {% if sub.submission %}
                                     <span class="text-lg font-bold
                                         {% if sub_percent >= 86 %}text-green-600
                                         {% elif sub_percent >= 71 %}text-blue-600
@@ -170,10 +194,20 @@
                                         {% else %}text-red-600{% endif %}">
                                         {{ sub.score }}
                                     </span>
+                                    {% else %}
+                                    <span class="text-xs font-medium text-gray-400">Topshirilmagan</span>
+                                    {% endif %}
                                 </td>
                                 <td class="py-3 text-center text-gray-500">{{ sub.assignment.max_score }}</td>
-                                <td class="py-3 text-center text-gray-500">{{ sub_percent }}%</td>
+                                <td class="py-3 text-center text-gray-500">
+                                    {% if sub.submission %}
+                                    {{ sub_percent }}%
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
                                 <td class="py-3 text-center">
+                                    {% if sub.submission %}
                                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold
                                         {% if sub_percent >= 86 %}bg-green-100 text-green-700
                                         {% elif sub_percent >= 71 %}bg-blue-100 text-blue-700
@@ -186,6 +220,9 @@
                                         {% elif sub_percent >= 41 %}D
                                         {% else %}F{% endif %}
                                     </span>
+                                    {% else %}
+                                    -
+                                    {% endif %}
                                 </td>
                                 <td class="py-3 text-right text-sm text-gray-500">
                                     {{ sub.graded_at.strftime('%d.%m.%Y') if sub.graded_at else '-' }}
@@ -196,6 +233,7 @@
                         <tfoot class="border-t-2 border-gray-200">
                             <tr class="font-semibold">
                                 <td class="py-3 text-gray-900">Jami</td>
+                                <td></td>
                                 <td class="py-3 text-center text-lg
                                     {% if percent >= 86 %}text-green-600
                                     {% elif percent >= 71 %}text-blue-600
@@ -238,7 +276,10 @@
     </div>
     {% else %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
         <h3 class="text-lg font-medium text-gray-600">Baholar yo'q</h3>
         <p class="text-gray-400">Hali baholangan topshiriqlar mavjud emas</p>
     </div>
