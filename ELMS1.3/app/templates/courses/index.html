@@ -397,8 +397,9 @@
         <div class="p-5">
             <div class="flex items-start justify-between mb-2">
                 <span
-                    class="px-2 py-1 text-xs font-medium rounded-full {% if has_issue %}bg-red-100 text-red-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">{{
-                    subject.faculty.code }}</span>
+                    class="px-2 py-1 text-xs font-medium rounded-full {% if has_issue %}bg-red-100 text-red-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
+                    {% if subject.code %}{{ subject.code }}{% else %}{{ subject.semester }}-semestr{% endif %}
+                </span>
             </div>
             {% if has_issue %}
             <div class="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">

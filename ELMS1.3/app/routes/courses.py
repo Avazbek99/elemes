@@ -2458,7 +2458,14 @@ def lesson_detail(id):
     if current_user.role == 'admin':
         can_view = True
     elif current_user.role == 'dean':
-        can_view = subject.faculty_id == current_user.faculty_id
+        # Dekan o'z fakultetidagi guruhlar uchun fanlarni ko'rishi mumkin
+        if current_user.faculty_id:
+            can_view = TeacherSubject.query.join(Group).filter(
+                TeacherSubject.subject_id == subject.id,
+                Group.faculty_id == current_user.faculty_id
+            ).first() is not None
+        else:
+            can_view = True  # Agar fakultet belgilanmagan bo'lsa, barcha fanlarni ko'rish
     elif current_user.role == 'teacher':
         can_view = TeacherSubject.query.filter_by(
             teacher_id=current_user.id,
