@@ -1351,10 +1351,23 @@ def detail(id):
             
         for assignment in assignments:
             # O'qituvchi o'zi biriktirilgan guruh va dars turi bo'yicha tahrirlay oladi
-            assignment_manage_permissions[assignment.id] = (assignment.group_id, assignment.lesson_type) in allowed_pairs
+            has_permission = (assignment.group_id, assignment.lesson_type) in allowed_pairs
+            
+            # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
+            if not has_permission and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+                has_permission = (assignment.group_id, 'amaliyot') in allowed_pairs
+                
+            assignment_manage_permissions[assignment.id] = has_permission
     else:
         for assignment in assignments:
             assignment_manage_permissions[assignment.id] = False
+
+    # Talaba uchun topshiriqlar bo'yicha eng yuqori ballar
+    assignment_highest_scores = {}
+    if current_user.role == 'student':
+        for assignment in assignments:
+            scores = [s.score for s in assignment.submissions if s.student_id == current_user.id and s.score is not None]
+            assignment_highest_scores[assignment.id] = max(scores) if scores else 0
     
     return render_template('courses/detail.html',
                          subject=subject,
@@ -1388,7 +1401,8 @@ def detail(id):
                          allowed_lesson_types=allowed_lesson_types,
                          lesson_edit_permissions=lesson_edit_permissions,
                          assignment_manage_permissions=assignment_manage_permissions,
-                         assignment_submission_stats=assignment_submission_stats)
+                         assignment_submission_stats=assignment_submission_stats,
+                         assignment_highest_scores=assignment_highest_scores)
 
 
 @bp.route('/<int:id>/lessons/create', methods=['GET', 'POST'])
@@ -2334,6 +2348,18 @@ def delete_lesson(id):
         flash("Sizda darsni o'chirish uchun ruxsat yo'q. Faqat o'qituvchi rolida o'zingizga biriktirilgan darslarni o'chira olasiz.", 'error')
         return redirect(url_for('courses.detail', id=subject.id, direction_id=direction_id))
     
+    # Mavzuga biriktirilgan topshiriqlar borligini tekshirish
+    assignments_with_lesson = Assignment.query.filter_by(subject_id=subject.id).all()
+    linked_assignments = []
+    for assignment in assignments_with_lesson:
+        lesson_ids = assignment.get_lesson_ids_list() if hasattr(assignment, 'get_lesson_ids_list') else []
+        if lesson.id in lesson_ids:
+            linked_assignments.append(assignment.title)
+    
+    if linked_assignments:
+        flash(f"Bu mavzuni o'chirib bo'lmaydi! Quyidagi topshiriqlar bu mavzuga bog'langan: {', '.join(linked_assignments)}", 'error')
+        return redirect(url_for('courses.detail', id=subject.id, direction_id=direction_id))
+    
     # Video faylni o'chirish
     if lesson.video_file:
         video_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'videos', lesson.video_file)
@@ -2996,8 +3022,18 @@ def assignment_detail(id):
     ).first() is not None
     
     if is_teacher or current_user.role == 'admin':
-        # Faol submissions (oxirgi yuborilgan)
-        submissions = assignment.submissions.filter_by(is_active=True).all()
+        # Barcha submissions (history uchun)
+        all_assignment_submissions = assignment.submissions.order_by(Submission.submitted_at.asc()).all()
+        
+        # Faol submissions (table uchun)
+        submissions = [s for s in all_assignment_submissions if s.is_active]
+        
+        # Talaba bo'yicha guruhlash (modal uchun)
+        submission_history = {}
+        for s in all_assignment_submissions:
+            if s.student_id not in submission_history:
+                submission_history[s.student_id] = []
+            submission_history[s.student_id].append(s)
         
         # Javoblar soni va tekshirilmagan javoblar soni
         total_submissions = len(submissions)
@@ -3026,26 +3062,12 @@ def assignment_detail(id):
                 # Agar to'g'ridan-to'g'ri biriktirish topilmasa, "laboratoriya" va "kurs_ishi" uchun amaliyot orqali tekshirish
                 if not teacher_assignment:
                     if assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
-                        curriculum_item = DirectionCurriculum.query.filter_by(
-                            direction_id=assignment.direction_id,
-                            subject_id=subject.id
+                        teacher_assignment = TeacherSubject.query.filter(
+                            TeacherSubject.teacher_id == current_user.id,
+                            TeacherSubject.subject_id == subject.id,
+                            TeacherSubject.group_id.in_(direction_group_ids),
+                            TeacherSubject.lesson_type == 'amaliyot'
                         ).first()
-                        
-                        if curriculum_item:
-                            if assignment.lesson_type == 'laboratoriya' and (curriculum_item.hours_laboratoriya or 0) > 0:
-                                teacher_assignment = TeacherSubject.query.filter(
-                                    TeacherSubject.teacher_id == current_user.id,
-                                    TeacherSubject.subject_id == subject.id,
-                                    TeacherSubject.group_id.in_(direction_group_ids),
-                                    TeacherSubject.lesson_type == 'amaliyot'
-                                ).first()
-                            elif assignment.lesson_type == 'kurs_ishi' and (curriculum_item.hours_kurs_ishi or 0) > 0:
-                                teacher_assignment = TeacherSubject.query.filter(
-                                    TeacherSubject.teacher_id == current_user.id,
-                                    TeacherSubject.subject_id == subject.id,
-                                    TeacherSubject.group_id.in_(direction_group_ids),
-                                    TeacherSubject.lesson_type == 'amaliyot'
-                                ).first()
                 
                 has_permission = teacher_assignment is not None
                 can_manage_assignment = has_permission or current_user.role == 'admin'
@@ -3073,6 +3095,12 @@ def assignment_detail(id):
         if lesson_ids:
             related_lessons = Lesson.query.filter(Lesson.id.in_(lesson_ids)).all()
         
+        # Har bir talaba uchun eng yuqori ballni hisoblash
+        student_highest_scores = {}
+        for student_id, history in submission_history.items():
+            scores = [h.score for h in history if h.score is not None]
+            student_highest_scores[student_id] = max(scores) if scores else 0
+
         return render_template('courses/assignment_submissions.html',
                              assignment=assignment,
                              submissions=submissions,
@@ -3081,21 +3109,45 @@ def assignment_detail(id):
                              ungraded_count=ungraded_count,
                              can_grade_submissions=can_grade_submissions,
                              can_manage_assignment=can_manage_assignment,
-                             related_lessons=related_lessons)
+                             related_lessons=related_lessons,
+                             submission_history=submission_history,
+                             student_highest_scores=student_highest_scores)
     else:
-        # Talaba uchun - faol submission (oxirgi yuborilgan)
-        submission = Submission.query.filter_by(
+        # Talaba uchun - barcha javoblar (oxirgi yuborilgan birinchi)
+        is_overdue = False
+        student_submissions = Submission.query.filter_by(
             student_id=current_user.id,
-            assignment_id=id,
-            is_active=True
-        ).first()
+            assignment_id=id
+        ).order_by(Submission.submitted_at.asc()).all()
+        
+        # Faol submission (agar mavjud bo'lsa)
+        submission = None
+        if student_submissions:
+            # Birinchisi faol bo'lishi kerak (sorting bo'yicha), lekin tekshiramiz
+            for sub in student_submissions:
+                if sub.is_active:
+                    submission = sub
+                    break
+            
+            # Agar faol topilmasa, eng oxirgisini olamiz
+            if not submission:
+                submission = student_submissions[0]
         
         # Qayta topshirish imkoniyati
+        remaining_attempts = 3 - len(student_submissions)
+        if remaining_attempts < 0: remaining_attempts = 0
+        
         can_resubmit = True
         resubmission_count = 0
         if submission:
             resubmission_count = submission.resubmission_count
             can_resubmit = submission.can_resubmit(max_resubmissions=3)
+            
+        # Eng yuqori ballni hisoblash
+        highest_score = 0
+        if student_submissions:
+            scores = [s.score for s in student_submissions if s.score is not None]
+            highest_score = max(scores) if scores else 0
         
         # Muddat o'tganligini tekshirish
         # Deadline kun oxirigacha (23:59:59) hisoblanadi
@@ -3153,6 +3205,9 @@ def assignment_detail(id):
         return render_template('courses/assignment_detail.html',
                              assignment=assignment,
                              submission=submission,
+                             student_submissions=student_submissions,
+                             highest_score=highest_score,
+                             remaining_attempts=remaining_attempts,
                              can_resubmit=can_resubmit,
                              resubmission_count=resubmission_count,
                              is_overdue=is_overdue,
@@ -3273,6 +3328,56 @@ def submit_assignment(id):
     
     db.session.commit()
     return redirect(url_for('courses.assignment_detail', id=id))
+
+
+@bp.route('/submissions/<int:id>/edit', methods=['POST'])
+@login_required
+def edit_submission(id):
+    """Javobni tahrirlash (faqat baholanmagan bo'sa)"""
+    submission = Submission.query.get_or_404(id)
+    
+    if submission.student_id != current_user.id:
+        flash("Siz faqat o'z javobingizni tahrirlay olasiz", 'error')
+        return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
+    
+    if submission.score is not None:
+        flash("Baholangan topshiriqni tahrirlab bo'lmaydi", 'error')
+        return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
+    
+    content = request.form.get('content', '').strip()
+    file_url = submission.file_url
+    
+    # Fayl yangilash
+    if 'file' in request.files:
+        file = request.files['file']
+        if file and file.filename:
+            if not allowed_submission_file(file.filename):
+                flash("Ruxsat berilmagan fayl formati", 'error')
+                return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
+            
+            # Eski faylni o'chirish (ixtiyoriy, lekin yaxshi amaliyot)
+            # if submission.file_url:
+            #     try:
+            #         os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], 'submissions', submission.file_url))
+            #     except: pass
+
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            filename = f"{uuid.uuid4().hex}.{ext}"
+            submissions_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'submissions')
+            file.save(os.path.join(submissions_folder, filename))
+            file_url = filename
+    
+    # Agar na content, na file bo'lmasa
+    if not content and not file_url:
+        flash("Javob yoki fayl bo'lishi kerak", 'error')
+        return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
+    
+    submission.content = content
+    submission.file_url = file_url
+    db.session.commit()
+    
+    flash("Javobingiz muvaffaqiyatli yangilandi", 'success')
+    return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
 
 
 @bp.route('/submissions/<int:id>/allow-resubmission', methods=['POST'])
@@ -3417,8 +3522,21 @@ def grades():
         allowed_subject_ids = [s.id for s in all_subjects]
         all_assignments = assignments_query.filter(Assignment.subject_id.in_(allowed_subject_ids)).all()
         
-        # Talabaning barcha faol topshiriqlari (baholangan va baholanmagan)
-        all_submissions_map = {s.assignment_id: s for s in Submission.query.filter_by(student_id=current_user.id, is_active=True).all()}
+        # Talabaning barcha topshiriqlari uchun eng yuqori baholarni olish
+        user_submissions = Submission.query.filter_by(student_id=current_user.id).all()
+        all_submissions_map = {}
+        for s in user_submissions:
+            if s.assignment_id not in all_submissions_map:
+                all_submissions_map[s.assignment_id] = s
+            else:
+                # Agar joriy submission bahosi mavjud bo'lsa va u oldingisidan yuqori bo'lsa
+                current_max = all_submissions_map[s.assignment_id]
+                if s.score is not None:
+                    if current_max.score is None or s.score > current_max.score:
+                        all_submissions_map[s.assignment_id] = s
+                # Agar ikkalasi ham None bo'lsa, is_active=True bo'lganini saqlab qolamiz (yoki shunchaki oxirgisini)
+                elif current_max.score is None and s.is_active:
+                    all_submissions_map[s.assignment_id] = s
         
         # Fanlar bo'yicha guruhlash
         grades_by_subject = {}
@@ -3570,13 +3688,26 @@ def group_grades(subject_id, group_id):
             'max_total': 0
         }
         for assignment in assignments:
-            submission = Submission.query.filter_by(
+            student_submissions = Submission.query.filter_by(
                 student_id=student.id,
                 assignment_id=assignment.id
-            ).first()
-            student_grades[student.id]['submissions'][assignment.id] = submission
-            if submission and submission.score:
-                student_grades[student.id]['total'] += submission.score
+            ).all()
+            
+            best_sub = None
+            if student_submissions:
+                # Eng yuqori baholi submissionni topish
+                for s in student_submissions:
+                    if best_sub is None:
+                        best_sub = s
+                    elif s.score is not None:
+                        if best_sub.score is None or s.score > best_sub.score:
+                            best_sub = s
+                    elif best_sub.score is None and s.is_active:
+                        best_sub = s
+            
+            student_grades[student.id]['submissions'][assignment.id] = best_sub
+            if best_sub and best_sub.score:
+                student_grades[student.id]['total'] += best_sub.score
             student_grades[student.id]['max_total'] += assignment.max_score
     
     return render_template('courses/group_grades.html',
@@ -3613,12 +3744,17 @@ def export_group_grades(subject_id, group_id):
         total = 0
         max_total = 0
         for assignment in assignments:
-            submission = Submission.query.filter_by(
+            student_submissions = Submission.query.filter_by(
                 student_id=student.id,
                 assignment_id=assignment.id
-            ).first()
-            if submission and submission.score:
-                total += submission.score
+            ).all()
+            
+            best_score = 0
+            if student_submissions:
+                scores = [s.score for s in student_submissions if s.score is not None]
+                best_score = max(scores) if scores else 0
+                
+            total += best_score
             max_total += assignment.max_score
         percent = round((total / max_total) * 100) if max_total > 0 else 0
         grade = GradeScale.get_grade(percent)
@@ -3683,11 +3819,23 @@ def export_detailed_group_grades(subject_id, group_id):
             'max_total': 0
         }
         for assignment in assignments:
-            submission = Submission.query.filter_by(
+            # Har bir topshiriq uchun eng yuqori bahoni topish
+            student_submissions = Submission.query.filter_by(
                 student_id=student.id,
-                assignment_id=assignment.id,
-                is_active=True
-            ).first()
+                assignment_id=assignment.id
+            ).all()
+            
+            submission = None
+            if student_submissions:
+                # Eng yuqori baholi submissionni topish
+                for s in student_submissions:
+                    if submission is None:
+                        submission = s
+                    elif s.score is not None:
+                        if submission.score is None or s.score > submission.score:
+                            submission = s
+                    elif submission.score is None and s.is_active:
+                        submission = s
             score = submission.score if submission and submission.score is not None else 0
             row['scores'].append(score)
             row['total_score'] += score
@@ -3741,6 +3889,16 @@ def edit_assignment(id):
             group_id=assignment.group_id,
             lesson_type=assignment.lesson_type
         ).first() is not None
+        
+        # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
+        if not is_assigned and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+            is_assigned = TeacherSubject.query.filter_by(
+                teacher_id=current_user.id,
+                subject_id=subject.id,
+                group_id=assignment.group_id,
+                lesson_type='amaliyot'
+            ).first() is not None
+            
         if is_assigned:
             can_edit = True
             
@@ -3872,11 +4030,12 @@ def delete_assignment(id):
     
     # Ruxsat tekshiruvi: Admin yoki biriktirilgan dars turi bo'yicha o'qituvchi
     can_delete = False
+    # Tanlangan rol
+    current_role = session.get('current_role', current_user.role)
+    
     if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher':
         can_delete = True
     else:
-        # Tanlangan rol (delete funksiyasida get_or_404 dan keyin aniqlanadi, shuning uchun qayta olish kerak emas, lekin sessiondan olish kerak)
-        current_role = session.get('current_role', current_user.role)
         if current_role == 'teacher':
              # O'qituvchining biriktirilganligini tekshirish (guruh va dars turi bo'yicha)
             is_assigned = TeacherSubject.query.filter_by(
@@ -3885,6 +4044,16 @@ def delete_assignment(id):
                 group_id=assignment.group_id,
                 lesson_type=assignment.lesson_type
             ).first() is not None
+            
+            # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
+            if not is_assigned and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+                is_assigned = TeacherSubject.query.filter_by(
+                    teacher_id=current_user.id,
+                    subject_id=subject.id,
+                    group_id=assignment.group_id,
+                    lesson_type='amaliyot'
+                ).first() is not None
+                
             if is_assigned:
                 can_delete = True
             

@@ -1122,6 +1122,7 @@ def import_subjects_from_excel(file):
                     # Yaratish
                     subject = Subject(
                         name=name,
+                        code='',  # NOT NULL constraint uchun
                         description=description,
                         credits=3,  # Default
                         semester=1  # Default

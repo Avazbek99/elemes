@@ -85,20 +85,156 @@ class Subject(db.Model):
         assignment = query.first()
         return assignment.teacher if assignment else None
     
+    def check_curriculum_completion(self, direction_id=None, teacher_id=None):
+        """O'quv reja bo'yicha darslar to'liqligini tekshirish
+        Args:
+            direction_id: Yo'nalish ID
+            teacher_id: O'qituvchi ID (agar berilgan bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlari tekshiriladi)
+        Returns: {'has_issue': bool, 'warnings': list}
+        """
+        if not direction_id:
+            return {'has_issue': False, 'warnings': []}
+        
+        # Ushbu yo'nalish uchun o'quv rejani olish
+        curriculum = DirectionCurriculum.query.filter_by(
+            direction_id=direction_id,
+            subject_id=self.id
+        ).first()
+        
+        if not curriculum:
+            return {'has_issue': False, 'warnings': []}
+        
+        # Agar teacher_id berilgan bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlarini olish
+        teacher_lesson_types = None
+        if teacher_id:
+            # Ushbu yo'nalishdagi guruhlar
+            direction_group_ids = [g.id for g in db.session.query(Group).filter_by(direction_id=direction_id).all()]
+            
+            # O'qituvchiga biriktirilgan dars turlari
+            teacher_assignments = db.session.query(TeacherSubject).filter(
+                TeacherSubject.teacher_id == teacher_id,
+                TeacherSubject.subject_id == self.id,
+                TeacherSubject.group_id.in_(direction_group_ids)
+            ).all()
+            
+            # Dars turlarini normallashtirish (lab -> laboratoriya, course_work -> kurs_ishi)
+        teacher_lesson_types = set()
+        for ta in teacher_assignments:
+            if ta.lesson_type:
+                l_type = ta.lesson_type.lower().strip()
+                matched = False
+                
+                # Laboratoriya (lab, lob, laboratoriya, lobaratoriya)
+                if 'lab' in l_type or 'lob' in l_type:
+                    teacher_lesson_types.add('laboratoriya')
+                    matched = True
+                
+                # Kurs ishi (kurs, course)
+                if 'kurs' in l_type or 'course' in l_type:
+                    teacher_lesson_types.add('kurs_ishi')
+                    matched = True
+                
+                # Amaliyot (amaliyot, amal, practice) - bu Lobaratoriya va Kurs ishini ham o'z ichiga oladi
+                if 'amal' in l_type or 'prac' in l_type:
+                    teacher_lesson_types.add('amaliyot')
+                    teacher_lesson_types.add('laboratoriya')
+                    teacher_lesson_types.add('kurs_ishi')
+                    matched = True
+                
+                # Maruza (maruza, lecture, ma'ruza)
+                if 'maru' in l_type or 'lect' in l_type:
+                    teacher_lesson_types.add('maruza')
+                    matched = True
+                
+                # Seminar
+                if 'sem' in l_type:
+                    teacher_lesson_types.add('seminar')
+                    matched = True
+                
+                if not matched:
+                    teacher_lesson_types.add(l_type)
+        
+        warnings = []
+        has_issue = False
+        
+        # Har bir dars turi uchun tekshirish (har bir mavzu = 2 soat = 1 para)
+        lesson_types_check = {
+            'maruza': {
+                'name': 'Maruza',
+                'hours': curriculum.hours_maruza or 0,
+                'required_topics': (curriculum.hours_maruza or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'amaliyot': {
+                'name': 'Amaliyot',
+                'hours': curriculum.hours_amaliyot or 0,
+                'required_topics': (curriculum.hours_amaliyot or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'laboratoriya': {
+                'name': 'Laboratoriya',
+                'hours': curriculum.hours_laboratoriya or 0,
+                'required_topics': (curriculum.hours_laboratoriya or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'seminar': {
+                'name': 'Seminar',
+                'hours': curriculum.hours_seminar or 0,
+                'required_topics': (curriculum.hours_seminar or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'kurs_ishi': {
+                'name': 'Kurs ishi',
+                'hours': curriculum.hours_kurs_ishi or 0,
+                'required_topics': (curriculum.hours_kurs_ishi or 0) / 2.0,
+                'actual_topics': 0
+            }
+        }
+        
+        # Ushbu yo'nalish uchun mavjud darslarni sanash
+        lessons = Lesson.query.filter_by(
+            subject_id=self.id,
+            direction_id=direction_id
+        ).all()
+        
+        for lesson in lessons:
+            if lesson.lesson_type in lesson_types_check:
+                lesson_types_check[lesson.lesson_type]['actual_topics'] += 1
+        
+        # Har bir dars turi uchun tekshirish
+        for lesson_type, data in lesson_types_check.items():
+            if data['hours'] > 0:  # Faqat soat belgilangan dars turlarini tekshirish
+                # Agar teacher_id berilgan bo'lsa, faqat o'qituvchiga biriktirilgan dars turlarini tekshirish
+                if teacher_lesson_types is not None and lesson_type not in teacher_lesson_types:
+                    continue  # Bu dars turi o'qituvchiga biriktirilmagan, o'tkazib yuborish
+                
+                required = data['required_topics']
+                actual = data['actual_topics']
+                
+                if lesson_type == 'kurs_ishi':
+                    # Kurs ishi uchun kamida 1 ta mavzu bo'lishi kerak
+                    if actual < 1:
+                        has_issue = True
+                        warnings.append(
+                            f"{data['name']}: Kamida 1 ta mavzu yaratilishi kerak, lekin hali yaratilmagan"
+                        )
+                elif actual < required:
+                    has_issue = True
+                    missing = required - actual
+                    warnings.append(
+                        f"{data['name']}: {data['hours']} soat uchun {required:.1f} para mavzu kerak, "
+                        f"lekin {actual} para kiritilgan (kam: {missing:.1f} para)"
+                    )
+        
+        return {'has_issue': has_issue, 'warnings': warnings}
+
     def has_lessons_without_content(self):
-        """Fanda darslar bor lekin hech birida video yoki fayl yo'qmi?"""
-        lessons_count = self.lessons.count()
-        if lessons_count == 0:
-            return False  # Darslar yo'q bo'lsa, qizil ko'rsatmaymiz
-        
-        # Darslar bor, lekin hech birida video yoki fayl yo'q
-        lessons_with_content = self.lessons.filter(
-            (Lesson.video_file != None) | 
-            (Lesson.video_url != None) | 
-            (Lesson.file_url != None)
-        ).count()
-        
-        return lessons_with_content == 0  # Agar hech bir darsda content yo'q bo'lsa True
+        """Tarkibi bo'lmagan darslar borligini tekshirish"""
+        for lesson in self.lessons:
+            # Agar kontent, video va fayl bo'lmasa - dars bo'sh
+            if not lesson.content and not lesson.video_url and not lesson.video_file and not lesson.file_url:
+                return True
+        return False
 
 
 # ==================== O'QUV REJA (YO'NALISH-FAN BOG'LANISHI) ====================
@@ -654,7 +790,7 @@ def create_demo_data():
             pinfl='23456789012345',
             birth_date=date(1988, 8, 20)
         )
-        accounting.set_password('accounting123')
+        accounting.set_password(accounting.passport_number)
         db.session.add(accounting)
     else:
         # Mavjud accounting uchun ma'lumotlarni to'ldirish
@@ -836,7 +972,7 @@ def create_demo_data():
                 pinfl=t['pinfl'],
                 birth_date=t['birth_date']
             )
-            teacher.set_password('teacher123')
+            teacher.set_password(teacher.passport_number)
             db.session.add(teacher)
         else:
             # Mavjud teacher uchun ma'lumotlarni to'ldirish

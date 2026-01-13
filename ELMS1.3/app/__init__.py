@@ -36,6 +36,15 @@ def create_app(config_class=Config):
         except (ValueError, TypeError):
             return f"0.{'0' * decimals}"
     
+    # Custom Jinja2 filter for Tashkent time
+    @app.template_filter('to_tashkent_time')
+    def to_tashkent_time_filter(value):
+        """Convert UTC to Tashkent time (UTC+5)"""
+        if value is None:
+            return None
+        from datetime import timedelta
+        return value + timedelta(hours=5)
+    
     # Context processor for translations
     @app.context_processor
     def inject_global_data():

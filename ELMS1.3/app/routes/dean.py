@@ -1942,12 +1942,12 @@ def direction_subjects(id):
                 'teacher': teacher
             })
         
-        # Amaliyot, Lobaratoriya va Kurs ishi bitta yacheykada
+        # Amaliyot, Laboratoriya va Kurs ishi bitta yacheykada
         amaliyot_hours = item.hours_amaliyot or 0
-        lobaratoriya_hours = item.hours_laboratoriya or 0
+        laboratoriya_hours = item.hours_laboratoriya or 0
         kurs_ishi_hours = item.hours_kurs_ishi or 0
         # Kurs ishi soatlari umumiy soatlar yig'indisiga qo'shilmaydi
-        total_practical_hours = amaliyot_hours + lobaratoriya_hours
+        total_practical_hours = amaliyot_hours + laboratoriya_hours
         
         if total_practical_hours > 0 or kurs_ishi_hours > 0:
             # O'qituvchini topish
@@ -1965,14 +1965,14 @@ def direction_subjects(id):
             lesson_types = []
             if amaliyot_hours > 0:
                 lesson_types.append('Amaliyot')
-            if lobaratoriya_hours > 0:
-                lesson_types.append('Lobaratoriya')
+            if laboratoriya_hours > 0:
+                lesson_types.append('Laboratoriya')
             if kurs_ishi_hours > 0:
                 lesson_types.append('Kurs ishi')
             
             lesson_type_name = ', '.join(lesson_types)
             # Kurs ishi soatlari ko'rsatiladi, lekin umumiy soatlar yig'indisiga qo'shilmaydi
-            # Ko'rsatiladigan soatlar: amaliyot + lobaratoriya (kurs ishi qo'shilmaydi)
+            # Ko'rsatiladigan soatlar: amaliyot + laboratoriya (kurs ishi qo'shilmaydi)
             display_hours = total_practical_hours
             
             subject_data['lessons'].append({

@@ -409,7 +409,8 @@
                         </p>
                         {% if item.assignment.due_date %}
                         <span class="px-2 py-1 text-xs font-bold rounded-full bg-red-500 text-white ml-2 flex-shrink-0">
-                            Muddat: {{ item.assignment.due_date.strftime('%d.%m.%Y') }}, Soat: 23:59 ga qadar
+                            Muddat: {{ (item.assignment.due_date | to_tashkent_time).strftime('%d.%m.%Y') }}, Soat:
+                            23:59 ga qadar
                         </span>
                         {% endif %}
                     </div>
@@ -469,7 +470,7 @@
             </div>
         </div>
     </div>
-    {% endif %}    
+    {% endif %}
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- My subjects -->

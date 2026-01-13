@@ -4,6 +4,15 @@
 
 {% block content %}
 <div class="space-y-6">
+    <div class="mb-4">
+        <a href="{{ url_for('courses.index') }}"
+            class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Fanlar ro'yxatiga qaytish
+        </a>
+    </div>
     <!-- Header -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {% if direction and direction_id %}
@@ -513,8 +522,19 @@
                                     {% endif %}
                                 </div>
                                 {% if assignment.due_date %}
-                                <p class="text-xs text-gray-500">Muddat: {{ assignment.due_date.strftime('%d.%m.%Y') }},
+                                <p class="text-xs text-gray-500">Muddat: {{ (assignment.due_date |
+                                    to_tashkent_time).strftime('%d.%m.%Y') }},
                                     Soat: 23:59 ga qadar</p>
+                                {% endif %}
+                                {% if current_user.role == 'student' and assignment_highest_scores and assignment.id in
+                                assignment_highest_scores %}
+                                <div class="mt-2 flex items-center gap-1.5">
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Eng yuqori baho:</span>
+                                    <span
+                                        class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-primary-50 text-primary-600 border border-primary-100">
+                                        {{ assignment_highest_scores[assignment.id] }}/{{ assignment.max_score }}
+                                    </span>
+                                </div>
                                 {% endif %}
                             </a>
                             <div class="flex items-center gap-2 flex-shrink-0">
