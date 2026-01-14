@@ -673,64 +673,7 @@ class GradeScale(db.Model):
 # ==================== DEMO MA'LUMOTLAR ====================
 def create_demo_data():
     """Demo ma'lumotlarni yaratish"""
-    # Accounting accountini har doim yaratish/yangilash
-    accounting = User.query.filter_by(login='accounting').first()
-    if not accounting:
-        # Email orqali ham qidirish (eski versiyalar uchun)
-        accounting = User.query.filter_by(email='accounting@university.uz').first()
-        if accounting:
-            # Login qo'shish
-            accounting.login = 'accounting'
-            db.session.commit()
-        else:
-            accounting = User(
-                email='accounting@university.uz',
-                login='accounting',
-                full_name='Buxgalteriya Bo\'limi',
-                role='accounting',
-                phone='+998 90 123 45 68'
-            )
-            accounting.set_password('accounting123')
-            db.session.add(accounting)
-            db.session.commit()
-    
-    # Mavjud demo hisoblar uchun login qo'shish (migratsiya) - avval buni qilamiz
-    # Admin
-    admin_existing = User.query.filter_by(role='admin').first()
-    if admin_existing and not admin_existing.login:
-        admin_existing.login = 'admin'
-        db.session.commit()
-    
-    # Accounting
-    accounting_old = User.query.filter_by(email='accounting@university.uz').first()
-    if accounting_old and not accounting_old.login:
-        accounting_old.login = 'accounting'
-        db.session.commit()
-    
-    # Deans - mavjud demo hisoblar uchun
-    deans_old = User.query.filter_by(role='dean').all()
-    for dean in deans_old:
-        if not dean.login and dean.email:
-            login = dean.email.split('@')[0].replace('.', '_')
-            # Login unikalligini tekshirish
-            existing = User.query.filter_by(login=login).first()
-            if not existing:
-                dean.login = login
-                db.session.commit()
-    
-    # Teachers - mavjud demo hisoblar uchun
-    teachers_old = User.query.filter_by(role='teacher').all()
-    for teacher in teachers_old:
-        if not teacher.login and teacher.email:
-            login = teacher.email.split('@')[0].replace('.', '_')
-            # Login unikalligini tekshirish
-            existing = User.query.filter_by(login=login).first()
-            if not existing:
-                teacher.login = login
-                db.session.commit()
-    
-    # Eslatma: Har bir demo hisobni alohida tekshirib, agar yo'q bo'lsa yaratamiz
-    # Shuning uchun bu yerda return qilmaymiz
+    from datetime import date
     
     # ===== FAKULTETLAR =====
     faculties_data = [
@@ -749,58 +692,59 @@ def create_demo_data():
     
     db.session.commit()
     
-    # ===== ADMIN =====
-    admin = User.query.filter_by(login='admin').first()
-    if not admin:
-        # Demo admin uchun tahminiy ma'lumotlar
-        admin = User(
-            email='admin@university.uz',
-            login='admin',
-            full_name='Tizim Administratori',
-            role='admin',
-            passport_number='AA1234567',
-            pinfl='12345678901234',
-            birth_date=date(1985, 5, 15)
-        )
-        admin.set_password(admin.passport_number)
-        db.session.add(admin)
-    else:
-        # Mavjud admin uchun ma'lumotlarni to'ldirish
-        if not admin.passport_number:
-            admin.passport_number = 'AA1234567'
-        if not admin.pinfl:
-            admin.pinfl = '12345678901234'
-        if not admin.birth_date:
-            admin.birth_date = date(1985, 5, 15)
-        # Parolni pasport raqamiga yangilash
-        admin.set_password(admin.passport_number)
-        db.session.commit()
+    # ===== DEMO XODIMLAR MA'LUMOTLARI =====
+    demo_staff = [
+        {
+            'login': 'admin',
+            'email': 'admin@university.uz',
+            'full_name': 'Tizim Administratori',
+            'role': 'admin',
+            'passport': 'AA1234567',
+            'pinfl': '12345678901234',
+            'birth_date': date(1985, 5, 15)
+        },
+        {
+            'login': 'accounting',
+            'email': 'accounting@university.uz',
+            'full_name': 'Buxgalteriya Bo\'limi',
+            'role': 'accounting',
+            'phone': '+998 90 123 45 68',
+            'passport': 'AB1234568',
+            'pinfl': '23456789012345',
+            'birth_date': date(1988, 8, 20)
+        }
+    ]
     
-    # ===== BUXGALTERIYA =====
-    accounting = User.query.filter_by(login='accounting').first()
-    if not accounting:
-        # Demo accounting uchun tahminiy ma'lumotlar
-        accounting = User(
-            email='accounting@university.uz',
-            login='accounting',
-            full_name='Buxgalteriya Bo\'limi',
-            role='accounting',
-            phone='+998 90 123 45 68',
-            passport_number='AB1234568',
-            pinfl='23456789012345',
-            birth_date=date(1988, 8, 20)
-        )
-        accounting.set_password(accounting.passport_number)
-        db.session.add(accounting)
-    else:
-        # Mavjud accounting uchun ma'lumotlarni to'ldirish
-        if not accounting.passport_number:
-            accounting.passport_number = 'AB1234568'
-        if not accounting.pinfl:
-            accounting.pinfl = '23456789012345'
-        if not accounting.birth_date:
-            accounting.birth_date = date(1988, 8, 20)
-        db.session.commit()
+    for staff in demo_staff:
+        user = User.query.filter((User.login == staff['login']) | (User.email == staff['email'])).first()
+        if not user:
+            user = User(
+                login=staff['login'],
+                email=staff['email'],
+                full_name=staff['full_name'],
+                role=staff['role'],
+                phone=staff.get('phone'),
+                passport_number=staff['passport'],
+                pinfl=staff['pinfl'],
+                birth_date=staff['birth_date']
+            )
+            user.set_password(staff['passport'])
+            db.session.add(user)
+        else:
+            # Ma'lumotlarni yangilash va sinxronizatsiya qilish
+            user.login = staff['login']
+            user.email = staff['email']
+            user.full_name = staff['full_name']
+            user.role = staff['role']
+            user.passport_number = staff['passport']
+            user.pinfl = staff['pinfl']
+            user.birth_date = staff['birth_date']
+            if staff.get('phone'):
+                user.phone = staff['phone']
+            # Parolni har doim pasportga yangilaymiz (demo uchun)
+            user.set_password(staff['passport'])
+    
+    db.session.commit()
     
     # ===== DEKANLAR =====
     deans_data = [
