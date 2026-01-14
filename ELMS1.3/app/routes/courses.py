@@ -219,11 +219,11 @@ def index():
         
         # Agar semestr bo'yicha guruhlash bo'lmasa, oddiy tartibda
         if not subjects_by_semester:
-            subjects = query.order_by(Subject.name).paginate(page=page, per_page=12)
+            subjects = query.order_by(Subject.semester, Subject.name).paginate(page=page, per_page=12)
             all_subjects_list = list(subjects.items)
     else:
-        # Admin va dekan uchun oddiy tartib
-        subjects = query.order_by(Subject.name).paginate(page=page, per_page=12)
+        # Admin va dekan uchun oddiy tartib - semestr va nomi bo'yicha
+        subjects = query.order_by(Subject.semester, Subject.name).paginate(page=page, per_page=12)
         all_subjects_list = list(subjects.items)
     
     # Pagination uchun
@@ -1359,11 +1359,24 @@ def detail(id):
             allowed_pairs.add((ta.group_id, ta.lesson_type))
             
         for assignment in assignments:
-            # O'qituvchi o'zi biriktirilgan guruh va dars turi bo'yicha tahrirlay oladi
-            has_permission = (assignment.group_id, assignment.lesson_type) in allowed_pairs
+            # Ruxsat: Agar o'qituvchi o'zi yaratgan bo'lsa
+            is_creator = (assignment.created_by == current_user.id)
             
-            # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
-            if not has_permission and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+            # Yoki biriktirilgan guruh va dars turi bo'yicha
+            is_assigned_to_group = (assignment.group_id, assignment.lesson_type) in allowed_pairs
+            
+            # Global topshiriq bo'lsa (group_id is None), o'qituvchi fanga biriktirilgan bo'lsa ruxsat beramiz
+            is_assigned_to_subject = False
+            if assignment.group_id is None:
+                is_assigned_to_subject = any(p[1] == assignment.lesson_type for p in allowed_pairs)
+                # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
+                if not is_assigned_to_subject and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+                    is_assigned_to_subject = any(p[1] == 'amaliyot' for p in allowed_pairs)
+
+            has_permission = is_creator or is_assigned_to_group or is_assigned_to_subject
+            
+            # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish (guruh bo'yicha)
+            if not has_permission and assignment.group_id is not None and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
                 has_permission = (assignment.group_id, 'amaliyot') in allowed_pairs
                 
             assignment_manage_permissions[assignment.id] = has_permission
@@ -3130,7 +3143,9 @@ def assignment_detail(id):
                              can_manage_assignment=can_manage_assignment,
                              related_lessons=related_lessons,
                              submission_history=submission_history,
-                             student_highest_scores=student_highest_scores)
+                             student_highest_scores=student_highest_scores,
+                             direction_id=assignment.direction_id)
+
     else:
         # Talaba uchun - barcha javoblar (oxirgi yuborilgan birinchi)
         is_overdue = False
@@ -3895,25 +3910,45 @@ def edit_assignment(id):
     if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher':
         can_edit = True
     else:
-        # O'qituvchining biriktirilganligini tekshirish (guruh va dars turi bo'yicha)
-        is_assigned = TeacherSubject.query.filter_by(
-            teacher_id=current_user.id,
-            subject_id=subject.id,
-            group_id=assignment.group_id,
-            lesson_type=assignment.lesson_type
-        ).first() is not None
-        
-        # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
-        if not is_assigned and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+        # Ruxsat: Agar o'qituvchi o'zi yaratgan bo'lsa
+        if assignment.created_by == current_user.id:
+            can_edit = True
+        else:
+            # O'qituvchining biriktirilganligini tekshirish (guruh va dars turi bo'yicha)
             is_assigned = TeacherSubject.query.filter_by(
                 teacher_id=current_user.id,
                 subject_id=subject.id,
                 group_id=assignment.group_id,
-                lesson_type='amaliyot'
+                lesson_type=assignment.lesson_type
             ).first() is not None
             
-        if is_assigned:
-            can_edit = True
+            # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
+            if not is_assigned and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+                is_assigned = TeacherSubject.query.filter_by(
+                    teacher_id=current_user.id,
+                    subject_id=subject.id,
+                    group_id=assignment.group_id,
+                    lesson_type='amaliyot'
+                ).first() is not None
+            
+            # Global topshiriq bo'lsa (group_id is None)
+            if not is_assigned and assignment.group_id is None:
+                is_assigned = TeacherSubject.query.filter_by(
+                    teacher_id=current_user.id,
+                    subject_id=subject.id,
+                    lesson_type=assignment.lesson_type
+                ).first() is not None
+                
+                # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
+                if not is_assigned and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+                    is_assigned = TeacherSubject.query.filter_by(
+                        teacher_id=current_user.id,
+                        subject_id=subject.id,
+                        lesson_type='amaliyot'
+                    ).first() is not None
+                
+            if is_assigned:
+                can_edit = True
             
     if not can_edit:
         flash("Sizda topshiriqni tahrirlash uchun ruxsat yo'q", 'error')
@@ -4050,8 +4085,11 @@ def delete_assignment(id):
     if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher':
         can_delete = True
     else:
-        if current_role == 'teacher':
-             # O'qituvchining biriktirilganligini tekshirish (guruh va dars turi bo'yicha)
+        # Ruxsat: Agar o'qituvchi o'zi yaratgan bo'lsa
+        if assignment.created_by == current_user.id:
+            can_delete = True
+        else:
+            # O'qituvchining biriktirilganligini tekshirish (guruh va dars turi bo'yicha)
             is_assigned = TeacherSubject.query.filter_by(
                 teacher_id=current_user.id,
                 subject_id=subject.id,
@@ -4067,6 +4105,22 @@ def delete_assignment(id):
                     group_id=assignment.group_id,
                     lesson_type='amaliyot'
                 ).first() is not None
+            
+            # Global topshiriq bo'lsa (group_id is None)
+            if not is_assigned and assignment.group_id is None:
+                is_assigned = TeacherSubject.query.filter_by(
+                    teacher_id=current_user.id,
+                    subject_id=subject.id,
+                    lesson_type=assignment.lesson_type
+                ).first() is not None
+                
+                # Laboratoriya va kurs_ishi uchun amaliyot orqali tekshirish
+                if not is_assigned and assignment.lesson_type in ['laboratoriya', 'kurs_ishi']:
+                    is_assigned = TeacherSubject.query.filter_by(
+                        teacher_id=current_user.id,
+                        subject_id=subject.id,
+                        lesson_type='amaliyot'
+                    ).first() is not None
                 
             if is_assigned:
                 can_delete = True

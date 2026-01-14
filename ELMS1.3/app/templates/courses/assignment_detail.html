@@ -5,7 +5,7 @@
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
     <div class="mb-4">
-        <a href="{{ url_for('courses.detail', id=assignment.subject.id, direction_id=direction_id) if direction_id else url_for('courses.detail', id=assignment.subject.id) }}"
+        <a href="{{ url_for('courses.detail', id=assignment.subject.id, direction_id=direction_id or assignment.direction_id or request.args.get('direction_id')) }}"
             class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />

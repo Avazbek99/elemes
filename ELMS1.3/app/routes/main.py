@@ -57,10 +57,21 @@ def index():
 def dashboard():
     """Dashboard sahifasi"""
     user = current_user
+    # Foydalanuvchining faol (tanlangan) roli:
+    # Agar bir nechta rol bo'lsa, session['current_role'] orqali tanlanadi,
+    # aks holda user.role ishlatiladi.
+    from flask import session as flask_session
+    active_role = flask_session.get('current_role') or user.role
+    # Agar session'dagi rol foydalanuvchida mavjud bo'lmasa, asosiy rolga qaytamiz
+    if hasattr(user, "has_role") and active_role and not user.has_role(active_role):
+        active_role = user.role
     
     # Foydalanuvchi rollariga qarab turli ma'lumotlar
     stats = {}
-    my_subjects_info = {}
+    
+    # Xodimlar sonini hisoblash (Talaba bo'lmagan barcha foydalanuvchilar)
+    total_staff = User.query.filter(User.role != 'student').count()
+
     announcements = []
     recent_assignments = []
     upcoming_schedules = []
@@ -70,128 +81,167 @@ def dashboard():
     semester_progress = 0
     semester_grade = None
     payment_info = None
+    direction_id = None
     
-    if user.role == 'student':
-        # Talaba uchun
+    # Salomlashuv va bugungi sana
+    now = get_tashkent_time()
+    today = now.strftime('%d.%m.%Y')
+    
+    hour = now.hour
+    if 5 <= hour < 12:
+        greeting = "Xayrli tong"
+    elif 12 <= hour < 18:
+        greeting = "Xayrli kun"
+    elif 18 <= hour < 22:
+        greeting = "Xayrli kecha"
+    else:
+        greeting = "Xayrli tun"
+    
+    if active_role == 'student':
         from app.models import DirectionCurriculum
         current_semester = user.semester if user.semester else 1
-        
-        # Faqat joriy semestrdagi fanlarni olish
-        my_subjects = []
-        current_semester_subjects_count = 0
-        total_semester_credits = 0
+        my_subjects_info = {}
         
         if user.group_id:
             group = Group.query.get(user.group_id)
-            if group and group.direction_id:
-                # Faqat joriy semestrdagi fanlarni olish
-                curriculum_items = DirectionCurriculum.query.filter_by(
-                    direction_id=group.direction_id,
-                    semester=current_semester
-                ).all()
+            direction_id = group.direction_id if group else None
+            
+            # Fetch curriculum items for all subjects in the current semester
+            curriculum_list = []
+            if direction_id:
+                curriculum_list = DirectionCurriculum.query.join(Subject).filter(
+                    DirectionCurriculum.direction_id == direction_id,
+                    DirectionCurriculum.semester == current_semester
+                ).order_by(Subject.name).all()
+            
+            # Populate basic info and collect subject IDs
+            subject_ids = []
+            total_semester_credits = 0.0
+            for item in curriculum_list:
+                subject_ids.append(item.subject_id)
+                course_year = ((item.semester - 1) // 2) + 1
                 
-                # Fanlarni olish
-                subject_ids = [item.subject_id for item in curriculum_items]
-                my_subjects = Subject.query.filter(Subject.id.in_(subject_ids)).all() if subject_ids else []
+                # Formula: (maruza + amaliyot + laboratoriya + seminar + mustaqil) / 30
+                total_hours = (item.hours_maruza or 0) + (item.hours_amaliyot or 0) + \
+                             (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
+                             (item.hours_mustaqil or 0)
                 
-                for item in curriculum_items:
-                    course_year = ((item.semester - 1) // 2) + 1
-                    # Kreditni hisoblash (jami soat / 30) - Fanlar bo'limidagi kabi yaxlitlamasdan
-                    # (maruza + amaliyot + laboratoriya + seminar + mustaqil) / 30
-                    # Kurs ishi kreditga kiritilmaydi
-                    total_hours = (item.hours_maruza or 0) + (item.hours_amaliyot or 0) + \
-                                 (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
-                                 (item.hours_mustaqil or 0)
-                    # Fanlar bo'limidagi kabi: yaxlitlamasdan va subject.credits fallback
-                    subject = Subject.query.get(item.subject_id)
-                    # Fanlar bo'limidagi kabi: total_hours > 0 bo'lsa total_hours/30, aks holda subject.credits
-                    if total_hours > 0:
-                        credits = total_hours / 30
-                    else:
-                        # Agar total_hours 0 bo'lsa, subject.credits dan olamiz
-                        if subject and subject.credits:
-                            credits = subject.credits
-                        else:
-                            credits = None
+                subject = Subject.query.get(item.subject_id)
+                if total_hours > 0:
+                    credits = total_hours / 30.0
+                else:
+                    credits = float(subject.credits) if subject and subject.credits else 0.0
+                
+                total_semester_credits += credits
+                my_subjects_info[item.subject_id] = {
+                    'semester': item.semester,
+                    'course_year': course_year,
+                    'credits': credits,
+                    'progress': 0,
+                    'graded_count': 0,
+                    'total_assignments': 0,
+                    'progress_score': 0,
+                    'progress_max': 100
+                }
+
+            # If my_subjects is still empty, try to populate from curriculum
+            if not my_subjects and subject_ids:
+                my_subjects = Subject.query.filter(Subject.id.in_(subject_ids)).order_by(Subject.name).all()
+            
+            # Now calculate scores for ALL subjects we found
+            all_subj_ids = list(set(subject_ids + [s.id for s in my_subjects]))
+            
+            if all_subj_ids:
+                # Fetch assignments
+                assignment_query = Assignment.query.filter(Assignment.subject_id.in_(all_subj_ids))
+                if direction_id:
+                    assignment_query = assignment_query.filter(
+                        (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None)),
+                        (Assignment.group_id == user.group_id) | (Assignment.group_id.is_(None))
+                    )
+                else:
+                    assignment_query = assignment_query.filter(
+                        (Assignment.group_id == user.group_id) | (Assignment.group_id.is_(None))
+                    )
+                all_assignments_list = assignment_query.all()
+                
+                # Fetch submissions
+                assign_ids = [a.id for a in all_assignments_list]
+                user_submissions = Submission.query.filter(
+                    Submission.student_id == user.id,
+                    Submission.assignment_id.in_(assign_ids)
+                ).all() if assign_ids else []
+                
+                # Highest score map
+                submissions_map = {}
+                for s in user_submissions:
+                    if s.assignment_id not in submissions_map:
+                        submissions_map[s.assignment_id] = s
+                    elif s.score is not None:
+                        current = submissions_map[s.assignment_id]
+                        if current.score is None or s.score > current.score:
+                            submissions_map[s.assignment_id] = s
+
+                total_semester_score = 0.0
+                total_semester_max_score = 0.0
+                
+                # Group assignments by subject for efficient lookup
+                assignments_by_subject = {}
+                for a in all_assignments_list:
+                    if a.subject_id not in assignments_by_subject:
+                        assignments_by_subject[a.subject_id] = []
+                    assignments_by_subject[a.subject_id].append(a)
+
+                for sid in all_subj_ids:
+                    s_assignments = assignments_by_subject.get(sid, [])
+                    sub_score = 0.0
+                    sub_max = 0.0
+                    sub_graded = 0
                     
-                    # Kreditni dictionary'ga qo'shish (None bo'lsa ham qo'shamiz, lekin template'da tekshiramiz)
-                    my_subjects_info[item.subject_id] = {
-                        'semester': item.semester,
-                        'course_year': course_year,
-                        'credits': credits
-                    }
-                    if credits:
-                        total_semester_credits += credits
-                
-                current_semester_subjects_count = len(curriculum_items)
-                
-                # Har bir fan uchun o'zlashtirish ko'rsatkichini hisoblash
-                if group and group.direction_id:
-                    for subject_id in subject_ids:
-                        # Ushbu fan bo'yicha barcha topshiriqlar
-                        subject_assignments = Assignment.query.filter(
-                            Assignment.subject_id == subject_id,
-                            Assignment.direction_id == group.direction_id,
-                            (Assignment.group_id == user.group_id) | (Assignment.group_id.is_(None))
-                        ).all()
-                        
-                        total_assignments = len(subject_assignments)
-                        graded_count = 0
-                        total_score = 0.0
-                        total_max_score = 0.0
-                        
-                        if subject_assignments:
-                            assignment_ids = [a.id for a in subject_assignments]
-                            # Barcha topshiriqlarning maksimal ball yig'indisi
-                            for assignment in subject_assignments:
-                                if assignment.max_score:
-                                    total_max_score += assignment.max_score
-                            
-                            # Baholangan topshiriqlar
-                            graded_submissions = Submission.query.filter(
-                                Submission.student_id == user.id,
-                                Submission.assignment_id.in_(assignment_ids),
-                                Submission.is_active == True,
-                                Submission.score != None
-                            ).all()
-                            graded_count = len(graded_submissions)
-                            
-                            # Jami ball hisoblash (faqat baholangan topshiriqlar)
-                            for submission in graded_submissions:
-                                if submission.score is not None:
-                                    total_score += submission.score
-                        
-                        # O'zlashtirish foizi - talabaning olgan ballaridan hisoblanadi
-                        # total_score / total_max_score * 100
-                        progress_percent = 0.0
-                        if total_max_score > 0:
-                            progress_percent = round((total_score / total_max_score) * 100, 1)
-                        
-                        # my_subjects_info ga qo'shish - progress har doim qo'shiladi (0 bo'lsa ham)
-                        progress_score_value = round(total_score, 0)
-                        progress_max_value = round(total_max_score, 0) if total_max_score > 0 else 100
-                        
-                        if subject_id in my_subjects_info:
-                            my_subjects_info[subject_id]['progress'] = progress_percent
-                            my_subjects_info[subject_id]['graded_count'] = graded_count
-                            my_subjects_info[subject_id]['total_assignments'] = total_assignments
-                            my_subjects_info[subject_id]['progress_score'] = progress_score_value
-                            my_subjects_info[subject_id]['progress_max'] = progress_max_value
-                        else:
-                            # Agar subject_id my_subjects_info da yo'q bo'lsa, yaratish
-                            my_subjects_info[subject_id] = {
-                                'progress': progress_percent,
-                                'graded_count': graded_count,
-                                'total_assignments': total_assignments,
-                                'progress_score': progress_score_value,
-                                'progress_max': progress_max_value,
-                                'semester': None,
-                                'course_year': None
-                            }
-            else:
-                my_subjects = user.get_subjects() if hasattr(user, 'get_subjects') else []
-        else:
-            my_subjects = user.get_subjects() if hasattr(user, 'get_subjects') else []
+                    for a in s_assignments:
+                        sub_max += (a.max_score or 0)
+                        subm = submissions_map.get(a.id)
+                        if subm and subm.score is not None:
+                            sub_score += subm.score
+                            sub_graded += 1
+                    
+                    prog = round((sub_score / sub_max) * 100, 1) if sub_max > 0 else 0.0
+                    
+                    if sid not in my_subjects_info:
+                        # Ensure we have info for subjects that were found via get_subjects but not curriculum
+                        subject = Subject.query.get(sid)
+                        my_subjects_info[sid] = {
+                            'semester': current_semester,
+                            'course_year': ((current_semester - 1) // 2) + 1,
+                            'credits': float(subject.credits) if subject and subject.credits else 0.0,
+                            'progress': 0,
+                            'graded_count': 0,
+                            'total_assignments': 0,
+                            'progress_score': 0,
+                            'progress_max': 100
+                        }
+                    
+                    my_subjects_info[sid].update({
+                        'progress': prog,
+                        'graded_count': sub_graded,
+                        'total_assignments': len(s_assignments),
+                        'progress_score': round(sub_score, 0),
+                        'progress_max': round(sub_max, 0) if sub_max > 0 else 100
+                    })
+                    
+                    # Only add to semester totals if the subject is in the current semester curriculum
+                    if sid in subject_ids:
+                        total_semester_score += sub_score
+                        total_semester_max_score += sub_max
+
+                current_semester_subjects_count = len(subject_ids)
+                if total_semester_max_score > 0:
+                    semester_progress = round((total_semester_score / total_semester_max_score) * 100)
+                    from app.models import GradeScale
+                    semester_grade = GradeScale.get_grade(semester_progress)
+                else:
+                    semester_progress = 0
+                    semester_grade = None
         
         # Barcha topshiriqlar (talabaning guruhiga tegishli va joriy semestrdagi fanlar uchun)
         all_assignments = []
@@ -258,11 +308,11 @@ def dashboard():
             'submissions': Submission.query.filter_by(student_id=user.id).count(),
             'completed_assignments': graded_count,
             'current_semester_subjects': current_semester_subjects_count,
+            'total_semester_credits': total_semester_credits if 'total_semester_credits' in locals() else 0,
             'graded_assignments': graded_count,
             'submitted_assignments': submitted_total_count,  # Barcha topshirilgan (baholangan + yuborilgan)
             'not_submitted_assignments': not_submitted_count,
-            'overdue_assignments': 0,  # Keyinroq yangilanadi
-            'total_semester_credits': total_semester_credits
+            'overdue_assignments': 0  # Keyinroq yangilanadi
         }
         
         # E'lonlar
@@ -434,51 +484,8 @@ def dashboard():
         # Muddati o'tgan topshiriqlarni "Topshirilmagan" sonidan chiqarish
         stats['not_submitted_assignments'] = stats['not_submitted_assignments'] - overdue_count
         
-        # Semestr bo'yicha o'zlashtirish ko'rsatkichi
-        from app.models import DirectionCurriculum, GradeScale
-        
-        semester_progress = 0
-        semester_grade = None
-        total_semester_score = 0
-        total_semester_max_score = 0
-        
-        if user.group_id:
-            group = Group.query.get(user.group_id)
-            if group and group.direction_id:
-                # Faqat joriy semestrdagi fanlar
-                curriculum_items = DirectionCurriculum.query.filter_by(
-                    direction_id=group.direction_id,
-                    semester=current_semester
-                ).all()
-                
-                total_semester_score = 0
-                total_semester_max_score = 0
-                
-                for item in curriculum_items:
-                    # Ushbu fan bo'yicha barcha topshiriqlarni olish
-                    subject_assignments = Assignment.query.filter(
-                        Assignment.subject_id == item.subject_id,
-                        (Assignment.group_id == user.group_id) | (Assignment.group_id.is_(None)),
-                        (Assignment.direction_id == group.direction_id) | (Assignment.direction_id.is_(None))
-                    ).all()
-                    
-                    for assignment in subject_assignments:
-                        # Jami max_score ga har doim qo'shamiz
-                        total_semester_max_score += assignment.max_score
-                        
-                        # Baholangan topshiriqni qidiramiz
-                        submission = Submission.query.filter_by(
-                            student_id=user.id,
-                            assignment_id=assignment.id,
-                            is_active=True
-                        ).first()
-                        
-                        if submission and submission.score is not None:
-                            total_semester_score += submission.score
-                
-                if total_semester_max_score > 0:
-                    semester_progress = round((total_semester_score / total_semester_max_score) * 100)
-                    semester_grade = GradeScale.get_grade(semester_progress)
+        # semester_progress, total_semester_score, total_semester_max_score already calculated above for students
+        pass
         
         # To'lov ma'lumotlari
         payment_info = None
@@ -497,17 +504,26 @@ def dashboard():
                 'percentage': payment_percentage
             }
     
-    elif user.role == 'teacher' or user.has_role('teacher'):
+    elif active_role == 'teacher':
         # O'qituvchi uchun
         from app.models import DirectionCurriculum, Direction
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
         subject_ids = [ts.subject_id for ts in teacher_subjects]
         
-        # Fanlarni semester va kurs ma'lumotlari bilan yig'ish
-        my_subjects_data = []
+        # Fanlarni semester va kurs ma'lumotlari bilan yig'ish (har bir guruh uchun alohida)
+        my_subjects_list = []
+        my_subjects_info = {}
+        seen_subject_group = set()
+        
         for ts in teacher_subjects:
             group = Group.query.get(ts.group_id)
             if group and group.direction_id:
+                # Deduplication check
+                sg_key = (ts.subject_id, ts.group_id)
+                if sg_key in seen_subject_group:
+                    continue
+                seen_subject_group.add(sg_key)
+                
                 curriculum_item = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
                     subject_id=ts.subject_id
@@ -516,29 +532,43 @@ def dashboard():
                     subject = Subject.query.get(ts.subject_id)
                     if subject:
                         course_year = ((curriculum_item.semester - 1) // 2) + 1
-                        my_subjects_data.append({
-                            'subject': subject,
+                        
+                        # Kreditlarni hisoblash
+                        total_hours = (curriculum_item.hours_maruza or 0) + (curriculum_item.hours_amaliyot or 0) + \
+                                     (curriculum_item.hours_laboratoriya or 0) + (curriculum_item.hours_seminar or 0) + \
+                                     (curriculum_item.hours_mustaqil or 0)
+                        
+                        if total_hours > 0:
+                            credits = total_hours / 30.0
+                        else:
+                            credits = float(subject.credits) if subject and subject.credits else 0.0
+                            
+                        item = {
+                            'id': subject.id,
+                            'name': subject.name,
+                            'display_name': f"{subject.name} ({group.name})",
                             'semester': curriculum_item.semester,
                             'course_year': course_year,
-                            'direction': Direction.query.get(group.direction_id)
-                        })
+                            'direction': Direction.query.get(group.direction_id),
+                            'credits': credits,
+                            'group_id': group.id,
+                            'group_name': group.name
+                        }
+                        my_subjects_list.append(item)
+                        # Fallback info key
+                        my_subjects_info[f"{subject.id}_{group.id}"] = item
         
-        # Takrorlanmas fanlar (birinchi topilgan ma'lumotlar bilan)
-        seen_subject_ids = set()
-        my_subjects_list = []
-        for item in my_subjects_data:
-            if item['subject'].id not in seen_subject_ids:
-                seen_subject_ids.add(item['subject'].id)
-                my_subjects_list.append(item)
+        # Tartiblash: Kurs -> Semester -> Fan nomi -> Guruh nomi
+        my_subjects_list.sort(key=lambda x: (x['course_year'], x['semester'], x['name'], x['display_name']))
         
-        my_subjects = [item['subject'] for item in my_subjects_list]
-        my_subjects_info = {item['subject'].id: item for item in my_subjects_list}
+        my_subjects = my_subjects_list
         
+        # Stats
         stats = {
-            'subjects': my_subjects,
+            'total_subjects': len(my_subjects),
+            'total_groups': len(set(ts.group_id for ts in teacher_subjects)),
             'assignments': Assignment.query.filter(Assignment.subject_id.in_(subject_ids)).count() if subject_ids else 0,
-            'submissions': Submission.query.join(Assignment).filter(Assignment.subject_id.in_(subject_ids)).count() if subject_ids else 0,
-            'pending_grades': Submission.query.join(Assignment).filter(
+            'pending_submissions': Submission.query.join(Assignment).filter(
                 Assignment.subject_id.in_(subject_ids),
                 Submission.score == None
             ).count() if subject_ids else 0
@@ -556,8 +586,8 @@ def dashboard():
         ).order_by(Assignment.due_date.desc()).limit(5).all() if subject_ids else []
         
         # Dars jadvali (o'qituvchi uchun) - Toshkent vaqti
-        today = get_tashkent_time().date()
-        today_weekday = today.weekday()  # 0 = Monday, 6 = Sunday
+        today_date = get_tashkent_time().date()
+        today_weekday = today_date.weekday()  # 0 = Monday, 6 = Sunday
         # O'qituvchining guruhlari
         teacher_groups = [ts.group_id for ts in teacher_subjects]
         if teacher_groups:
@@ -569,7 +599,7 @@ def dashboard():
         else:
             today_schedule = []
     
-    elif user.role == 'dean':
+    elif active_role == 'dean':
         # Dekan uchun
         faculty = Faculty.query.get(user.faculty_id) if user.faculty_id else None
         
@@ -587,14 +617,15 @@ def dashboard():
                 (Announcement.faculty_id == faculty.id) | (Announcement.faculty_id == None)
             ).order_by(Announcement.created_at.desc()).limit(5).all()
     
-    elif user.role == 'admin':
+    elif active_role == 'admin':
         # Admin uchun
         stats = {
             'total_users': User.query.count(),
             'total_students': User.query.filter_by(role='student').count(),
             'total_teachers': User.query.filter_by(role='teacher').count(),
             'total_faculties': Faculty.query.count(),
-            'total_subjects': Subject.query.count()
+            'total_subjects': Subject.query.count(),
+            'total_staff': total_staff
         }
         
         # E'lonlar
@@ -605,6 +636,9 @@ def dashboard():
         today_schedule = []
     
     # O'qituvchi uchun fanlar ma'lumotlari
+    if 'my_subjects_info' not in locals():
+        my_subjects_info = {}
+    
     if user.role == 'teacher' or user.has_role('teacher'):
         from app.models import DirectionCurriculum, Direction
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
@@ -617,13 +651,29 @@ def dashboard():
                 ).first()
                 if curriculum_item and ts.subject_id not in my_subjects_info:
                     course_year = ((curriculum_item.semester - 1) // 2) + 1
-                    my_subjects_info[ts.subject_id] = {
-                        'semester': curriculum_item.semester,
-                        'course_year': course_year
-                    }
+                    subject = Subject.query.get(ts.subject_id)
+                    
+                    # Teacher subjects credits
+                    total_hours = (curriculum_item.hours_maruza or 0) + (curriculum_item.hours_amaliyot or 0) + \
+                                 (curriculum_item.hours_laboratoriya or 0) + (curriculum_item.hours_seminar or 0) + \
+                                 (curriculum_item.hours_mustaqil or 0)
+                    
+                    if total_hours > 0:
+                        credits = total_hours / 30.0
+                    else:
+                        credits = float(subject.credits) if subject and subject.credits else 0.0
+                        
+                    info_key = f"{ts.subject_id}_{ts.group_id}"
+                    if info_key not in my_subjects_info:
+                        my_subjects_info[info_key] = {
+                            'semester': curriculum_item.semester,
+                            'course_year': course_year,
+                            'credits': credits,
+                            'direction': Direction.query.get(group.direction_id)
+                        }
     
     # pending_assignments ni boshqa rollar uchun ham yaratish (agar mavjud bo'lmasa)
-    if user.role != 'student':
+    if active_role != 'student':
         if 'pending_assignments' not in locals():
             pending_assignments = []
             if recent_assignments:
@@ -638,16 +688,17 @@ def dashboard():
     if 'now_dt' not in locals():
         now_dt = get_tashkent_time()
     
-    return render_template('dashboard.html', stats=stats, announcements=announcements, 
+    return render_template('dashboard.html', stats=stats, **stats, announcements=announcements, 
                          recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules,
                          my_subjects=my_subjects, today_schedule=today_schedule, my_subjects_info=my_subjects_info,
                          pending_assignments=pending_assignments if 'pending_assignments' in locals() else [],
                          semester_progress=semester_progress if 'semester_progress' in locals() else 0,
-                         semester_grade=semester_grade if 'semester_grade' in locals() else None,
                          total_semester_score=total_semester_score if 'total_semester_score' in locals() else 0,
                          total_semester_max_score=total_semester_max_score if 'total_semester_max_score' in locals() else 0,
+                         semester_grade=semester_grade if 'semester_grade' in locals() else None,
                          payment_info=payment_info if 'payment_info' in locals() else None,
-                         upcoming_due_assignments=upcoming_due_assignments if 'upcoming_due_assignments' in locals() else [])
+                         upcoming_due_assignments=upcoming_due_assignments if 'upcoming_due_assignments' in locals() else [],
+                         greeting=greeting, today=today, role=active_role, direction_id=direction_id)
 
 @bp.route('/announcements')
 @login_required

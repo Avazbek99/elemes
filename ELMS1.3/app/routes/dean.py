@@ -47,9 +47,10 @@ def index():
     if faculty:
         stats = {
             'total_groups': faculty.groups.count(),
-            'total_subjects': Subject.query.count(),
+            'total_subjects': Subject.query.join(DirectionCurriculum).join(Direction).filter(Direction.faculty_id == faculty.id).distinct().count(),
             'total_students': User.query.join(Group).filter(Group.faculty_id == faculty.id).count(),
-            'total_teachers': TeacherSubject.query.distinct(TeacherSubject.teacher_id).count(),
+            'total_teachers': User.query.filter_by(role='teacher').count(), # Tizimdagi barcha o'qituvchilar yoki fakultetdagi? (TeacherSubject join kerak)
+            'total_directions': Direction.query.filter_by(faculty_id=faculty.id).count()
         }
         # Yo'nalishlar ro'yxati
         directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
@@ -66,7 +67,10 @@ def index():
         direction_stats = {}
         subjects = []
     
-    return render_template('dean/index.html', faculty=faculty, stats=stats, directions=directions, direction_stats=direction_stats, subjects=subjects)
+    from app.utils.date_utils import get_tashkent_time
+    now_dt = get_tashkent_time()
+    
+    return render_template('dean/index.html', faculty=faculty, stats=stats, directions=directions, direction_stats=direction_stats, subjects=subjects, now_dt=now_dt)
 
 
 

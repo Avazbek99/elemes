@@ -55,8 +55,10 @@
                 {% for subject_data in subjects_by_semester[semester] %}
                 {% set subject = subject_data.subject %}
                 {% set direction_id = subject_data.direction.id if subject_data.direction else None %}
-                {% set teacher_id = current_user.id if (current_user.role == 'teacher' or current_user.has_role('teacher')) else None %}
-                {% set curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id) if (current_user.role in ['teacher', 'dean', 'admin']) else {'has_issue': False, 'warnings': []} %}
+                {% set teacher_id = current_user.id if (current_user.role == 'teacher' or
+                current_user.has_role('teacher')) else None %}
+                {% set curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id) if
+                (current_user.role in ['teacher', 'dean', 'admin']) else {'has_issue': False, 'warnings': []} %}
                 {% set has_issue = curriculum_check.has_issue %}
                 {# Unified Card for Teacher and Student #}
                 <div class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
@@ -400,7 +402,7 @@
             <div class="flex items-start justify-between mb-2">
                 <span
                     class="px-2 py-1 text-xs font-medium rounded-full {% if has_issue %}bg-red-100 text-red-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
-                    {% if subject.code %}{{ subject.code }}{% else %}{{ subject.semester }}-semestr{% endif %}
+                    {{ subject.semester }}-semestr
                 </span>
             </div>
             {# O'quv reja tekshiruvi faqat yo'nalish tanlanganda ishlaydi #}

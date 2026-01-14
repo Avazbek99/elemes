@@ -201,7 +201,8 @@ def index():
                              search=search,
                              total_contract=float(total_contract),
                              total_paid=float(total_paid),
-                             payment_stats_by_course=payment_stats_by_course)
+                             payment_stats_by_course=payment_stats_by_course,
+                             now_dt=datetime.now())
     
     elif current_user.role == 'admin':
         # Admin barcha fakultetlarning to'lov ma'lumotlarini ko'radi
