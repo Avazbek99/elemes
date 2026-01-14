@@ -463,7 +463,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        Eksport
+                        Export
                     </a>
                     {% else %}
                     <div class="relative inline-block text-left">
@@ -473,7 +473,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
-                            Eksport
+                            Export
                         </button>
                         <div id="exportMenu"
                             class="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 hidden z-20">
@@ -522,18 +522,25 @@
                                     {% endif %}
                                 </div>
                                 {% if assignment.due_date %}
-                                <p class="text-xs text-gray-500">Muddat: {{ (assignment.due_date |
-                                    to_tashkent_time).strftime('%d.%m.%Y') }},
-                                    Soat: 23:59 ga qadar</p>
+                                {% set status = assignment_status.get(assignment.id, {}) %}
+                                <p
+                                    class="text-xs {% if assignment_is_overdue.get(assignment.id) and (not status.has_subs or (status.latest_sub and status.latest_sub.score is none)) %}text-red-600 font-medium{% else %}text-gray-500{% endif %}">
+                                    Muddat: {{ (assignment.due_date | to_tashkent_time).strftime('%d.%m.%Y') }}, Soat:
+                                    23:59 ga qadar
+                                </p>
                                 {% endif %}
-                                {% if current_user.role == 'student' and assignment_highest_scores and assignment.id in
-                                assignment_highest_scores %}
+                                {% if current_user.role == 'student' %}
+                                {% set status = assignment_status.get(assignment.id, {}) %}
                                 <div class="mt-2 flex items-center gap-1.5">
-                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Eng yuqori baho:</span>
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase">
+                                        {% if status.is_any_graded %}Baholangan:{% else %}Baholanmagan{% endif %}
+                                    </span>
+                                    {% if status.is_any_graded %}
                                     <span
                                         class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-primary-50 text-primary-600 border border-primary-100">
                                         {{ assignment_highest_scores[assignment.id] }}/{{ assignment.max_score }}
                                     </span>
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                             </a>
@@ -566,18 +573,25 @@
                                 {% endif %}
 
                                 {% if current_user.role == 'student' %}
-                                {% if assignment_status.get(assignment.id) %}
-                                {% if assignment_status[assignment.id].score is not none %}
+                                {% set status = assignment_status.get(assignment.id, {}) %}
+                                {% if not status.has_subs %}
                                 <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 flex-shrink-0">{{
-                                    assignment_status[assignment.id].score }}/{{ assignment.max_score }}</span>
+                                    class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 flex-shrink-0">Topshirilmagan</span>
+                                {% elif status.latest_sub and status.latest_sub.score is none %}
+                                <div class="flex flex-col items-end gap-1">
+                                    <span
+                                        class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Yuborilgan</span>
+                                    <span class="text-[9px] text-amber-600 font-medium">Baholash kutilmoqda</span>
+                                </div>
                                 {% else %}
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 flex-shrink-0">Yuborilgan</span>
-                                {% endif %}
-                                {% else %}
-                                <span
-                                    class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Kutilmoqda</span>
+                                <div class="flex flex-col items-end gap-1">
+                                    <span
+                                        class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 flex-shrink-0">Topshirilgan</span>
+                                    {% if status.remaining_attempts > 0 and not assignment_is_overdue.get(assignment.id)
+                                    %}
+                                    <span class="text-[9px] text-green-600 font-medium">Qayta topshirish mumkin</span>
+                                    {% endif %}
+                                </div>
                                 {% endif %}
                                 {% else %}
                                 {% set stats = assignment_submission_stats.get(assignment.id, {}) %}

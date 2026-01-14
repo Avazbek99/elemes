@@ -22,7 +22,7 @@
         <div class="flex flex-wrap gap-3 text-sm">
             {% for g in grade_scales %}
             <span class="px-3 py-1 rounded-full font-medium border border-blue-100 bg-white/60">
-                {{ g.letter }} ({{ g.min_score }}-{{ g.max_score }}) - {{ g.name }}
+                {{ g.letter }} ({{ g.min_score }}%-{{ g.max_score }}%) - {{ g.name }}
             </span>
             {% endfor %}
         </div>
@@ -44,7 +44,7 @@
         {% set overall_text_class = overall_classes.text %}
         {% set overall_bar_class = overall_classes.bar %}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-sm text-gray-500 mb-2">Umumiy ball</p>
+            <p class="text-sm text-gray-500 mb-2">O'zlashtirish</p>
             <div class="flex items-end gap-3">
                 <p class="text-4xl font-bold text-gray-900">
                     {{ overall_grade and overall_grade.letter or '–' }}
@@ -56,13 +56,12 @@
                     <div class="{{ 'h-2 rounded-full transition-all ' ~ overall_bar_class }}"
                         style="width: {{ overall_percent }}%;"></div>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">{{ overall_percent }}%</p>
             </div>
         </div>
 
         <!-- Umumiy baho -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-sm text-gray-500 mb-2">Umumiy baho</p>
+            <p class="text-sm text-gray-500 mb-2">Umumiy ball</p>
             <div class="flex items-center gap-3">
                 <div class="w-16 h-16 rounded-2xl flex items-center justify-center {{ overall_bg_class }}">
                     <span class="text-3xl font-bold {{ overall_text_class }}">
@@ -71,7 +70,7 @@
                 </div>
                 <div>
                     <p class="font-semibold text-gray-900">
-                        {{ overall_grade and overall_grade.name or 'Baho yo\'q' }}
+                        {{ total_score|default(0)|round|int }} / {{ max_score|default(0)|round|int }}
                     </p>
                     <p class="text-sm text-gray-500">{{ overall_percent }}%</p>
                 </div>

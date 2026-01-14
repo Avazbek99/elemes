@@ -785,13 +785,23 @@ def detail(id):
     now_dt = get_tashkent_time()
     if current_user.role == 'student':
         for assignment in assignments:
-            # Faol submission topish (oxirgi yuborilgan)
-            submission = Submission.query.filter_by(
+            # Batafsil ma'lumot olish
+            all_subs = Submission.query.filter_by(
                 student_id=current_user.id,
-                assignment_id=assignment.id,
-                is_active=True
-            ).first()
-            assignment_status[assignment.id] = submission
+                assignment_id=assignment.id
+            ).order_by(Submission.submitted_at.desc()).all()
+            
+            latest_sub = all_subs[0] if all_subs else None
+            is_any_graded = any(s.score is not None for s in all_subs)
+            remaining_attempts = 3 - len(all_subs)
+            if remaining_attempts < 0: remaining_attempts = 0
+            
+            assignment_status[assignment.id] = {
+                'latest_sub': latest_sub,
+                'is_any_graded': is_any_graded,
+                'remaining_attempts': remaining_attempts,
+                'has_subs': bool(all_subs)
+            }
             
             # Qolgan soatlarni hisoblash
             if assignment.due_date:
@@ -831,11 +841,10 @@ def detail(id):
         amaliyot_max = 0
         
         for assignment in assignments:
-            submission = assignment_status.get(assignment.id)
-            if submission and submission.score is not None:
+            status_dict = assignment_status.get(assignment.id)
+            if status_dict and status_dict.get('latest_sub') and status_dict['latest_sub'].score is not None:
+                submission = status_dict['latest_sub']
                 # Topshiriq qaysi o'qituvchiga tegishli ekanligini aniqlash
-                # Agar topshiriq yaratgan o'qituvchi maruza o'qituvchisi bo'lsa - maruza
-                # Agar amaliyot o'qituvchisi bo'lsa - amaliyot
                 assignment_creator = User.query.get(assignment.created_by) if assignment.created_by else None
                 
                 is_maruza = False
@@ -1369,6 +1378,14 @@ def detail(id):
             scores = [s.score for s in assignment.submissions if s.student_id == current_user.id and s.score is not None]
             assignment_highest_scores[assignment.id] = max(scores) if scores else 0
     
+    # Topshiriqlar muddati o'tganligini tekshirish (barcha rollar uchun)
+    assignment_is_overdue = {}
+    for assignment in assignments:
+        if assignment.due_date:
+            assignment_is_overdue[assignment.id] = datetime.utcnow() > assignment.due_date
+        else:
+            assignment_is_overdue[assignment.id] = False
+
     return render_template('courses/detail.html',
                          subject=subject,
                          lessons=all_lessons,
@@ -1402,7 +1419,8 @@ def detail(id):
                          lesson_edit_permissions=lesson_edit_permissions,
                          assignment_manage_permissions=assignment_manage_permissions,
                          assignment_submission_stats=assignment_submission_stats,
-                         assignment_highest_scores=assignment_highest_scores)
+                         assignment_highest_scores=assignment_highest_scores,
+                         assignment_is_overdue=assignment_is_overdue)
 
 
 @bp.route('/<int:id>/lessons/create', methods=['GET', 'POST'])
@@ -2953,9 +2971,10 @@ def create_assignment(id):
         
         due_date_str = request.form.get('due_date')
         if due_date_str:
-            # Sana 23:59:59 ga o'rnatiladi (kun oxirigacha)
+            # Sana 23:59:59 ga o'rnatiladi (Toshkent vaqti)
+            # UTC ga o'tkazish uchun 5 soat ayiramiz (18:59:59 UTC)
             due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
-            due_date = due_date.replace(hour=23, minute=59, second=59)
+            due_date = due_date.replace(hour=18, minute=59, second=59)
         else:
             due_date = None
         
@@ -3150,16 +3169,8 @@ def assignment_detail(id):
             highest_score = max(scores) if scores else 0
         
         # Muddat o'tganligini tekshirish
-        # Deadline kun oxirigacha (23:59:59) hisoblanadi
         if assignment.due_date:
-            # Agar due_date datetime bo'lsa, vaqt qismini kun oxirigacha o'rnatish
-            if isinstance(assignment.due_date, datetime):
-                deadline_end = assignment.due_date.replace(hour=23, minute=59, second=59)
-            else:
-                # Agar date bo'lsa, datetime ga o'tkazish va kun oxirigacha o'rnatish
-                from datetime import time as dt_time
-                deadline_end = datetime.combine(assignment.due_date, dt_time(23, 59, 59))
-            is_overdue = datetime.utcnow() > deadline_end
+            is_overdue = datetime.utcnow() > assignment.due_date
         else:
             is_overdue = False
         
@@ -3632,7 +3643,9 @@ def grades():
             overall_percent=overall_percent,
             overall_grade=overall_grade,
             overall_classes=overall_classes,
-            grade_scales=grade_scales
+            grade_scales=grade_scales,
+            total_score=total_score,
+            max_score=max_score
         )
     
     elif current_user.role == 'teacher':
@@ -3994,9 +4007,10 @@ def edit_assignment(id):
         
         due_date_str = request.form.get('due_date')
         if due_date_str:
-            # Sana 23:59:59 ga o'rnatiladi (kun oxirigacha)
+            # Sana 23:59:59 ga o'rnatiladi (Toshkent vaqti)
+            # UTC ga o'tkazish uchun 5 soat ayiramiz (18:59:59 UTC)
             assignment.due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
-            assignment.due_date = assignment.due_date.replace(hour=23, minute=59, second=59)
+            assignment.due_date = assignment.due_date.replace(hour=18, minute=59, second=59)
         else:
             assignment.due_date = None
         
@@ -4007,7 +4021,7 @@ def edit_assignment(id):
         
         db.session.commit()
         flash("Topshiriq muvaffaqiyatli yangilandi", 'success')
-        return redirect(url_for('courses.assignment_detail', id=id))
+        return redirect(url_for('courses.detail', id=subject.id, direction_id=direction_id))
     
     # Tanlangan mavzular
     lesson_ids = assignment.get_lesson_ids_list() if assignment.lesson_ids else []

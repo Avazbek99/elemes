@@ -275,7 +275,7 @@
             class="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl shadow-lg border border-primary-300 p-6 text-white">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h3 class="text-lg font-semibold mb-1">Semestr o'zlashtirish ko'rsatkichi</h3>
+                    <h3 class="text-lg font-semibold mb-1">O'zlashtirish</h3>
                     <p class="text-primary-100 text-sm">Barcha fanlar bo'yicha</p>
                 </div>
                 <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
@@ -298,9 +298,10 @@
                         style="width: {{ semester_progress|default(0) }}%"></div>
                 </div>
             </div>
-            {% if semester_grade %}
-            <p class="text-sm text-primary-100">{{ semester_grade.description or '' }}</p>
-            {% endif %}
+            <p class="text-sm text-primary-100">
+                To'plangan ball: {{ total_semester_score|default(0)|round|int }} / {{
+                total_semester_max_score|default(0)|round|int }}
+            </p>
         </div>
 
         <!-- To'lov ma'lumotlari -->
@@ -484,54 +485,73 @@
                         +
                     </a>
                 </div>
-                <div class="text-right">
-                    <p class="text-2xl font-bold text-primary-600">{{ stats.current_semester_subjects or
-                        my_subjects|length }}</p>
-                    <p class="text-xs text-gray-500">Fanlar</p>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-primary-600">{{ stats.current_semester_subjects or
+                            my_subjects|length }}</p>
+                        <p class="text-xs text-gray-500">Fanlar</p>
+                    </div>
+                    {% if stats.total_semester_credits %}
+                    <div class="w-px h-8 bg-gray-300 mx-1"></div>
+                    <div class="text-right">
+                        <p class="text-2xl font-bold text-amber-600">{{ "%.2f"|format(stats.total_semester_credits) }}
+                        </p>
+                        <p class="text-xs text-gray-500">Kreditlar</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="space-y-4 max-h-[500px] overflow-y-auto">
                 {% for subject in my_subjects %}
                 <a href="{{ url_for('courses.detail', id=subject.id) }}"
-                    class="block p-4 bg-white rounded-xl hover:shadow-md transition-all border border-gray-200 shadow-sm relative z-10">
-                    <p class="text-sm font-bold text-gray-900 mb-3">{{ subject.name }}</p>
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center relative z-20">
+                    class="block p-4 bg-white rounded-xl hover:shadow-md transition-all border border-gray-200 shadow-sm relative z-10 group">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 min-w-0 pr-4">
+                            <p
+                                class="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors truncate">
+                                {{ subject.name }}</p>
                             {% if my_subjects_info and my_subjects_info.get(subject.id) %}
-                            {% set subject_info = my_subjects_info[subject.id] %}
-                            {% set progress_value = subject_info.get('progress', 0) %}
-                            {% if progress_value is not none %}
-                            <span class="text-sm font-bold text-primary-600">{{ "%.0f"|format(progress_value) }}%</span>
-                            {% else %}
-                            <span class="text-sm font-bold text-primary-600">0%</span>
+                            {% set info = my_subjects_info[subject.id] %}
+                            {% set credits_value = info.get('credits') %}
+                            {% if credits_value is not none %}
+                            <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                {{ "%.2f"|format(credits_value) }} kredit
+                            </p>
                             {% endif %}
-                            {% else %}
-                            <span class="text-sm font-bold text-primary-600">0%</span>
                             {% endif %}
                         </div>
-                        <div class="flex items-center relative z-20">
+                        <div class="flex-shrink-0 text-right">
                             {% if my_subjects_info and my_subjects_info.get(subject.id) %}
                             {% set subject_info = my_subjects_info[subject.id] %}
-                            {% set progress_value = subject_info.get('progress', 0) %}
-                            {% if progress_value is not none %}
-                            <span class="text-sm font-bold text-primary-600">{{ "%.0f"|format(progress_value) }}%</span>
+                            {% set progress_value = subject_info.get('progress', 0)|default(0) %}
+                            <div class="flex flex-col items-end">
+                                <span class="text-lg font-bold text-primary-600 leading-none mb-1">{{
+                                    "%.0f"|format(progress_value) }}%</span>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">O'zlashtirish
+                                </p>
+                            </div>
                             {% else %}
-                            <span class="text-sm font-bold text-primary-600">0%</span>
-                            {% endif %}
-                            {% else %}
-                            <span class="text-sm font-bold text-primary-600">0%</span>
+                            <div class="flex flex-col items-end">
+                                <span class="text-lg font-bold text-gray-300 leading-none mb-1">0%</span>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">O'zlashtirish
+                                </p>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
-                    <div class="relative z-20">
-                        {% if my_subjects_info and my_subjects_info.get(subject.id) %}
-                        {% set info = my_subjects_info[subject.id] %}
-                        {% set credits_value = info.get('credits') %}
-                        {% if credits_value is not none and credits_value %}
-                        <p class="text-xs text-gray-500">{{ "%.2f"|format(credits_value) }} kredit</p>
-                        {% endif %}
-                        {% endif %}
+
+                    <!-- Progress bar simplified at the bottom of card -->
+                    {% if my_subjects_info and my_subjects_info.get(subject.id) %}
+                    {% set progress_value = my_subjects_info[subject.id].get('progress', 0)|default(0) %}
+                    <div class="mt-3 w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-1.5 rounded-full bg-primary-500 transition-all duration-500"
+                            style="width: {{ progress_value }}%"></div>
                     </div>
+                    {% endif %}
                 </a>
                 {% else %}
                 <p class="text-sm text-gray-500">Fanlar biriktirilmagan</p>

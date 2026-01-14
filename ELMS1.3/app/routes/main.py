@@ -60,6 +60,7 @@ def dashboard():
     
     # Foydalanuvchi rollariga qarab turli ma'lumotlar
     stats = {}
+    my_subjects_info = {}
     announcements = []
     recent_assignments = []
     upcoming_schedules = []
@@ -78,7 +79,7 @@ def dashboard():
         # Faqat joriy semestrdagi fanlarni olish
         my_subjects = []
         current_semester_subjects_count = 0
-        my_subjects_info = {}
+        total_semester_credits = 0
         
         if user.group_id:
             group = Group.query.get(user.group_id)
@@ -119,6 +120,8 @@ def dashboard():
                         'course_year': course_year,
                         'credits': credits
                     }
+                    if credits:
+                        total_semester_credits += credits
                 
                 current_semester_subjects_count = len(curriculum_items)
                 
@@ -258,7 +261,8 @@ def dashboard():
             'graded_assignments': graded_count,
             'submitted_assignments': submitted_total_count,  # Barcha topshirilgan (baholangan + yuborilgan)
             'not_submitted_assignments': not_submitted_count,
-            'overdue_assignments': 0  # Keyinroq yangilanadi
+            'overdue_assignments': 0,  # Keyinroq yangilanadi
+            'total_semester_credits': total_semester_credits
         }
         
         # E'lonlar
@@ -435,6 +439,8 @@ def dashboard():
         
         semester_progress = 0
         semester_grade = None
+        total_semester_score = 0
+        total_semester_max_score = 0
         
         if user.group_id:
             group = Group.query.get(user.group_id)
@@ -599,7 +605,6 @@ def dashboard():
         today_schedule = []
     
     # O'qituvchi uchun fanlar ma'lumotlari
-    my_subjects_info = {}
     if user.role == 'teacher' or user.has_role('teacher'):
         from app.models import DirectionCurriculum, Direction
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
@@ -639,6 +644,8 @@ def dashboard():
                          pending_assignments=pending_assignments if 'pending_assignments' in locals() else [],
                          semester_progress=semester_progress if 'semester_progress' in locals() else 0,
                          semester_grade=semester_grade if 'semester_grade' in locals() else None,
+                         total_semester_score=total_semester_score if 'total_semester_score' in locals() else 0,
+                         total_semester_max_score=total_semester_max_score if 'total_semester_max_score' in locals() else 0,
                          payment_info=payment_info if 'payment_info' in locals() else None,
                          upcoming_due_assignments=upcoming_due_assignments if 'upcoming_due_assignments' in locals() else [])
 
