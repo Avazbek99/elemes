@@ -478,7 +478,7 @@ class Assignment(db.Model):
     lesson_type = db.Column(db.String(20), nullable=True)  # Qaysi dars turi uchun (maruza, amaliyot, etc.)
     lesson_ids = db.Column(db.Text)  # Qaysi mavzularga tegishli (JSON array: [1, 2, 3])
     due_date = db.Column(db.DateTime)
-    max_score = db.Column(db.Integer, default=100)
+    max_score = db.Column(db.Float, default=100.0)
     file_required = db.Column(db.Boolean, default=False)  # Fayl yuklash majburiy yoki ixtiyoriy
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -513,7 +513,7 @@ class Submission(db.Model):
     content = db.Column(db.Text)
     file_url = db.Column(db.String(500))
     submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
-    score = db.Column(db.Integer)
+    score = db.Column(db.Float)
     feedback = db.Column(db.Text)
     graded_at = db.Column(db.DateTime)
     graded_by = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -615,7 +615,7 @@ class StudentPayment(db.Model):
         """To'lov foizi"""
         if float(self.contract_amount) == 0:
             return 0
-        return round((float(self.paid_amount) / float(self.contract_amount)) * 100, 2)
+        return (float(self.paid_amount) / float(self.contract_amount)) * 100
 
 
 # ==================== BAHOLASH TIZIMI ====================
@@ -624,8 +624,8 @@ class GradeScale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)  # A, B, C, D, F
     letter = db.Column(db.String(5), nullable=False)  # A, B, C, D, F
-    min_score = db.Column(db.Integer, nullable=False)  # Minimal ball
-    max_score = db.Column(db.Integer, nullable=False)  # Maksimal ball
+    min_score = db.Column(db.Float, nullable=False)  # Minimal ball
+    max_score = db.Column(db.Float, nullable=False)  # Maksimal ball
     description = db.Column(db.String(100))  # A'lo, Yaxshi, va h.k.
     gpa_value = db.Column(db.Float, default=0)  # GPA qiymati (4.0, 3.5, ...)
     color = db.Column(db.String(20), default='gray')  # green, blue, yellow, orange, red
@@ -657,11 +657,10 @@ class GradeScale(db.Model):
             return
         
         default_grades = [
-            {'letter': 'A', 'name': "A'lo", 'min_score': 86, 'max_score': 100, 'description': "A'lo natija", 'gpa_value': 4.0, 'color': 'green', 'order': 1, 'is_passing': True},
-            {'letter': 'B', 'name': 'Yaxshi', 'min_score': 71, 'max_score': 85, 'description': 'Yaxshi natija', 'gpa_value': 3.0, 'color': 'blue', 'order': 2, 'is_passing': True},
-            {'letter': 'C', 'name': 'Qoniqarli', 'min_score': 56, 'max_score': 70, 'description': 'Qoniqarli natija', 'gpa_value': 2.0, 'color': 'yellow', 'order': 3, 'is_passing': True},
-            {'letter': 'D', 'name': 'Past', 'min_score': 41, 'max_score': 55, 'description': 'Past natija', 'gpa_value': 1.0, 'color': 'orange', 'order': 4, 'is_passing': True},
-            {'letter': 'F', 'name': 'Yiqildi', 'min_score': 0, 'max_score': 40, 'description': "O'tmadi", 'gpa_value': 0, 'color': 'red', 'order': 5, 'is_passing': False},
+            {'letter': 'A', 'name': "A'lo", 'min_score': 90.0, 'max_score': 100.0, 'description': "A'lo natija", 'gpa_value': 5.0, 'color': 'green', 'order': 1, 'is_passing': True},
+            {'letter': 'B', 'name': 'Yaxshi', 'min_score': 70.0, 'max_score': 89.99, 'description': 'Yaxshi natija', 'gpa_value': 4.0, 'color': 'blue', 'order': 2, 'is_passing': True},
+            {'letter': 'C', 'name': 'Qoniqarli', 'min_score': 60.0, 'max_score': 69.99, 'description': 'Qoniqarli natija', 'gpa_value': 3.0, 'color': 'yellow', 'order': 3, 'is_passing': True},
+            {'letter': 'D', 'name': "O'tmadi", 'min_score': 0.0, 'max_score': 59.99, 'description': "Qoniqarsiz natija", 'gpa_value': 2.0, 'color': 'red', 'order': 4, 'is_passing': False},
         ]
         
         for g in default_grades:

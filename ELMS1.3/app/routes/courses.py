@@ -3614,7 +3614,7 @@ def grades():
         
         # Baholarni foiz va harfga o'girish (admindagi baholash tizimi asosida)
         for data in grades_by_subject.values():
-            data['percent'] = round((data['total_score'] / data['max_score']) * 100) if data['max_score'] > 0 else 0
+            data['percent'] = (data['total_score'] / data['max_score']) * 100 if data['max_score'] > 0 else 0
             data['grade'] = GradeScale.get_grade(data['percent'])
         
         def grade_classes(color: str):
@@ -3646,7 +3646,7 @@ def grades():
         # Umumiy natija
         total_score = sum(d['total_score'] for d in grades_by_subject.values())
         max_score = sum(d['max_score'] for d in grades_by_subject.values())
-        overall_percent = round((total_score / max_score) * 100) if max_score > 0 else 0
+        overall_percent = (total_score / max_score) * 100 if max_score > 0 else 0
         overall_grade = GradeScale.get_grade(overall_percent)
         overall_classes = grade_classes(overall_grade.color if overall_grade else None)
         
@@ -3784,7 +3784,7 @@ def export_group_grades(subject_id, group_id):
                 
             total += best_score
             max_total += assignment.max_score
-        percent = round((total / max_total) * 100) if max_total > 0 else 0
+        percent = (total / max_total) * 100 if max_total > 0 else 0
         grade = GradeScale.get_grade(percent)
         student_rows.append({
             'student': student,
@@ -3869,7 +3869,7 @@ def export_detailed_group_grades(subject_id, group_id):
             row['total_score'] += score
             row['max_total'] += (assignment.max_score or 0)
         
-        row['percent'] = round((row['total_score'] / row['max_total']) * 100) if row['max_total'] > 0 else 0
+        row['percent'] = (row['total_score'] / row['max_total']) * 100 if row['max_total'] > 0 else 0
         matrix.append(row)
     
     try:

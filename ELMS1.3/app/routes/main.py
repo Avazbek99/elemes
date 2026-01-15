@@ -88,9 +88,9 @@ def dashboard():
     today = now.strftime('%d.%m.%Y')
     
     hour = now.hour
-    if 5 <= hour < 12:
+    if 5 <= hour < 10:
         greeting = "Xayrli tong"
-    elif 12 <= hour < 18:
+    elif 10 <= hour < 18:
         greeting = "Xayrli kun"
     elif 18 <= hour < 22:
         greeting = "Xayrli kecha"
@@ -205,7 +205,7 @@ def dashboard():
                             sub_score += subm.score
                             sub_graded += 1
                     
-                    prog = round((sub_score / sub_max) * 100, 1) if sub_max > 0 else 0.0
+                    prog = (sub_score / sub_max) * 100 if sub_max > 0 else 0.0
                     
                     if sid not in my_subjects_info:
                         # Ensure we have info for subjects that were found via get_subjects but not curriculum
@@ -225,8 +225,8 @@ def dashboard():
                         'progress': prog,
                         'graded_count': sub_graded,
                         'total_assignments': len(s_assignments),
-                        'progress_score': round(sub_score, 0),
-                        'progress_max': round(sub_max, 0) if sub_max > 0 else 100
+                        'progress_score': sub_score,
+                        'progress_max': sub_max if sub_max > 0 else 100
                     })
                     
                     # Only add to semester totals if the subject is in the current semester curriculum
@@ -236,7 +236,7 @@ def dashboard():
 
                 current_semester_subjects_count = len(subject_ids)
                 if total_semester_max_score > 0:
-                    semester_progress = round((total_semester_score / total_semester_max_score) * 100)
+                    semester_progress = (total_semester_score / total_semester_max_score) * 100
                     from app.models import GradeScale
                     semester_grade = GradeScale.get_grade(semester_progress)
                 else:
@@ -388,8 +388,8 @@ def dashboard():
         if user.group_id:
             upcoming_schedules = Schedule.query.filter_by(group_id=user.group_id).all()
             # Bugungi dars jadvali (Toshkent vaqti bo'yicha)
-            today = get_tashkent_time().date()
-            today_weekday = today.weekday()  # 0 = Monday, 6 = Sunday
+            today_date = get_tashkent_time().date()
+            today_weekday = today_date.weekday()  # 0 = Monday, 6 = Sunday
             today_schedule = Schedule.query.filter_by(group_id=user.group_id).filter(
                 Schedule.day_of_week == today_weekday
             ).order_by(Schedule.start_time).all()
@@ -495,7 +495,7 @@ def dashboard():
             latest_payment = student_payments[0]
             total_contract = float(latest_payment.contract_amount)
             total_paid = sum(float(p.paid_amount) for p in student_payments)
-            payment_percentage = round((total_paid / total_contract * 100), 1) if total_contract > 0 else 0
+            payment_percentage = (total_paid / total_contract * 100) if total_contract > 0 else 0
             
             payment_info = {
                 'contract': total_contract,
@@ -506,7 +506,7 @@ def dashboard():
     
     elif active_role == 'teacher':
         # O'qituvchi uchun
-        from app.models import DirectionCurriculum, Direction
+        from app.models import DirectionCurriculum, Direction, Lesson
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
         subject_ids = [ts.subject_id for ts in teacher_subjects]
         
@@ -543,6 +543,66 @@ def dashboard():
                         else:
                             credits = float(subject.credits) if subject and subject.credits else 0.0
                             
+                        # Progress hisoblash
+                        # 1. Biriktirilgan dars turlarini aniqlash
+                        assigned_types = []
+                        search_lesson_types = []
+                        assigned_total_hours = 0
+                        
+                        # Ushbu guruh va fan bo'yicha o'qituvchining barcha biriktiruvlarini olish
+                        # Chunki ts faqat bittasini ko'rsatishi mumkin, bizga hammasi kerak
+                        group_assignments = TeacherSubject.query.filter_by(
+                            teacher_id=user.id,
+                            group_id=group.id,
+                            subject_id=subject.id
+                        ).all()
+                        
+                        for ga in group_assignments:
+                            if ga.lesson_type:
+                                assigned_types.append(ga.lesson_type)
+                                
+                                # Soatni qo'shish va qidiriladigan dars turlarini kengaytirish
+                                if ga.lesson_type == 'maruza':
+                                    assigned_total_hours += (curriculum_item.hours_maruza or 0)
+                                    search_lesson_types.append('maruza')
+                                    
+                                elif ga.lesson_type == 'amaliyot':
+                                    # Dean.py da amaliyot o'qituvchisi laboratoriya va kurs ishiga ham mas'ul ekanligi ko'rinmoqda
+                                    assigned_total_hours += (curriculum_item.hours_amaliyot or 0) + \
+                                                          (curriculum_item.hours_laboratoriya or 0) + \
+                                                          (curriculum_item.hours_kurs_ishi or 0)
+                                    search_lesson_types.extend(['amaliyot', 'laboratoriya', 'kurs_ishi'])
+                                    
+                                elif ga.lesson_type == 'laboratoriya':
+                                    assigned_total_hours += (curriculum_item.hours_laboratoriya or 0)
+                                    search_lesson_types.append('laboratoriya')
+                                    
+                                elif ga.lesson_type == 'seminar':
+                                    assigned_total_hours += (curriculum_item.hours_seminar or 0)
+                                    search_lesson_types.append('seminar')
+                                    
+                                elif ga.lesson_type == 'kurs_ishi':
+                                    assigned_total_hours += (curriculum_item.hours_kurs_ishi or 0)
+                                    search_lesson_types.append('kurs_ishi')
+                        
+                        # Unikal qilish
+                        search_lesson_types = list(set(search_lesson_types))
+                        
+                        # 2. Yaratilgan mavzularni sanash
+                        created_lessons_count = 0
+                        if search_lesson_types:
+                            created_lessons_count = Lesson.query.filter(
+                                Lesson.subject_id == subject.id,
+                                Lesson.created_by == user.id,
+                                Lesson.lesson_type.in_(search_lesson_types),
+                                (Lesson.group_id == group.id) | (Lesson.group_id == None)
+                            ).count()
+                        
+                        # Foiz hisoblash (1 mavzu = 2 soat deb faraz qilinadi)
+                        progress_percent = 0
+                        if assigned_total_hours > 0:
+                            progress_percent = min(100, int((created_lessons_count * 2 / assigned_total_hours) * 100))
+
                         item = {
                             'id': subject.id,
                             'name': subject.name,
@@ -552,7 +612,10 @@ def dashboard():
                             'direction': Direction.query.get(group.direction_id),
                             'credits': credits,
                             'group_id': group.id,
-                            'group_name': group.name
+                            'group_name': group.name,
+                            'total_hours': assigned_total_hours,
+                            'created_count': created_lessons_count,
+                            'progress': progress_percent
                         }
                         my_subjects_list.append(item)
                         # Fallback info key
@@ -565,11 +628,15 @@ def dashboard():
         
         # Stats
         stats = {
-            'total_subjects': len(my_subjects),
+            'total_subjects': len(set(item['id'] for item in my_subjects)),
             'total_groups': len(set(ts.group_id for ts in teacher_subjects)),
-            'assignments': Assignment.query.filter(Assignment.subject_id.in_(subject_ids)).count() if subject_ids else 0,
+            'assignments': Assignment.query.filter(
+                Assignment.subject_id.in_(subject_ids),
+                Assignment.created_by == user.id
+            ).count() if subject_ids else 0,
             'pending_submissions': Submission.query.join(Assignment).filter(
                 Assignment.subject_id.in_(subject_ids),
+                Assignment.created_by == user.id,
                 Submission.score == None
             ).count() if subject_ids else 0
         }
@@ -585,20 +652,39 @@ def dashboard():
             Assignment.subject_id.in_(subject_ids)
         ).order_by(Assignment.due_date.desc()).limit(5).all() if subject_ids else []
         
-        # Dars jadvali (o'qituvchi uchun) - Toshkent vaqti
-        today_date = get_tashkent_time().date()
-        today_weekday = today_date.weekday()  # 0 = Monday, 6 = Sunday
-        # O'qituvchining guruhlari
-        teacher_groups = [ts.group_id for ts in teacher_subjects]
-        if teacher_groups:
-            today_schedule = Schedule.query.filter(
-                Schedule.group_id.in_(teacher_groups),
-                Schedule.teacher_id == user.id,
-                Schedule.day_of_week == today_weekday
-            ).order_by(Schedule.start_time).all()
-        else:
-            today_schedule = []
-    
+        # Topshiriqlar ro'yxati (Assignments)
+        teacher_assignments_list = []
+        if subject_ids:
+            # Teacher assigned subjects are in subject_ids
+            # Filter logic: Show assignments for these subjects AND created by THIS teacher
+            assignments_query = Assignment.query.filter(
+                Assignment.subject_id.in_(subject_ids),
+                Assignment.created_by == user.id
+            ).order_by(Assignment.due_date.desc()).all()
+            
+            for asm in assignments_query:
+                # Yangi javoblarni sanash (Submission.score == None)
+                # Count submissions associated with this assignment
+                pending_query = asm.submissions.filter(Submission.score == None)
+                pending_count = pending_query.count()
+                resubmitted_count = pending_query.filter(Submission.resubmission_count > 0).count()
+                
+                item = {
+                    'id': asm.id,
+                    'title': asm.title,
+                    'subject_name': asm.subject.name,
+                    'group_name': asm.group.name if asm.group else "Barcha guruhlar",
+                    'due_date': asm.due_date,
+                    'lesson_type': asm.lesson_type,
+                    'pending_count': pending_count,
+                    'resubmitted_count': resubmitted_count
+                }
+                teacher_assignments_list.append(item)
+            
+            # Pending topshiriqlar ro'yxati (Tekshirilmagan)
+            teacher_pending_assignments_list = [a for a in teacher_assignments_list if a['pending_count'] > 0]
+
+
     elif active_role == 'dean':
         # Dekan uchun
         faculty = Faculty.query.get(user.faculty_id) if user.faculty_id else None
@@ -616,7 +702,7 @@ def dashboard():
                 ((Announcement.target_roles.contains('dean')) | (Announcement.target_roles == None)),
                 (Announcement.faculty_id == faculty.id) | (Announcement.faculty_id == None)
             ).order_by(Announcement.created_at.desc()).limit(5).all()
-    
+
     elif active_role == 'admin':
         # Admin uchun
         stats = {
@@ -630,15 +716,15 @@ def dashboard():
         
         # E'lonlar
         announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
-    
+
     # today_schedule o'zgaruvchisini barcha rollar uchun yaratish (agar yaratilmagan bo'lsa)
     if 'today_schedule' not in locals():
         today_schedule = []
-    
+
     # O'qituvchi uchun fanlar ma'lumotlari
     if 'my_subjects_info' not in locals():
         my_subjects_info = {}
-    
+
     if user.role == 'teacher' or user.has_role('teacher'):
         from app.models import DirectionCurriculum, Direction
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=user.id).all()
@@ -671,7 +757,7 @@ def dashboard():
                             'credits': credits,
                             'direction': Direction.query.get(group.direction_id)
                         }
-    
+
     # pending_assignments ni boshqa rollar uchun ham yaratish (agar mavjud bo'lmasa)
     if active_role != 'student':
         if 'pending_assignments' not in locals():
@@ -683,11 +769,11 @@ def dashboard():
                         'status': 'not_submitted',
                         'submission': None
                     })
-    
+
     # now o'zgaruvchisini barcha rollar uchun aniqlash (Toshkent vaqti)
     if 'now_dt' not in locals():
         now_dt = get_tashkent_time()
-    
+
     return render_template('dashboard.html', stats=stats, **stats, announcements=announcements, 
                          recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules,
                          my_subjects=my_subjects, today_schedule=today_schedule, my_subjects_info=my_subjects_info,
@@ -698,7 +784,9 @@ def dashboard():
                          semester_grade=semester_grade if 'semester_grade' in locals() else None,
                          payment_info=payment_info if 'payment_info' in locals() else None,
                          upcoming_due_assignments=upcoming_due_assignments if 'upcoming_due_assignments' in locals() else [],
-                         greeting=greeting, today=today, role=active_role, direction_id=direction_id)
+                         greeting=greeting, today=today, role=active_role, direction_id=direction_id,
+                         teacher_assignments_list=teacher_assignments_list if 'teacher_assignments_list' in locals() else [],
+                         teacher_pending_assignments_list=teacher_pending_assignments_list if 'teacher_pending_assignments_list' in locals() else [])
 
 @bp.route('/announcements')
 @login_required

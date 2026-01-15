@@ -2089,8 +2089,8 @@ def create_grade():
             return render_template('admin/create_grade.html')
         
         # Ball oralig'ini tekshirish
-        min_score = request.form.get('min_score', type=int)
-        max_score = request.form.get('max_score', type=int)
+        min_score = request.form.get('min_score', type=float)
+        max_score = request.form.get('max_score', type=float)
         
         if min_score > max_score:
             flash("Minimal ball maksimaldan katta bo'lishi mumkin emas", 'error')
@@ -2126,8 +2126,8 @@ def edit_grade(id):
     if request.method == 'POST':
         grade.letter = request.form.get('letter').upper()
         grade.name = request.form.get('name')
-        grade.min_score = request.form.get('min_score', type=int)
-        grade.max_score = request.form.get('max_score', type=int)
+        grade.min_score = request.form.get('min_score', type=float)
+        grade.max_score = request.form.get('max_score', type=float)
         grade.description = request.form.get('description')
         grade.gpa_value = request.form.get('gpa_value', type=float) or 0
         grade.color = request.form.get('color', 'gray')

@@ -49,7 +49,7 @@
                 <p class="text-4xl font-bold text-gray-900">
                     {{ overall_grade and overall_grade.letter or '–' }}
                 </p>
-                <p class="text-lg text-gray-400 mb-1">{{ overall_percent }}%</p>
+                <p class="text-lg text-gray-400 mb-1">{{ "%.2f"|format(overall_percent|default(0)|float) }}%</p>
             </div>
             <div class="mt-3">
                 <div class="w-full bg-gray-200 rounded-full h-2">
@@ -70,9 +70,10 @@
                 </div>
                 <div>
                     <p class="font-semibold text-gray-900">
-                        {{ total_score|default(0)|round|int }} / {{ max_score|default(0)|round|int }}
+                        {{ "%.2f"|format(total_score|default(0)|float) }} / {{ "%.2f"|format(max_score|default(0)|float)
+                        }}
                     </p>
-                    <p class="text-sm text-gray-500">{{ overall_percent }}%</p>
+                    <p class="text-sm text-gray-500">{{ "%.2f"|format(overall_percent|default(0)|float) }}%</p>
                 </div>
             </div>
         </div>
@@ -119,9 +120,10 @@
                 <div class="flex items-center gap-6">
                     <div class="text-right">
                         <p class="text-xl font-bold text-gray-900">
-                            {{ data.total_score }} / {{ data.max_score }}
+                            {{ "%.2f"|format(data.total_score|float) }} / {{ "%.2f"|format(data.max_score|float) }}
                         </p>
-                        <p class="text-sm text-gray-500">{{ percent }}% • {{ data.submissions|length }} topshiriq</p>
+                        <p class="text-sm text-gray-500">{{ "%.2f"|format(percent|float) }}% • {{
+                            data.submissions|length }} topshiriq</p>
                     </div>
                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -135,11 +137,10 @@
                     <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-500">O'zlashtirilgan</span>
                         <span class="font-medium
-                            {% if percent >= 86 %}text-green-600
-                            {% elif percent >= 71 %}text-blue-600
-                            {% elif percent >= 56 %}text-yellow-600
-                            {% elif percent >= 41 %}text-orange-600
-                            {% else %}text-red-600{% endif %}">{{ percent }}%</span>
+                            {% if percent >= 90 %}text-green-600
+                            {% elif percent >= 70 %}text-blue-600
+                            {% elif percent >= 60 %}text-yellow-600
+                            {% else %}text-red-600{% endif %}">{{ "%.2f"|format(percent|float) }}%</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-3">
                         <div class="{{ 'h-3 rounded-full transition-all ' ~ grade_bar_class }}"
@@ -163,8 +164,8 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             {% for sub in data.submissions %}
-                            {% set sub_percent = ((sub.score / sub.assignment.max_score) * 100)|round|int if
-                            sub.assignment.max_score > 0 else 0 %}
+                            {% set sub_percent = (sub.score / sub.assignment.max_score * 100) if
+                            sub.assignment.max_score > 0 else 0.0 %}
                             <tr class="hover:bg-gray-50">
                                 <td class="py-3">
                                     <a href="{{ url_for('courses.assignment_detail', id=sub.assignment.id) }}"
@@ -186,21 +187,21 @@
                                 <td class="py-3 text-center">
                                     {% if sub.submission %}
                                     <span class="text-lg font-bold
-                                        {% if sub_percent >= 86 %}text-green-600
-                                        {% elif sub_percent >= 71 %}text-blue-600
-                                        {% elif sub_percent >= 56 %}text-yellow-600
-                                        {% elif sub_percent >= 41 %}text-orange-600
+                                        {% if sub_percent >= 90 %}text-green-600
+                                        {% elif sub_percent >= 70 %}text-blue-600
+                                        {% elif sub_percent >= 60 %}text-yellow-600
                                         {% else %}text-red-600{% endif %}">
-                                        {{ sub.score }}
+                                        {{ "%.2f"|format(sub.score|float) }}
                                     </span>
                                     {% else %}
                                     <span class="text-xs font-medium text-gray-400">Topshirilmagan</span>
                                     {% endif %}
                                 </td>
-                                <td class="py-3 text-center text-gray-500">{{ sub.assignment.max_score }}</td>
+                                <td class="py-3 text-center text-gray-500">{{
+                                    "%.2f"|format(sub.assignment.max_score|float) }}</td>
                                 <td class="py-3 text-center text-gray-500">
                                     {% if sub.submission %}
-                                    {{ sub_percent }}%
+                                    {{ "%.2f"|format(sub_percent|float) }}%
                                     {% else %}
                                     -
                                     {% endif %}
@@ -208,16 +209,14 @@
                                 <td class="py-3 text-center">
                                     {% if sub.submission %}
                                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold
-                                        {% if sub_percent >= 86 %}bg-green-100 text-green-700
-                                        {% elif sub_percent >= 71 %}bg-blue-100 text-blue-700
-                                        {% elif sub_percent >= 56 %}bg-yellow-100 text-yellow-700
-                                        {% elif sub_percent >= 41 %}bg-orange-100 text-orange-700
+                                        {% if sub_percent >= 90 %}bg-green-100 text-green-700
+                                        {% elif sub_percent >= 70 %}bg-blue-100 text-blue-700
+                                        {% elif sub_percent >= 60 %}bg-yellow-100 text-yellow-700
                                         {% else %}bg-red-100 text-red-700{% endif %}">
-                                        {% if sub_percent >= 86 %}A
-                                        {% elif sub_percent >= 71 %}B
-                                        {% elif sub_percent >= 56 %}C
-                                        {% elif sub_percent >= 41 %}D
-                                        {% else %}F{% endif %}
+                                        {% if sub_percent >= 90 %}A
+                                        {% elif sub_percent >= 70 %}B
+                                        {% elif sub_percent >= 60 %}C
+                                        {% else %}D{% endif %}
                                     </span>
                                     {% else %}
                                     -
@@ -234,34 +233,31 @@
                                 <td class="py-3 text-gray-900">Jami</td>
                                 <td></td>
                                 <td class="py-3 text-center text-lg
-                                    {% if percent >= 86 %}text-green-600
-                                    {% elif percent >= 71 %}text-blue-600
-                                    {% elif percent >= 56 %}text-yellow-600
-                                    {% elif percent >= 41 %}text-orange-600
+                                    {% if percent >= 90 %}text-green-600
+                                    {% elif percent >= 70 %}text-blue-600
+                                    {% elif percent >= 60 %}text-yellow-600
                                     {% else %}text-red-600{% endif %}">
-                                    {{ data.total_score }}
+                                    {{ "%.2f"|format(data.total_score|float) }}
                                 </td>
-                                <td class="py-3 text-center text-gray-500">{{ data.max_score }}</td>
+                                <td class="py-3 text-center text-gray-500">{{ "%.2f"|format(data.max_score|float) }}
+                                </td>
                                 <td class="py-3 text-center
-                                    {% if percent >= 86 %}text-green-600
-                                    {% elif percent >= 71 %}text-blue-600
-                                    {% elif percent >= 56 %}text-yellow-600
-                                    {% elif percent >= 41 %}text-orange-600
+                                    {% if percent >= 90 %}text-green-600
+                                    {% elif percent >= 70 %}text-blue-600
+                                    {% elif percent >= 60 %}text-yellow-600
                                     {% else %}text-red-600{% endif %}">
-                                    {{ percent }}%
+                                    {{ "%.2f"|format(percent|float) }}%
                                 </td>
                                 <td class="py-3 text-center">
                                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold
-                                        {% if percent >= 86 %}bg-green-100 text-green-700
-                                        {% elif percent >= 71 %}bg-blue-100 text-blue-700
-                                        {% elif percent >= 56 %}bg-yellow-100 text-yellow-700
-                                        {% elif percent >= 41 %}bg-orange-100 text-orange-700
+                                        {% if percent >= 90 %}bg-green-100 text-green-700
+                                        {% elif percent >= 70 %}bg-blue-100 text-blue-700
+                                        {% elif percent >= 60 %}bg-yellow-100 text-yellow-700
                                         {% else %}bg-red-100 text-red-700{% endif %}">
-                                        {% if percent >= 86 %}A
-                                        {% elif percent >= 71 %}B
-                                        {% elif percent >= 56 %}C
-                                        {% elif percent >= 41 %}D
-                                        {% else %}F{% endif %}
+                                        {% if percent >= 90 %}A
+                                        {% elif percent >= 70 %}B
+                                        {% elif percent >= 60 %}C
+                                        {% else %}D{% endif %}
                                     </span>
                                 </td>
                                 <td></td>
