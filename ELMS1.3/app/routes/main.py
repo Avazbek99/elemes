@@ -216,9 +216,10 @@ def dashboard():
                     if sid not in my_subjects_info:
                         # Ensure we have info for subjects that were found via get_subjects but not curriculum
                         subject = Subject.query.get(sid)
+                        c_semester = current_semester or 1
                         my_subjects_info[sid] = {
                             'semester': current_semester,
-                            'course_year': ((current_semester - 1) // 2) + 1,
+                            'course_year': ((c_semester - 1) // 2) + 1,
                             'credits': float(subject.credits) if subject and subject.credits else 0.0,
                             'progress': 0,
                             'graded_count': 0,
@@ -1014,22 +1015,27 @@ def messages():
     
     # Mavjud foydalanuvchilar (suhbat boshlash uchun)
     if user.role == 'student':
-        # Talaba uchun: o'z guruhi, o'qituvchilari va ma'muriyat
-        teacher_ids = [ts.teacher_id for ts in TeacherSubject.query.filter_by(group_id=user.group_id).all()] if user.group_id else []
-        
-        # Filtrlar ro'yxati
-        filters = [User.role.in_(['admin', 'dean', 'accounting'])]
-        if user.group_id:
-            filters.append(User.group_id == user.group_id)
-        if teacher_ids:
-            filters.append(User.id.in_(teacher_ids))
+        if not user.group_id:
+            all_users = []
+        else:
+            # Talaba uchun: o'z guruhi, dars beradigan o'qituvchilari va O'Z dekani + admin/accounting
+            faculty_id = user.group.faculty_id if user.group else None
+            teacher_ids = [ts.teacher_id for ts in TeacherSubject.query.filter_by(group_id=user.group_id).all()]
             
-        from sqlalchemy import or_
-        all_users = User.query.filter(
-            User.id != user.id,
-            User.is_active == True,
-            or_(*filters)
-        ).all()
+            from sqlalchemy import or_
+            filters = [
+                User.group_id == user.group_id, # O'z guruhi
+                User.id.in_(teacher_ids),       # O'z o'qituvchilari
+                User.role.in_(['admin', 'accounting']) # Ma'muriyat
+            ]
+            if faculty_id:
+                filters.append((User.role == 'dean') & (User.faculty_id == faculty_id))
+            
+            all_users = User.query.filter(
+                User.id != user.id,
+                User.is_active == True,
+                or_(*filters)
+            ).all()
     elif user.role == 'teacher':
         # O'qituvchi uchun: dars beradigan guruhlari va hamkasblari/ma'muriyat
         group_ids = [ts.group_id for ts in TeacherSubject.query.filter_by(teacher_id=user.id).all()]
@@ -1107,13 +1113,18 @@ def chat(user_id):
     if user.role in ['admin', 'dean']:
         allowed = True
     elif user.role == 'student':
-        if other_user.group_id == user.group_id and other_user.role == 'student':
+        if not user.group_id:
+            allowed = False
+        elif other_user.group_id == user.group_id and other_user.role == 'student':
             allowed = True
         elif other_user.role == 'teacher':
-            is_teacher = TeacherSubject.query.filter_by(teacher_id=other_user.id, group_id=user.group_id).first() if user.group_id else None
+            is_teacher = TeacherSubject.query.filter_by(teacher_id=other_user.id, group_id=user.group_id).first()
             if is_teacher:
                 allowed = True
-        elif other_user.role in ['admin', 'dean', 'accounting']:
+        elif other_user.role == 'dean':
+            if user.group and user.group.faculty_id == other_user.faculty_id:
+                allowed = True
+        elif other_user.role in ['admin', 'accounting']:
             allowed = True
     elif user.role == 'teacher':
         if other_user.role == 'student':
