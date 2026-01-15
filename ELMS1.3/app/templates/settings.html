@@ -216,8 +216,6 @@
                 <p class="font-medium text-gray-900">
                     {% if current_user.group and current_user.group.direction %}
                     {{ current_user.group.direction.semester }}-semestr
-                    {% elif current_user.semester and current_user.semester > 0 %}
-                    {{ current_user.semester }}-semestr
                     {% else %}
                     -
                     {% endif %}
