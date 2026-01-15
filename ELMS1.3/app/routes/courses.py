@@ -826,13 +826,8 @@ def detail(id):
                 )
             assignments = assignments_query.all()
     else:
-        assignments_query = subject.assignments
-        # Agar direction_id berilgan bo'lsa, shu yo'nalishga tegishli topshiriqlar
-        if direction_id:
-            assignments_query = assignments_query.filter(
-                (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
-            )
-        assignments = assignments_query.all()
+        # Admin va dekan uchun barcha topshiriqlar (direction_id ga qaramay)
+        assignments = subject.assignments.order_by(Assignment.created_at.desc()).all()
     
     # Talaba uchun topshiriqlar holati va ballar
     assignment_status = {}

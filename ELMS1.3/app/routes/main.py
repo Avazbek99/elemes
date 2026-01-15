@@ -779,11 +779,48 @@ def dashboard():
                             'direction': Direction.query.get(group.direction_id)
                         }
 
+    # Admin uchun barcha topshiriqlar ro'yxati
+    if active_role == 'admin':
+        # Barcha topshiriqlarni olish (o'qituvchilar yaratgan)
+        all_admin_assignments = Assignment.query.order_by(Assignment.created_at.desc()).all()
+        
+        # Topshiriqlar ro'yxatini yaratish
+        teacher_assignments_list = []
+        for assignment in all_admin_assignments:
+            # Yangi javoblarni sanash (Submission.score == None)
+            pending_query = assignment.submissions.filter(Submission.score == None)
+            pending_count = pending_query.count()
+            resubmitted_count = pending_query.filter(Submission.resubmission_count > 0).count()
+            
+            # Yaratuvchi o'qituvchini olish
+            creator = User.query.get(assignment.created_by) if assignment.created_by else None
+            
+            item = {
+                'id': assignment.id,
+                'title': assignment.title,
+                'subject_name': assignment.subject.name if assignment.subject else 'Noma\'lum',
+                'group_name': assignment.group.name if assignment.group else "Barcha guruhlar",
+                'due_date': assignment.due_date,
+                'lesson_type': assignment.lesson_type,
+                'pending_count': pending_count,
+                'resubmitted_count': resubmitted_count,
+                'creator_name': creator.full_name if creator else 'Noma\'lum',
+                'created_at': assignment.created_at
+            }
+            teacher_assignments_list.append(item)
+        
+        # Pending topshiriqlar ro'yxati (Tekshirilmagan)
+        teacher_pending_assignments_list = [a for a in teacher_assignments_list if a['pending_count'] > 0]
+        
+        # recent_assignments ni admin uchun ham to'ldirish
+        if 'recent_assignments' not in locals():
+            recent_assignments = all_admin_assignments
+    
     # pending_assignments ni boshqa rollar uchun ham yaratish (agar mavjud bo'lmasa)
     if active_role != 'student':
         if 'pending_assignments' not in locals():
             pending_assignments = []
-            if recent_assignments:
+            if 'recent_assignments' in locals() and recent_assignments:
                 for assignment in recent_assignments[:5]:
                     pending_assignments.append({
                         'assignment': assignment,
