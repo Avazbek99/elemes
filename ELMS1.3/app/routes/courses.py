@@ -34,16 +34,41 @@ def index():
     search = request.args.get('search', '')
     
     if current_user.role == 'student' or current_user.has_role('student'):
-        # Talaba faqat o'z guruhiga biriktirilgan fanlarni ko'radi
+        # Talaba faqat o'z guruhiga biriktirilgan va joriy semestrdagi fanlarni ko'radi
         if current_user.group_id:
-            subject_ids = [ts.subject_id for ts in TeacherSubject.query.filter_by(group_id=current_user.group_id).all()]
-            query = Subject.query.filter(Subject.id.in_(subject_ids))
+            group = Group.query.get(current_user.group_id)
+            if group and group.direction_id:
+                current_semester = group.direction.semester if group.direction else 1
+                # Joriy semestrdagi fanlarni olish
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    semester=current_semester
+                ).all()
+                subject_ids = [item.subject_id for item in curriculum_items]
+                query = Subject.query.filter(Subject.id.in_(subject_ids)) if subject_ids else Subject.query.filter(False)
+            else:
+                query = Subject.query.filter(False)  # Bo'sh
         else:
             query = Subject.query.filter(False)  # Bo'sh
     elif current_user.role == 'teacher' or current_user.has_role('teacher'):
-        # O'qituvchi faqat o'ziga biriktirilgan fanlarni ko'radi
-        subject_ids = [ts.subject_id for ts in TeacherSubject.query.filter_by(teacher_id=current_user.id).all()]
-        query = Subject.query.filter(Subject.id.in_(subject_ids)) if subject_ids else Subject.query.filter(False)
+        # O'qituvchi faqat joriy semestrdagi fanlarni ko'radi
+        teacher_subjects = TeacherSubject.query.filter_by(teacher_id=current_user.id).all()
+        valid_subject_ids = set()
+        
+        for ts in teacher_subjects:
+            group = Group.query.get(ts.group_id)
+            if group and group.direction_id and group.get_students_count() > 0:
+                current_semester = group.direction.semester if group.direction else 1
+                # Tekshirish: bu fan bu guruhda shu semestrda bormi?
+                curr_item = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    subject_id=ts.subject_id,
+                    semester=current_semester
+                ).first()
+                if curr_item:
+                    valid_subject_ids.add(ts.subject_id)
+        
+        query = Subject.query.filter(Subject.id.in_(list(valid_subject_ids))) if valid_subject_ids else Subject.query.filter(False)
     else:
         # Admin va dekan barcha fanlarni ko'radi
         query = Subject.query
@@ -617,17 +642,38 @@ def detail(id):
     if current_user.role == 'admin' or current_user.role == 'dean':
         can_view = True
     elif current_user.role == 'teacher' or current_user.has_role('teacher'):
-        teaching = TeacherSubject.query.filter_by(
+        # O'qituvchi faqat joriy semestrdagi fanlarni ko'rishi mumkin
+        teacher_assignments = TeacherSubject.query.filter_by(
             teacher_id=current_user.id,
             subject_id=subject.id
-        ).first()
-        can_view = teaching is not None
+        ).all()
+        
+        # Har bir biriktirilgan guruhni tekshirish
+        for ta in teacher_assignments:
+            group = Group.query.get(ta.group_id)
+            if group and group.direction_id and group.get_students_count() > 0:
+                current_semester = group.direction.semester if group.direction else 1
+                # Tekshirish: bu fan bu guruhda shu semestrda bormi?
+                curr_item = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    subject_id=subject.id,
+                    semester=current_semester
+                ).first()
+                if curr_item:
+                    can_view = True
+                    break
     elif current_user.role == 'student' and current_user.group_id:
-        teaching = TeacherSubject.query.filter_by(
-            group_id=current_user.group_id,
-            subject_id=subject.id
-        ).first()
-        can_view = teaching is not None
+        # Talaba faqat joriy semestrdagi fanlarni ko'rishi mumkin
+        group = Group.query.get(current_user.group_id)
+        if group and group.direction_id:
+            current_semester = group.direction.semester if group.direction else 1
+            # Tekshirish: bu fan bu guruhda shu semestrda bormi?
+            curr_item = DirectionCurriculum.query.filter_by(
+                direction_id=group.direction_id,
+                subject_id=subject.id,
+                semester=current_semester
+            ).first()
+            can_view = curr_item is not None
         my_group = current_user.group
     
     if not can_view:
