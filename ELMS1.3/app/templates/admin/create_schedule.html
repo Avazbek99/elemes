@@ -201,7 +201,11 @@
         ['semester', 'direction', 'group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
 
         if (fId && cId && data.faculty_course_semesters[fId] && data.faculty_course_semesters[fId][cId]) {
-            updateOptions(selects.semester, data.faculty_course_semesters[fId][cId], "Semestrni tanlang...", 'id', 'name', 'semester');
+            const courseYear = parseInt(cId);
+            const validSemesters = data.faculty_course_semesters[fId][cId].filter(s =>
+                s === (courseYear * 2 - 1) || s === (courseYear * 2)
+            );
+            updateOptions(selects.semester, validSemesters, "Semestrni tanlang...", 'id', 'name', 'semester');
         }
     });
 

@@ -3607,11 +3607,25 @@ def api_schedule_filters():
     teacher_id = request.args.get('teacher_id', type=int)
     
     if group_id and not subject_id:
-        # Guruhga biriktirilgan fanlar (TeacherSubject orqali)
+        from app.models import Group, DirectionCurriculum, TeacherSubject
+        group = Group.query.get(group_id)
+        if not group:
+            return jsonify([])
+            
+        current_semester = group.direction.semester if group.direction else 1
+        
+        # Guruhga biriktirilgan fanlar, lekin faqat joriy semestrdagilar
         assignments = TeacherSubject.query.filter_by(group_id=group_id).all()
         subjects_data = {}
         for a in assignments:
-            if a.subject_id not in subjects_data:
+            # Tekshirish: bu fan bu guruhda shu semestrda bormi?
+            curr_item = DirectionCurriculum.query.filter_by(
+                direction_id=group.direction_id,
+                subject_id=a.subject_id,
+                semester=current_semester
+            ).first()
+            
+            if curr_item and a.subject_id not in subjects_data:
                 subjects_data[a.subject_id] = {
                     'id': a.subject.id,
                     'name': a.subject.name,
@@ -3752,12 +3766,12 @@ def schedule():
             faculty_course_semesters[fid][c] = sorted(list(faculty_course_semesters[fid][c]))
 
 
-    # Global lists for independent filters
-    from sqlalchemy import distinct
-    all_courses = [c[0] for c in db.session.query(distinct(Group.course_year)).filter(Group.course_year.isnot(None)).order_by(Group.course_year).all()]
-    all_semesters = [s[0] for s in db.session.query(distinct(Direction.semester)).filter(Direction.semester.isnot(None)).order_by(Direction.semester).all()]
-    all_directions = Direction.query.order_by(Direction.name).all()
-    all_groups = Group.query.order_by(Group.name).all()
+    # Filter groups that have students
+    active_groups_all = [g for g in Group.query.all() if g.get_students_count() > 0]
+    all_courses = sorted(list(set(g.course_year for g in active_groups_all if g.course_year)))
+    all_semesters = sorted(list(set(g.direction.semester for g in active_groups_all if g.direction and g.direction.semester)))
+    all_directions = sorted(list(set(g.direction for g in active_groups_all if g.direction)), key=lambda x: x.name)
+    all_groups = sorted(active_groups_all, key=lambda x: x.name)
 
     # Base query
     query = Schedule.query.join(Group).filter(Schedule.day_of_week.between(start_code, end_code))
@@ -3839,6 +3853,8 @@ def create_schedule():
     
     all_groups = Group.query.all()
     for g in all_groups:
+        if g.get_students_count() == 0: continue # Skip empty groups
+        
         fid = g.faculty_id
         if fid not in faculty_courses: continue
         
@@ -3997,6 +4013,8 @@ def edit_schedule(id):
     
     all_groups = Group.query.all()
     for g in all_groups:
+        if g.get_students_count() == 0: continue # Skip empty groups
+        
         fid = g.faculty_id
         if fid not in faculty_courses: continue
         

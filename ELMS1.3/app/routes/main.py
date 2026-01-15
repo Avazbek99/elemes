@@ -393,12 +393,20 @@ def dashboard():
         
         # Dars jadvali
         if user.group_id:
-            upcoming_schedules = Schedule.query.filter_by(group_id=user.group_id).all()
+            # Only show subjects from the current semester's curriculum
+            subject_ids = [item.subject_id for item in curriculum_list]
+            upcoming_schedules = Schedule.query.filter(
+                Schedule.group_id == user.group_id,
+                Schedule.subject_id.in_(subject_ids)
+            ).all()
+            
             # Bugungi dars jadvali (Toshkent vaqti bo'yicha)
             today_date = get_tashkent_time().date()
-            today_weekday = today_date.weekday()  # 0 = Monday, 6 = Sunday
-            today_schedule = Schedule.query.filter_by(group_id=user.group_id).filter(
-                Schedule.day_of_week == today_weekday
+            date_code = int(today_date.strftime("%Y%m%d"))
+            today_schedule = Schedule.query.filter(
+                Schedule.group_id == user.group_id,
+                Schedule.subject_id.in_(subject_ids),
+                Schedule.day_of_week == date_code
             ).order_by(Schedule.start_time).all()
         else:
             today_schedule = []
@@ -525,15 +533,21 @@ def dashboard():
         for ts in teacher_subjects:
             group = Group.query.get(ts.group_id)
             if group and group.direction_id:
+                # Check if group has students
+                if group.get_students_count() == 0:
+                    continue
+                
                 # Deduplication check
                 sg_key = (ts.subject_id, ts.group_id)
                 if sg_key in seen_subject_group:
                     continue
                 seen_subject_group.add(sg_key)
-                
+                # Only show subjects that belong to the group's current semester
+                current_semester = group.direction.semester if group.direction else 1
                 curriculum_item = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
-                    subject_id=ts.subject_id
+                    subject_id=ts.subject_id,
+                    semester=current_semester
                 ).first()
                 if curriculum_item:
                     subject = Subject.query.get(ts.subject_id)
@@ -1220,27 +1234,65 @@ def schedule():
 
     if user.role == 'student':
         if user.group_id:
-            query = query.filter_by(group_id=user.group_id)
-            # Talaba uchun faqat o'z guruhidagi fanlar
+            # Talaba faqat o'z guruhidagi va joriy semestridagi fanlarni ko'radi
             group = Group.query.get(user.group_id)
             if group and group.direction_id:
-                curr_items = DirectionCurriculum.query.filter_by(direction_id=group.direction_id).all()
+                # Joriy semestrni aniqlash
+                from app.models import DirectionCurriculum
+                current_semester = group.direction.semester if group.direction else 1
+                
+                curr_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    semester=current_semester
+                ).all()
                 s_ids = [item.subject_id for item in curr_items]
                 all_subjects = Subject.query.filter(Subject.id.in_(s_ids)).order_by(Subject.name).all()
+                
+                # Shcedule query'ni ham filterlash
+                query = query.filter(
+                    Schedule.group_id == user.group_id,
+                    Schedule.subject_id.in_(s_ids)
+                )
         else:
-            query = query.filter_by(id=None)
+            query = query.filter(Schedule.id == None)
             
     elif user.role == 'teacher' or user.has_role('teacher'):
         # O'qituvchi faqat o'zi biriktirilgan darslarni ko'radi
-        query = query.filter_by(teacher_id=user.id)
+        # Ammo faqat guruhning joriy semestridagi fanlar bo'yicha
+        from app.models import TeacherSubject, DirectionCurriculum, Group
         
-        # O'qituvchi o'zi dars beradigan guruhlar va fanlarni filter qila oladi
         ts_entries = TeacherSubject.query.filter_by(teacher_id=user.id).all()
-        g_ids = [ts.group_id for ts in ts_entries]
-        s_ids = [ts.subject_id for ts in ts_entries]
+        valid_ts_ids = []
+        g_ids = set()
+        s_ids = set()
         
-        all_groups = Group.query.filter(Group.id.in_(g_ids)).order_by(Group.name).all()
-        all_subjects = Subject.query.filter(Subject.id.in_(s_ids)).distinct().order_by(Subject.name).all()
+        for ts in ts_entries:
+            group = Group.query.get(ts.group_id)
+            if group and group.direction_id:
+                current_semester = group.direction.semester if group.direction else 1
+                # Tekshirish: bu fan bu guruhda shu semestrda bormi?
+                curr_item = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    subject_id=ts.subject_id,
+                    semester=current_semester
+                ).first()
+                if curr_item:
+                    valid_ts_ids.append(ts.id)
+                    g_ids.add(ts.group_id)
+                    s_ids.add(ts.subject_id)
+        
+        # Schedule query'ni filterlash
+        if valid_ts_ids:
+            query = query.filter(
+                Schedule.teacher_id == user.id,
+                Schedule.group_id.in_(list(g_ids)),
+                Schedule.subject_id.in_(list(s_ids))
+            )
+        else:
+            query = query.filter(Schedule.id == None)
+            
+        all_groups = Group.query.filter(Group.id.in_(list(g_ids))).order_by(Group.name).all() if g_ids else []
+        all_subjects = Subject.query.filter(Subject.id.in_(list(s_ids))).distinct().order_by(Subject.name).all() if s_ids else []
 
     # Apply additional filters
     if group_id:

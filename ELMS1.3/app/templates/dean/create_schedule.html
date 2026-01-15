@@ -168,7 +168,11 @@
         const cId = selects.course.value;
         ['semester', 'direction', 'group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
         if (cId && data.faculty_course_semesters[cId]) {
-            updateOptions(selects.semester, data.faculty_course_semesters[cId], "Semestrni tanlang...", 'id', 'name', 'semester');
+            const courseYear = parseInt(cId);
+            const validSemesters = data.faculty_course_semesters[cId].filter(s =>
+                s === (courseYear * 2 - 1) || s === (courseYear * 2)
+            );
+            updateOptions(selects.semester, validSemesters, "Semestrni tanlang...", 'id', 'name', 'semester');
         }
     });
 

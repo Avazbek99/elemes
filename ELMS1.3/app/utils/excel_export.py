@@ -530,22 +530,23 @@ def create_group_grades_excel(subject, group, student_rows):
             if row_num % 2 == 0:
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
         
-        # Foiz ranglari
+        # Baho ranglari (4-bosqichli tizim)
         percent_cell = ws.cell(row=row_num, column=8)
-        if percent >= 86:
+        if percent >= 90:
+            # A - A'lo (Yashil)
             percent_cell.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
             percent_cell.font = Font(bold=True, color="006100")
-        elif percent >= 71:
-            percent_cell.fill = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
-            percent_cell.font = Font(bold=True, color="006100")
-        elif percent >= 56:
-            percent_cell.fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
-            percent_cell.font = Font(bold=True, color="9C6500")
-        elif percent >= 41:
-            percent_cell.fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+        elif percent >= 70:
+            # B - Yaxshi (Ko'k)
+            percent_cell.fill = PatternFill(start_color="BDD7EE", end_color="BDD7EE", fill_type="solid")
+            percent_cell.font = Font(bold=True, color="0000FF")
+        elif percent >= 60:
+            # C - Qoniqarli (Sariq)
+            percent_cell.fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
             percent_cell.font = Font(bold=True, color="9C6500")
         else:
-            percent_cell.fill = PatternFill(start_color="F8CBAD", end_color="F8CBAD", fill_type="solid")
+            # D - O'tmadi (Pushti)
+            percent_cell.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
             percent_cell.font = Font(bold=True, color="9C0006")
     
     # Ustun kengliklari
@@ -1181,6 +1182,17 @@ def create_detailed_assignment_export_excel(subject, group, assignments, matrix)
     font_bold = Font(bold=True)
     border_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     
+    # Fill colors for grades
+    fill_a = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid") # Green
+    fill_b = PatternFill(start_color="BDD7EE", end_color="BDD7EE", fill_type="solid") # Blue
+    fill_c = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid") # Yellow
+    fill_d = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid") # Pink
+    
+    font_a = Font(bold=True, color="006100")
+    font_b = Font(bold=True, color="0000FF")
+    font_c = Font(bold=True, color="9C6500")
+    font_d = Font(bold=True, color="9C0006")
+    
     for col_num, val in enumerate(headers1, 1):
         cell = ws.cell(row=header_row1, column=col_num, value=val)
         cell.font = font_white
@@ -1209,9 +1221,11 @@ def create_detailed_assignment_export_excel(subject, group, assignments, matrix)
             cell.border = border_thin
             # Score ranglari
             if assignments[col_idx-3].max_score:
-                ratio = score / assignments[col_idx-3].max_score
-                if ratio >= 0.86: cell.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-                elif ratio < 0.56: cell.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+                ratio = (score / assignments[col_idx-3].max_score) * 100
+                if ratio >= 90: cell.fill = fill_a
+                elif ratio >= 70: cell.fill = fill_b
+                elif ratio >= 60: cell.fill = fill_c
+                else: cell.fill = fill_d
         
         # Next: Total
         total_col = len(assignments) + 3
@@ -1227,8 +1241,18 @@ def create_detailed_assignment_export_excel(subject, group, assignments, matrix)
         cell_percent.alignment = Alignment(horizontal='center')
         cell_percent.border = border_thin
         # Ranglar
-        if row_data['percent'] >= 86: cell_percent.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-        elif row_data['percent'] < 56: cell_percent.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        if row_data['percent'] >= 90:
+            cell_percent.fill = fill_a
+            cell_percent.font = font_a
+        elif row_data['percent'] >= 70:
+            cell_percent.fill = fill_b
+            cell_percent.font = font_b
+        elif row_data['percent'] >= 60:
+            cell_percent.fill = fill_c
+            cell_percent.font = font_c
+        else:
+            cell_percent.fill = fill_d
+            cell_percent.font = font_d
 
     # Ustun kengliklari
     ws.column_dimensions['A'].width = 15

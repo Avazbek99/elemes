@@ -148,14 +148,22 @@ def index():
         for ts in teacher_subjects:
             group = Group.query.get(ts.group_id)
             if group and group.direction_id:
+                # Check if group has students
+                if group.get_students_count() == 0:
+                    continue
+                
                 direction = Direction.query.get(group.direction_id)
                 if not direction:
                     continue
                 
-                # Bu guruh uchun bu fanga tegishli o'quv reja ma'lumotlarini olish
+                # Check current semester of the group
+                current_semester = direction.semester if direction else 1
+                
+                # Bu guruh uchun bu fanga tegishli o'quv reja ma'lumotlarini olish (joriy semestrda)
                 curriculum_item = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
-                    subject_id=ts.subject_id
+                    subject_id=ts.subject_id,
+                    semester=current_semester
                 ).first()
                 
                 if curriculum_item:
@@ -3016,7 +3024,7 @@ def create_assignment(id):
             assignment = Assignment(
                 title=request.form.get('title'),
                 description=request.form.get('description'),
-                max_score=int(request.form.get('max_score', 100)),
+                max_score=float(request.form.get('max_score', 100)),
                 due_date=due_date,
                 subject_id=id,
                 group_id=group_id,
@@ -3445,7 +3453,12 @@ def grade_submission(id):
     
     # Admin uchun ruxsat tekshiruvi
     if current_user.role == 'admin':
-        submission.score = int(request.form.get('score', 0))
+        # Baholash
+        try:
+            score_val = request.form.get('score', '0')
+            submission.score = float(score_val)
+        except ValueError:
+            submission.score = 0.0
         submission.feedback = request.form.get('feedback')
         submission.graded_at = datetime.utcnow()
         submission.graded_by = current_user.id
@@ -3497,7 +3510,12 @@ def grade_submission(id):
         flash(f"Sizda ushbu yo'nalishda '{assignment.lesson_type}' dars turiga biriktirilganligi yo'q. Faqat o'zingizga biriktirilgan dars turlari uchun baho qo'yishingiz mumkin.", 'error')
         return redirect(url_for('courses.assignment_detail', id=assignment.id))
     
-    submission.score = int(request.form.get('score', 0))
+    # Baholash
+    try:
+        score_val = request.form.get('score', '0')
+        submission.score = float(score_val)
+    except ValueError:
+        submission.score = 0.0
     submission.feedback = request.form.get('feedback')
     submission.graded_at = datetime.utcnow()
     submission.graded_by = current_user.id
@@ -4042,7 +4060,10 @@ def edit_assignment(id):
         assignment.title = request.form.get('title')
         assignment.description = request.form.get('description')
         assignment.lesson_type = request.form.get('lesson_type')
-        assignment.max_score = int(request.form.get('max_score', 100))
+        try:
+            assignment.max_score = float(request.form.get('max_score', 100))
+        except ValueError:
+            assignment.max_score = 100.0
         
         due_date_str = request.form.get('due_date')
         if due_date_str:
