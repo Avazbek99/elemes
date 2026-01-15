@@ -304,7 +304,7 @@ class User(UserMixin, db.Model):
     student_id = db.Column(db.String(20), unique=True)  # Talaba ID raqami (talabalar uchun majburiy)
     group_id = db.Column(db.Integer, db.ForeignKey('group.id'))
     enrollment_year = db.Column(db.Integer)  # Qabul yili
-    semester = db.Column(db.Integer, default=1)  # Semestr (1-8)
+    semester = db.Column(db.Integer)  # Semestr (1-8)
     # Qo'shimcha talaba ma'lumotlari
     passport_number = db.Column(db.String(20))   # Pasport raqami
     pinfl = db.Column(db.String(14))            # JSHSHIR (PINFL)

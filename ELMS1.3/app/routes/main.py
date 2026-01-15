@@ -99,12 +99,18 @@ def dashboard():
     
     if active_role == 'student':
         from app.models import DirectionCurriculum
-        current_semester = user.semester if user.semester else 1
+        current_semester = user.semester
         my_subjects_info = {}
+        current_semester_subjects_count = 0
+        total_semester_credits = 0.0
+        direction_id = None
         
         if user.group_id:
             group = Group.query.get(user.group_id)
-            direction_id = group.direction_id if group else None
+            if group:
+                direction_id = group.direction_id
+                if group.direction:
+                    current_semester = group.direction.semester
             
             # Fetch curriculum items for all subjects in the current semester
             curriculum_list = []
@@ -308,7 +314,7 @@ def dashboard():
             'submissions': Submission.query.filter_by(student_id=user.id).count(),
             'completed_assignments': graded_count,
             'current_semester_subjects': current_semester_subjects_count,
-            'total_semester_credits': total_semester_credits if 'total_semester_credits' in locals() else 0,
+            'total_semester_credits': total_semester_credits,
             'graded_assignments': graded_count,
             'submitted_assignments': submitted_total_count,  # Barcha topshirilgan (baholangan + yuborilgan)
             'not_submitted_assignments': not_submitted_count,
@@ -1007,8 +1013,40 @@ def messages():
     chats.sort(key=lambda x: x['last_message'].created_at, reverse=True)
     
     # Mavjud foydalanuvchilar (suhbat boshlash uchun)
-    # Barcha foydalanuvchilar, lekin o'zini va allaqachon suhbat bo'lganlarini olib tashlash
-    all_users = User.query.filter(User.id != user.id, User.is_active == True).all()
+    if user.role == 'student':
+        # Talaba uchun: o'z guruhi, o'qituvchilari va ma'muriyat
+        teacher_ids = [ts.teacher_id for ts in TeacherSubject.query.filter_by(group_id=user.group_id).all()] if user.group_id else []
+        
+        # Filtrlar ro'yxati
+        filters = [User.role.in_(['admin', 'dean', 'accounting'])]
+        if user.group_id:
+            filters.append(User.group_id == user.group_id)
+        if teacher_ids:
+            filters.append(User.id.in_(teacher_ids))
+            
+        from sqlalchemy import or_
+        all_users = User.query.filter(
+            User.id != user.id,
+            User.is_active == True,
+            or_(*filters)
+        ).all()
+    elif user.role == 'teacher':
+        # O'qituvchi uchun: dars beradigan guruhlari va hamkasblari/ma'muriyat
+        group_ids = [ts.group_id for ts in TeacherSubject.query.filter_by(teacher_id=user.id).all()]
+        
+        from sqlalchemy import or_
+        all_users = User.query.filter(
+            User.id != user.id,
+            User.is_active == True,
+            or_(
+                User.group_id.in_(group_ids),
+                User.role.in_(['teacher', 'dean', 'admin', 'accounting'])
+            )
+        ).all()
+    else:
+        # Admin va dekan hammani ko'ra oladi
+        all_users = User.query.filter(User.id != user.id, User.is_active == True).all()
+        
     available_users = [u for u in all_users if u.id not in chats_dict.keys()]
     
     return render_template('messages.html', chats=chats, available_users=available_users)
@@ -1062,6 +1100,32 @@ def settings():
 def chat(user_id):
     """Foydalanuvchi bilan suhbat"""
     other_user = User.query.get_or_404(user_id)
+    user = current_user
+    
+    # Ruxsatni tekshirish
+    allowed = False
+    if user.role in ['admin', 'dean']:
+        allowed = True
+    elif user.role == 'student':
+        if other_user.group_id == user.group_id and other_user.role == 'student':
+            allowed = True
+        elif other_user.role == 'teacher':
+            is_teacher = TeacherSubject.query.filter_by(teacher_id=other_user.id, group_id=user.group_id).first() if user.group_id else None
+            if is_teacher:
+                allowed = True
+        elif other_user.role in ['admin', 'dean', 'accounting']:
+            allowed = True
+    elif user.role == 'teacher':
+        if other_user.role == 'student':
+            is_my_student = TeacherSubject.query.filter_by(teacher_id=user.id, group_id=other_user.group_id).first()
+            if is_my_student:
+                allowed = True
+        elif other_user.role in ['teacher', 'dean', 'admin', 'accounting']:
+            allowed = True
+            
+    if not allowed and user.id != other_user.id:
+        flash("Sizda ushbu foydalanuvchi bilan suhbatlashish uchun ruxsat yo'q", 'error')
+        return redirect(url_for('main.messages'))
     
     # Xabar yuborish
     if request.method == 'POST':

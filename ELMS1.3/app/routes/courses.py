@@ -59,8 +59,10 @@ def index():
     
     if current_user.role == 'student' and current_user.group_id:
         # Talaba uchun - faqat joriy semestrdagi fanlarni ko'rsatish
+        current_semester = current_user.semester
         group = Group.query.get(current_user.group_id)
-        current_semester = current_user.semester if current_user.semester else 1
+        if group and group.direction:
+            current_semester = group.direction.semester
         
         if group and group.direction_id:
             # DirectionCurriculum orqali faqat joriy semestrdagi fanlarni olish
@@ -3513,7 +3515,9 @@ def grades():
         # Talabaning guruhi, yo'nalishi va joriy semestrini aniqlash
         group = Group.query.get(current_user.group_id) if current_user.group_id else None
         direction_id = group.direction_id if group else None
-        current_semester = current_user.semester or 1
+        current_semester = current_user.semester
+        if group and group.direction:
+            current_semester = group.direction.semester
         
         # Talabaning yo'nalishi va joriy semestri bo'yicha barcha fanlarini olish
         all_subjects = []
