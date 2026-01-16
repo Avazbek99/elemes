@@ -97,7 +97,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             Video URL (faqat YouTube)
                         </label>
-                        <input type="url" name="video_url" id="video_url" value="{{ lesson.video_url or '' }}"
+                        <input type="url" name="video_url" id="video_url" value=""
                             placeholder="https://youtube.com/watch?v=... yoki https://youtu.be/..."
                             class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                         <p class="mt-1 text-xs text-gray-500">Faqat YouTube videolar qo'llab-quvvatlanadi</p>
@@ -141,16 +141,30 @@
                     <span id="file_required_marker" class="text-red-600">*</span>
                 </h3>
 
-                {% if lesson.file_url %}
+                {% if lesson_files_list or (lesson.file_url and ('http://' in lesson.file_url or 'https://' in
+                lesson.file_url)) %}
                 <div class="mb-4 p-3 bg-white rounded-xl border border-blue-200">
-                    <p class="text-sm text-gray-600 mb-2">Joriy fayl:</p>
-                    {% if lesson.file_url and ('http://' in lesson.file_url or 'https://' in lesson.file_url) %}
+                    <p class="text-sm text-gray-600 mb-2">Joriy fayl(lar):</p>
+                    {% if lesson_files_list %}
+                    <div class="space-y-2">
+                        {% for file in lesson_files_list %}
+                        <div class="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="text-xs text-blue-700 truncate font-medium">Faylni yuklab olish</span>
+                            <a href="{{ url_for('courses.serve_lesson_file', filename=file.filename) }}" target="_blank"
+                                class="ml-auto text-xs text-blue-600 hover:underline">Ko'rish</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
                     <p class="text-xs text-gray-500">URL: <a href="{{ lesson.file_url }}" target="_blank"
                             class="text-blue-600 hover:underline">{{ lesson.file_url }}</a></p>
-                    {% else %}
-                    <p class="text-xs text-gray-500">Yuklangan fayl: {{ lesson.file_url }}</p>
                     {% endif %}
-                    <p class="text-xs text-amber-600 mt-1">⚠️ Yangi fayl yuklasangiz, eski fayl o'chiriladi</p>
+                    <p class="text-xs text-amber-600 mt-2">⚠️ Yangi fayl yuklasangiz yoki URL kiritsangiz, eski fayllar
+                        o'chiriladi</p>
                 </div>
                 {% endif %}
 

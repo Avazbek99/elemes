@@ -1972,34 +1972,20 @@ def create_lesson(id):
             elif group_id and group and group.direction_id:
                 lesson_direction_id = group.direction_id
             
-            # Bu guruh va yo'nalish uchun darslar sonini hisoblash
-            if group_id and lesson_direction_id:
-                group_lessons_count = Lesson.query.filter_by(
-                    subject_id=id,
-                    group_id=group_id,
-                    direction_id=lesson_direction_id,
-                    lesson_type=request.form.get('lesson_type', 'maruza')
-                ).count()
-            elif group_id:
-                group_lessons_count = Lesson.query.filter_by(
-                    subject_id=id,
-                    group_id=group_id,
-                    lesson_type=request.form.get('lesson_type', 'maruza')
-                ).count()
-            elif lesson_direction_id:
-                group_lessons_count = Lesson.query.filter_by(
-                    subject_id=id,
-                    direction_id=lesson_direction_id,
-                    lesson_type=request.form.get('lesson_type', 'maruza')
-                ).count()
+            # Bu guruh va yo'nalish uchun darslar sonini hisoblash - maximal tartib raqamini topish
+            # Tartib raqami endi umumiy (global) bo'ladi (dars turi va guruhdan qat'i nazar fan/yo'nalish doirasida)
+            max_order_query = db.session.query(db.func.max(Lesson.order)).filter(
+                Lesson.subject_id == id
+            )
+            
+            if lesson_direction_id:
+                max_order_query = max_order_query.filter(Lesson.direction_id == lesson_direction_id)
             else:
-                # Admin uchun group_id None bo'lsa
-                group_lessons_count = Lesson.query.filter_by(
-                    subject_id=id,
-                    group_id=None,
-                    direction_id=None,
-                    lesson_type=request.form.get('lesson_type', 'maruza')
-                ).count()
+                max_order_query = max_order_query.filter(Lesson.direction_id.is_(None))
+                
+            max_order = max_order_query.scalar() or 0
+            
+            group_lessons_count = max_order
             
             lesson = Lesson(
                 title=request.form.get('title'),
@@ -2185,6 +2171,67 @@ def edit_lesson(id):
         
         # Yo'nalish bo'yicha tekshiruv - o'qituvchi faqat ushbu yo'nalishdagi darslarni tahrirlay oladi
     
+    # Dars turlarini filtrlash
+    allowed_lesson_types = []
+    
+    check_dir_id = direction_id or lesson.direction_id
+    if check_dir_id:
+        lesson_types_set = set()
+        direction_group_ids_calc = [g.id for g in Group.query.filter_by(direction_id=check_dir_id).all()]
+        
+        teacher_assignments_calc = TeacherSubject.query.filter(
+            TeacherSubject.teacher_id == current_user.id,
+            TeacherSubject.subject_id == subject.id,
+            TeacherSubject.group_id.in_(direction_group_ids_calc)
+        ).all()
+        
+        for ta in teacher_assignments_calc:
+            if ta.lesson_type:
+                lesson_types_set.add(ta.lesson_type)
+        
+        curriculum_item_calc = DirectionCurriculum.query.filter_by(
+            direction_id=check_dir_id,
+            subject_id=subject.id
+        ).first()
+        
+        if curriculum_item_calc:
+            if (curriculum_item_calc.hours_laboratoriya or 0) > 0:
+                lab_teacher_calc = TeacherSubject.query.filter(
+                    TeacherSubject.subject_id == subject.id,
+                    TeacherSubject.group_id.in_(direction_group_ids_calc),
+                    TeacherSubject.teacher_id == current_user.id,
+                    TeacherSubject.lesson_type.in_(['laboratoriya', 'amaliyot'])
+                ).first()
+                if lab_teacher_calc:
+                    lesson_types_set.add('laboratoriya')
+            
+            if (curriculum_item_calc.hours_kurs_ishi or 0) > 0:
+                kurs_teacher_calc = TeacherSubject.query.filter(
+                    TeacherSubject.subject_id == subject.id,
+                    TeacherSubject.group_id.in_(direction_group_ids_calc),
+                    TeacherSubject.teacher_id == current_user.id,
+                    TeacherSubject.lesson_type.in_(['kurs_ishi', 'amaliyot'])
+                ).first()
+                if kurs_teacher_calc:
+                    lesson_types_set.add('kurs_ishi')
+        
+        lesson_type_names_map = {
+            'maruza': 'Maruza',
+            'amaliyot': 'Amaliyot',
+            'laboratoriya': 'Laboratoriya',
+            'seminar': 'Seminar',
+            'kurs_ishi': 'Kurs ishi'
+        }
+        
+        sorted_types = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
+        allowed_lesson_types = []
+        for l_type in sorted_types:
+            if l_type in lesson_types_set:
+                allowed_lesson_types.append({
+                    'value': l_type,
+                    'name': lesson_type_names_map.get(l_type, l_type.capitalize())
+                })
+
     if request.method == 'POST':
         video_filename = lesson.video_file  # Eski faylni saqlash
         lesson_file_url = lesson.file_url  # Eski faylni saqlash
@@ -2225,30 +2272,33 @@ def edit_lesson(id):
                         pass
             video_filename = None
         elif not video_filename:
-            # Agar yangi video yuklanmagan bo'lsa, eski videoni saqlash
+            # Agar yangi video yuklanmagan bo'lsa va URL kiritilmagan bo'lsa, eski videoni saqlash
             video_filename = lesson.video_file
             video_url = lesson.video_url
         
         # O'qituvchi uchun fayl yuklash
         if current_user.role == 'teacher' or current_user.role == 'admin':
-            # Fayl yuklash
-            if 'lesson_file' in request.files:
-                lesson_file = request.files['lesson_file']
+            # Bir nechta fayllarni yuklashni qo'llab-quvvatlash
+            lesson_files = request.files.getlist('lesson_files')
+            uploaded_files = []
+            
+            # Agar mavjud fayllar bo'lsa va ular JSON bo'lsa, ularni yuklash
+            existing_files = []
+            if lesson.file_url and lesson.file_url.startswith('[') and lesson.file_url.endswith(']'):
+                try:
+                    existing_files = json.loads(lesson.file_url)
+                except:
+                    pass
+            
+            # Yangi fayllarni qayta ishlash
+            has_new_files = False
+            for lesson_file in lesson_files:
                 if lesson_file and lesson_file.filename:
-                    # Eski faylni o'chirish (agar yuklangan bo'lsa)
-                    if lesson.file_url and not ('http://' in lesson.file_url or 'https://' in lesson.file_url):
-                        old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files', lesson.file_url)
-                        if os.path.exists(old_file_path):
-                            try:
-                                os.remove(old_file_path)
-                            except:
-                                pass
-                    
                     # Fayl formatini tekshirish
                     allowed_extensions = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'}
                     ext = lesson_file.filename.rsplit('.', 1)[1].lower() if '.' in lesson_file.filename else ''
                     if ext not in allowed_extensions:
-                        flash("Ruxsat berilmagan fayl formati. Ruxsatli formatlar: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, ZIP, RAR", 'error')
+                        flash(f"Ruxsat berilmagan fayl formati: {lesson_file.filename}. Ruxsatli formatlar: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, ZIP, RAR", 'error')
                         return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
                     
                     # Faylni saqlash
@@ -2257,39 +2307,47 @@ def edit_lesson(id):
                     os.makedirs(files_folder, exist_ok=True)
                     file_path = os.path.join(files_folder, filename)
                     lesson_file.save(file_path)
-                    lesson_file_url = filename
-                else:
-                    # URL orqali fayl
-                    file_url_input = request.form.get('file_url', '').strip()
-                    if file_url_input:
-                        # Agar eski fayl yuklangan bo'lsa, o'chirish
-                        if lesson.file_url and not ('http://' in lesson.file_url or 'https://' in lesson.file_url):
-                            old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files', lesson.file_url)
-                            if os.path.exists(old_file_path):
-                                try:
-                                    os.remove(old_file_path)
-                                except:
-                                    pass
-                        lesson_file_url = file_url_input
-                    else:
-                        # Agar yangi fayl yoki URL kiritilmagan bo'lsa, eski faylni saqlash
-                        lesson_file_url = lesson.file_url
-                        if not lesson_file_url:
-                            # Agar hech qanday fayl bo'lmasa, majburiy
-                            flash("O'qituvchilar uchun mavzu faylini yuklash majburiy!", 'error')
-                            return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
+                    uploaded_files.append({
+                        'filename': filename,
+                        'original_name': lesson_file.filename
+                    })
+                    has_new_files = True
+            
+            # URL orqali fayl
+            file_url_input = request.form.get('file_url', '').strip()
+            
+            if has_new_files:
+                # Yangi fayllar yuklandi, eskilarini (agar ular yuklangan fayllar bo'lsa) o'chirishni o'ylab ko'rish kerak
+                # Hozircha oddiygina yangi ro'yxatni saqlaymiz
+                lesson_file_url = json.dumps(uploaded_files)
+            elif file_url_input:
+                # URL kiritilgan bo'lsa
+                lesson_file_url = file_url_input
+            else:
+                # Hech narsa o'zgarmagan bo'lsa, eskisini qoldiramiz
+                lesson_file_url = lesson.file_url
+            
+            if not lesson_file_url:
+                flash("O'qituvchilar uchun mavzu faylini yuklash majburiy!", 'error')
+                return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
         else:
             # Boshqa rollar uchun ixtiyoriy
             file_url_input = request.form.get('file_url', '').strip()
-            if file_url_input:
-                # Agar eski fayl yuklangan bo'lsa, o'chirish
-                if lesson.file_url and not ('http://' in lesson.file_url or 'https://' in lesson.file_url):
-                    old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files', lesson.file_url)
-                    if os.path.exists(old_file_path):
-                        try:
-                            os.remove(old_file_path)
-                        except:
-                            pass
+            lesson_files = request.files.getlist('lesson_files')
+            
+            if any(f.filename for f in lesson_files):
+                # Fayl yuklash boshqa rollar uchun ham bir xil bo'lishi kerak
+                uploaded_files = []
+                for lesson_file in lesson_files:
+                    if lesson_file and lesson_file.filename:
+                        ext = lesson_file.filename.rsplit('.', 1)[1].lower() if '.' in lesson_file.filename else ''
+                        filename = f"{uuid.uuid4().hex}.{ext}"
+                        files_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files')
+                        os.makedirs(files_folder, exist_ok=True)
+                        lesson_file.save(os.path.join(files_folder, filename))
+                        uploaded_files.append({'filename': filename, 'original_name': lesson_file.filename})
+                lesson_file_url = json.dumps(uploaded_files)
+            elif file_url_input:
                 lesson_file_url = file_url_input
             else:
                 lesson_file_url = lesson.file_url  # Eski faylni saqlash
@@ -2334,74 +2392,10 @@ def edit_lesson(id):
                                     TeacherSubject.lesson_type == 'amaliyot'
                                 ).first()
                 
+                    pass # Error paths will fall through to the final render_template at the end of the function
+                
                 if not teacher_assignment:
                     flash(f"Siz ushbu yo'nalishda '{new_lesson_type}' dars turiga biriktirilmagansiz. Faqat o'zingizga biriktirilgan dars turlarini o'zgartira olasiz.", 'error')
-                    allowed_lesson_types = []
-                    is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
-                    # allowed_lesson_types ni qayta hisoblash
-                    if is_acting_as_teacher and direction_id:
-                        lesson_types_set = set()
-                        direction_group_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
-                        teacher_assignments = TeacherSubject.query.filter(
-                            TeacherSubject.teacher_id == current_user.id,
-                            TeacherSubject.subject_id == subject.id,
-                            TeacherSubject.group_id.in_(direction_group_ids)
-                        ).all()
-                        for ta in teacher_assignments:
-                            if ta.lesson_type:
-                                lesson_types_set.add(ta.lesson_type)
-                        
-                        curriculum_item = DirectionCurriculum.query.filter_by(
-                            direction_id=direction_id,
-                            subject_id=subject.id
-                        ).first()
-                        
-                        if curriculum_item:
-                            if (curriculum_item.hours_laboratoriya or 0) > 0:
-                                lab_teacher = TeacherSubject.query.filter(
-                                    TeacherSubject.subject_id == subject.id,
-                                    TeacherSubject.group_id.in_(direction_group_ids),
-                                    TeacherSubject.teacher_id == current_user.id,
-                                    TeacherSubject.lesson_type.in_(['laboratoriya', 'amaliyot'])
-                                ).first()
-                                if lab_teacher:
-                                    lesson_types_set.add('laboratoriya')
-                            
-                            if (curriculum_item.hours_kurs_ishi or 0) > 0:
-                                kurs_teacher = TeacherSubject.query.filter(
-                                    TeacherSubject.subject_id == subject.id,
-                                    TeacherSubject.group_id.in_(direction_group_ids),
-                                    TeacherSubject.teacher_id == current_user.id,
-                                    TeacherSubject.lesson_type.in_(['kurs_ishi', 'amaliyot'])
-                                ).first()
-                                if kurs_teacher:
-                                    lesson_types_set.add('kurs_ishi')
-                        
-                        lesson_type_names_map = {
-                            'maruza': 'Maruza',
-                            'amaliyot': 'Amaliyot',
-                            'laboratoriya': 'Laboratoriya',
-                            'seminar': 'Seminar',
-                            'kurs_ishi': 'Kurs ishi'
-                        }
-                        
-                        lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
-                        for lesson_type_key in lesson_type_order:
-                            if lesson_type_key in lesson_types_set:
-                                allowed_lesson_types.append({
-                                    'value': lesson_type_key,
-                                    'name': lesson_type_names_map.get(lesson_type_key, lesson_type_key.capitalize())
-                                })
-                    elif current_user.role == 'admin':
-                        allowed_lesson_types = [
-                            {'value': 'maruza', 'name': 'Maruza'},
-                            {'value': 'amaliyot', 'name': 'Amaliyot'},
-                            {'value': 'laboratoriya', 'name': 'Laboratoriya'},
-                            {'value': 'seminar', 'name': 'Seminar'},
-                            {'value': 'kurs_ishi', 'name': 'Kurs ishi'}
-                        ]
-                    
-                    return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
         
         # Dars ma'lumotlarini yangilash
         lesson.title = request.form.get('title')
@@ -2416,72 +2410,6 @@ def edit_lesson(id):
         
         flash("Dars muvaffaqiyatli yangilandi", 'success')
         return redirect(url_for('courses.detail', id=subject.id, direction_id=direction_id))
-    
-    # allowed_lesson_types ni olish (create_lesson funksiyasidagi kabi)
-    allowed_lesson_types = []
-    is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
-    
-    if is_acting_as_teacher and direction_id:
-        lesson_types_set = set()
-        direction_group_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
-        teacher_assignments = TeacherSubject.query.filter(
-            TeacherSubject.teacher_id == current_user.id,
-            TeacherSubject.subject_id == subject.id,
-            TeacherSubject.group_id.in_(direction_group_ids)
-        ).all()
-        for ta in teacher_assignments:
-            if ta.lesson_type:
-                lesson_types_set.add(ta.lesson_type)
-        
-        curriculum_item = DirectionCurriculum.query.filter_by(
-            direction_id=direction_id,
-            subject_id=subject.id
-        ).first()
-        
-        if curriculum_item:
-            if (curriculum_item.hours_laboratoriya or 0) > 0:
-                lab_teacher = TeacherSubject.query.filter(
-                    TeacherSubject.subject_id == subject.id,
-                    TeacherSubject.group_id.in_(direction_group_ids),
-                    TeacherSubject.teacher_id == current_user.id,
-                    TeacherSubject.lesson_type.in_(['laboratoriya', 'amaliyot'])
-                ).first()
-                if lab_teacher:
-                    lesson_types_set.add('laboratoriya')
-            
-            if (curriculum_item.hours_kurs_ishi or 0) > 0:
-                kurs_teacher = TeacherSubject.query.filter(
-                    TeacherSubject.subject_id == subject.id,
-                    TeacherSubject.group_id.in_(direction_group_ids),
-                    TeacherSubject.teacher_id == current_user.id,
-                    TeacherSubject.lesson_type.in_(['kurs_ishi', 'amaliyot'])
-                ).first()
-                if kurs_teacher:
-                    lesson_types_set.add('kurs_ishi')
-        
-        lesson_type_names_map = {
-            'maruza': 'Maruza',
-            'amaliyot': 'Amaliyot',
-            'laboratoriya': 'Laboratoriya',
-            'seminar': 'Seminar',
-            'kurs_ishi': 'Kurs ishi'
-        }
-        
-        lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
-        for lesson_type_key in lesson_type_order:
-            if lesson_type_key in lesson_types_set:
-                allowed_lesson_types.append({
-                    'value': lesson_type_key,
-                    'name': lesson_type_names_map.get(lesson_type_key, lesson_type_key.capitalize())
-                })
-    elif current_user.role == 'admin':
-        allowed_lesson_types = [
-            {'value': 'maruza', 'name': 'Maruza'},
-            {'value': 'amaliyot', 'name': 'Amaliyot'},
-            {'value': 'laboratoriya', 'name': 'Laboratoriya'},
-            {'value': 'seminar', 'name': 'Seminar'},
-            {'value': 'kurs_ishi', 'name': 'Kurs ishi'}
-        ]
     
     return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
 
@@ -2598,11 +2526,30 @@ def delete_lesson(id):
                 pass
     
     # Darsni o'chirish
+    subject_id = lesson.subject_id
+    direction_id_val = lesson.direction_id
+    group_id_val = lesson.group_id
+    lesson_type_val = lesson.lesson_type
+    
     db.session.delete(lesson)
     db.session.commit()
     
+    # Qolgan darslarni tartiblash (global tartiblash)
+    remaining_lessons_query = Lesson.query.filter_by(
+        subject_id=subject_id,
+        direction_id=direction_id_val
+    )
+    
+    # Guruhlar bo'yicha ham tartiblaymiz (agar darslar ma'lum bir guruhga tegishli bo'lsa)
+    remaining_lessons = remaining_lessons_query.order_by(Lesson.order).all()
+    
+    for i, l in enumerate(remaining_lessons, start=1):
+        l.order = i
+    
+    db.session.commit()
+    
     flash("Dars muvaffaqiyatli o'chirildi", 'success')
-    return redirect(url_for('courses.detail', id=subject.id, direction_id=direction_id))
+    return redirect(url_for('courses.detail', id=subject_id, direction_id=direction_id_val))
 
 
 @bp.route('/uploads/videos/<filename>')
@@ -2625,32 +2572,43 @@ def serve_lesson_file(filename):
         return redirect(url_for('courses.index'))
     
     # Ruxsatni tekshirish
-    lesson = Lesson.query.filter_by(file_url=filename).first()
+    # Lessonni qidirish (JSON formatini ham hisobga olgan holda)
+    lesson = Lesson.query.filter(
+        (Lesson.file_url == filename) | 
+        (Lesson.file_url.like(f'%"{filename}"%'))
+    ).first()
+    
     if not lesson:
-        # URL bo'lsa, to'g'ridan-to'g'ri qaytarish
+        # URL bo'lsa, to'g'ridan-to'g'ri qaytarish (masalan, e'lonlardagi fayllar yoki boshqa yerda)
         return send_from_directory(files_folder, filename, as_attachment=True)
     
     subject = lesson.subject
     
-    # Tekshirish
-    can_view = False
-    if current_user.role == 'admin':
-        can_view = True
-    elif current_user.role == 'teacher':
-        can_view = TeacherSubject.query.filter_by(
-            teacher_id=current_user.id,
-            subject_id=subject.id
-        ).first() is not None
-    elif current_user.role == 'student' and current_user.group_id:
-        can_view = TeacherSubject.query.filter_by(
-            group_id=current_user.group_id,
-            subject_id=subject.id
-        ).first() is not None
-    
-    if not can_view:
-        flash("Sizda bu faylni ko'rish huquqi yo'q", 'error')
-        return redirect(url_for('courses.index'))
-    
+    # Ruxsatni tekshirish
+    if current_user.role == 'student':
+        # Qulflanganligini tekshirish
+        is_locked = False
+        if lesson.video_file or lesson.video_url:
+            previous_lessons = Lesson.query.filter(
+                Lesson.subject_id == lesson.subject_id,
+                Lesson.direction_id == lesson.direction_id,
+                Lesson.order < lesson.order
+            ).order_by(Lesson.order).all()
+            
+            for prev_lesson in previous_lessons:
+                if prev_lesson.video_file or prev_lesson.video_url:
+                    view = LessonView.query.filter_by(
+                        lesson_id=prev_lesson.id,
+                        student_id=current_user.id
+                    ).first()
+                    if not view or not view.is_completed:
+                        is_locked = True
+                        break
+        
+        if is_locked:
+            flash("Siz ushbu dars faylini yuklab ololmaysiz. Avval oldingi darslarni ko'rib chiqing.", "error")
+            return redirect(url_for('courses.lesson_detail', id=lesson.id))
+
     return send_from_directory(files_folder, filename, as_attachment=True)
 
 @bp.route('/uploads/submissions/<filename>')
@@ -2735,11 +2693,20 @@ def lesson_detail(id):
             student_id=current_user.id
         ).first()
         
+        # Agar ko'rish yozuvi bo'lmasa, yangi yaratish (progress bar ko'rinishi uchun)
+        if not lesson_view:
+            lesson_view = LessonView(
+                lesson_id=lesson.id,
+                student_id=current_user.id
+            )
+            db.session.add(lesson_view)
+            db.session.commit()
+        
         # Oldingi darslar to'liq ko'rilganligini tekshirish (faqat videoga ega darslar uchun)
         if lesson.video_file or lesson.video_url:
             previous_lessons = Lesson.query.filter(
                 Lesson.subject_id == subject.id,
-                Lesson.lesson_type == lesson.lesson_type,
+                Lesson.direction_id == lesson.direction_id,
                 Lesson.order < lesson.order
             ).order_by(Lesson.order).all()
             
@@ -2801,13 +2768,25 @@ def lesson_detail(id):
                         if kurs_teacher:
                             can_edit_lesson = True
 
+    # Mavzu fayllari (ko'p fayllarni qo'llab-quvvatlash uchun)
+    lesson_files_list = []
+    if lesson.file_url:
+        if lesson.file_url.startswith('[') and lesson.file_url.endswith(']'):
+            try:
+                lesson_files_list = json.loads(lesson.file_url)
+            except:
+                lesson_files_list = [{'filename': lesson.file_url, 'original_name': 'Faylni yuklab olish'}]
+        elif not ('http://' in lesson.file_url or 'https://' in lesson.file_url):
+            lesson_files_list = [{'filename': lesson.file_url, 'original_name': 'Faylni yuklab olish'}]
+    
     return render_template('courses/lesson_detail.html', 
                          lesson=lesson, 
-                         subject=subject,
-                         lesson_view=lesson_view,
+                         subject=subject, 
+                         lesson_view=lesson_view, 
                          is_locked=is_locked,
                          can_edit_lesson=can_edit_lesson,
-                         direction_id=lesson.direction_id)
+                         lesson_files_list=lesson_files_list,
+                         direction_id=request.args.get('direction_id'))
 
 
 
@@ -2861,7 +2840,7 @@ def attention_check(id):
         response['next_lesson'] = {
             'id': next_lesson.id,
             'title': next_lesson.title,
-            'url': url_for('courses.watch_video', id=next_lesson.id)
+            'url': url_for('courses.lesson_detail', id=next_lesson.id)
         }
     
     return jsonify(response)

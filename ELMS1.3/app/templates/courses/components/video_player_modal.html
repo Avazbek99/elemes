@@ -21,9 +21,8 @@
             <div class="flex items-center gap-4 shrink-0">
                 <div
                     class="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-full text-sm font-medium border border-blue-500/30">
-                    <span id="check-counter-modal">Tekshiruv: {{ lesson_view.attention_checks_passed if lesson_view else
-                        0
-                        }}/3</span>
+                    Tekshiruv: <span id="check-counter-modal">{{ lesson_view.attention_checks_passed if lesson_view else
+                        0 }}/3</span>
                 </div>
                 <div id="completion-badge-modal"
                     class="{% if lesson_view and lesson_view.is_completed %}flex{% else %}hidden{% endif %} items-center gap-2 px-3 py-1.5 bg-green-500/20 text-green-400 rounded-full text-sm font-medium border border-green-500/30">
@@ -228,7 +227,7 @@
             </div>
             <h2 class="text-2xl font-bold text-gray-900 mb-2">Shu yerdasizmi?</h2>
             <p class="text-gray-500 mb-6">Darsni davom ettirish uchun "Ha, bu yerdaman" tugmasini bosing</p>
-            <p class="text-sm text-gray-400 mb-4" id="attention-timer">Javob vaqti: <span id="timer-seconds">30</span>
+            <p class="text-sm text-gray-400 mb-4" id="attention-timer">Javob vaqti: <span id="timer-seconds">10</span>
                 soniya</p>
             <button onclick="confirmAttention()"
                 class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-lg font-semibold rounded-2xl transition-all transform hover:scale-105 shadow-lg">
@@ -251,20 +250,23 @@
             <h2 class="text-2xl font-bold text-gray-900 mb-2">Tabriklaymiz! 🎉</h2>
             <p class="text-gray-500 mb-6">Siz darsni muvaffaqiyatli tamomladingiz va barcha tekshiruvlardan o'tdingiz
             </p>
-            <div id="success-modal-next-lesson" class="hidden mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                <p class="text-sm text-blue-700 mb-2">Keyingi video ochildi!</p>
-                <p class="text-sm font-medium text-blue-900" id="next-lesson-title"></p>
-                <p class="text-xs text-blue-600 mt-2">2 soniyadan keyin avtomatik o'tiladi...</p>
+            <div id="success-modal-next-lesson-info"
+                class="hidden mb-6 text-left p-4 bg-primary-50 rounded-2xl border border-primary-100">
+                <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">Keyingi dars:</p>
+                <p class="text-base font-bold text-gray-900 leading-tight" id="next-lesson-title"></p>
             </div>
+
             <div class="flex gap-3">
                 <button onclick="closeSuccessModal(); closeVideoModal();"
                     class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
-                    Davom ettirish
+                    Darsga qaytish
                 </button>
-                <a href="{{ url_for('courses.detail', id=subject.id, direction_id=direction_id or request.args.get('direction_id')) }}"
-                    class="flex-1 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors text-center">
-                    Fanga qaytish
-                </a>
+                <div id="success-modal-next-lesson" class="hidden flex-1">
+                    <a id="next-lesson-link" href="#"
+                        class="block w-full px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors text-center shadow-md hover:shadow-lg">
+                        Keyingi dars →
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -341,7 +343,7 @@
     let checkTimes = [];
     let checksTriggered = [false, false, false];
     let attentionTimer = null;
-    let timerSeconds = 30;
+    let timerSeconds = 10;
     let currentWatchTime = 0;
     let lastValidTime = 0;
     let youtubeLastValidTime = 0;
@@ -464,12 +466,23 @@
         if (videoPlayer) videoPlayer.pause();
         if (youtubeAPI && typeof youtubeAPI.pauseVideo === 'function') youtubeAPI.pauseVideo();
 
-        timerSeconds = 30;
+        timerSeconds = 10;
         updateTimerDisplay();
         attentionTimer = setInterval(() => {
             timerSeconds--;
             updateTimerDisplay();
-            if (timerSeconds <= 0) clearInterval(attentionTimer);
+            if (timerSeconds <= 0) {
+                clearInterval(attentionTimer);
+                if (checksTriggered[checksPassedFromServer] !== undefined) {
+                    checksTriggered[checksPassedFromServer] = false;
+                }
+                const modal = document.getElementById('attention-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+                closeVideoModal();
+            }
         }, 1000);
     }
 
@@ -507,7 +520,7 @@
                         const badges = document.querySelectorAll('#completion-badge, #completion-badge-modal');
                         badges.forEach(el => { el.classList.remove('hidden'); el.classList.add('flex'); });
                         if (data.next_lesson) {
-                            setTimeout(() => { window.location.href = data.next_lesson.url; }, 2000);
+                            // setTimeout(() => { window.location.href = data.next_lesson.url; }, 2000);
                             showSuccessModalWithNext(data.next_lesson);
                         } else {
                             showSuccessModal();
@@ -531,7 +544,15 @@
         document.getElementById('success-modal').classList.remove('hidden');
         document.getElementById('success-modal').classList.add('flex');
         document.getElementById('success-modal-next-lesson').classList.remove('hidden');
-        document.getElementById('next-lesson-title').textContent = nextLesson.title;
+        document.getElementById('success-modal-next-lesson-info').classList.remove('hidden');
+
+        const titleEl = document.getElementById('next-lesson-title');
+        if (titleEl) titleEl.textContent = nextLesson.title;
+
+        const nextLink = document.getElementById('next-lesson-link');
+        if (nextLink) {
+            nextLink.href = nextLesson.url;
+        }
     }
 
     function closeSuccessModal() {

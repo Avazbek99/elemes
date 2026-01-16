@@ -27,8 +27,8 @@
                             d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
                     </svg>
                 </div>
-                <p class="text-xl font-semibold">Video qulflangan</p>
-                <p class="text-gray-400 mt-2">Avval oldingi videolarni to'liq ko'rib chiqing</p>
+                <p class="text-xl font-semibold">Video dars qulflangan</p>
+                <p class="text-gray-400 mt-2">Avval oldingi video darslarni to'liq ko'rib chiqing</p>
             </div>
             {% elif lesson_view and lesson_view.is_completed %}
             <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
@@ -61,7 +61,7 @@
                 {% if lesson_view %}
                 <p class="text-gray-400 mt-2">Tekshiruv: {{ lesson_view.attention_checks_passed }}/3</p>
                 {% else %}
-                <p class="text-gray-400 mt-2">Video ko'rish va tekshiruvlardan o'tish</p>
+                <p class="text-gray-400 mt-2">Video darsni ko'ring va tekshiruvlardan o'ting</p>
                 {% endif %}
             </button>
             {% endif %}
@@ -131,30 +131,43 @@
             </div>
             {% endif %}
 
-            {% if lesson.file_url %}
+            {% if not is_locked %}
+            {% if lesson_files_list %}
+            <div class="mt-6 p-4 bg-gray-50 rounded-xl">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">Mavzu fayllari</h3>
+                <div class="space-y-3">
+                    {% for file in lesson_files_list %}
+                    <a href="{{ url_for('courses.serve_lesson_file', filename=file.filename) }}"
+                        class="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 text-primary-600 hover:text-primary-700 hover:border-primary-200 transition-all group">
+                        <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-primary-500" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span class="truncate text-sm font-medium">Faylni yuklab olish</span>
+                        <svg class="ml-auto w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% elif lesson.file_url %}
             <div class="mt-6 p-4 bg-gray-50 rounded-xl">
                 <h3 class="text-sm font-medium text-gray-700 mb-2">Mavzu fayli</h3>
-                {% set file_url = lesson.file_url %}
-                {% if 'http://' in file_url or 'https://' in file_url %}
-                <a href="{{ file_url }}" target="_blank"
-                    class="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="{{ lesson.file_url }}" target="_blank"
+                    class="inline-flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 text-primary-600 hover:text-primary-700 hover:border-primary-200 transition-all group">
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-primary-500" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
-                    Faylni yuklab olish
+                    <span class="text-sm font-medium">Faylni yuklab olish (Tashqi manba)</span>
                 </a>
-                {% else %}
-                <a href="{{ url_for('courses.serve_lesson_file', filename=file_url) }}"
-                    class="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Faylni yuklab olish
-                </a>
-                {% endif %}
             </div>
+            {% endif %}
             {% endif %}
         </div>
     </div>
