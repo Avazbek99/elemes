@@ -37,45 +37,45 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <p class="text-xl font-semibold">Video to'liq ko'rilgan!</p>
-                <p class="text-gray-400 mt-2">Siz ushbu darsni muvaffaqiyatli tamomladingiz</p>
-                <a href="{{ url_for('courses.watch_video', id=lesson.id) }}"
-                    class="mt-6 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl transition-colors">
-                    <span class="flex items-center gap-2">
+                <p class="text-xl font-semibold">Video dars to'liq ko'rilgan!</p>
+                <p class="text-gray-400 mt-2">Siz ushbu video darsni muvaffaqiyatli tamomladingiz</p>
+                <button onclick="openVideoModal()"
+                    class="mt-6 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl transition-colors cursor-pointer w-full text-center">
+                    <span class="flex items-center justify-center gap-2">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                         </svg>
                         Qayta ko'rish
                     </span>
-                </a>
+                </button>
             </div>
             {% else %}
-            <a href="{{ url_for('courses.watch_video', id=lesson.id) }}"
-                class="flex flex-col items-center justify-center text-white hover:scale-105 transition-transform">
+            <button onclick="openVideoModal()"
+                class="flex flex-col items-center justify-center text-white hover:scale-105 transition-transform w-full h-full cursor-pointer">
                 <div class="w-20 h-20 rounded-full bg-primary-500/90 flex items-center justify-center mb-4">
                     <svg class="w-10 h-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                     </svg>
                 </div>
-                <p class="text-xl font-semibold">Video darsni boshlash</p>
+                <p class="text-xl font-semibold">Video darsni ko'rish</p>
                 {% if lesson_view %}
-                <p class="text-gray-400 mt-2">{{ lesson_view.attention_checks_passed }}/3 tekshiruvdan o'tilgan</p>
+                <p class="text-gray-400 mt-2">Tekshiruv: {{ lesson_view.attention_checks_passed }}/3</p>
                 {% else %}
-                <p class="text-gray-400 mt-2">Video ko'rish va tekshiruvlardan o'ting</p>
+                <p class="text-gray-400 mt-2">Video ko'rish va tekshiruvlardan o'tish</p>
                 {% endif %}
-            </a>
+            </button>
             {% endif %}
             {% else %}
             <!-- O'qituvchi/Admin uchun -->
-            <a href="{{ url_for('courses.watch_video', id=lesson.id) }}"
-                class="flex flex-col items-center justify-center text-white hover:scale-105 transition-transform">
+            <button onclick="openVideoModal()"
+                class="flex flex-col items-center justify-center text-white hover:scale-105 transition-transform w-full h-full cursor-pointer">
                 <div class="w-20 h-20 rounded-full bg-primary-500/90 flex items-center justify-center mb-4">
                     <svg class="w-10 h-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                     </svg>
                 </div>
-                <p class="text-xl font-semibold">Video ko'rish</p>
-            </a>
+                <p class="text-xl font-semibold">Video darsni ko'rish</p>
+            </button>
             {% endif %}
         </div>
         {% endif %}
@@ -87,15 +87,7 @@
                     <p class="text-gray-500 mt-1">{{ subject.name }}</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    {% if lesson.duration %}
-                    <div class="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {{ lesson.duration }} daqiqa
-                    </div>
-                    {% endif %}
+
                     {% if can_edit_lesson %}
                     <a href="{{ url_for('courses.edit_lesson', id=lesson.id) }}"
                         class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2">
@@ -114,10 +106,11 @@
             <div class="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-sm font-medium text-blue-700">Dars progressi</span>
-                    <span class="text-sm text-blue-600">{{ lesson_view.attention_checks_passed }}/3 tekshiruv</span>
+                    <span class="text-sm text-blue-600">Tekshiruv: <span id="check-counter">{{
+                            lesson_view.attention_checks_passed }}/3</span></span>
                 </div>
                 <div class="w-full bg-blue-200 rounded-full h-2">
-                    <div class="bg-blue-600 h-2 rounded-full transition-all"
+                    <div id="check-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all"
                         style="width: {{ (lesson_view.attention_checks_passed / 3 * 100)|round }}%"></div>
                 </div>
                 {% if lesson_view.is_completed %}
@@ -166,4 +159,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% include 'courses/components/video_player_modal.html' %}
 {% endblock %}

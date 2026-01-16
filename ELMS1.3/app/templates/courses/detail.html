@@ -276,9 +276,7 @@
                                     <h3 class="text-sm font-medium text-gray-900 group-hover:text-primary-600 truncate">
                                         {{ lesson.title }}</h3>
                                     <div class="flex items-center gap-2 text-xs text-gray-500 mt-1 flex-wrap">
-                                        {% if lesson.duration %}
-                                        <span class="flex-shrink-0">{{ lesson.duration }} daqiqa</span>
-                                        {% endif %}
+
                                         {% if lesson.video_file or lesson.video_url %}
                                         <span
                                             class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full flex-shrink-0">Video
