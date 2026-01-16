@@ -464,8 +464,7 @@
 
     // Video hodisalarini tinglash
     if (videoPlayer) {
-        let maxWatchedTime = {{ lesson_view.watch_duration if lesson_view else 0 }
-    }; // Serverdan kelgan maksimal ko'rilgan vaqt
+        let maxWatchedTime = {{ lesson_view.watch_duration if lesson_view else 0 }}; // Serverdan kelgan maksimal ko'rilgan vaqt
     let lastValidTime = 0; // Oxirgi to'g'ri vaqt
     let isFirstView = !isCompleted; // Birinchi ko'rish ekanligi
     let customControls = document.getElementById('custom-controls');
@@ -702,13 +701,12 @@
             }
         });
     }
-}
+    }
 
     // YouTube uchun
     if (youtubePlayer) {
         let youtubeAPI = null;
-        let youtubeMaxWatchedTime = {{ lesson_view.watch_duration if lesson_view else 0 }
-    };
+        let youtubeMaxWatchedTime = {{ lesson_view.watch_duration if lesson_view else 0 }};
     let youtubeIsFirstView = !isCompleted;
     let youtubeCustomControls = document.getElementById('youtube-custom-controls');
     let youtubeWatchTime = 0;
@@ -932,7 +930,7 @@
             }
         });
     }
-}
+    }
 </script>
 {% endif %}
 {% endblock %}

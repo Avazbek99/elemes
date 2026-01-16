@@ -57,9 +57,11 @@
                 {% set direction_id = subject_data.direction.id if subject_data.direction else None %}
                 {% set teacher_id = current_user.id if (current_user.role == 'teacher' or
                 current_user.has_role('teacher')) else None %}
-                {% set curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id) if
-                (current_user.role in ['teacher', 'dean', 'admin']) else {'has_issue': False, 'warnings': []} %}
+                {% set is_admin = (current_user.role == 'admin' or current_user.role == 'dean') %}
+                {% set curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id, is_admin) if
+                (current_user.role in ['teacher', 'dean', 'admin']) else {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}} %}
                 {% set has_issue = curriculum_check.has_issue %}
+                {% set stats = curriculum_check.stats if curriculum_check.stats else {'lessons_count': 0, 'assignments_count': 0} %}
                 {# Unified Card for Teacher and Student #}
                 <div class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
                     onclick="window.location.href='{{ url_for('courses.detail', id=subject.id, direction_id=direction_id) }}'">
@@ -163,6 +165,30 @@
                             </div>
                         </div>
                         {% endif %}
+                        {% endif %}
+                        {% elif is_admin %}
+                        {# Admin: Show Statistics #}
+                        {% if stats %}
+                        <div class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                                        </svg>
+                                        <span class="text-sm font-medium text-gray-700">Darslar:</span>
+                                        <span class="text-sm font-bold text-blue-600">{{ stats.lessons_count }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                        </svg>
+                                        <span class="text-sm font-medium text-gray-700">Topshiriqlar:</span>
+                                        <span class="text-sm font-bold text-green-600">{{ stats.assignments_count }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         {% endif %}
                         {% else %}
                         {# Student: Show Grades #}

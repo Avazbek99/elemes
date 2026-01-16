@@ -85,15 +85,16 @@ class Subject(db.Model):
         assignment = query.first()
         return assignment.teacher if assignment else None
     
-    def check_curriculum_completion(self, direction_id=None, teacher_id=None):
+    def check_curriculum_completion(self, direction_id=None, teacher_id=None, is_admin=False):
         """O'quv reja bo'yicha darslar to'liqligini tekshirish
         Args:
             direction_id: Yo'nalish ID
             teacher_id: O'qituvchi ID (agar berilgan bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlari tekshiriladi)
-        Returns: {'has_issue': bool, 'warnings': list}
+            is_admin: Admin uchun barcha dars turlarini ko'rsatish
+        Returns: {'has_issue': bool, 'warnings': list, 'stats': {'lessons_count': int, 'assignments_count': int}}
         """
         if not direction_id:
-            return {'has_issue': False, 'warnings': []}
+            return {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}}
         
         # Ushbu yo'nalish uchun o'quv rejani olish
         curriculum = DirectionCurriculum.query.filter_by(
@@ -102,14 +103,25 @@ class Subject(db.Model):
         ).first()
         
         if not curriculum:
-            return {'has_issue': False, 'warnings': []}
+            return {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}}
         
-        # Agar teacher_id berilgan bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlarini olish
+        # Ushbu yo'nalishdagi guruhlar
+        direction_group_ids = [g.id for g in db.session.query(Group).filter_by(direction_id=direction_id).all()]
+        
+        # Ushbu yo'nalish uchun barcha darslar va topshiriqlar soni
+        lessons_count = Lesson.query.filter_by(
+            subject_id=self.id,
+            direction_id=direction_id
+        ).count()
+        
+        assignments_count = Assignment.query.filter_by(
+            subject_id=self.id,
+            direction_id=direction_id
+        ).count()
+        
+        # Agar teacher_id berilgan bo'lsa va admin emas bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlarini olish
         teacher_lesson_types = None
-        if teacher_id:
-            # Ushbu yo'nalishdagi guruhlar
-            direction_group_ids = [g.id for g in db.session.query(Group).filter_by(direction_id=direction_id).all()]
-            
+        if teacher_id and not is_admin:
             # O'qituvchiga biriktirilgan dars turlari
             teacher_assignments = db.session.query(TeacherSubject).filter(
                 TeacherSubject.teacher_id == teacher_id,
@@ -117,42 +129,42 @@ class Subject(db.Model):
                 TeacherSubject.group_id.in_(direction_group_ids)
             ).all()
             
-            # Dars turlarini normallashtirish (lab -> laboratoriya, course_work -> kurs_ishi)
-        teacher_lesson_types = set()
-        for ta in teacher_assignments:
-            if ta.lesson_type:
-                l_type = ta.lesson_type.lower().strip()
-                matched = False
-                
-                # Laboratoriya (lab, lob, laboratoriya, lobaratoriya)
-                if 'lab' in l_type or 'lob' in l_type:
-                    teacher_lesson_types.add('laboratoriya')
-                    matched = True
-                
-                # Kurs ishi (kurs, course)
-                if 'kurs' in l_type or 'course' in l_type:
-                    teacher_lesson_types.add('kurs_ishi')
-                    matched = True
-                
-                # Amaliyot (amaliyot, amal, practice) - bu Lobaratoriya va Kurs ishini ham o'z ichiga oladi
-                if 'amal' in l_type or 'prac' in l_type:
-                    teacher_lesson_types.add('amaliyot')
-                    teacher_lesson_types.add('laboratoriya')
-                    teacher_lesson_types.add('kurs_ishi')
-                    matched = True
-                
-                # Maruza (maruza, lecture, ma'ruza)
-                if 'maru' in l_type or 'lect' in l_type:
-                    teacher_lesson_types.add('maruza')
-                    matched = True
-                
-                # Seminar
-                if 'sem' in l_type:
-                    teacher_lesson_types.add('seminar')
-                    matched = True
-                
-                if not matched:
-                    teacher_lesson_types.add(l_type)
+            # Dars turlarini normallashtirish
+            teacher_lesson_types = set()
+            for ta in teacher_assignments:
+                if ta.lesson_type:
+                    l_type = ta.lesson_type.lower().strip()
+                    matched = False
+                    
+                    # Laboratoriya (lab, lob, laboratoriya, lobaratoriya)
+                    if 'lab' in l_type or 'lob' in l_type:
+                        teacher_lesson_types.add('laboratoriya')
+                        matched = True
+                    
+                    # Kurs ishi (kurs, course)
+                    if 'kurs' in l_type or 'course' in l_type:
+                        teacher_lesson_types.add('kurs_ishi')
+                        matched = True
+                    
+                    # Amaliyot (amaliyot, amal, practice) - bu Lobaratoriya va Kurs ishini ham o'z ichiga oladi
+                    if 'amal' in l_type or 'prac' in l_type:
+                        teacher_lesson_types.add('amaliyot')
+                        teacher_lesson_types.add('laboratoriya')
+                        teacher_lesson_types.add('kurs_ishi')
+                        matched = True
+                    
+                    # Maruza (maruza, lecture, ma'ruza)
+                    if 'maru' in l_type or 'lect' in l_type:
+                        teacher_lesson_types.add('maruza')
+                        matched = True
+                    
+                    # Seminar
+                    if 'sem' in l_type:
+                        teacher_lesson_types.add('seminar')
+                        matched = True
+                    
+                    if not matched:
+                        teacher_lesson_types.add(l_type)
         
         warnings = []
         has_issue = False
@@ -204,8 +216,8 @@ class Subject(db.Model):
         # Har bir dars turi uchun tekshirish
         for lesson_type, data in lesson_types_check.items():
             if data['hours'] > 0:  # Faqat soat belgilangan dars turlarini tekshirish
-                # Agar teacher_id berilgan bo'lsa, faqat o'qituvchiga biriktirilgan dars turlarini tekshirish
-                if teacher_lesson_types is not None and lesson_type not in teacher_lesson_types:
+                # Agar teacher_id berilgan bo'lsa va admin emas bo'lsa, faqat o'qituvchiga biriktirilgan dars turlarini tekshirish
+                if teacher_lesson_types is not None and not is_admin and lesson_type not in teacher_lesson_types:
                     continue  # Bu dars turi o'qituvchiga biriktirilmagan, o'tkazib yuborish
                 
                 required = data['required_topics']
@@ -226,7 +238,14 @@ class Subject(db.Model):
                         f"lekin {actual} para kiritilgan (kam: {missing:.1f} para)"
                     )
         
-        return {'has_issue': has_issue, 'warnings': warnings}
+        return {
+            'has_issue': has_issue, 
+            'warnings': warnings,
+            'stats': {
+                'lessons_count': lessons_count,
+                'assignments_count': assignments_count
+            }
+        }
 
     def has_lessons_without_content(self):
         """Tarkibi bo'lmagan darslar borligini tekshirish"""

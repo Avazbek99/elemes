@@ -33,7 +33,10 @@ def index():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '')
     
-    if current_user.role == 'student' or current_user.has_role('student'):
+    # Tanlangan rol
+    current_role = session.get('current_role', current_user.role)
+    
+    if current_role == 'student':
         # Talaba faqat o'z guruhiga biriktirilgan va joriy semestrdagi fanlarni ko'radi
         if current_user.group_id:
             group = Group.query.get(current_user.group_id)
@@ -50,7 +53,7 @@ def index():
                 query = Subject.query.filter(False)  # Bo'sh
         else:
             query = Subject.query.filter(False)  # Bo'sh
-    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+    elif current_role == 'teacher':
         # O'qituvchi faqat joriy semestrdagi fanlarni ko'radi
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=current_user.id).all()
         valid_subject_ids = set()
@@ -159,7 +162,7 @@ def index():
             # Agar yo'nalish bo'lmasa, oddiy tartibda
             subjects = query.order_by(Subject.name).paginate(page=page, per_page=12)
             all_subjects_list = list(subjects.items)
-    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+    elif current_role == 'teacher':
         # O'qituvchi uchun - yo'nalish bo'yicha guruhlash
         # Har bir yo'nalish uchun alohida fan card ko'rsatiladi
         from app.models import Direction
@@ -257,9 +260,130 @@ def index():
             subjects = query.order_by(Subject.semester, Subject.name).paginate(page=page, per_page=12)
             all_subjects_list = list(subjects.items)
     else:
-        # Admin va dekan uchun oddiy tartib - semestr va nomi bo'yicha
-        subjects = query.order_by(Subject.semester, Subject.name).paginate(page=page, per_page=12)
-        all_subjects_list = list(subjects.items)
+        # Admin va dekan uchun - barcha fanlarni yo'nalish bo'yicha guruhlash
+        from app.models import Direction
+        
+        # Admin uchun kurs filterini qo'llash (agar tanlangan bo'lsa)
+        # Hozircha barcha guruhlar
+        
+        # Har bir fan+yo'nalish kombinatsiyasi uchun ma'lumotlar
+        subject_direction_data = {}
+        
+        # Barcha guruhlarni olish (admin uchun)
+        if current_user.role == 'dean':
+            admin_groups = Group.query.filter_by(faculty_id=current_user.faculty_id).all()
+        else:
+            admin_groups = Group.query.all()
+            
+        for group in admin_groups:
+            if group and group.direction_id:
+                # Check if group has students
+                if group.get_students_count() == 0:
+                    continue
+                
+                direction = Direction.query.get(group.direction_id)
+                if not direction:
+                    continue
+                
+                # Check current semester of the group
+                current_semester = direction.semester if direction else 1
+                
+                # Bu guruh uchun barcha fanlarni olish
+                curriculum_items = DirectionCurriculum.query.filter_by(
+                    direction_id=group.direction_id,
+                    semester=current_semester
+                ).all()
+                
+                for curriculum_item in curriculum_items:
+                    semester = curriculum_item.semester
+                    key = (curriculum_item.subject_id, group.direction_id)
+                    
+                    if key not in subject_direction_data:
+                        subject = Subject.query.get(curriculum_item.subject_id)
+                        if not subject:
+                            continue
+                        
+                        # Search query filter
+                        if search and search.lower() not in subject.name.lower():
+                            continue
+                            
+                        # Kreditni yo'nalish o'quv rejasidagi soatlar bo'yicha hisoblash
+                        total_hours = (curriculum_item.hours_maruza or 0) + \
+                                     (curriculum_item.hours_amaliyot or 0) + \
+                                     (curriculum_item.hours_laboratoriya or 0) + \
+                                     (curriculum_item.hours_seminar or 0) + \
+                                     (curriculum_item.hours_mustaqil or 0)
+                        credits = total_hours / 30 if total_hours > 0 else subject.credits
+                        
+                        # Yo'nalish bo'yicha dars va topshiriqlar sonini hisoblash
+                        lessons_count = Lesson.query.filter_by(
+                            subject_id=subject.id,
+                            direction_id=direction.id
+                        ).count()
+                        
+                        assignments_count = Assignment.query.filter_by(
+                            subject_id=subject.id,
+                            direction_id=direction.id
+                        ).count()
+                        
+                        # Bu fanga biriktirilgan o'qituvchilarni topish
+                        teachers = []
+                        ts_list = TeacherSubject.query.filter_by(
+                            subject_id=subject.id, 
+                            group_id=group.id
+                        ).all()
+                        for ts in ts_list:
+                            if ts.teacher:
+                                teachers.append(ts.teacher)
+                        
+                        subject_direction_data[key] = {
+                            'subject': subject,
+                            'direction': direction,
+                            'groups': [],
+                            'semester': semester,
+                            'credits': credits,
+                            'lessons_count': lessons_count,
+                            'assignments_count': assignments_count,
+                            'teachers': teachers 
+                        }
+                    
+                    # Guruhni qo'shish
+                    # Guruh allaqachon qo'shilmaganligini tekshirish (id bo'yicha)
+                    existing_group_ids = [g.id for g in subject_direction_data[key]['groups']]
+                    if group.id not in existing_group_ids:
+                        subject_direction_data[key]['groups'].append(group)
+                        
+                        # Yangi guruhdan o'qituvchilarni ham qo'shish (agar avval bo'lmasa)
+                        ts_list = TeacherSubject.query.filter_by(
+                            subject_id=curriculum_item.subject_id, 
+                            group_id=group.id
+                        ).all()
+                        current_teacher_ids = [t.id for t in subject_direction_data[key].get('teachers', [])]
+                        for ts in ts_list:
+                            if ts.teacher and ts.teacher.id not in current_teacher_ids:
+                                if 'teachers' not in subject_direction_data[key]:
+                                    subject_direction_data[key]['teachers'] = []
+                                subject_direction_data[key]['teachers'].append(ts.teacher)
+                                current_teacher_ids.append(ts.teacher.id)
+
+        # Semestr bo'yicha guruhlash
+        for key, data in subject_direction_data.items():
+            semester = data['semester']
+            if semester not in subjects_by_semester:
+                subjects_by_semester[semester] = []
+            
+            subjects_by_semester[semester].append(data)
+            if data['subject'] not in all_subjects_list:
+                all_subjects_list.append(data['subject'])
+        
+        # Har bir semestr uchun tartiblash
+        for semester in subjects_by_semester:
+            subjects_by_semester[semester].sort(key=lambda x: (
+                x['subject'].name,
+                sorted([g.name for g in x['groups']])[0] if x['groups'] else ''
+            ))
+            
+        # Pagination logikasini saqlash (subjects_by_semester borligi sababli pastdagi blok ishlaydi)
     
     # Pagination uchun
     if subjects_by_semester:
@@ -543,6 +667,9 @@ def detail(id):
     """Fan tafsilotlari"""
     subject = Subject.query.get_or_404(id)
     
+    # Tanlangan rol
+    current_role = session.get('current_role', current_user.role)
+    
     # Yo'nalish ID (o'qituvchi uchun)
     direction_id = request.args.get('direction_id', type=int)
     
@@ -553,7 +680,7 @@ def detail(id):
     direction_credits = None
     
     # O'qituvchi uchun
-    if (current_user.role == 'teacher' or current_user.has_role('teacher')) and direction_id:
+    if current_role == 'teacher' and direction_id:
         direction = Direction.query.get(direction_id)
         if direction:
             # O'qituvchiga biriktirilgan guruhlar
@@ -588,7 +715,7 @@ def detail(id):
                              (curriculum_item.hours_mustaqil or 0)
                 direction_credits = total_hours / 30 if total_hours > 0 else 0
     # Talaba uchun - ularning guruhidan direction olish
-    elif current_user.role == 'student' and current_user.group_id:
+    elif current_role == 'student' and current_user.group_id:
         group = Group.query.get(current_user.group_id)
         if group and group.direction_id:
             direction = Direction.query.get(group.direction_id)
@@ -611,7 +738,7 @@ def detail(id):
     
     # Guruhlarni to'ldirish (agar hali to'lmagan bo'lsa - admin yoki teacher uchun direction_id'siz)
     if not direction_groups:
-        if current_user.role in ['admin', 'dean']:
+        if current_role in ['admin', 'dean']:
             # Admin yoki dekan uchun fanga biriktirilgan barcha guruhlar
             # 1. O'quv rejasida bor guruhlar
             curriculum_groups = Group.query.join(DirectionCurriculum, Group.direction_id == DirectionCurriculum.direction_id)\
@@ -622,7 +749,7 @@ def detail(id):
             
             unique_groups = {g.id: g for g in curriculum_groups + ts_groups}.values()
             direction_groups = list(unique_groups)
-        elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+        elif current_role == 'teacher':
             # O'qituvchi uchun o'zi dars beradigan barcha guruhlar
             teacher_subjects = TeacherSubject.query.filter_by(teacher_id=current_user.id, subject_id=subject.id).all()
             seen_ids = set()
@@ -639,9 +766,9 @@ def detail(id):
     is_teacher = False
     my_group = None
     
-    if current_user.role == 'admin' or current_user.role == 'dean':
+    if current_role in ['admin', 'dean']:
         can_view = True
-    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+    elif current_role == 'teacher':
         # O'qituvchi faqat joriy semestrdagi fanlarni ko'rishi mumkin
         teacher_assignments = TeacherSubject.query.filter_by(
             teacher_id=current_user.id,
@@ -699,7 +826,11 @@ def detail(id):
         can_manage_subject = True
     
     # Darslarni group_id va direction_id bo'yicha filtrlash
-    if current_user.role == 'student' and current_user.group_id:
+    # Admin uchun har doim barcha darslar (current_role ga qaramay)
+    if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher':
+        # Admin va dekan uchun barcha darslar
+        all_lessons = subject.lessons.order_by(Lesson.order).all()
+    elif current_role == 'student' and current_user.group_id:
         # Talaba uchun faqat o'z guruhining darslarini ko'rsatish
         group = Group.query.get(current_user.group_id)
         if group and group.direction_id:
@@ -713,7 +844,7 @@ def detail(id):
             all_lessons = subject.lessons.filter(
                 (Lesson.group_id == current_user.group_id) | (Lesson.group_id.is_(None))
             ).order_by(Lesson.order).all()
-    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+    elif current_role == 'teacher':
         # O'qituvchi uchun faqat o'ziga biriktirilgan guruhlarning darslarini ko'rsatish
         # Agar direction_id berilgan bo'lsa, faqat shu yo'nalishdagi darslar
         teacher_groups = TeacherSubject.query.filter_by(
@@ -741,9 +872,6 @@ def detail(id):
                 ).order_by(Lesson.order).all()
             else:
                 all_lessons = subject.lessons.filter(Lesson.group_id.is_(None)).order_by(Lesson.order).all()
-    else:
-        # Admin va dekan uchun barcha darslar
-        all_lessons = subject.lessons.order_by(Lesson.order).all()
     
     # Barcha dars turlari bo'yicha ajratish
     maruza_lessons = [l for l in all_lessons if l.lesson_type == 'maruza']
@@ -783,7 +911,11 @@ def detail(id):
                 lesson_locked_status[lesson.id] = False
     
     # Topshiriqlar
-    if current_user.role == 'student' and current_user.group_id:
+    # Admin uchun har doim barcha topshiriqlar (current_role ga qaramay)
+    if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher':
+        # Admin va dekan uchun barcha topshiriqlar (direction_id ga qaramay)
+        assignments = subject.assignments.order_by(Assignment.created_at.desc()).all()
+    elif current_role == 'student' and current_user.group_id:
         # Talaba uchun - faqat o'z guruhining topshiriqlari
         assignments_query = subject.assignments.filter_by(group_id=current_user.group_id)
         # Agar direction_id berilgan bo'lsa, shu yo'nalishga tegishli topshiriqlar
@@ -792,7 +924,7 @@ def detail(id):
                 (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
             )
         assignments = assignments_query.all()
-    elif current_user.role == 'teacher' or current_user.has_role('teacher'):
+    elif current_role == 'teacher':
         # O'qituvchi o'zi dars beradigan guruhlarning topshiriqlarini ko'radi
         # Agar direction_id berilgan bo'lsa, faqat shu yo'nalishdagi guruhlar
         teacher_groups_query = TeacherSubject.query.filter_by(
@@ -825,9 +957,6 @@ def detail(id):
                     (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
                 )
             assignments = assignments_query.all()
-    else:
-        # Admin va dekan uchun barcha topshiriqlar (direction_id ga qaramay)
-        assignments = subject.assignments.order_by(Assignment.created_at.desc()).all()
     
     # Talaba uchun topshiriqlar holati va ballar
     assignment_status = {}
@@ -1450,6 +1579,13 @@ def detail(id):
         else:
             assignment_is_overdue[assignment.id] = False
 
+    # O'quv reja tekshiruvi (admin, dekan va o'qituvchi uchun)
+    curriculum_check = None
+    if direction_id and current_role in ['admin', 'dean', 'teacher']:
+        teacher_id = current_user.id if current_role == 'teacher' else None
+        is_admin = (current_role in ['admin', 'dean'])
+        curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id, is_admin)
+
     return render_template('courses/detail.html',
                          subject=subject,
                          lessons=all_lessons,
@@ -1484,7 +1620,8 @@ def detail(id):
                          assignment_manage_permissions=assignment_manage_permissions,
                          assignment_submission_stats=assignment_submission_stats,
                          assignment_highest_scores=assignment_highest_scores,
-                         assignment_is_overdue=assignment_is_overdue)
+                         assignment_is_overdue=assignment_is_overdue,
+                         curriculum_check=curriculum_check)
 
 
 @bp.route('/<int:id>/lessons/create', methods=['GET', 'POST'])
