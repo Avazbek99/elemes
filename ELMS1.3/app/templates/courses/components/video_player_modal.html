@@ -78,7 +78,18 @@
                             <path
                                 d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                         </svg>
-                    </button>
+                        <button id="fullscreen-btn" onclick="toggleFullscreen()"
+                            class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors ml-2">
+                            <svg id="fullscreen-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                            </svg>
+                            <svg id="exit-fullscreen-icon" class="w-6 h-6 hidden" fill="currentColor"
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+                            </svg>
+                        </button>
                 </div>
             </div>
             {% endif %}
@@ -94,10 +105,12 @@
             {% endif %}
             <div class="aspect-video relative">
                 <iframe id="youtube-player" class="w-full h-full"
-                    src="https://www.youtube.com/embed/{{ video_id }}?enablejsapi=1&fs=0&disablekb=1{% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}&controls=0&modestbranding=1&rel=0&iv_load_policy=3{% endif %}"
+                    src="https://www.youtube.com/embed/{{ video_id }}?enablejsapi=1&fs=0{% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}&disablekb=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3{% else %}&disablekb=0{% endif %}"
                     frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
                 {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}
+                <!-- YouTube Overlay for Click-to-Play/Pause -->
+                <div onclick="toggleYouTubePlay()" class="absolute inset-0 z-[5] cursor-pointer"></div>
                 <!-- Custom controls for YouTube first-time viewing -->
                 <div id="youtube-custom-controls"
                     class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
@@ -132,13 +145,25 @@
                                     d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                             </svg>
                         </button>
+                        <button id="youtube-fullscreen-btn" onclick="toggleFullscreen()"
+                            class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors ml-2">
+                            <svg id="youtube-fullscreen-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                            </svg>
+                            <svg id="youtube-exit-fullscreen-icon" class="w-6 h-6 hidden" fill="currentColor"
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 {% endif %}
             </div>
             {% else %}
             <video id="video-player" class="w-full aspect-video" {% if current_user.role=='student' and not (lesson_view
-                and lesson_view.is_completed) %}controlsList="nodownload nofullscreen noremoteplayback"
+                and lesson_view.is_completed) %}controlsList="nodownload noremoteplayback nofullscreen"
                 oncontextmenu="return false;" {% else %}controls{% endif %}>
                 <source src="{{ lesson.video_url }}">
                 Brauzeringiz video tegini qo'llab-quvvatlamaydi.
@@ -177,73 +202,91 @@
                                 d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
                         </svg>
                     </button>
+                    <button id="fullscreen-btn" onclick="toggleFullscreen()"
+                        class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-colors ml-2">
+                        <svg id="fullscreen-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                        </svg>
+                        <svg id="exit-fullscreen-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+                        </svg>
+                    </button>
                 </div>
             </div>
             {% endif %}
             {% endif %}
-        </div>
-    </div>
-</div>
 
-<!-- Diqqat tekshiruvi modal -->
-<div id="attention-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] hidden items-center justify-center">
-    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4 transform scale-100 animate-bounce-in">
-        <div class="text-center">
-            <div
-                class="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center animate-pulse">
-                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-            </div>
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">Shu yerdasizmi?</h2>
-            <p class="text-gray-500 mb-6">Darsni davom ettirish uchun "Ha, bu yerdaman" tugmasini bosing</p>
-            <p class="text-sm text-gray-400 mb-4" id="attention-timer">Javob vaqti: <span id="timer-seconds">10</span>
-                soniya</p>
-            <button onclick="confirmAttention()"
-                class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-lg font-semibold rounded-2xl transition-all transform hover:scale-105 shadow-lg">
-                ✓ Ha, bu yerdaman
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Muvaffaqiyat modal -->
-<div id="success-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] hidden items-center justify-center">
-    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4">
-        <div class="text-center">
-            <div
-                class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-                <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                </svg>
-            </div>
-            <h2 class="text-2xl font-bold text-gray-900 mb-2">Tabriklaymiz! 🎉</h2>
-            <p class="text-gray-500 mb-6">Siz darsni muvaffaqiyatli tamomladingiz va barcha tekshiruvlardan o'tdingiz
-            </p>
-            <div id="success-modal-next-lesson-info"
-                class="hidden mb-6 text-left p-4 bg-primary-50 rounded-2xl border border-primary-100">
-                <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">Keyingi dars:</p>
-                <p class="text-base font-bold text-gray-900 leading-tight" id="next-lesson-title"></p>
+            <!-- Attention Check Modal (Moved outside for all video types) -->
+            <div id="attention-modal"
+                class="absolute inset-0 bg-black/70 backdrop-blur-sm z-[80] hidden items-center justify-center">
+                <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4 transform scale-100 animate-bounce-in">
+                    <div class="text-center">
+                        <div
+                            class="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center animate-pulse">
+                            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">DIQQAT TEKSHIRUVI!</h2>
+                        <p class="text-gray-500 mb-6">Video darsni ko'ryapsizmi?</p>
+                        <p class="text-gray-500 mb-6">Aks holda video dars qaytadan boshlanadi!</p>
+                        <p class="text-sm text-gray-400 mb-4" id="attention-timer">Javob vaqti: <span
+                                id="timer-seconds">10</span>
+                            soniya</p>
+                        <button onclick="confirmAttention()"
+                            class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-lg font-semibold rounded-2xl transition-all transform hover:scale-105 shadow-lg">
+                            ✓ Ha, ko'ryapman
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex gap-3">
-                <button onclick="closeSuccessModal(); closeVideoModal();"
-                    class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
-                    Darsga qaytish
-                </button>
-                <div id="success-modal-next-lesson" class="hidden flex-1">
-                    <a id="next-lesson-link" href="#"
-                        class="block w-full px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors text-center shadow-md hover:shadow-lg">
-                        Keyingi dars →
-                    </a>
+            <!-- Success Modal (Moved outside for all video types) -->
+            <div id="success-modal"
+                class="absolute inset-0 bg-black/70 backdrop-blur-sm z-[80] hidden items-center justify-center">
+                <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4">
+                    <div class="text-center">
+                        <div
+                            class="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+                            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3"
+                                    d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Tabriklaymiz! 🎉</h2>
+                        <p class="text-gray-500 mb-6">Siz darsni muvaffaqiyatli tamomladingiz va barcha tekshiruvlardan
+                            o'tdingiz
+                        </p>
+                        <div id="success-modal-next-lesson-info"
+                            class="hidden mb-6 text-left p-4 bg-primary-50 rounded-2xl border border-primary-100">
+                            <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">Keyingi
+                                dars:
+                            </p>
+                            <p class="text-base font-bold text-gray-900 leading-tight" id="next-lesson-title"></p>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button onclick="window.location.reload();"
+                                class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+                                Darsga qaytish
+                            </button>
+                            <div id="success-modal-next-lesson" class="hidden flex-1">
+                                <a id="next-lesson-link" href="#"
+                                    class="block w-full px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors text-center shadow-md hover:shadow-lg">
+                                    Keyingi dars →
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 
 <style>
     @keyframes bounce-in {
@@ -346,22 +389,42 @@
         if (youtubeAPI && typeof youtubeAPI.pauseVideo === 'function') {
             try { youtubeAPI.pauseVideo(); } catch (e) { }
         }
+
+        // Exit fullscreen if closed
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(e => console.log(e));
+        }
     }
+
+    function toggleFullscreen() {
+        const container = document.getElementById('video-container');
+        if (!document.fullscreenElement) {
+            container.requestFullscreen().catch(err => {
+                alert(`Error: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+        const isFS = !!document.fullscreenElement;
+        document.querySelectorAll('#fullscreen-icon, #youtube-fullscreen-icon').forEach(el => el.classList.toggle('hidden', isFS));
+        document.querySelectorAll('#exit-fullscreen-icon, #youtube-exit-fullscreen-icon').forEach(el => el.classList.toggle('hidden', !isFS));
+    });
 
     // Disable Keyboard Seeking & Fullscreen
     document.addEventListener('keydown', function (e) {
-        if (!IS_STUDENT || isCompleted) return;
+        if (!IS_STUDENT) return;
 
-        // Fullscreen block ('f')
+        // Fullscreen block ('f') - only if not completed
         if (e.key.toLowerCase() === 'f') {
-            e.preventDefault();
-            e.stopPropagation();
             return;
         }
 
-        // Seeking block (Arrows, J, L, numbers 0-9)
+        // Seeking block (Arrows, J, L, numbers 0-9) - only if not completed
         const blockedKeys = ['ArrowLeft', 'ArrowRight', 'j', 'J', 'l', 'L', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-        if (blockedKeys.includes(e.key)) {
+        if (blockedKeys.includes(e.key) && !isCompleted) {
             e.preventDefault();
             e.stopPropagation();
         }
@@ -387,7 +450,7 @@
     function initializeChecks(duration) {
         if (!IS_STUDENT || duration <= 0) return;
         videoDuration = duration;
-        checkTimes = [duration * 0.25, duration * 0.50, duration * 0.75];
+        checkTimes = [duration * 0.25, duration * 0.50, duration * 0.70]; // 70% for reliability on short videos
     }
 
     function showAttentionModal() {
@@ -412,9 +475,11 @@
 
                 // Penalize: Reset to previous milestone
                 let resetTime = 0;
-                if (checksPassedFromServer === 1) resetTime = checkTimes[0] || 0; // Missed 2nd check (50%), reset to 25%
-                if (checksPassedFromServer === 2) resetTime = checkTimes[1] || 0; // Missed 3rd check (75%), reset to 50%
-                // If checksPassedFromServer === 0, missed 1st check (25%), reset to 0
+                if (checksPassedFromServer === 1) resetTime = checkTimes[0] || 0;
+                if (checksPassedFromServer === 2) resetTime = checkTimes[1] || 0;
+
+                // Reset trigger flags for failed and future checks so they can trigger again
+                checksTriggered = checksTriggered.map((t, idx) => idx < checksPassedFromServer);
 
                 maxWatchedTime = resetTime;
                 lastValidTime = resetTime;
@@ -428,8 +493,8 @@
                     youtubeAPI.pauseVideo();
                 }
 
-                alert("Siz diqqat tekshiruvidan o'ta olmadingiz. Video avvalgi bosqichdan boshlanadi.");
-                closeVideoModal();
+                alert("Siz diqqat tekshiruvidan o'ta olmadingiz!");
+                window.location.reload();
             }
         }, 1000);
     }
@@ -525,8 +590,8 @@
             videoPlayer.addEventListener('timeupdate', () => {
                 const now = videoPlayer.currentTime;
 
-                // Block seeking forward
-                if (!isCompleted && now > maxWatchedTime + 3) {
+                // Block seeking forward (Reduced buffer for strictness)
+                if (!isCompleted && now > maxWatchedTime + 2) {
                     videoPlayer.currentTime = lastValidTime;
                 } else {
                     lastValidTime = now;
@@ -583,6 +648,12 @@
                 }
             });
 
+            // Click to Play/Pause
+            videoPlayer.addEventListener('click', () => {
+                if (videoPlayer.paused) videoPlayer.play();
+                else videoPlayer.pause();
+            });
+
             setInterval(() => {
                 if (!videoPlayer.paused) syncProgress(videoPlayer.currentTime);
             }, 30000);
@@ -607,7 +678,7 @@
                         if (tt) tt.textContent = formatTime(dur);
 
                         if (dur > 0) {
-                            setInterval(trackYouTube, 1000);
+                            setInterval(trackYouTube, 500);
                             if (IS_STUDENT) setInterval(() => {
                                 if (youtubeAPI.getPlayerState() === YT.PlayerState.PLAYING) syncProgress(youtubeAPI.getCurrentTime());
                             }, 30000);
@@ -638,7 +709,7 @@
             const now = youtubeAPI.getCurrentTime();
 
             if (IS_STUDENT && !isCompleted) {
-                if (now > maxWatchedTime + 3) {
+                if (now > maxWatchedTime + 2) {
                     youtubeAPI.seekTo(lastValidTime, true);
                 } else {
                     lastValidTime = now;
@@ -661,6 +732,13 @@
             if (pb) pb.style.width = (Math.min(now, maxWatchedTime) / videoDuration * 100) + '%';
             const ct = document.getElementById('youtube-current-time');
             if (ct) ct.textContent = formatTime(now);
+        }
+
+        function toggleYouTubePlay() {
+            if (!youtubeAPI || typeof youtubeAPI.getPlayerState !== 'function') return;
+            const state = youtubeAPI.getPlayerState();
+            if (state === YT.PlayerState.PLAYING) youtubeAPI.pauseVideo();
+            else youtubeAPI.playVideo();
         }
 
         const ytPlayBtn = document.getElementById('youtube-play-pause-btn');
