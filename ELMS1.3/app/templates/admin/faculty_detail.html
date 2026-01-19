@@ -524,7 +524,7 @@
                     <div class="flex items-center justify-between">
                         <a href="{{ url_for('admin.direction_detail', id=direction.id) }}" class="flex-1">
                             <h3 class="font-semibold text-gray-900 mb-1">
-                                {{ direction.code }} - {{ direction.name }}
+                                {{ direction.formatted_direction }}
                             </h3>
                         </a>
                         <div class="flex items-center gap-2 ml-4">

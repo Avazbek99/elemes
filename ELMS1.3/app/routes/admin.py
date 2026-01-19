@@ -1063,7 +1063,7 @@ def faculty_detail(id):
             code = group.direction.code if group.direction else "____"
             name = group.direction.name if group.direction else "Biriktirilmagan"
             # Ta'lim turi sarlavhada shart emas, chunki u tepada bor, lekin baribir qolsa zarar qilmaydi
-            heading = f"{code} - {name}"
+            heading = group.direction.formatted_direction if group.direction else "____ - Biriktirilmagan"
             
             courses_dict[main_key]['directions'][direction_key] = {
                 'heading': heading,

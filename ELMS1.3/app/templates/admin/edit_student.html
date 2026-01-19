@@ -250,7 +250,7 @@
                         <option value="">Yo'nalishni tanlang</option>
                         {% for dir in all_directions %}
                         <option value="{{ dir.id }}" {% if student.group and student.group.direction_id==dir.id
-                            %}selected{% endif %}>{{ dir.code }} - {{ dir.name }}</option>
+                            %}selected{% endif %}>{{ dir.formatted_direction }}</option>
                         {% endfor %}
                     </select>
                     <input type="hidden" id="current_direction_id"
@@ -540,7 +540,7 @@
             $('#direction_id').empty().append(new Option("Yo'nalishni tanlang", "", true, true));
             dirs.forEach(d => {
                 const isSelected = d.id == currentDirectionId;
-                $('#direction_id').append(new Option(`${d.code} - ${d.name}`, d.id, isSelected, isSelected));
+                $('#direction_id').append(new Option(`${d.formatted_direction}`, d.id, isSelected, isSelected));
             });
             $('#direction_id').trigger('change');
         }
@@ -557,7 +557,7 @@
 
                 dirs.forEach(d => {
                     const isSelected = d.id == currentDirId;
-                    $('#direction_id').append(new Option(`${d.code} - ${d.name}`, d.id, isSelected, isSelected));
+                    $('#direction_id').append(new Option(`${d.formatted_direction}`, d.id, isSelected, isSelected));
                 });
 
                 $('#direction_id').trigger('change');

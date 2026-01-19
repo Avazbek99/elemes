@@ -48,11 +48,7 @@
                 {% endif %}
                 <h1 class="text-3xl font-bold text-white mb-3">{{ subject.name }}</h1>
                 <p class="text-xl font-medium text-white/95 mb-3">
-                    {% if direction.code %}
-                    {{ direction.code }}
-                    {% endif %}
-                    {% if direction.code and direction.name %} - {% endif %}
-                    {{ direction.name }}
+                    {{ direction.formatted_direction }}
                 </p>
                 {% if direction_groups %}
                 <div class="flex flex-wrap gap-2">

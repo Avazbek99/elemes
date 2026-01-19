@@ -521,7 +521,7 @@ def courses():
             # Sarlavha shakllantirish
             code = group.direction.code if group.direction else "____"
             name = group.direction.name if group.direction else "Biriktirilmagan"
-            heading = f"{code} - {name}"
+            heading = group.direction.formatted_direction if group.direction else "____ - Biriktirilmagan"
             
             courses_dict[main_key]['directions'][direction_key] = {
                 'heading': heading,
