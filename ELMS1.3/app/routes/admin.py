@@ -1250,6 +1250,12 @@ def direction_curriculum(id):
     """Yo'nalish o'quv rejasi"""
     direction = Direction.query.get_or_404(id)
     
+    # Yo'nalishdagi guruhlar
+    groups = Group.query.filter_by(direction_id=direction.id).order_by(Group.name).all()
+    
+    # Barcha o'qituvchilar
+    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
+    
     # Barcha fanlar
     all_subjects = Subject.query.order_by(Subject.name).all()
     
@@ -1271,6 +1277,17 @@ def direction_curriculum(id):
             semester_totals[semester] = {'hours': 0, 'credits': 0}
             semester_auditoriya[semester] = {'m': 0, 'a': 0, 'l': 0, 's': 0, 'k': 0}
             semester_mustaqil[semester] = 0
+        
+        # Guruhlar uchun o'qituvchi tayinlovlarini olish
+        item.teacher_assignments = {}
+        for group in groups:
+            assignment = TeacherSubject.query.filter_by(
+                subject_id=item.subject_id,
+                group_id=group.id,
+                semester=semester
+            ).first()
+            item.teacher_assignments[group.id] = assignment.teacher_id if assignment else None
+        
         curriculum_by_semester[semester].append(item)
         
         # Auditoriya soatlari
@@ -1298,6 +1315,8 @@ def direction_curriculum(id):
     
     return render_template('admin/direction_curriculum.html',
                          direction=direction,
+                         groups=groups,
+                         teachers=teachers,
                          all_subjects=all_subjects,
                          curriculum_by_semester=curriculum_by_semester,
                          semester_totals=semester_totals,
@@ -1672,6 +1691,37 @@ def update_semester_curriculum(id, semester):
         # Kurs ishi checkbox - agar belgilangan bo'lsa 1, aks holda 0
         kurs_ishi_values = request.form.getlist('hours_kurs_ishi')
         item.hours_kurs_ishi = 1 if item_id in kurs_ishi_values else 0
+        
+        # Guruhlar uchun o'qituvchi tayinlash
+        groups = Group.query.filter_by(direction_id=direction.id).all()
+        for group in groups:
+            teacher_id = request.form.get(f'teacher_{group.id}[{item_id}]', type=int)
+            if teacher_id:
+                # Avvalgi tayinlovni tekshirish va o'chirish
+                existing_assignment = TeacherSubject.query.filter_by(
+                    subject_id=item.subject_id,
+                    group_id=group.id,
+                    semester=semester
+                ).first()
+                
+                if existing_assignment:
+                    # Agar o'qituvchi o'zgargan bo'lsa, yangilash
+                    if existing_assignment.teacher_id != teacher_id:
+                        existing_assignment.teacher_id = teacher_id
+                        existing_assignment.assigned_by = current_user.id
+                        existing_assignment.assigned_at = datetime.utcnow()
+                else:
+                    # Yangi tayinlov yaratish
+                    new_assignment = TeacherSubject(
+                        teacher_id=teacher_id,
+                        subject_id=item.subject_id,
+                        group_id=group.id,
+                        lesson_type='maruza',  # Default, keyinroq lesson_type qo'shish mumkin
+                        academic_year=f"{datetime.utcnow().year}-{datetime.utcnow().year + 1}",
+                        semester=semester,
+                        assigned_by=current_user.id
+                    )
+                    db.session.add(new_assignment)
         
         updated += 1
     

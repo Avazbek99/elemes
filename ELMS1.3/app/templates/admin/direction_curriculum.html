@@ -138,6 +138,7 @@
 
                 {% if curriculum_by_semester.get(semester) %}
                 <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                    <div class="min-w-[1200px]">
                     <table class="w-full border-collapse bg-white">
                         <thead>
                             <tr class="bg-primary-600 text-white">
@@ -159,6 +160,11 @@
                                     JAMI</th>
                                 <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-24">
                                     KREDIT</th>
+                                {% for group in groups %}
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-32">
+                                    {{ group.name }}
+                                </th>
+                                {% endfor %}
                                 <th class="px-3 py-3.5 text-center text-sm font-bold w-28">AMALLAR</th>
                             </tr>
                         </thead>
@@ -232,6 +238,18 @@
                                         (item.hours_seminar or 0) + (item.hours_mustaqil or 0)) / 30)|format_float(2)
                                         }}</span>
                                 </td>
+                                {% for group in groups %}
+                                <td class="px-2 py-2 border-r border-gray-200 text-center">
+                                    <select name="teacher_{{ group.id }}[{{ item.id }}]"
+                                        form="semester-form-{{ semester }}"
+                                        class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white hover:border-primary-300 transition-colors">
+                                        <option value="">Tanlang...</option>
+                                        {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}" {% if item.teacher_assignments.get(group.id) == teacher.id %}selected{% endif %}>{{ teacher.full_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                {% endfor %}
                                 <td class="px-2 py-2 text-center">
                                     <div class="flex items-center justify-center gap-1.5">
                                         <button type="button"
@@ -283,10 +301,14 @@
                                     <span class="semester-total-credits-{{ semester }}">{{ semester_totals.get(semester,
                                         {}).get('credits', 0)|format_float(2) }}</span>
                                 </td>
+                                {% for group in groups %}
+                                <td class="px-2 py-2 border-r border-gray-200 text-center bg-gray-100"></td>
+                                {% endfor %}
                                 <td class="px-2 py-2 text-center"></td>
                             </tr>
                         </tfoot>
                     </table>
+                    </div>
                 </div>
                 <form id="semester-form-{{ semester }}" method="POST"
                     action="{{ url_for('admin.update_semester_curriculum', id=direction.id, semester=semester) }}"
