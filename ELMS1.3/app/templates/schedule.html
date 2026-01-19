@@ -202,6 +202,18 @@
                         schedule.subject.name }}</p>
 
                     <div class="space-y-0.5 mb-2">
+                        <p class="text-[9px] text-gray-500 flex items-center gap-1">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                                    stroke-width="2"></path>
+                            </svg>
+                            {% if schedule.group %}
+                            {{ schedule.group.formatted_direction }}
+                            {% else %}
+                            Noma'lum
+                            {% endif %}
+                        </p>
                         <p class="text-[9px] text-gray-500 font-medium">Guruh: {{ schedule.group.name }}</p>
                         <p class="text-[9px] text-gray-500 font-medium">Turi:
                             {% set assigned_types = [] %}

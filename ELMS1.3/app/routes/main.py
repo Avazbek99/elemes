@@ -110,7 +110,7 @@ def dashboard():
             if group:
                 direction_id = group.direction_id
                 if group.direction:
-                    current_semester = group.direction.semester
+                    current_semester = group.semester
             
             # Fetch curriculum items for all subjects in the current semester
             curriculum_list = []
@@ -543,7 +543,7 @@ def dashboard():
                     continue
                 seen_subject_group.add(sg_key)
                 # Only show subjects that belong to the group's current semester
-                current_semester = group.direction.semester if group.direction else 1
+                current_semester = group.semester if group.semester else 1
                 curriculum_item = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
                     subject_id=ts.subject_id,
@@ -1276,7 +1276,7 @@ def schedule():
             if group and group.direction_id:
                 # Joriy semestrni aniqlash
                 from app.models import DirectionCurriculum
-                current_semester = group.direction.semester if group.direction else 1
+                current_semester = group.semester if group.semester else 1
                 
                 curr_items = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
@@ -1306,7 +1306,7 @@ def schedule():
         for ts in ts_entries:
             group = Group.query.get(ts.group_id)
             if group and group.direction_id:
-                current_semester = group.direction.semester if group.direction else 1
+                current_semester = group.semester if group.semester else 1
                 # Tekshirish: bu fan bu guruhda shu semestrda bormi?
                 curr_item = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,

@@ -449,21 +449,15 @@ def import_students_from_excel(file, faculty_id=None):
                     
                     # Agar yo'nalish topilmasa, yangi yaratish
                     if not direction:
-                        if specialty_name and course_year and semester:
+                        if specialty_name:
                             direction = Direction(
                                 name=specialty_name,
                                 code=specialty_code,
-                                faculty_id=faculty.id,
-                                course_year=course_year,
-                                semester=semester,
-                                education_type=education_type or 'kunduzgi',
-                                enrollment_year=enrollment_year
+                                faculty_id=faculty.id
                             )
                             db.session.add(direction)
                             db.session.flush()
-                    elif enrollment_year and not direction.enrollment_year:
-                        # Mavjud yo'nalishga qabul yilini qo'shish
-                        direction.enrollment_year = enrollment_year
+                    pass
                 
                 # Guruhni topish yoki yaratish
                 group = None
@@ -488,7 +482,9 @@ def import_students_from_excel(file, faculty_id=None):
                                 faculty_id=faculty.id,
                                 direction_id=direction.id if direction else None,
                                 course_year=course_year,
-                                education_type=education_type
+                                semester=semester or 1,
+                                education_type=education_type,
+                                enrollment_year=enrollment_year
                             )
                             db.session.add(group)
                             db.session.flush()

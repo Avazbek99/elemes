@@ -158,12 +158,9 @@
                 Orqaga
             </a>
             <h1 class="text-2xl font-bold text-gray-900">
-                {% if direction.enrollment_year %}
-                {{ direction.enrollment_year }} -
-                {% endif %}
                 {{ direction.code }} - {{ direction.name }}
             </h1>
-            <p class="text-gray-600 mt-1">Fanlar</p>
+            <p class="text-gray-600 mt-1">Fan o'qituvchilari</p>
         </div>
         <div class="flex gap-3">
             <a href="{{ url_for('dean.direction_curriculum', id=direction.id) }}"
@@ -179,7 +176,7 @@
 
     <!-- Semestrlar -->
     <div class="space-y-6">
-        {% for semester in range(1, 11) %}
+        {% for semester in range(1, 15) %}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">
                 {{ semester }}-semestr

@@ -48,14 +48,10 @@
                 {% endif %}
                 <h1 class="text-3xl font-bold text-white mb-3">{{ subject.name }}</h1>
                 <p class="text-xl font-medium text-white/95 mb-3">
-                    {% if direction.enrollment_year %}
-                    {{ direction.enrollment_year }}
-                    {% endif %}
-                    {% if direction.enrollment_year and direction.code %} - {% endif %}
                     {% if direction.code %}
                     {{ direction.code }}
                     {% endif %}
-                    {% if (direction.enrollment_year or direction.code) and direction.name %} - {% endif %}
+                    {% if direction.code and direction.name %} - {% endif %}
                     {{ direction.name }}
                 </p>
                 {% if direction_groups %}
@@ -171,7 +167,8 @@
             {% set current_role = session.get('current_role', current_user.role) %}
             {% set has_teacher_role = current_user.role == 'teacher' or current_user.has_role('teacher') %}
             {% set is_teacher_role = current_role == 'teacher' %}
-            {% if is_teacher or (has_teacher_role and is_teacher_role) %}
+            {% if is_teacher or (has_teacher_role and is_teacher_role) or (current_user.role in ['admin', 'dean'] and
+            direction_id) %}
             <div class="flex gap-2">
                 <a href="{{ url_for('courses.create_lesson', id=subject.id, direction_id=direction_id) }}"
                     class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
@@ -220,7 +217,8 @@
                 ] %}
                 <div class="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
                     {% for lesson_type in lesson_types_tabs %}
-                    {% set is_allowed = allowed_lesson_types and lesson_type.key in allowed_lesson_types %}
+                    {% set is_allowed = (allowed_lesson_types and lesson_type.key in allowed_lesson_types) or
+                    (current_user.role in ['admin', 'dean'] and direction_id) %}
                     {% if is_allowed and (lesson_type.lessons|length > 0 or (direction_lesson_types and lesson_type.key
                     in ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'])) %}
                     {% set is_active = loop.first %}
@@ -243,12 +241,15 @@
 
                 {# Barcha dars turlari uchun kontentlar #}
                 {% for lesson_type in lesson_types_tabs %}
-                {% set is_allowed = allowed_lesson_types and lesson_type.key in allowed_lesson_types %}
+                {% set is_allowed = (allowed_lesson_types and lesson_type.key in allowed_lesson_types) or
+                (current_user.role in ['admin', 'dean'] and direction_id) %}
                 {% if is_allowed and (lesson_type.lessons|length > 0 or (direction_lesson_types and lesson_type.key in
                 ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'])) %}
                 <div id="content-{{ lesson_type.key }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
                     <div class="space-y-3">
                         {% if lesson_type.lessons|length > 0 %}
+                        {% set type_codes = {'maruza': 'M', 'amaliyot': 'A', 'laboratoriya': 'L', 'seminar': 'S',
+                        'kurs_ishi': 'K'} %}
                         {% for lesson in lesson_type.lessons %}
                         {% set is_locked = lesson_locked_status.get(lesson.id, False) if lesson_locked_status else False
                         %}
@@ -268,49 +269,57 @@
                         {% else %}
                         <div
                             class="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
-                            <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}"
+                            {% if direction_id %}
+                            {% set type_code = type_codes.get(lesson.lesson_type, 'M') %}
+                            <a href="{{ url_for('courses.hierarchical_lesson_detail', subject_id=subject.id, direction_id=direction_id, type_code=type_code, order=lesson.order) }}"
                                 class="flex items-center gap-4 flex-1 min-w-0">
-                                <span class="text-sm font-semibold text-gray-600 flex-shrink-0 w-8 text-center">{{
-                                    lesson.order }}.</span>
-                                <div class="flex-1 min-w-0">
-                                    <h3 class="text-sm font-medium text-gray-900 group-hover:text-primary-600 truncate">
-                                        {{ lesson.title }}</h3>
-                                    <div class="flex items-center gap-2 text-xs text-gray-500 mt-1 flex-wrap">
+                                {% else %}
+                                <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}"
+                                    class="flex items-center gap-4 flex-1 min-w-0">
+                                    {% endif %}
+                                    <span class="text-sm font-semibold text-gray-600 flex-shrink-0 w-8 text-center">{{
+                                        lesson.order }}.</span>
+                                    <div class="flex-1 min-w-0">
+                                        <h3
+                                            class="text-sm font-medium text-gray-900 group-hover:text-primary-600 truncate">
+                                            {{ lesson.title }}</h3>
+                                        <div class="flex items-center gap-2 text-xs text-gray-500 mt-1 flex-wrap">
 
-                                        {% if lesson.video_file or lesson.video_url %}
-                                        <span
-                                            class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full flex-shrink-0">Video
-                                            dars</span>
-                                        {% endif %}
+                                            {% if lesson.video_file or lesson.video_url %}
+                                            <span
+                                                class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full flex-shrink-0">Video
+                                                dars</span>
+                                            {% endif %}
+                                        </div>
                                     </div>
-                                </div>
-                            </a>
-                            <div class="flex items-center gap-2">
-                                {% set can_edit_lesson = lesson_edit_permissions.get(lesson.id, False) %}
-                                {% if can_edit_lesson %}
-                                <a href="{{ url_for('courses.edit_lesson', id=lesson.id) }}{% if direction_id %}?direction_id={{ direction_id }}{% endif %}"
-                                    class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                    title="Tahrirlash">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
                                 </a>
-                                <form method="POST"
-                                    action="{{ url_for('courses.delete_lesson', id=lesson.id) }}{% if direction_id %}?direction_id={{ direction_id }}{% endif %}"
-                                    onsubmit="return confirm('Darsni o\'chirishni tasdiqlaysizmi?');" class="inline">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                                    <button type="submit"
-                                        class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                        title="O'chirish">
+                                <div class="flex items-center gap-2">
+                                    {% set can_edit_lesson = lesson_edit_permissions.get(lesson.id, False) %}
+                                    {% if can_edit_lesson %}
+                                    <a href="{{ url_for('courses.edit_lesson', id=lesson.id) }}{% if direction_id %}?direction_id={{ direction_id }}{% endif %}"
+                                        class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="Tahrirlash">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </div>
+                                    </a>
+                                    <form method="POST"
+                                        action="{{ url_for('courses.delete_lesson', id=lesson.id) }}{% if direction_id %}?direction_id={{ direction_id }}{% endif %}"
+                                        onsubmit="return confirm('Darsni o\'chirishni tasdiqlaysizmi?');"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit"
+                                            class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="O'chirish">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
                         </div>
                         {% endif %}
                         {% endfor %}

@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from app.models import User, Subject, Message, Faculty, Group
+from app.models import User, Subject, Message, Faculty, Group, Direction
 from app import db
 
 bp = Blueprint('api', __name__, url_prefix='/api')
@@ -123,4 +123,43 @@ def dashboard_stats():
             'teachers': User.query.filter_by(role='teacher').count(),
             'students': User.query.filter_by(role='student').count()
         })
-    return jsonify({})
+@bp.route('/directions')
+@login_required
+def get_directions():
+    faculty_id = request.args.get('faculty_id')
+    query = Direction.query
+    if faculty_id:
+        query = query.filter_by(faculty_id=faculty_id)
+    directions = query.order_by(Direction.name).all()
+    return jsonify([{
+        'id': d.id,
+        'name': d.name,
+        'code': d.code
+    } for d in directions])
+
+@bp.route('/groups')
+@login_required
+def get_groups():
+    faculty_id = request.args.get('faculty_id')
+    direction_id = request.args.get('direction_id')
+    course_year = request.args.get('course_year')
+    semester = request.args.get('semester')
+    education_type = request.args.get('education_type')
+    
+    query = Group.query
+    if faculty_id:
+        query = query.filter_by(faculty_id=faculty_id)
+    if direction_id:
+        query = query.filter_by(direction_id=direction_id)
+    if course_year:
+        query = query.filter_by(course_year=course_year)
+    if semester:
+        query = query.filter_by(semester=semester)
+    if education_type:
+        query = query.filter_by(education_type=education_type)
+        
+    groups = query.order_by(Group.name).all()
+    return jsonify([{
+        'id': g.id,
+        'name': g.name
+    } for g in groups])

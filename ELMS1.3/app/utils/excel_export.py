@@ -105,10 +105,10 @@ def create_students_excel(students, faculty_name=None):
             # Kurs (1-kurs formatida)
             course_year = student.group.course_year
             ws.cell(row=row_num, column=10, value=f"{course_year}-kurs" if course_year else '')
-            # Semestr (talabadan yoki guruh yo'nalishidan) - "1-semestr" formatida
+            # Semestr (talabadan yoki guruhdan) - "1-semestr" formatida
             semester = getattr(student, 'semester', None)
-            if not semester and student.group.direction:
-                semester = student.group.direction.semester
+            if not semester and student.group:
+                semester = student.group.semester
             semester_display = f"{semester}-semestr" if semester else ''
             ws.cell(row=row_num, column=11, value=semester_display)
             # Ta'lim shakli - bosh harf katta bilan
@@ -117,8 +117,8 @@ def create_students_excel(students, faculty_name=None):
             ws.cell(row=row_num, column=12, value=education_type_display)
             # Qabul yili (yo'nalishdan yoki talabadan)
             enrollment_year = ''
-            if student.group.direction and student.group.direction.enrollment_year:
-                enrollment_year = student.group.direction.enrollment_year
+            if student.group and student.group.enrollment_year:
+                enrollment_year = student.group.enrollment_year
             elif getattr(student, 'enrollment_year', None):
                 enrollment_year = student.enrollment_year
             ws.cell(row=row_num, column=13, value=enrollment_year)
@@ -263,8 +263,8 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
         
         # 3. Semestr
         semester_val = ''
-        if schedule.group and schedule.group.direction:
-            semester_val = schedule.group.direction.semester
+        if schedule.group:
+            semester_val = schedule.group.semester
         ws.cell(row=row_num, column=3, value=f"{semester_val}-semestr" if semester_val else '')
         
         # 4. Yo'nalish
@@ -986,8 +986,9 @@ def create_curriculum_excel(direction, curriculum_items):
     
     # Sarlavha
     title = f"O'quv reja - {direction.code} - {direction.name}"
-    if direction.enrollment_year:
-        title = f"{direction.enrollment_year} - {title}"
+    # Enrollment year direction o'rniga guruhdan olinadi, lekin bu yerda export funksiyasi direction ob'ektini oladi
+    # Bu yerda direction nomi saqlanib qoladi. Enrollment year direction modelida yo'q.
+    pass
     
     ws.merge_cells('A1:I1')
     title_cell = ws['A1']

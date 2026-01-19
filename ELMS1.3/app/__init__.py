@@ -5,7 +5,10 @@ from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from config import Config
 
+from flask_migrate import Migrate
+
 db = SQLAlchemy()
+migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = "Iltimos, tizimga kiring"
@@ -22,6 +25,7 @@ def create_app(config_class=Config):
     os.makedirs(os.path.join(app.config.get('UPLOAD_FOLDER', 'uploads'), 'lesson_files'), exist_ok=True)
     
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
     

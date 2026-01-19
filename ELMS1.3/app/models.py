@@ -29,10 +29,6 @@ class Direction(db.Model):
     code = db.Column(db.String(20), nullable=False)  # DI (15 tagacha belgi)
     description = db.Column(db.Text)
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
-    course_year = db.Column(db.Integer, nullable=False)  # 1, 2, 3, 4, 5-kurs
-    semester = db.Column(db.Integer, nullable=False)  # 1-10 semestr
-    education_type = db.Column(db.String(20), nullable=False, default='kunduzgi')  # kunduzgi, sirtqi, masofaviy, kechki
-    enrollment_year = db.Column(db.Integer)  # Qabul yili (masalan: 2024)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -49,13 +45,24 @@ class Group(db.Model):
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
     direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)  # Yo'nalishga biriktirish
     course_year = db.Column(db.Integer, nullable=False)  # 1, 2, 3, 4-kurs
+    semester = db.Column(db.Integer, nullable=False, default=1)  # 1-10 semestr
     education_type = db.Column(db.String(20), default='kunduzgi')  # kunduzgi, sirtqi, kechki
+    enrollment_year = db.Column(db.Integer)  # Qabul yili (masalan: 2024)
     description = db.Column(db.Text)  # Guruh haqida tavsif
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
     students = db.relationship('User', backref='group', lazy='dynamic', foreign_keys='User.group_id')
     
+    @property
+    def formatted_direction(self):
+        """Standardized direction display: [Year] - [Code] - [Name] ([Education Type])"""
+        if self.direction:
+            year = self.enrollment_year if self.enrollment_year else "____"
+            edu_type = self.education_type.capitalize() if self.education_type else "____"
+            return f"{year} - {self.direction.code} - {self.direction.name} ({edu_type})"
+        return self.name  # Fallback to group name if no direction
+
     def get_students_count(self):
         return self.students.count()
 
@@ -811,17 +818,13 @@ def create_demo_data():
     demo_directions = {}
     for faculty_code, faculty in faculties.items():
         demo_direction_code = f'DEMO-MASOFAVIY-{faculty_code}'
-        demo_direction = Direction.query.filter_by(code=demo_direction_code, education_type='masofaviy').first()
+        demo_direction = Direction.query.filter_by(code=demo_direction_code).first()
         if not demo_direction:
             demo_direction = Direction(
                 name=f'Demo Masofaviy Ta\'lim ({faculty.name})',
                 code=demo_direction_code,
                 description=f'Demo ma\'lumotlar uchun {faculty.name} masofaviy ta\'lim yo\'nalishi',
-                faculty_id=faculty.id,
-                course_year=1,
-                semester=1,
-                education_type='masofaviy',
-                enrollment_year=2024
+                faculty_id=faculty.id
             )
             db.session.add(demo_direction)
             db.session.commit()
@@ -833,17 +836,13 @@ def create_demo_data():
     for faculty_code, faculty in faculties.items():
         # Kunduzgi yo'nalish
         direction_code = f'{faculty_code}-KUNDUZGI'
-        direction = Direction.query.filter_by(code=direction_code, education_type='kunduzgi').first()
+        direction = Direction.query.filter_by(code=direction_code).first()
         if not direction:
             direction = Direction(
                 name=f'Kunduzgi Ta\'lim Yo\'nalishi ({faculty.name})',
                 code=direction_code,
                 description=f'{faculty.name} kunduzgi ta\'lim yo\'nalishi',
-                faculty_id=faculty.id,
-                course_year=1,
-                semester=1,
-                education_type='kunduzgi',
-                enrollment_year=2024
+                faculty_id=faculty.id
             )
             db.session.add(direction)
             db.session.commit()
@@ -852,17 +851,13 @@ def create_demo_data():
         # Sirtqi yo'nalish (faqat IT uchun)
         if faculty_code == 'IT':
             direction_code_sirtqi = f'{faculty_code}-SIRTQI'
-            direction_sirtqi = Direction.query.filter_by(code=direction_code_sirtqi, education_type='sirtqi').first()
+            direction_sirtqi = Direction.query.filter_by(code=direction_code_sirtqi).first()
             if not direction_sirtqi:
                 direction_sirtqi = Direction(
                     name=f'Sirtqi Ta\'lim Yo\'nalishi ({faculty.name})',
                     code=direction_code_sirtqi,
                     description=f'{faculty.name} sirtqi ta\'lim yo\'nalishi',
-                    faculty_id=faculty.id,
-                    course_year=1,
-                    semester=1,
-                    education_type='sirtqi',
-                    enrollment_year=2024
+                    faculty_id=faculty.id
                 )
                 db.session.add(direction_sirtqi)
                 db.session.commit()

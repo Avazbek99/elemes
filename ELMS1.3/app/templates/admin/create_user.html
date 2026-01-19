@@ -3,7 +3,7 @@
 {% block title %}Yangi foydalanuvchi{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
+<div class="w-full mx-auto">
     <div class="mb-6">
         <a href="{{ url_for('admin.users') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,68 +24,68 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
                     <input type="text" name="full_name" required placeholder="Ism Familiya"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <input type="email" name="email" placeholder="email@university.uz"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Ixtiyoriy</p>
                 </div>
 
                 <div id="loginField" style="display: none;">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Login *</label>
                     <input type="text" name="login" placeholder="a_tursunqulov"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun login (xodimlar uchun majburiy)</p>
                 </div>
 
                 <div id="studentIdField" style="display: none;">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID *</label>
                     <input type="text" name="student_id" placeholder="376123456789"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun talaba ID (talabalar uchun majburiy)</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pasport seriyasi va raqami *</label>
                     <input type="text" name="passport_number" required placeholder="AB1234567"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Parol sifatida ishlatiladi</p>
                 </div>
 
                 <div id="loginField" style="display: none;">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Login *</label>
                     <input type="text" name="login" placeholder="a_tursunqulov"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun login (xodimlar uchun majburiy)</p>
                 </div>
 
                 <div id="studentIdField" style="display: none;">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID *</label>
                     <input type="text" name="student_id" placeholder="376123456789"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun talaba ID (talabalar uchun majburiy)</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pasport seriyasi va raqami *</label>
                     <input type="text" name="passport_number" required placeholder="AB1234567"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Parol sifatida ishlatiladi</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">JSHSHIR (PINFL)</label>
                     <input type="text" name="pinfl" placeholder="30202020200021"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tug'ilgan sana</label>
                     <input type="text" name="birth_date" placeholder="yyyy-mm-dd (masalan: 1999-02-06)"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date-iso">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all flatpickr-date-iso">
                     <p class="text-xs text-gray-500 mt-1">Format: yyyy-mm-dd (masalan: 1999-02-06)</p>
                 </div>
 
@@ -93,7 +93,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Parol (ixtiyoriy)</label>
                     <input type="password" name="password" minlength="6"
                         placeholder="Agar kiritilmasa, pasport raqami ishlatiladi"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                     <p class="text-xs text-gray-500 mt-1">Agar kiritilmasa, pasport raqami parol sifatida ishlatiladi
                     </p>
                 </div>
@@ -101,7 +101,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Rol *</label>
                     <select name="role" id="roleSelect" required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                         <option value="">Rolni tanlang...</option>
                         <option value="admin">Administrator</option>
                         <option value="dean">Dekan</option>
@@ -118,7 +118,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Guruh</label>
                     <select name="group_id"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                         <option value="">Guruhni tanlang...</option>
                         {% for group in groups %}
                         <option value="{{ group.id }}">{{ group.name }} ({{ group.faculty.code }})</option>
@@ -129,7 +129,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Qabul yili</label>
                     <input type="number" name="enrollment_year" placeholder="2024" min="2000" max="2030"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                 </div>
             </div>
 
@@ -141,13 +141,13 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Kafedra</label>
                     <input type="text" name="department" placeholder="Dasturiy injiniring"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Lavozim</label>
                     <input type="text" name="position" placeholder="Dotsent"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                 </div>
             </div>
 
@@ -158,7 +158,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
                     <select name="faculty_id"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
                         <option value="">Fakultetni tanlang...</option>
                         {% for faculty in faculties %}
                         <option value="{{ faculty.id }}">{{ faculty.name }}</option>
