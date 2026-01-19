@@ -4356,6 +4356,7 @@ def api_directions():
         'id': d.id,
         'code': d.code,
         'name': d.name,
+        'formatted_direction': d.formatted_direction,
         'faculty_id': d.faculty_id
     } for d in directions])
 

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ direction.code }} - {{ direction.name }}{% endblock %}
+{% block title %}{{ direction.formatted_direction }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -15,7 +15,7 @@
                 Orqaga
             </a>
             <h1 class="text-2xl font-bold text-gray-900">
-                {{ direction.code }} - {{ direction.name }}
+                {{ direction.formatted_direction }}
             </h1>
         </div>
     </div>

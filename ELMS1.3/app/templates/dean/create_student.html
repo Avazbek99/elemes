@@ -494,7 +494,7 @@
             const res = await fetch('/dean/api/directions');
             const dirs = await res.json();
             $('#direction_id').empty().append(new Option("Yo'nalishni tanlang", "", true, true));
-            dirs.forEach(d => $('#direction_id').append(new Option(`${d.code} - ${d.name}`, d.id)));
+            dirs.forEach(d => $('#direction_id').append(new Option(`${d.formatted_direction}`, d.id)));
             $('#direction_id').trigger('change');
         }
 

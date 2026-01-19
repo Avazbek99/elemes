@@ -35,6 +35,19 @@ class Direction(db.Model):
     faculty = db.relationship('Faculty', backref='directions')
     groups = db.relationship('Group', backref='direction', lazy='dynamic')
     curriculum_items = db.relationship('DirectionCurriculum', backref='direction', lazy='dynamic', cascade='all, delete-orphan')
+    
+    @property
+    def formatted_direction(self):
+        """Get formatted direction name from groups: [Year] - [Code] - [Name] ([Education Type])"""
+        # Get the first group from this direction to extract enrollment year and education type
+        first_group = self.groups.first()
+        if first_group and first_group.enrollment_year and first_group.education_type:
+            year = first_group.enrollment_year
+            edu_type = first_group.education_type.capitalize()
+            return f"{year} - {self.code} - {self.name} ({edu_type})"
+        else:
+            # Fallback if no group data available
+            return f"{self.code} - {self.name}"
 
 
 # ==================== GURUH ====================

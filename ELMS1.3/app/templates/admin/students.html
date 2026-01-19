@@ -93,7 +93,7 @@
                         <option value="">Barcha yo'nalishlar</option>
                         {% for direction in directions %}
                         <option value="{{ direction.id }}" {% if current_direction==direction.id %}selected{% endif %}>
-                            {{ direction.code }} - {{ direction.name }}</option>
+                            {{ direction.formatted_direction }}</option>
                         {% endfor %}
                     </select>
                 </div>
