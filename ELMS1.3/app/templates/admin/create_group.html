@@ -104,7 +104,7 @@
                         {% for direction in all_directions %}
                         <option value="{{ direction.id }}" data-code="{{ direction.code }}"
                             data-name="{{ direction.name }}" {% if direction_id==direction.id %}selected{% endif %}>
-                            {{ direction.code }} - {{ direction.name }}
+                            {{ direction.formatted_direction }}
                         </option>
                         {% endfor %}
                     </select>

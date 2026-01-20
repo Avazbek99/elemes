@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ direction.code }} - {{ direction.name }}{% endblock %}
+{% block title %}{{ direction.formatted_direction }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -15,7 +15,11 @@
                 Orqaga
             </a>
             <h1 class="text-2xl font-bold text-gray-900">
+                {% if enrollment_year and education_type %}
+                {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|capitalize }})
+                {% else %}
                 {{ direction.formatted_direction }}
+                {% endif %}
             </h1>
         </div>
     </div>

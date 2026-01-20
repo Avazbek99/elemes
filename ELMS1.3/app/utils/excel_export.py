@@ -985,7 +985,7 @@ def create_curriculum_excel(direction, curriculum_items):
     ws.title = "O'quv reja"
     
     # Sarlavha
-    title = f"O'quv reja - {direction.formatted_direction}"
+    title = f"O'quv reja - {direction.code} - {direction.name}"
     # Enrollment year direction o'rniga guruhdan olinadi, lekin bu yerda export funksiyasi direction ob'ektini oladi
     # Bu yerda direction nomi saqlanib qoladi. Enrollment year direction modelida yo'q.
     pass

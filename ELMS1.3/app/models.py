@@ -46,8 +46,8 @@ class Direction(db.Model):
             edu_type = first_group.education_type.capitalize()
             return f"{year} - {self.code} - {self.name} ({edu_type})"
         else:
-            # Fallback if no group data available
-            return f"{self.code} - {self.name}"
+            # Fallback for directions without groups - use empty year and education type
+            return f"____ - {self.code} - {self.name}"
 
 
 # ==================== GURUH ====================
@@ -98,11 +98,58 @@ class Subject(db.Model):
     schedules = db.relationship('Schedule', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
     
     def get_teacher(self, group_id=None):
-        """Ushbu fan uchun biriktirilgan o'qituvchini olish"""
+        """Ushbu fan uchun biriktirilgan o'qituvchini olish (birinchi topilgan)"""
         query = TeacherSubject.query.filter_by(subject_id=self.id)
         if group_id:
             query = query.filter_by(group_id=group_id)
         assignment = query.first()
+        return assignment.teacher if assignment else None
+
+    def get_teacher_for_type(self, group_id, lesson_type):
+        """Ushbu fan uchun dars turi bo'yicha biriktirilgan o'qituvchini olish"""
+        # lesson_type formatini to'g'irlash (Maruza -> maruza)
+        normalized_type = lesson_type.lower()
+        if 'kurs ishi' in normalized_type:
+            normalized_type = 'amaliyot' # Kurs ishi amaliyot o'qituvchisiga biriktiriladi (vaqtincha shunday)
+        elif 'laboratoriya' in normalized_type or 'lobaratoriya' in normalized_type:
+            normalized_type = 'amaliyot' # Laboratoriya ham amaliyot o'qituvchisiga
+            
+        # Lekin admin.py da saqlashda biz 'amaliyot' deb saqlayapmiz umumiy
+        # Agar lesson_type 'Maruza' bo'lsa -> 'maruza'
+        # Agar 'Amaliyot' bo'lsa -> 'amaliyot'
+        
+        # Aniqroq mantiq:
+        normalized_type = (normalized_type or '').lower()
+        if any(keyword in normalized_type for keyword in ['amaliyot', 'laboratoriya', 'lobaratoriya', 'kurs ishi']):
+            db_type = 'amaliyot'
+        elif 'maruza' in normalized_type:
+            db_type = 'maruza'
+        elif 'seminar' in normalized_type:
+            db_type = 'seminar'
+        else:
+            # Fallback for unexpected strings
+            db_type = 'amaliyot' if 'amal' in normalized_type or 'lab' in normalized_type or 'kurs' in normalized_type else normalized_type
+            
+        assignment = TeacherSubject.query.filter_by(
+            subject_id=self.id,
+            group_id=group_id,
+            lesson_type=db_type
+        ).first()
+
+        # Fallback: Agar bu guruh uchun biriktirilmagan bo'lsa, 
+        # shu yo'nalishdagi boshqa guruhlar uchun biriktirilganini qidiramiz
+        if not assignment and group_id:
+            group = db.session.get(Group, group_id)
+            if group and group.direction_id:
+                # Shu yo'nalishdagi barcha guruhlar IDlarini olish
+                direction_group_ids = [g.id for g in db.session.query(Group.id).filter_by(direction_id=group.direction_id).all()]
+                if direction_group_ids:
+                    assignment = TeacherSubject.query.filter(
+                        TeacherSubject.subject_id == self.id,
+                        TeacherSubject.group_id.in_(direction_group_ids),
+                        TeacherSubject.lesson_type == db_type
+                    ).first()
+        
         return assignment.teacher if assignment else None
     
     def check_curriculum_completion(self, direction_id=None, teacher_id=None, is_admin=False):
@@ -283,6 +330,11 @@ class DirectionCurriculum(db.Model):
     direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=False)
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
     semester = db.Column(db.Integer, nullable=False)  # 1-10 semestr
+    
+    # Qaysi o'quv yiliga va ta'lim shakliga tegishli ekanligi (Independent Curriculum)
+    enrollment_year = db.Column(db.Integer, nullable=True) # 2025, 2026 ...
+    education_type = db.Column(db.String(20), nullable=True) # kunduzgi, masofaviy ...
+
     hours_maruza = db.Column(db.Integer, default=0)  # M - Maruza soatlari
     hours_amaliyot = db.Column(db.Integer, default=0)  # A - Amaliyot soatlari
     hours_laboratoriya = db.Column(db.Integer, default=0)  # L - Laboratoriya soatlari
@@ -294,8 +346,8 @@ class DirectionCurriculum(db.Model):
     # Relationships
     subject = db.relationship('Subject', backref='curriculum_items')
     
-    # Unique constraint: bir yo'nalishda bir semestrda bir fan bir marta bo'lishi kerak
-    __table_args__ = (db.UniqueConstraint('direction_id', 'subject_id', 'semester', name='uq_direction_subject_semester'),)
+    # Unique constraint: bir yo'nalishda bir semestrda bir fan bir marta bo'lishi kerak (yil va ta'lim shakli bo'yicha)
+    __table_args__ = (db.UniqueConstraint('direction_id', 'subject_id', 'semester', 'enrollment_year', 'education_type', name='uq_direction_subject_semester_year_type'),)
 
 
 # ==================== O'QITUVCHI-FAN BOG'LANISHI ====================

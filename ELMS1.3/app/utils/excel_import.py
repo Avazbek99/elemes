@@ -1147,7 +1147,7 @@ def import_subjects_from_excel(file):
         }
 
 
-def import_curriculum_from_excel(file, direction_id):
+def import_curriculum_from_excel(file, direction_id, enrollment_year=None, education_type=None):
     """Excel fayldan o'quv rejani import qilish (rasmdagi formatga mos)"""
     try:
         from openpyxl import load_workbook
@@ -1280,7 +1280,9 @@ def import_curriculum_from_excel(file, direction_id):
                 curriculum_item = DirectionCurriculum.query.filter_by(
                     direction_id=direction_id,
                     subject_id=subject.id,
-                    semester=semester
+                    semester=semester,
+                    enrollment_year=enrollment_year,
+                    education_type=education_type
                 ).first()
                 
                 if curriculum_item:
@@ -1298,6 +1300,8 @@ def import_curriculum_from_excel(file, direction_id):
                         direction_id=direction_id,
                         subject_id=subject.id,
                         semester=semester,
+                        enrollment_year=enrollment_year,
+                        education_type=education_type,
                         hours_maruza=maruza,
                         hours_amaliyot=amaliyot,
                         hours_laboratoriya=laboratoriya,

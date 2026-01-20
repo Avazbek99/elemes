@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session
 from flask_login import login_required, current_user
 from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, StudentPayment, DirectionCurriculum
 from app import db
@@ -1060,16 +1060,22 @@ def faculty_detail(id):
         
         if direction_key not in courses_dict[main_key]['directions']:
             # Sarlavha shakllantirish
-            code = group.direction.code if group.direction else "____"
-            name = group.direction.name if group.direction else "Biriktirilmagan"
-            # Ta'lim turi sarlavhada shart emas, chunki u tepada bor, lekin baribir qolsa zarar qilmaydi
-            heading = group.direction.formatted_direction if group.direction else "____ - Biriktirilmagan"
+            if group.direction:
+                code = group.direction.code
+                name = group.direction.name
+                edu_type_str = group.education_type.capitalize() if group.education_type else ""
+                enrollment_year_str = str(group.enrollment_year) if group.enrollment_year else "____"
+                heading = f"{enrollment_year_str} - {code} - {name} ({edu_type_str})"
+            else:
+                heading = "____ - Biriktirilmagan"
             
             courses_dict[main_key]['directions'][direction_key] = {
                 'heading': heading,
                 'subtitle_parts': set(), 
                 'subtitle': "",
                 'direction': group.direction,
+                'enrollment_year': enrollment_year,
+                'education_type': edu_type,
                 'courses': {}, # 3-daraja: Kurs
                 'total_students': 0,
                 'total_groups': 0
@@ -1117,7 +1123,7 @@ def faculty_detail(id):
     
     # Kalitlarni saralash: Yil (ASC) -> Ta'lim shakli (ASC)
     # main_key = (year, edu_type)
-    sorted_keys = sorted(courses_dict.keys(), key=lambda k: (str(k[0]), str(k[1])))
+    sorted_keys = sorted(courses_dict.keys(), key=lambda k: ((k[0] if k[0] is not None else 9999), str(k[1])))
     
     for key in sorted_keys:
         year, edu_type = key
@@ -1168,42 +1174,63 @@ def faculty_detail(id):
         
     # courses_list = sorted(set([g.course_year for g in faculty.groups.all()])) # Removed logical error
     
-    # Yo'nalishlar Modal - guruhlar bo'yicha kengaytirilgan formatda
+    # Yo'nalishlar Modal - har bir yo'nalish uchun uning guruhlari bilan birga ko'rib chiqish
     directions_list_data = []
-    # 1. Guruhlari bor yo'nalishlar (barcha kombinatsiyalar)
-    used_combinations = db.session.query(
-        Group.direction_id, Group.enrollment_year, Group.education_type
-    ).filter(Group.faculty_id == faculty.id, Group.direction_id.isnot(None)).distinct().all()
+    used_combinations = set()  # Dublikatlarni oldini olish uchun
     
-    used_direction_ids = set()
-    for d_id, year, e_type in used_combinations:
+    # 1. Guruhlari bor yo'nalishlar (har bir guruh uchun alohida yo'nalish yozuvi)
+    groups_with_directions = db.session.query(
+        Group.direction_id, Group.enrollment_year, Group.education_type
+    ).filter(
+        Group.faculty_id == faculty.id, 
+        Group.direction_id.isnot(None)
+    ).distinct().all()
+    
+    for d_id, year, e_type in groups_with_directions:
         direction = Direction.query.get(d_id)
         if direction:
-            directions_list_data.append({
-                'id': direction.id,
-                'name': direction.name,
-                'code': direction.code,
-                'enrollment_year': year,
-                'education_type': e_type,
-                'description': direction.description
-            })
-            used_direction_ids.add(d_id)
+            combination_key = f"{d_id}_{year}_{e_type}"
+            if combination_key not in used_combinations:
+                # Har bir yo'nalish-guruh kombinatsiyasi uchun formatted_direction yaratish
+                year_str = str(year) if year else "____"
+                edu_type_str = e_type.capitalize() if e_type else ""
+                formatted = f"{year_str} - {direction.code} - {direction.name}"
+                if edu_type_str:
+                    formatted += f" ({edu_type_str})"
+                
+                directions_list_data.append({
+                    'id': direction.id,
+                    'name': direction.name,
+                    'code': direction.code,
+                    'enrollment_year': year,
+                    'education_type': e_type,
+                    'description': direction.description,
+                    'formatted_direction': formatted
+                })
+                used_combinations.add(combination_key)
             
     # 2. Guruhlari bo'lmagan yo'nalishlar
     all_faculty_directions = Direction.query.filter_by(faculty_id=faculty.id).all()
     for direction in all_faculty_directions:
-        if direction.id not in used_direction_ids:
+        # Yo'nalishda hech qanday guruh yo'qligini tekshirish
+        has_groups = db.session.query(Group).filter(
+            Group.direction_id == direction.id,
+            Group.faculty_id == faculty.id
+        ).first() is not None
+        
+        if not has_groups:
             directions_list_data.append({
                 'id': direction.id,
                 'name': direction.name,
                 'code': direction.code,
                 'enrollment_year': None,
                 'education_type': None,
-                'description': direction.description
+                'description': direction.description,
+                'formatted_direction': f"____ - {direction.code} - {direction.name}"
             })
             
-    # Saralash: qabul yili (kamayish tartibi), keyin kod va nom
-    directions_list_data.sort(key=lambda x: (-(x['enrollment_year'] or 0), x['code'] or '', x['name'] or ''))
+    # Saralash: qabul yili (oshish tartibi), keyin kod va nom
+    directions_list_data.sort(key=lambda x: ((x['enrollment_year'] or 9999), x['code'] or '', x['name'] or ''))
     
     groups_list = faculty.groups.order_by(Group.name).all()
     
@@ -1222,15 +1249,26 @@ def faculty_detail(id):
 
 
 # ==================== YO'NALISHLAR ====================
-@bp.route('/directions/<int:id>')
+
+
+
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/groups')
 @login_required
 @admin_required
-def direction_detail(id):
-    """Yo'nalish detail sahifasi - ichidagi guruhlar"""
+def direction_groups_with_params(id, year, education_type):
+    """Yo'nalish guruhlari sahifasi - qabul yili va ta'lim shakli bilan"""
     direction = Direction.query.get_or_404(id)
     
-    # Bu yo'nalishga biriktirilgan guruhlar
-    groups = Group.query.filter_by(direction_id=direction.id).order_by(Group.course_year, Group.name).all()
+    # Berilgan qabul yili va ta'lim shakli bo'yicha guruhlar
+    groups = Group.query.filter_by(
+        direction_id=direction.id,
+        enrollment_year=year,
+        education_type=education_type
+    ).order_by(Group.course_year, Group.name).all()
+    
+    if not groups:
+        flash(f"{year}-yil {education_type} ta'lim shakli bo'yicha guruhlar mavjud emas", 'error')
+        return redirect(url_for('admin.direction_detail', id=id))
     
     # Har bir guruh uchun talabalar soni
     group_stats = {}
@@ -1240,54 +1278,68 @@ def direction_detail(id):
     return render_template('admin/direction_detail.html',
                          direction=direction,
                          groups=groups,
-                         group_stats=group_stats)
+                         group_stats=group_stats,
+                         enrollment_year=year,
+                         education_type=education_type)
 
 
 @bp.route('/directions/<int:id>/curriculum')
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum')
 @login_required
 @admin_required
-def direction_curriculum(id):
+def direction_curriculum(id, year=None, education_type=None):
     """Yo'nalish o'quv rejasi"""
     direction = Direction.query.get_or_404(id)
     
-    # Yo'nalishdagi guruhlar
-    groups = Group.query.filter_by(direction_id=direction.id).order_by(Group.name).all()
-    
-    # Barcha o'qituvchilar
-    teachers = User.query.filter_by(role='teacher').order_by(User.full_name).all()
-    
-    # Barcha fanlar
+    # Berilgan qabul yili va ta'lim shakli bo'yicha filterlash
+    if year and education_type:
+        groups = Group.query.filter_by(
+            direction_id=direction.id,
+            enrollment_year=year,
+            education_type=education_type
+        ).all()
+        
+        if not groups:
+            flash(f"{year}-yil {education_type} ta'lim shakli bo'yicha guruhlar mavjud emas", 'warning')
+            # Redirect to general view if specific view has no groups
+            return redirect(url_for('admin.direction_curriculum', id=id))
+            
+        curriculum_items = direction.curriculum_items.filter_by(
+            enrollment_year=year,
+            education_type=education_type
+        ).join(Subject).order_by(DirectionCurriculum.semester, Subject.name).all()
+        
+        # Pass enrollment_year and education_type to template
+        enrollment_year = year
+        education_type = education_type
+    else:
+        # Umumiy ko'rinish (agar yili va shakli berilmagan bo'sa)
+        groups = Group.query.filter_by(direction_id=direction.id).order_by(Group.name).all()
+        curriculum_items = direction.curriculum_items.join(Subject).order_by(
+            DirectionCurriculum.semester,
+            Subject.name
+        ).all()
+        enrollment_year = None
+        education_type = None
+
+    # Barcha fanlar (dropdown uchun)
     all_subjects = Subject.query.order_by(Subject.name).all()
     
-    # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
+    # O'quv reja elementlari (semestr bo'yicha guruhlangan)
     curriculum_by_semester = {}
-    semester_totals = {}  # Har bir semestr uchun jami soat va kredit
-    semester_auditoriya = {}  # Har bir semestr uchun auditoriya soatlari
-    semester_mustaqil = {}  # Har bir semestr uchun mustaqil ta'lim soatlari
+    semester_totals = {}
+    semester_auditoriya = {}
+    semester_mustaqil = {}
     total_hours = 0
     total_credits = 0
     
-    for item in direction.curriculum_items.join(Subject).order_by(
-        DirectionCurriculum.semester,
-        Subject.name
-    ).all():
+    for item in curriculum_items:
         semester = item.semester
         if semester not in curriculum_by_semester:
             curriculum_by_semester[semester] = []
             semester_totals[semester] = {'hours': 0, 'credits': 0}
             semester_auditoriya[semester] = {'m': 0, 'a': 0, 'l': 0, 's': 0, 'k': 0}
             semester_mustaqil[semester] = 0
-        
-        # Guruhlar uchun o'qituvchi tayinlovlarini olish
-        item.teacher_assignments = {}
-        for group in groups:
-            assignment = TeacherSubject.query.filter_by(
-                subject_id=item.subject_id,
-                group_id=group.id,
-                semester=semester
-            ).first()
-            item.teacher_assignments[group.id] = assignment.teacher_id if assignment else None
-        
         curriculum_by_semester[semester].append(item)
         
         # Auditoriya soatlari
@@ -1295,55 +1347,62 @@ def direction_curriculum(id):
         semester_auditoriya[semester]['a'] += (item.hours_amaliyot or 0)
         semester_auditoriya[semester]['l'] += (item.hours_laboratoriya or 0)
         semester_auditoriya[semester]['s'] += (item.hours_seminar or 0)
-        semester_auditoriya[semester]['k'] += (item.hours_kurs_ishi or 0)
         
-        # Mustaqil ta'lim
-        semester_mustaqil[semester] += (item.hours_mustaqil or 0)
-        
-        # Semestr jami soat va kreditni hisoblash (K qo'shilmaydi)
         item_hours = (item.hours_maruza or 0) + (item.hours_amaliyot or 0) + \
-                    (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
-                    (item.hours_mustaqil or 0)
-        item_credits = item_hours / 30
-        
-        semester_totals[semester]['hours'] += item_hours
-        semester_totals[semester]['credits'] += item_credits
-        
-        # Umumiy yuklamani hisoblash
+                     (item.hours_laboratoriya or 0) + (item.hours_seminar or 0) + \
+                     (item.hours_mustaqil or 0)
         total_hours += item_hours
-        total_credits += item_credits
+        total_credits += (item_hours / 30)
+        
+        # Semestr jami hisob-kitoblari
+        semester_totals[semester]['hours'] += item_hours
+        semester_totals[semester]['credits'] += (item_hours / 30)
+        semester_mustaqil[semester] += (item.hours_mustaqil or 0)
     
     return render_template('admin/direction_curriculum.html',
                          direction=direction,
                          groups=groups,
-                         teachers=teachers,
                          all_subjects=all_subjects,
+                         curriculum_items=curriculum_items,
                          curriculum_by_semester=curriculum_by_semester,
                          semester_totals=semester_totals,
                          semester_auditoriya=semester_auditoriya,
                          semester_mustaqil=semester_mustaqil,
                          total_hours=total_hours,
-                         total_credits=total_credits)
+                         total_credits=total_credits,
+                         enrollment_year=enrollment_year,
+                         education_type=education_type)
 
 
 @bp.route('/directions/<int:id>/curriculum/export')
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/export')
 @login_required
 @admin_required
-def export_curriculum(id):
+def export_curriculum(id, year=None, education_type=None):
     """O'quv rejani Excel formatida export qilish"""
     from app.utils.excel_export import create_curriculum_excel
     
     direction = Direction.query.get_or_404(id)
     
-    # O'quv rejadagi barcha elementlar
-    curriculum_items = direction.curriculum_items.join(Subject).order_by(
+    # O'quv rejadagi barcha elementlar (independent curriculum support)
+    items_query = direction.curriculum_items.join(Subject)
+    if year and education_type:
+        items_query = items_query.filter(
+            DirectionCurriculum.enrollment_year == year,
+            DirectionCurriculum.education_type == education_type
+        )
+        
+    curriculum_items = items_query.order_by(
         DirectionCurriculum.semester,
         Subject.name
     ).all()
     
     excel_file = create_curriculum_excel(direction, curriculum_items)
     
-    filename = f"oquv_reja_{direction.code}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = f"oquv_reja_{direction.code}"
+    if year and education_type:
+        filename += f"_{year}_{education_type}"
+    filename += f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     return send_file(
         excel_file,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -1353,9 +1412,10 @@ def export_curriculum(id):
 
 
 @bp.route('/directions/<int:id>/curriculum/import', methods=['GET', 'POST'])
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/import', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def import_curriculum(id):
+def import_curriculum(id, year=None, education_type=None):
     """O'quv rejani Excel fayldan import qilish"""
     from app.utils.excel_import import import_curriculum_from_excel
     
@@ -1364,20 +1424,25 @@ def import_curriculum(id):
     if request.method == 'POST':
         if 'file' not in request.files:
             flash("Fayl tanlanmagan", 'error')
+            if year and education_type:
+                return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('admin.direction_curriculum', id=id))
         
         file = request.files['file']
         if file.filename == '':
             flash("Fayl tanlanmagan", 'error')
+            if year and education_type:
+                return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('admin.direction_curriculum', id=id))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
             flash("Faqat .xlsx yoki .xls formatidagi fayllar qabul qilinadi", 'error')
+            if year and education_type:
+                return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('admin.direction_curriculum', id=id))
         
-        result = import_curriculum_from_excel(file, direction.id)
-        
-        result = import_curriculum_from_excel(file, direction.id)
+        # Import funksiyasiga yil va ta'lim shaklini ham uzatish
+        result = import_curriculum_from_excel(file, direction.id, enrollment_year=year, education_type=education_type)
         
         if result['success']:
             if result['imported'] > 0 or result['updated'] > 0:
@@ -1396,9 +1461,14 @@ def import_curriculum(id):
         else:
             flash(f"Import qilishda xatolik: {', '.join(result['errors'])}", 'error')
         
+        if year and education_type:
+            return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
         return redirect(url_for('admin.direction_curriculum', id=id))
     
-    return render_template('admin/import_curriculum.html', direction=direction)
+    return render_template('admin/import_curriculum.html', 
+                         direction=direction,
+                         enrollment_year=year,
+                         education_type=education_type)
 
 
 @bp.route('/directions/<int:id>/curriculum/import/sample')
@@ -1422,259 +1492,242 @@ def download_curriculum_sample(id):
 
 
 @bp.route('/directions/<int:id>/subjects', methods=['GET', 'POST'])
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/subjects', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def direction_subjects(id):
-    """Yo'nalish fanlari sahifasi - jadval ko'rinishida"""
+def direction_subjects(id, year=None, education_type=None):
+    """Yo'nalish fanlari sahifasi - qabul yili va ta'lim shakli bilan (Context aware)"""
     direction = Direction.query.get_or_404(id)
     
+    # Agar yil yoki ta'lim shakli berilmagan bo'lsa, redirect qilamiz
+    if not year or not education_type:
+        first_group = Group.query.filter_by(direction_id=id).order_by(Group.enrollment_year.desc()).first()
+        if first_group and first_group.enrollment_year and first_group.education_type:
+            return redirect(url_for('admin.direction_subjects', id=id, year=first_group.enrollment_year, education_type=first_group.education_type))
+        else:
+            # Agar guruhlar bo'lmasa, shunchaki xabar beramiz yoki empty template chiqaramiz
+            flash("Yo'nalishda guruhlar mavjud emas", 'warning')
+            return redirect(url_for('admin.directions'))
+
+    # Berilgan qabul yili va ta'lim shakli bo'yicha guruhlar
+    # Berilgan qabul yili va ta'lim shakli bo'yicha guruhlar (faqat talabasi bor guruhlar)
+    all_groups = Group.query.filter_by(
+        direction_id=direction.id,
+        enrollment_year=year,
+        education_type=education_type
+    ).all()
+    
+    # Talabasi bor yoki o'qituvchi biriktirilgan guruhlarni olamiz
+    groups = []
+    for g in all_groups:
+        has_students = g.students.count() > 0
+        has_teachers = TeacherSubject.query.filter_by(group_id=g.id).first() is not None
+        if has_students or has_teachers:
+            groups.append(g)
+    
+    if not groups and not all_groups:
+        flash(f"{year}-yil {education_type} ta'lim shakli bo'yicha guruhlar mavjud emas", 'error')
+        return redirect(url_for('admin.direction_subjects', id=id))
+    
+    # Agar talabasi bor/biriktirilgan guruhlar bo'lmasa, lekin guruhlar mavjud bo'lsa, hammasini korsatamiz
+    if not groups and all_groups:
+        groups = all_groups
+
+    # Guruhlarni semestrlar bo'yicha guruhlash
+    groups_by_semester = {}
+    for g in groups:
+        if g.semester not in groups_by_semester:
+            groups_by_semester[g.semester] = []
+        groups_by_semester[g.semester].append(g)
+
     # POST so'rov - o'qituvchilarni saqlash
     if request.method == 'POST':
         semester = request.form.get('semester', type=int)
         if not semester:
             flash("Semestr tanlanmagan", 'error')
-            return redirect(url_for('admin.direction_subjects', id=id))
+            return redirect(url_for('admin.direction_subjects', id=id, year=year, education_type=education_type))
         
-        # Yo'nalishga biriktirilgan guruhlar
-        groups = Group.query.filter_by(direction_id=direction.id).all()
-        if not groups:
-            flash("Yo'nalishda guruhlar mavjud emas", 'error')
-            return redirect(url_for('admin.direction_subjects', id=id))
-        
+        # Bu semestr uchun faol guruhlar
+        active_semester_groups = groups_by_semester.get(semester, [])
+        if not active_semester_groups:
+            flash(f"{semester}-semestrda faol guruhlar topilmadi", 'error')
+            return redirect(url_for('admin.direction_subjects', id=id, year=year, education_type=education_type))
+
         # Semestrdagi barcha fanlar uchun o'qituvchilarni yangilash
-        for item in direction.curriculum_items.filter_by(semester=semester).all():
-            # Maruza o'qituvchisi
-            maruza_teacher_id = request.form.get(f'teacher_maruza_{item.id}', type=int)
-            teacher_subject = TeacherSubject.query.filter_by(
-                subject_id=item.subject_id,
-                group_id=groups[0].id,
-                lesson_type='maruza'
-            ).first()
-            
-            if maruza_teacher_id:
-                if teacher_subject:
-                    teacher_subject.teacher_id = maruza_teacher_id
+        for item in direction.curriculum_items.filter_by(
+            semester=semester,
+            enrollment_year=year,
+            education_type=education_type
+        ).all():
+            # Faqat shu semestrda aktiv bo'lgan guruhlar uchun saqlash
+            for group in active_semester_groups:
+                # Maruza o'qituvchisi
+                maruza_teacher_id = request.form.get(f'teacher_maruza_{item.id}_{group.id}', type=int)
+                teacher_subject = TeacherSubject.query.filter_by(
+                    subject_id=item.subject_id,
+                    group_id=group.id,
+                    lesson_type='maruza'
+                ).first()
+                
+                if maruza_teacher_id:
+                    if teacher_subject:
+                        teacher_subject.teacher_id = maruza_teacher_id
+                    else:
+                        teacher_subject = TeacherSubject(
+                            teacher_id=maruza_teacher_id,
+                            subject_id=item.subject_id,
+                            group_id=group.id,
+                            lesson_type='maruza'
+                        )
+                        db.session.add(teacher_subject)
                 else:
-                    teacher_subject = TeacherSubject(
-                        teacher_id=maruza_teacher_id,
+                    # Agar o'qituvchi tanlanmagan bo'lsa, mavjud biriktirishni o'chirish
+                    if teacher_subject:
+                        db.session.delete(teacher_subject)
+                
+                # Amaliyot/Lobaratoriya/Kurs ishi o'qituvchisi (bitta o'qituvchi)
+                if (item.hours_amaliyot or 0) > 0 or (item.hours_laboratoriya or 0) > 0 or (item.hours_kurs_ishi or 0) > 0:
+                    # Bitta o'qituvchi tanlanadi (amaliyot, lobaratoriya va kurs ishi uchun)
+                    practical_teacher_id = request.form.get(f'teacher_practical_{item.id}_{group.id}', type=int)
+                    teacher_subject = TeacherSubject.query.filter_by(
                         subject_id=item.subject_id,
-                        group_id=groups[0].id,
-                        lesson_type='maruza'
-                    )
-                    db.session.add(teacher_subject)
-            else:
-                # Agar o'qituvchi tanlanmagan bo'lsa, mavjud biriktirishni o'chirish
-                if teacher_subject:
-                    db.session.delete(teacher_subject)
-            
-            # Amaliyot/Lobaratoriya/Kurs ishi o'qituvchisi (bitta o'qituvchi)
-            if (item.hours_amaliyot or 0) > 0 or (item.hours_laboratoriya or 0) > 0 or (item.hours_kurs_ishi or 0) > 0:
-                # Bitta o'qituvchi tanlanadi (amaliyot, lobaratoriya va kurs ishi uchun)
-                practical_teacher_id = request.form.get(f'teacher_practical_{item.id}', type=int)
-                teacher_subject = TeacherSubject.query.filter_by(
-                    subject_id=item.subject_id,
-                    group_id=groups[0].id,
-                    lesson_type='amaliyot'
-                ).first()
-                
-                if practical_teacher_id:
-                    if teacher_subject:
-                        teacher_subject.teacher_id = practical_teacher_id
+                        group_id=group.id,
+                        lesson_type='amaliyot'
+                    ).first()
+                    
+                    if practical_teacher_id:
+                        if teacher_subject:
+                            teacher_subject.teacher_id = practical_teacher_id
+                        else:
+                            teacher_subject = TeacherSubject(
+                                teacher_id=practical_teacher_id,
+                                subject_id=item.subject_id,
+                                group_id=group.id,
+                                lesson_type='amaliyot'
+                            )
+                            db.session.add(teacher_subject)
                     else:
-                        teacher_subject = TeacherSubject(
-                            teacher_id=practical_teacher_id,
-                            subject_id=item.subject_id,
-                            group_id=groups[0].id,
-                            lesson_type='amaliyot'
-                        )
-                        db.session.add(teacher_subject)
-                else:
-                    # Agar o'qituvchi tanlanmagan bo'lsa, mavjud biriktirishni o'chirish
-                    if teacher_subject:
-                        db.session.delete(teacher_subject)
-            
-            # Seminar o'qituvchisi (faqat seminar soatlari bo'lsa)
-            if (item.hours_seminar or 0) > 0:
-                seminar_teacher_id = request.form.get(f'teacher_seminar_{item.id}', type=int)
-                # Seminar uchun alohida TeacherSubject yaratish yoki topish
-                teacher_subject = TeacherSubject.query.filter_by(
-                    subject_id=item.subject_id,
-                    group_id=groups[0].id,
-                    lesson_type='seminar'
-                ).first()
+                        # Agar o'qituvchi tanlanmagan bo'lsa, mavjud biriktirishni o'chirish
+                        if teacher_subject:
+                            db.session.delete(teacher_subject)
                 
-                if seminar_teacher_id:
-                    if teacher_subject:
-                        teacher_subject.teacher_id = seminar_teacher_id
+                # Seminar o'qituvchisi (faqat seminar soatlari bo'lsa)
+                if (item.hours_seminar or 0) > 0:
+                    seminar_teacher_id = request.form.get(f'teacher_seminar_{item.id}_{group.id}', type=int)
+                    # Seminar uchun alohida TeacherSubject yaratish yoki topish
+                    teacher_subject = TeacherSubject.query.filter_by(
+                        subject_id=item.subject_id,
+                        group_id=group.id,
+                        lesson_type='seminar'
+                    ).first()
+                    
+                    if seminar_teacher_id:
+                        if teacher_subject:
+                            teacher_subject.teacher_id = seminar_teacher_id
+                        else:
+                            # Seminar uchun 'seminar' lesson_type bilan yaratish
+                            teacher_subject = TeacherSubject(
+                                teacher_id=seminar_teacher_id,
+                                subject_id=item.subject_id,
+                                group_id=group.id,
+                                lesson_type='seminar'
+                            )
+                            db.session.add(teacher_subject)
                     else:
-                        # Seminar uchun 'seminar' lesson_type bilan yaratish
-                        teacher_subject = TeacherSubject(
-                            teacher_id=seminar_teacher_id,
-                            subject_id=item.subject_id,
-                            group_id=groups[0].id,
-                            lesson_type='seminar'
-                        )
-                        db.session.add(teacher_subject)
-                else:
-                    # Agar o'qituvchi tanlanmagan bo'lsa, mavjud biriktirishni o'chirish
-                    if teacher_subject:
-                        db.session.delete(teacher_subject)
+                        # Agar o'qituvchi tanlanmagan bo'lsa, mavjud biriktirishni o'chirish
+                        if teacher_subject:
+                            db.session.delete(teacher_subject)
         
         db.session.commit()
         flash(f"{semester}-semestr o'qituvchilari muvaffaqiyatli saqlandi", 'success')
-        return redirect(url_for('admin.direction_subjects', id=id))
-    
-    # Yo'nalishga biriktirilgan guruhlar
-    groups = Group.query.filter_by(direction_id=direction.id).all()
+        return redirect(url_for('admin.direction_subjects', id=id, year=year, education_type=education_type))
     
     # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
     subjects_by_semester = {}
     
-    for item in direction.curriculum_items.join(Subject).order_by(DirectionCurriculum.semester, Subject.name).all():
+    for item in direction.curriculum_items.filter_by(
+        enrollment_year=year,
+        education_type=education_type
+    ).join(Subject).order_by(DirectionCurriculum.semester, Subject.name).all():
         semester = item.semester
         if semester not in subjects_by_semester:
             subjects_by_semester[semester] = []
         
-        # Har bir fan uchun dars turlarini va o'qituvchilarni olish
-        subject_data = {
-            'subject': item.subject,
-            'curriculum_item': item,  # Curriculum item ID uchun
-            'lessons': []
-        }
-        
-        # Maruza
-        if item.hours_maruza and item.hours_maruza > 0:
-            # O'qituvchini topish (birinchi guruhdan)
-            teacher = None
-            if groups:
-                teacher_subject = TeacherSubject.query.filter_by(
-                    subject_id=item.subject_id,
-                    group_id=groups[0].id,
-                    lesson_type='maruza'
-                ).first()
-                if teacher_subject:
-                    teacher = teacher_subject.teacher
-            
-            subject_data['lessons'].append({
+        # Dars turlari va soatlari
+        lessons = []
+        if (item.hours_maruza or 0) > 0:
+            lessons.append({
                 'type': 'Maruza',
-                'hours': item.hours_maruza,
-                'teacher': teacher
+                'hours': item.hours_maruza
             })
+            
+        # Amaliyot, Laboratoriya va Kurs ishi birlashtiriladi
+        practical_types = []
+        practical_hours = 0
         
-        # Amaliyot, Lobaratoriya va Kurs ishi bitta yacheykada
-        amaliyot_hours = item.hours_amaliyot or 0
-        lobaratoriya_hours = item.hours_laboratoriya or 0
-        kurs_ishi_hours = item.hours_kurs_ishi or 0
-        # Kurs ishi soatlari umumiy soatlar yig'indisiga qo'shilmaydi
-        total_practical_hours = amaliyot_hours + lobaratoriya_hours
-        
-        if total_practical_hours > 0 or kurs_ishi_hours > 0:
-            # O'qituvchini topish
-            teacher = None
-            if groups:
-                teacher_subject = TeacherSubject.query.filter_by(
-                    subject_id=item.subject_id,
-                    group_id=groups[0].id,
-                    lesson_type='amaliyot'
-                ).first()
-                if teacher_subject:
-                    teacher = teacher_subject.teacher
+        if (item.hours_amaliyot or 0) > 0:
+            practical_types.append('Amaliyot')
+            practical_hours += item.hours_amaliyot
             
-            # Dars turlarini tartib bilan yig'ish
-            lesson_types = []
-            if amaliyot_hours > 0:
-                lesson_types.append('Amaliyot')
-            if lobaratoriya_hours > 0:
-                lesson_types.append('Lobaratoriya')
-            if kurs_ishi_hours > 0:
-                lesson_types.append('Kurs ishi')
+        if (item.hours_laboratoriya or 0) > 0:
+            practical_types.append('Laboratoriya')
+            practical_hours += item.hours_laboratoriya
             
-            lesson_type_name = ', '.join(lesson_types)
-            # Kurs ishi soatlari ko'rsatiladi, lekin umumiy soatlar yig'indisiga qo'shilmaydi
-            # Ko'rsatiladigan soatlar: amaliyot + lobaratoriya (kurs ishi qo'shilmaydi)
-            display_hours = total_practical_hours
+        if (item.hours_kurs_ishi or 0) > 0:
+            practical_types.append('Kurs ishi')
+            # Kurs ishi soati qo'shilmaydi
             
-            subject_data['lessons'].append({
-                'type': lesson_type_name,
-                'hours': display_hours,
-                'teacher': teacher,
-                'curriculum_item_id': item.id
+        if practical_types:
+            lessons.append({
+                'type': ', '.join(practical_types),
+                'hours': practical_hours
             })
-        
-        # Seminar
-        if item.hours_seminar and item.hours_seminar > 0:
-            teacher = None
-            if groups:
-                # Seminar uchun alohida qidirish
-                teacher_subject = TeacherSubject.query.filter_by(
-                    subject_id=item.subject_id,
-                    group_id=groups[0].id,
-                    lesson_type='seminar'
-                ).first()
-                # Agar topilmasa, amaliyot turidagini qidirish (eski ma'lumotlar uchun)
-                if not teacher_subject:
-                    teacher_subject = TeacherSubject.query.filter_by(
-                        subject_id=item.subject_id,
-                        group_id=groups[0].id,
-                        lesson_type='amaliyot'
-                    ).first()
-                    # Agar amaliyot topilsa va fanda faqat seminar bo'lsa, uni seminar deb hisoblash
-                    if teacher_subject and (item.hours_amaliyot or 0) == 0 and (item.hours_laboratoriya or 0) == 0:
-                        pass  # Bu seminar o'qituvchisi
-                    elif teacher_subject:
-                        teacher_subject = None  # Bu amaliyot o'qituvchisi, seminar emas
-                if teacher_subject:
-                    teacher = teacher_subject.teacher
-            
-            subject_data['lessons'].append({
+
+        if (item.hours_seminar or 0) > 0:
+            lessons.append({
                 'type': 'Seminar',
-                'hours': item.hours_seminar,
-                'teacher': teacher
+                'hours': item.hours_seminar
             })
-        
-        subjects_by_semester[semester].append(subject_data)
+            
+        subjects_by_semester[semester].append({
+            'subject': item.subject,
+            'curriculum_item': item,
+            'lessons': lessons
+        })
     
-    # Tizimdagi barcha o'qituvchilar
-    # UserRole orqali o'qituvchi roliga ega bo'lgan foydalanuvchilarni topish
-    teacher_user_ids = db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()
-    teacher_user_ids = [uid[0] for uid in teacher_user_ids]
+    # O'qituvchilar ro'yxati (faqat o'qituvchi roliga ega bo'lganlar)
+    from app.models import UserRole
+    from sqlalchemy import or_
+    teacher_user_ids = [uid[0] for uid in db.session.query(UserRole.user_id).filter_by(role='teacher').distinct().all()]
     
-    # Agar UserRole orqali topilmasa, eski usul bilan qidirish
-    if not teacher_user_ids:
-        teachers_by_role = User.query.filter_by(role='teacher').all()
-        teacher_user_ids = [t.id for t in teachers_by_role]
-    
-    # Agar hali ham topilmasa, get_roles() orqali qidirish
-    if not teacher_user_ids:
-        all_users = User.query.all()
-        teacher_user_ids = [u.id for u in all_users if 'teacher' in u.get_roles()]
-    
-    # Barcha o'qituvchilar (fakultet cheklovi yo'q)
-    if teacher_user_ids:
-        teachers = User.query.filter(
-            User.id.in_(teacher_user_ids)
-        ).order_by(User.full_name).all()
-    else:
-        teachers = []
+    teachers = User.query.filter(
+        or_(
+            User.role == 'teacher',
+            User.id.in_(teacher_user_ids) if teacher_user_ids else False
+        )
+    ).order_by(User.full_name).all()
     
     return render_template('admin/direction_subjects.html',
                          direction=direction,
                          subjects_by_semester=subjects_by_semester,
-                         groups=groups,
-                         teachers=teachers)
-
-
+                         groups_by_semester=groups_by_semester,
+                         teachers=teachers,
+                         enrollment_year=year,
+                         education_type=education_type)
 @bp.route('/directions/<int:id>/curriculum/semester/<int:semester>/update', methods=['POST'])
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/update/<int:semester>', methods=['POST'])
 @login_required
 @admin_required
-def update_semester_curriculum(id, semester):
+def update_semester_curriculum(id, semester, year=None, education_type=None):
     """Semestr bo'yicha barcha fanlarni yangilash"""
     direction = Direction.query.get_or_404(id)
     
-    # Bu semestr uchun barcha fanlarni olish
+    # Bu semestr uchun barcha fanlarni olish (context-aware)
     items = DirectionCurriculum.query.filter_by(
         direction_id=direction.id,
-        semester=semester
+        semester=semester,
+        enrollment_year=year,
+        education_type=education_type
     ).all()
     
     updated = 0
@@ -1692,48 +1745,24 @@ def update_semester_curriculum(id, semester):
         kurs_ishi_values = request.form.getlist('hours_kurs_ishi')
         item.hours_kurs_ishi = 1 if item_id in kurs_ishi_values else 0
         
-        # Guruhlar uchun o'qituvchi tayinlash
-        groups = Group.query.filter_by(direction_id=direction.id).all()
-        for group in groups:
-            teacher_id = request.form.get(f'teacher_{group.id}[{item_id}]', type=int)
-            if teacher_id:
-                # Avvalgi tayinlovni tekshirish va o'chirish
-                existing_assignment = TeacherSubject.query.filter_by(
-                    subject_id=item.subject_id,
-                    group_id=group.id,
-                    semester=semester
-                ).first()
-                
-                if existing_assignment:
-                    # Agar o'qituvchi o'zgargan bo'lsa, yangilash
-                    if existing_assignment.teacher_id != teacher_id:
-                        existing_assignment.teacher_id = teacher_id
-                        existing_assignment.assigned_by = current_user.id
-                        existing_assignment.assigned_at = datetime.utcnow()
-                else:
-                    # Yangi tayinlov yaratish
-                    new_assignment = TeacherSubject(
-                        teacher_id=teacher_id,
-                        subject_id=item.subject_id,
-                        group_id=group.id,
-                        lesson_type='maruza',  # Default, keyinroq lesson_type qo'shish mumkin
-                        academic_year=f"{datetime.utcnow().year}-{datetime.utcnow().year + 1}",
-                        semester=semester,
-                        assigned_by=current_user.id
-                    )
-                    db.session.add(new_assignment)
-        
         updated += 1
     
     db.session.commit()
     flash(f"{updated} ta fan yangilandi", 'success')
+    if year and education_type:
+        return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('admin.direction_curriculum', id=id))
 
 
+
+
+
+
 @bp.route('/directions/<int:id>/curriculum/<int:item_id>/replace', methods=['POST'])
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/<int:item_id>/replace', methods=['POST'])
 @login_required
 @admin_required
-def replace_curriculum_subject(id, item_id):
+def replace_curriculum_subject(id, item_id, year=None, education_type=None):
     """O'quv rejadagi fanni boshqa fan bilan almashtirish"""
     direction = Direction.query.get_or_404(id)
     item = DirectionCurriculum.query.get_or_404(item_id)
@@ -1745,29 +1774,38 @@ def replace_curriculum_subject(id, item_id):
     new_subject_id = request.form.get('subject_id', type=int)
     if not new_subject_id:
         flash("Fan tanlash majburiy", 'error')
+        if year and education_type:
+            return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
         return redirect(url_for('admin.direction_curriculum', id=id))
     
-    # Takrorlanmasligini tekshirish
+    # Takrorlanmasligini tekshirish (context-aware)
     existing = DirectionCurriculum.query.filter_by(
         direction_id=direction.id,
         subject_id=new_subject_id,
-        semester=item.semester
+        semester=item.semester,
+        enrollment_year=year,
+        education_type=education_type
     ).filter(DirectionCurriculum.id != item_id).first()
     
     if existing:
         flash("Bu semestrda bu fan allaqachon mavjud", 'error')
+        if year and education_type:
+            return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
         return redirect(url_for('admin.direction_curriculum', id=id))
     
     item.subject_id = new_subject_id
     db.session.commit()
     flash("Fan almashtirildi", 'success')
+    if year and education_type:
+        return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('admin.direction_curriculum', id=id))
 
 
 @bp.route('/directions/<int:id>/curriculum/<int:item_id>/delete', methods=['POST'])
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/<int:item_id>/delete', methods=['POST'])
 @login_required
 @admin_required
-def delete_curriculum_item(id, item_id):
+def delete_curriculum_item(id, item_id, year=None, education_type=None):
     """O'quv rejadagi fanni o'chirish"""
     direction = Direction.query.get_or_404(id)
     item = DirectionCurriculum.query.get_or_404(item_id)
@@ -1779,13 +1817,16 @@ def delete_curriculum_item(id, item_id):
     db.session.delete(item)
     db.session.commit()
     flash("Fan o'quv rejasidan o'chirildi", 'success')
+    if year and education_type:
+        return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('admin.direction_curriculum', id=id))
 
 
 @bp.route('/directions/<int:id>/curriculum/add', methods=['POST'])
+@bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/add', methods=['POST'])
 @login_required
 @admin_required
-def add_subject_to_curriculum(id):
+def add_subject_to_curriculum(id, year=None, education_type=None):
     """O'quv rejaga fan qo'shish"""
     direction = Direction.query.get_or_404(id)
     
@@ -1794,6 +1835,8 @@ def add_subject_to_curriculum(id):
     
     if not subject_ids or not semester:
         flash("Fan va semestr tanlash majburiy", 'error')
+        if year and education_type:
+            return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
         return redirect(url_for('admin.direction_curriculum', id=id))
     
     added = 0
@@ -1803,25 +1846,34 @@ def add_subject_to_curriculum(id):
         if not subject:
             continue
         
-        # Takrorlanmasligini tekshirish
+        # Takrorlanmasligini tekshirish (context-aware)
         existing = DirectionCurriculum.query.filter_by(
             direction_id=direction.id,
             subject_id=subject_id,
-            semester=semester
+            semester=semester,
+            enrollment_year=year,
+            education_type=education_type
         ).first()
         
         if not existing:
             curriculum_item = DirectionCurriculum(
                 direction_id=direction.id,
                 subject_id=subject_id,
-                semester=semester
+                semester=semester,
+                enrollment_year=year,
+                education_type=education_type
             )
             db.session.add(curriculum_item)
             added += 1
     
     db.session.commit()
     flash(f"{added} ta fan o'quv rejaga qo'shildi", 'success')
+    if year and education_type:
+        return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('admin.direction_curriculum', id=id))
+
+
+
 
 
 @bp.route('/faculties/<int:id>/change_dean', methods=['GET', 'POST'])

@@ -41,7 +41,8 @@
             <div class="pr-24">
                 {% if direction_semester %}
                 <div class="mb-2">
-                    {% set course_year = ((direction_semester - 1) // 2) + 1 %}
+                    {% set course_year = direction_course if direction_course else (((direction_semester - 1) // 2) + 1)
+                    %}
                     <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ course_year
                         }}-kurs, {{ direction_semester }}-semestr</span>
                 </div>
@@ -90,7 +91,8 @@
             <div class="pr-24">
                 {% if direction_semester %}
                 <div class="mb-2">
-                    {% set course_year = ((direction_semester - 1) // 2) + 1 %}
+                    {% set course_year = direction_course if direction_course else (((direction_semester - 1) // 2) + 1)
+                    %}
                     <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ course_year
                         }}-kurs, {{ direction_semester }}-semestr</span>
                 </div>

@@ -158,12 +158,16 @@
                 Orqaga
             </a>
             <h1 class="text-2xl font-bold text-gray-900">
+                {% if enrollment_year and education_type %}
+                {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|capitalize }})
+                {% else %}
                 {{ direction.formatted_direction }}
+                {% endif %}
             </h1>
             <p class="text-gray-600 mt-1">Fan o'qituvchilari</p>
         </div>
         <div class="flex gap-3">
-            <a href="{{ url_for('admin.direction_curriculum', id=direction.id) }}"
+            <a href="{% if enrollment_year and education_type %}{{ url_for('admin.direction_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('admin.direction_curriculum', id=direction.id) }}{% endif %}"
                 class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -187,6 +191,7 @@
                 {% endif %}
             </h3>
 
+
             {% if subjects_by_semester.get(semester) %}
             <!-- Jadval -->
             <form method="POST" action="{{ url_for('admin.direction_subjects', id=direction.id) }}"
@@ -203,8 +208,12 @@
                                     turi</th>
                                 <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">Soat
                                 </th>
+                                {% set semester_groups = groups_by_semester.get(semester, []) %}
+                                {% for group in semester_groups %}
                                 <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">
-                                    O'qituvchi</th>
+                                    {{ group.name }}
+                                </th>
+                                {% endfor %}
                             </tr>
                         </thead>
                         <tbody>
@@ -216,7 +225,7 @@
                             {% for lesson in lessons %}
                             <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
                                 data-subject-id="{{ subject.id }}"
-                                data-href="{{ url_for('courses.detail', id=subject.id) }}?direction_id={{ direction.id }}">
+                                data-href="{{ url_for('courses.detail', id=subject.id) }}?direction_id={{ direction.id }}/{{ semester }}">
                                 {% if loop.first %}
                                 <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell"
                                     rowspan="{{ lessons|length }}">
@@ -228,40 +237,42 @@
                                 <td
                                     class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-gray-900 bg-gray-100 clickable-cell">
                                     {{ lesson.hours }}</td>
+                                {% for group in semester_groups %}
                                 <td class="px-3 py-2 border-r border-gray-200" onclick="event.stopPropagation();">
+                                    {% set assigned_teacher = subject.get_teacher_for_type(group.id, lesson.type) %}
                                     {% if 'Amaliyot' in lesson.type or 'Laboratoriya' in lesson.type or 'Lobaratoriya'
                                     in lesson.type or 'Kurs ishi' in lesson.type %}
                                     {# Amaliyot, Lobaratoriya va Kurs ishi uchun bitta o'qituvchi #}
-                                    <select name="teacher_practical_{{ curriculum_item.id }}"
+                                    <select name="teacher_practical_{{ curriculum_item.id }}_{{ group.id }}"
                                         class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                         <option value="">O'qituvchi qidirish...</option>
                                         {% for teacher in teachers %}
-                                        <option value="{{ teacher.id }}" {% if lesson.teacher and
-                                            lesson.teacher.id==teacher.id %}selected{% endif %}>
+                                        <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                            assigned_teacher.id==teacher.id %}selected{% endif %}>
                                             {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
                                             teacher.email else '-' }}
                                         </option>
                                         {% endfor %}
                                     </select>
                                     {% elif lesson.type == 'Maruza' %}
-                                    <select name="teacher_maruza_{{ curriculum_item.id }}"
+                                    <select name="teacher_maruza_{{ curriculum_item.id }}_{{ group.id }}"
                                         class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                         <option value="">O'qituvchi qidirish...</option>
                                         {% for teacher in teachers %}
-                                        <option value="{{ teacher.id }}" {% if lesson.teacher and
-                                            lesson.teacher.id==teacher.id %}selected{% endif %}>
+                                        <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                            assigned_teacher.id==teacher.id %}selected{% endif %}>
                                             {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
                                             teacher.email else '-' }}
                                         </option>
                                         {% endfor %}
                                     </select>
                                     {% elif lesson.type == 'Seminar' %}
-                                    <select name="teacher_seminar_{{ curriculum_item.id }}"
+                                    <select name="teacher_seminar_{{ curriculum_item.id }}_{{ group.id }}"
                                         class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                                         <option value="">O'qituvchi qidirish...</option>
                                         {% for teacher in teachers %}
-                                        <option value="{{ teacher.id }}" {% if lesson.teacher and
-                                            lesson.teacher.id==teacher.id %}selected{% endif %}>
+                                        <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                            assigned_teacher.id==teacher.id %}selected{% endif %}>
                                             {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
                                             teacher.email else '-' }}
                                         </option>
@@ -269,6 +280,7 @@
                                     </select>
                                     {% endif %}
                                 </td>
+                                {% endfor %}
                             </tr>
                             {% endfor %}
                             {% else %}

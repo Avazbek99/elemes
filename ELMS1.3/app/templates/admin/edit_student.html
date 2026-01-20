@@ -250,7 +250,7 @@
                         <option value="">Yo'nalishni tanlang</option>
                         {% for dir in all_directions %}
                         <option value="{{ dir.id }}" {% if student.group and student.group.direction_id==dir.id
-                            %}selected{% endif %}>{{ dir.formatted_direction }}</option>
+                            %}selected{% endif %}>{{ dir.code }} - {{ dir.name }}</option>
                         {% endfor %}
                     </select>
                     <input type="hidden" id="current_direction_id"

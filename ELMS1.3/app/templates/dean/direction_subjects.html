@@ -148,161 +148,171 @@
 
 <div class="space-y-6">
     <!-- Header -->
-    <div class="flex justify-between items-start">
-        <div>
-            <a href="{{ url_for('dean.courses') }}"
-                class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Orqaga
-            </a>
-            <h1 class="text-2xl font-bold text-gray-900">
-                {{ direction.formatted_direction }}
-            </h1>
-            <p class="text-gray-600 mt-1">Fan o'qituvchilari</p>
-        </div>
-        <div class="flex gap-3">
-            <a href="{{ url_for('dean.direction_curriculum', id=direction.id) }}"
-                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                O'quv reja
-            </a>
-        </div>
-    </div>
-
-    <!-- Semestrlar -->
-    <div class="space-y-6">
-        {% for semester in range(1, 15) %}
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                {{ semester }}-semestr
-                {% if subjects_by_semester.get(semester) %}
-                <span class="text-base font-normal text-primary-600 ml-2">
-                    ({{ subjects_by_semester.get(semester)|length }} fan)
-                </span>
-                {% endif %}
-            </h3>
-
-            {% if subjects_by_semester.get(semester) %}
-            <!-- Jadval -->
-            <form method="POST" action="{{ url_for('dean.direction_subjects', id=direction.id) }}"
-                id="semester-form-{{ semester }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <input type="hidden" name="semester" value="{{ semester }}" />
-                <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-                    <table class="w-full border-collapse bg-white">
-                        <thead>
-                            <tr class="bg-primary-600 text-white">
-                                <th class="px-4 py-3.5 text-left text-sm font-bold border-r border-primary-500">FANLAR
-                                </th>
-                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">Dars
-                                    turi</th>
-                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">Soat
-                                </th>
-                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">
-                                    O'qituvchi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for subject_data in subjects_by_semester[semester] %}
-                            {% set subject = subject_data.subject %}
-                            {% set curriculum_item = subject_data.curriculum_item %}
-                            {% set lessons = subject_data.lessons %}
-                            {% if lessons %}
-                            {% for lesson in lessons %}
-                            <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
-                                data-subject-id="{{ subject.id }}"
-                                data-href="{{ url_for('courses.detail', id=subject.id) }}?direction_id={{ direction.id }}">
-                                {% if loop.first %}
-                                <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell"
-                                    rowspan="{{ lessons|length }}">
-                                    <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
-                                </td>
-                                {% endif %}
-                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-700 clickable-cell">
-                                    {{ lesson.type }}</td>
-                                <td
-                                    class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-gray-900 bg-gray-100 clickable-cell">
-                                    {{ lesson.hours }}</td>
-                                <td class="px-3 py-2 border-r border-gray-200" onclick="event.stopPropagation();">
-                                    {% if 'Amaliyot' in lesson.type or 'Laboratoriya' in lesson.type or 'Lobaratoriya'
-                                    in lesson.type or 'Kurs ishi' in lesson.type %}
-                                    {# Amaliyot, Lobaratoriya va Kurs ishi uchun bitta o'qituvchi #}
-                                    <select name="teacher_practical_{{ curriculum_item.id }}"
-                                        class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="">O'qituvchi qidirish...</option>
-                                        {% for teacher in teachers %}
-                                        <option value="{{ teacher.id }}" {% if lesson.teacher and
-                                            lesson.teacher.id==teacher.id %}selected{% endif %}>
-                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
-                                            teacher.email else '-' }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                    {% elif lesson.type == 'Maruza' %}
-                                    <select name="teacher_maruza_{{ curriculum_item.id }}"
-                                        class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="">O'qituvchi qidirish...</option>
-                                        {% for teacher in teachers %}
-                                        <option value="{{ teacher.id }}" {% if lesson.teacher and
-                                            lesson.teacher.id==teacher.id %}selected{% endif %}>
-                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
-                                            teacher.email else '-' }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                    {% elif lesson.type == 'Seminar' %}
-                                    <select name="teacher_seminar_{{ curriculum_item.id }}"
-                                        class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="">O'qituvchi qidirish...</option>
-                                        {% for teacher in teachers %}
-                                        <option value="{{ teacher.id }}" {% if lesson.teacher and
-                                            lesson.teacher.id==teacher.id %}selected{% endif %}>
-                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
-                                            teacher.email else '-' }}
-                                        </option>
-                                        {% endfor %}
-                                    </select>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            {% else %}
-                            <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
-                                data-href="{{ url_for('courses.detail', id=subject.id) }}?direction_id={{ direction.id }}">
-                                <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell">
-                                    <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
-                                </td>
-                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">
-                                    -</td>
-                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">
-                                    -</td>
-                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400">-</td>
-                            </tr>
-                            {% endif %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="mt-4 flex justify-end">
-                    <button type="submit"
-                        class="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
-                        Saqlash
-                    </button>
-                </div>
-            </form>
+    <div>
+        <a href="{{ url_for('dean.courses') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Orqaga
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">
+            {% if enrollment_year and education_type %}
+            {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|capitalize }})
             {% else %}
-            <div class="text-center py-8 text-gray-500 text-sm">
-                <p>Bu semestrda fanlar mavjud emas</p>
-            </div>
+            {{ direction.formatted_direction }}
             {% endif %}
-        </div>
-        {% endfor %}
+        </h1>
+        <p class="text-gray-600 mt-1">Fan o'qituvchilari</p>
     </div>
+    <div class="flex gap-3">
+        <a href="{% if enrollment_year and education_type %}{{ url_for('dean.direction_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.direction_curriculum', id=direction.id) }}{% endif %}"
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            O'quv reja
+        </a>
+    </div>
+</div>
+
+<!-- Semestrlar -->
+<div class="space-y-6">
+    {% for semester in range(1, 15) %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            {{ semester }}-semestr
+            {% if subjects_by_semester.get(semester) %}
+            <span class="text-base font-normal text-primary-600 ml-2">
+                ({{ subjects_by_semester.get(semester)|length }} fan)
+            </span>
+            {% endif %}
+        </h3>
+
+        {% if subjects_by_semester.get(semester) %}
+        <!-- Jadval -->
+        <form method="POST"
+            action="{% if enrollment_year and education_type %}{{ url_for('dean.direction_subjects', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.direction_subjects', id=direction.id) }}{% endif %}"
+            id="semester-form-{{ semester }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="semester" value="{{ semester }}" />
+            <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                <table class="w-full border-collapse bg-white">
+                    <thead>
+                        <tr class="bg-primary-600 text-white">
+                            <th class="px-4 py-3.5 text-left text-sm font-bold border-r border-primary-500">FANLAR
+                            </th>
+                            <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">Dars
+                                turi</th>
+                            <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">Soat
+                            </th>
+                            {% set semester_groups = groups_by_semester.get(semester, []) %}
+                            {% for group in semester_groups %}
+                            <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">
+                                {{ group.name }}
+                            </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject_data in subjects_by_semester[semester] %}
+                        {% set subject = subject_data.subject %}
+                        {% set curriculum_item = subject_data.curriculum_item %}
+                        {% set lessons = subject_data.lessons %}
+                        {% if lessons %}
+                        {% for lesson in lessons %}
+                        <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
+                            data-subject-id="{{ subject.id }}"
+                            data-href="{{ url_for('courses.detail', id=subject.id) }}?direction_id={{ direction.id }}/{{ semester }}">
+                            {% if loop.first %}
+                            <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell"
+                                rowspan="{{ lessons|length }}">
+                                <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
+                            </td>
+                            {% endif %}
+                            <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-700 clickable-cell">
+                                {{ lesson.type }}</td>
+                            <td
+                                class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-gray-900 bg-gray-100 clickable-cell">
+                                {{ lesson.hours }}</td>
+                            {% for group in semester_groups %}
+                            <td class="px-3 py-2 border-r border-gray-200" onclick="event.stopPropagation();">
+                                {% set assigned_teacher = subject.get_teacher_for_type(group.id, lesson.type) %}
+                                {% if 'Amaliyot' in lesson.type or 'Laboratoriya' in lesson.type or 'Lobaratoriya'
+                                in lesson.type or 'Kurs ishi' in lesson.type %}
+                                {# Amaliyot, Lobaratoriya va Kurs ishi uchun bitta o'qituvchi #}
+                                <select name="teacher_practical_{{ curriculum_item.id }}_{{ group.id }}"
+                                    class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <option value="">O'qituvchi qidirish...</option>
+                                    {% for teacher in teachers %}
+                                    <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                        assigned_teacher.id==teacher.id %}selected{% endif %}>
+                                        {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
+                                        teacher.email else '-' }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% elif lesson.type == 'Maruza' %}
+                                <select name="teacher_maruza_{{ curriculum_item.id }}_{{ group.id }}"
+                                    class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <option value="">O'qituvchi qidirish...</option>
+                                    {% for teacher in teachers %}
+                                    <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                        assigned_teacher.id==teacher.id %}selected{% endif %}>
+                                        {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
+                                        teacher.email else '-' }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% elif lesson.type == 'Seminar' %}
+                                <select name="teacher_seminar_{{ curriculum_item.id }}_{{ group.id }}"
+                                    class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <option value="">O'qituvchi qidirish...</option>
+                                    {% for teacher in teachers %}
+                                    <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                        assigned_teacher.id==teacher.id %}selected{% endif %}>
+                                        {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
+                                        teacher.email else '-' }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
+                            data-href="{{ url_for('courses.detail', id=subject.id) }}?direction_id={{ direction.id }}">
+                            <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell">
+                                <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
+                            </td>
+                            <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">
+                                -</td>
+                            <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">
+                                -</td>
+                            <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400">-</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex justify-end">
+                <button type="submit"
+                    class="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
+                    Saqlash
+                </button>
+            </div>
+        </form>
+        {% else %}
+        <div class="text-center py-8 text-gray-500 text-sm">
+            <p>Bu semestrda fanlar mavjud emas</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
 </div>
 
 <!-- Select2 JS -->

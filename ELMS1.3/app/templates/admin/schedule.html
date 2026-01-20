@@ -127,7 +127,7 @@
                     <option value="">Barcha yo'nalishlar</option>
                     {% for d in all_directions %}
                     <option value="{{ d.id }}" {% if current_direction_id==d.id %}selected{% endif %}>
-                        {{ d.formatted_direction }}
+                        {{ d.code }} - {{ d.name }}
                     </option>
                     {% endfor %}
                 </select>

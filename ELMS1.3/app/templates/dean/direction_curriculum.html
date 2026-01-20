@@ -20,7 +20,7 @@
             <p class="text-gray-600 mt-1">O'quv reja</p>
         </div>
         <div class="flex gap-3">
-            <a href="{{ url_for('dean.export_curriculum', id=direction.id) }}"
+            <a href="{% if enrollment_year and education_type %}{{ url_for('dean.export_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.export_curriculum', id=direction.id) }}{% endif %}"
                 class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -28,7 +28,7 @@
                 </svg>
                 Export
             </a>
-            <a href="{{ url_for('dean.import_curriculum', id=direction.id) }}"
+            <a href="{% if enrollment_year and education_type %}{{ url_for('dean.import_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.import_curriculum', id=direction.id) }}{% endif %}"
                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -99,7 +99,8 @@
                     </div>
                 </div>
 
-                <form method="POST" action="{{ url_for('dean.add_subject_to_curriculum', id=direction.id) }}"
+                <form method="POST"
+                    action="{% if enrollment_year and education_type %}{{ url_for('dean.add_subject_to_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.add_subject_to_curriculum', id=direction.id) }}{% endif %}"
                     id="add-subject-form" class="flex gap-4">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                     <div class="flex-1">
@@ -289,7 +290,7 @@
                     </table>
                 </div>
                 <form id="semester-form-{{ semester }}" method="POST"
-                    action="{{ url_for('dean.update_semester_curriculum', id=direction.id, semester=semester) }}"
+                    action="{% if enrollment_year and education_type %}{{ url_for('dean.update_semester_curriculum', id=direction.id, semester=semester, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.update_semester_curriculum', id=direction.id, semester=semester) }}{% endif %}"
                     class="mt-4 flex items-center justify-end bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                     <button type="submit"
@@ -375,7 +376,7 @@
     function openReplaceModal(itemId, currentSubjectId, currentSubjectName) {
         currentItemId = itemId;
         document.getElementById('replace-modal').classList.remove('hidden');
-        document.getElementById('replace-form').action = `/dean/directions/{{ direction.id }}/curriculum/${itemId}/replace`;
+        document.getElementById('replace-form').action = `{% if enrollment_year and education_type %}/dean/directions/{{ direction.id }}/{{ enrollment_year }}/{{ education_type }}/curriculum/${itemId}/replace{% else %}/dean/directions/{{ direction.id }}/curriculum/${itemId}/replace{% endif %}`;
     }
 
     function closeReplaceModal() {
@@ -395,7 +396,7 @@
         if (confirm('Bu fanni o\'chirmoqchimisiz?')) {
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = `/dean/directions/${directionId}/curriculum/${itemId}/delete`;
+            form.action = `{% if enrollment_year and education_type %}/dean/directions/${directionId}/{{ enrollment_year }}/{{ education_type }}/curriculum/${itemId}/delete{% else %}/dean/directions/${directionId}/curriculum/${itemId}/delete{% endif %}`;
 
             const csrfInput = document.createElement('input');
             csrfInput.type = 'hidden';

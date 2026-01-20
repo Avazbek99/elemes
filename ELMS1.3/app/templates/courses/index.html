@@ -95,9 +95,7 @@
 
                             {% if subject_data.direction %}
                             <p class="text-lg font-medium text-white/95 mb-3">
-                                {% if subject_data.direction.code %}{{ subject_data.direction.code }}{% endif %}
-                                {% if subject_data.direction.code and subject_data.direction.name %} - {% endif %}
-                                {{ subject_data.direction.name }}
+                                {{ subject_data.direction.formatted_direction }}
                             </p>
                             {% endif %}
 

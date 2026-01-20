@@ -112,7 +112,7 @@
                                     <!-- Amallar -->
                                     <div class="flex items-center gap-2" onclick="event.stopPropagation();">
                                         {% if direction_data.direction %}
-                                        <a href="{{ url_for('dean.direction_subjects', id=direction_data.direction.id) }}"
+                                        <a href="{{ url_for('dean.direction_subjects', id=direction_data.direction.id, year=item.year, education_type=item.edu_type) }}"
                                             class="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors px-3 py-2 rounded-lg hover:bg-blue-50 font-medium bg-white border border-blue-100">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -120,7 +120,7 @@
                                             </svg>
                                             Fanlar
                                         </a>
-                                        <a href="{{ url_for('dean.direction_curriculum', id=direction_data.direction.id) }}"
+                                        <a href="{{ url_for('dean.direction_curriculum', id=direction_data.direction.id, year=item.year, education_type=item.edu_type) }}"
                                             class="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors px-3 py-2 rounded-lg hover:bg-primary-50 font-medium bg-white border border-primary-100">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -388,7 +388,7 @@
             const eduType = item.getAttribute('data-education-type') || '';
             const year = item.getAttribute('data-enrollment-year') || '';
 
-            if (name.includes(filter) || code.includes(filter) || eduType.includes(filter)) {
+            if (name.includes(filter) || code.includes(filter) || eduType.includes(filter) || year.includes(filter)) {
                 item.style.display = '';
             } else {
                 item.style.display = 'none';
@@ -518,9 +518,10 @@
                 {% for direction in directions_list %}
                 <div class="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all direction-item"
                     data-name="{{ direction.name|lower }}" data-code="{{ direction.code|lower }}"
-                    data-education-type="">
+                    data-education-type="{{ direction.education_type|lower }}"
+                    data-enrollment-year="{{ direction.enrollment_year|lower }}">
                     <div class="flex items-center justify-between">
-                        <a href="{{ url_for('dean.direction_detail', id=direction.id) }}" class="flex-1">
+                        <a href="{{ url_for('dean.direction_subjects', id=direction.id) }}" class="flex-1">
                             <h3 class="font-semibold text-gray-900 mb-1">
                                 {{ direction.formatted_direction }}
                             </h3>

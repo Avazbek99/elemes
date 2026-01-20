@@ -520,7 +520,7 @@
             $('#direction_id').empty().append(new Option("Yo'nalishni tanlang", "", true, true));
             dirs.forEach(d => {
                 const isSelected = d.id == currentDirectionId;
-                $('#direction_id').append(new Option(`${d.formatted_direction}`, d.id, isSelected, isSelected));
+                $('#direction_id').append(new Option(`${d.code} - ${d.name}`, d.id, isSelected, isSelected));
             });
             $('#direction_id').trigger('change');
         }

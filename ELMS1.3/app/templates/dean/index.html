@@ -121,11 +121,11 @@
     <!-- Quick Actions -->
     <div>
         <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        Tezkor amallar
-    </h3>
+            <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Tezkor amallar
+        </h3>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <a href="{{ url_for('dean.directions') }}"
                 class="flex flex-col items-center justify-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group text-center">
@@ -197,7 +197,7 @@
                 {% if directions %}
                 <div class="space-y-4">
                     {% for direction in directions[:5] %}
-                    <a href="{{ url_for('dean.direction_detail', id=direction.id) }}"
+                    <a href="{{ url_for('dean.direction_subjects', id=direction.id, year=direction.groups.first().enrollment_year if direction.groups.first() else None, education_type=direction.groups.first().education_type if direction.groups.first() else None) }}"
                         class="block p-4 bg-gray-50 rounded-2xl hover:bg-white hover:ring-1 hover:ring-primary-500 hover:shadow-md transition-all group">
                         <div class="flex items-center justify-between">
                             <div class="flex-1">
