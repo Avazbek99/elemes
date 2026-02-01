@@ -13,8 +13,9 @@ __pycache__/
 venv/
 
 # Local data / logs / uploads (repo root = ELMS1.3)
-instance/
 uploads/
 server.log
 .env
 *.db
+# instance papkasidagi baza GitHubga yuklansin
+!instance/eduspace.db
