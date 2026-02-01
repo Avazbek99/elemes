@@ -16,6 +16,7 @@ from app.utils.excel_import import (
     import_schedule_from_excel, generate_schedule_sample_file
 )
 from werkzeug.security import generate_password_hash
+from app.utils.translations import t
 
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -24,7 +25,7 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
         
         # Session'dan joriy rol ni olish
@@ -37,7 +38,7 @@ def admin_required(f):
             # Agar joriy rol admin emas, lekin foydalanuvchida admin roli bor bo'lsa, ruxsat berish
             return f(*args, **kwargs)
         else:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
     return decorated_function
 
@@ -142,28 +143,28 @@ def create_user():
         if role != 'student':
             # Xodimlar uchun login majburiy
             if not login:
-                flash("Login majburiy maydon (xodimlar uchun)", 'error')
+                flash(t('login_required_for_staff'), 'error')
                 return render_template('admin/create_user.html', faculties=faculties, groups=groups)
             if User.query.filter_by(login=login).first():
-                flash("Bu login allaqachon mavjud", 'error')
+                flash(t('login_already_exists'), 'error')
                 return render_template('admin/create_user.html', faculties=faculties, groups=groups)
         else:
             # Talabalar uchun talaba ID majburiy
             if not student_id:
-                flash("Talaba ID majburiy maydon (talabalar uchun)", 'error')
+                flash(t('student_id_required'), 'error')
                 return render_template('admin/create_user.html', faculties=faculties, groups=groups)
             if User.query.filter_by(student_id=student_id).first():
-                flash("Bu talaba ID allaqachon mavjud", 'error')
+                flash(t('student_id_already_exists'), 'error')
                 return render_template('admin/create_user.html', faculties=faculties, groups=groups)
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email and User.query.filter_by(email=email).first():
-            flash("Bu email allaqachon mavjud", 'error')
+            flash(t('email_already_exists'), 'error')
             return render_template('admin/create_user.html', faculties=faculties, groups=groups)
         
         # Pasport raqami majburiy
         if not passport_number:
-            flash("Pasport seriyasi va raqami majburiy", 'error')
+            flash(t('passport_required'), 'error')
             return render_template('admin/create_user.html', faculties=faculties, groups=groups)
         
         # Pasport raqamini katta harfga o'zgartirish
@@ -185,7 +186,7 @@ def create_user():
             try:
                 user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
-                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                flash(t('birthdate_invalid_format'), 'error')
                 return render_template('admin/create_user.html', faculties=faculties, groups=groups)
         
         # Rolga qarab qo'shimcha ma'lumotlar
@@ -211,7 +212,7 @@ def create_user():
         db.session.add(user)
         db.session.commit()
         
-        flash(f"{user.get_role_display()} muvaffaqiyatli yaratildi", 'success')
+        flash(t('user_created_with_role', role=user.get_role_display()), 'success')
         return redirect(url_for('admin.users'))
     
     return render_template('admin/create_user.html', faculties=faculties, groups=groups)
@@ -234,7 +235,7 @@ def edit_user(id):
         if email:
             existing_user_with_email = User.query.filter_by(email=email).first()
             if existing_user_with_email and existing_user_with_email.id != user.id:
-                flash("Bu email allaqachon boshqa foydalanuvchida mavjud", 'error')
+                flash(t('email_already_exists'), 'error')
                 return render_template('admin/edit_user.html', user=user, faculties=faculties, groups=groups, existing_roles=existing_roles)
         user.email = email if email else None
         user.full_name = request.form.get('full_name')
@@ -289,7 +290,7 @@ def edit_user(id):
             user.set_password(new_password)
         
         db.session.commit()
-        flash("Foydalanuvchi muvaffaqiyatli yangilandi", 'success')
+        flash(t('user_updated'), 'success')
         return redirect(url_for('admin.users'))
     
     return render_template('admin/edit_user.html', user=user, faculties=faculties, groups=groups, existing_roles=existing_roles)
@@ -302,12 +303,12 @@ def toggle_user(id):
     user = User.query.get_or_404(id)
     
     if user.id == current_user.id:
-        flash("O'zingizni bloklashingiz mumkin emas", 'error')
+        flash(t('cannot_block_yourself'), 'error')
     else:
         user.is_active = not user.is_active
         db.session.commit()
         status = "faollashtirildi" if user.is_active else "bloklandi"
-        flash(f"Foydalanuvchi {status}", 'success')
+        flash(t('user_status_changed', status=status), 'success')
     
     # Qaysi sahifadan kelganini aniqlash
     referer = request.referrer or url_for('admin.users')
@@ -325,7 +326,7 @@ def delete_user(id):
     user = User.query.get_or_404(id)
     
     if user.id == current_user.id:
-        flash("O'zingizni o'chirishingiz mumkin emas", 'error')
+        flash(t('cannot_delete_yourself'), 'error')
     else:
         # Foydalanuvchi xabarlarini o'chirish (sender yoki receiver bo'lgan)
         Message.query.filter(
@@ -345,7 +346,7 @@ def delete_user(id):
         TeacherSubject.query.filter_by(assigned_by=user.id).update({TeacherSubject.assigned_by: None}, synchronize_session=False)
         db.session.delete(user)
         db.session.commit()
-        flash("Foydalanuvchi o'chirildi", 'success')
+        flash(t('user_deleted'), 'success')
     
     # Qaysi sahifadan kelganini aniqlash
     referer = request.referrer or url_for('admin.users')
@@ -365,7 +366,7 @@ def reset_user_password(id):
     
     # Parolni pasport seriya raqamiga qaytarish
     if not user.passport_number:
-        flash("Bu foydalanuvchida pasport seriya raqami mavjud emas", 'error')
+        flash(t('passport_not_available_for_student'), 'error')
         referer = request.referrer or url_for('admin.users')
         if 'staff' in referer:
             return redirect(url_for('admin.staff'))
@@ -377,7 +378,7 @@ def reset_user_password(id):
     
     user.set_password(new_password)
     db.session.commit()
-    flash(f"{user.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
+    flash(t('user_password_reset', full_name=user.full_name, new_password=new_password), 'success')
     
     # Qaysi sahifadan kelganini aniqlash
     referer = request.referrer or url_for('admin.users')
@@ -509,31 +510,31 @@ def create_staff():
         selected_roles = request.form.getlist('roles')  # ['admin', 'dean', 'teacher']
         
         if not selected_roles:
-            flash("Kamida bitta rol tanlanishi kerak", 'error')
+            flash(t('at_least_one_role_required'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/create_staff.html', faculties=faculties)
         
         # Login majburiy (xodimlar uchun)
         if not login:
-            flash("Login majburiy maydon", 'error')
+            flash(t('login_required_field'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/create_staff.html', faculties=faculties)
         
         # Login unikalligi
         if User.query.filter_by(login=login).first():
-            flash("Bu login allaqachon mavjud", 'error')
+            flash(t('login_already_exists'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/create_staff.html', faculties=faculties)
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email and User.query.filter_by(email=email).first():
-            flash("Bu email allaqachon mavjud", 'error')
+            flash(t('email_already_exists'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/create_staff.html', faculties=faculties)
         
         # Pasport raqami parol sifatida ishlatiladi
         if not passport_number:
-            flash("Pasport seriyasi va raqami majburiy", 'error')
+            flash(t('passport_required'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/create_staff.html', faculties=faculties)
         
@@ -546,7 +547,7 @@ def create_staff():
             try:
                 birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
-                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                flash(t('birthdate_invalid_format'), 'error')
                 faculties = Faculty.query.all()
                 return render_template('admin/create_staff.html', faculties=faculties)
         
@@ -566,7 +567,7 @@ def create_staff():
         if 'dean' in selected_roles:
             faculty_id_str = request.form.get('faculty_id', '').strip()
             if not faculty_id_str:
-                flash("Dekan roli tanlangan bo'lsa, fakultet tanlash majburiy", 'error')
+                flash(t('faculty_required_for_dean'), 'error')
                 faculties = Faculty.query.all()
                 return render_template('admin/create_staff.html', faculties=faculties)
             try:
@@ -574,11 +575,11 @@ def create_staff():
                 # Fakultet mavjudligini tekshirish
                 faculty = Faculty.query.get(faculty_id)
                 if not faculty:
-                    flash("Tanlangan fakultet topilmadi", 'error')
+                    flash(t('faculty_selected_not_found'), 'error')
                     faculties = Faculty.query.all()
                     return render_template('admin/create_staff.html', faculties=faculties)
             except (ValueError, TypeError):
-                flash("Fakultet noto'g'ri tanlangan", 'error')
+                flash(t('faculty_incorrect_selection'), 'error')
                 faculties = Faculty.query.all()
                 return render_template('admin/create_staff.html', faculties=faculties)
         
@@ -625,7 +626,7 @@ def create_staff():
         
         db.session.commit()
         
-        flash(f"Xodim {user.full_name} muvaffaqiyatli yaratildi", 'success')
+        flash(t('staff_created', full_name=user.full_name), 'success')
         return redirect(url_for('admin.staff'))
     
     return render_template('admin/create_staff.html', faculties=faculties)
@@ -640,7 +641,7 @@ def edit_staff(id):
     
     # Faqat xodimlar (talaba emas)
     if user.role == 'student':
-        flash("Bu talaba, xodim emas", 'error')
+        flash(t('user_not_staff'), 'error')
         return redirect(url_for('admin.students'))
     
     # Foydalanuvchining mavjud rollarini olish
@@ -650,14 +651,14 @@ def edit_staff(id):
         login = request.form.get('login')
         # Login majburiy (xodimlar uchun)
         if not login:
-            flash("Login majburiy maydon", 'error')
+            flash(t('login_required_field'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         
         # Login unikalligi (boshqa foydalanuvchida bo'lmasligi kerak)
         existing_user_with_login = User.query.filter_by(login=login).first()
         if existing_user_with_login and existing_user_with_login.id != user.id:
-            flash("Bu login allaqachon boshqa foydalanuvchida mavjud", 'error')
+            flash(t('login_already_exists'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         
@@ -667,7 +668,7 @@ def edit_staff(id):
         if email:
             existing_user_with_email = User.query.filter_by(email=email).first()
             if existing_user_with_email and existing_user_with_email.id != user.id:
-                flash("Bu email allaqachon boshqa foydalanuvchida mavjud", 'error')
+                flash(t('email_already_exists'), 'error')
                 faculties = Faculty.query.all()
                 return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         # Email maydonini tozalash va o'rnatish
@@ -690,7 +691,7 @@ def edit_staff(id):
             try:
                 user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
-                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                flash(t('birthdate_invalid_format'), 'error')
                 faculties = Faculty.query.all()
                 return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         else:
@@ -703,7 +704,7 @@ def edit_staff(id):
         selected_roles = request.form.getlist('roles')
         
         if not selected_roles:
-            flash("Kamida bitta rol tanlanishi kerak", 'error')
+            flash(t('at_least_one_role_required'), 'error')
             faculties = Faculty.query.all()
             return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         
@@ -722,7 +723,7 @@ def edit_staff(id):
         if 'dean' in selected_roles:
             faculty_id_str = request.form.get('faculty_id', '').strip()
             if not faculty_id_str:
-                flash("Dekan roli tanlangan bo'lsa, fakultet tanlash majburiy", 'error')
+                flash(t('faculty_required_for_dean'), 'error')
                 faculties = Faculty.query.all()
                 return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
             try:
@@ -730,12 +731,12 @@ def edit_staff(id):
                 # Fakultet mavjudligini tekshirish
                 faculty = Faculty.query.get(faculty_id)
                 if not faculty:
-                    flash("Tanlangan fakultet topilmadi", 'error')
+                    flash(t('faculty_selected_not_found'), 'error')
                     faculties = Faculty.query.all()
                     return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
                 user.faculty_id = faculty_id
             except (ValueError, TypeError):
-                flash("Fakultet noto'g'ri tanlangan", 'error')
+                flash(t('faculty_incorrect_selection'), 'error')
                 faculties = Faculty.query.all()
                 return render_template('admin/edit_staff.html', user=user, existing_roles=existing_roles, faculties=faculties)
         else:
@@ -763,7 +764,7 @@ def edit_staff(id):
             else:
                 raise
         
-        flash(f"Xodim {user.full_name} ma'lumotlari yangilandi", 'success')
+        flash(t('staff_updated', full_name=user.full_name), 'success')
         return redirect(url_for('admin.staff'))
     
     faculties = Faculty.query.all()
@@ -863,7 +864,7 @@ def create_faculty():
         selected_dean_ids = request.form.getlist('dean_ids')  # List of dean IDs
         
         if Faculty.query.filter_by(code=code).first():
-            flash("Bu kod allaqachon mavjud", 'error')
+            flash(t('code_already_exists'), 'error')
             return render_template('admin/create_faculty.html', all_deans=all_deans_list)
         
         faculty = Faculty(name=name, code=code, description=description)
@@ -878,7 +879,7 @@ def create_faculty():
         
         db.session.commit()
         
-        flash("Fakultet muvaffaqiyatli yaratildi", 'success')
+        flash(t('faculty_created'), 'success')
         return redirect(url_for('admin.faculties'))
     
     return render_template('admin/create_faculty.html', all_deans=all_deans_list)
@@ -943,7 +944,7 @@ def edit_faculty(id):
                 dean.faculty_id = faculty.id
         
         db.session.commit()
-        flash("Fakultet muvaffaqiyatli yangilandi", 'success')
+        flash(t('faculty_updated'), 'success')
         return redirect(url_for('admin.faculties'))
     
     return render_template('admin/edit_faculty.html', 
@@ -966,7 +967,7 @@ def delete_faculty(id):
         User.group_id.in_(faculty_group_ids)
     ).count() if faculty_group_ids else 0
     if students_count > 0:
-        flash(f"Fakultetda {students_count} ta talaba mavjud. Fakultetni o'chirish uchun avval talabalarni boshqa fakultetga ko'chiring yoki o'chiring", 'error')
+        flash(t('faculty_has_students', students_count=students_count), 'error')
         return redirect(url_for('admin.faculties'))
 
     # Fakultetdagi barcha guruhlarni o'chirish (kaskad): avval bog'liqlarni, keyin guruhlarni
@@ -1001,7 +1002,7 @@ def delete_faculty(id):
 
     db.session.delete(faculty)
     db.session.commit()
-    flash(f"Fakultet «{faculty_name}» va uning barcha yo'nalishlari, guruhlari o'chirildi", 'success')
+    flash(t('faculty_deleted', faculty_name=faculty_name), 'success')
 
     return redirect(url_for('admin.faculties'))
 
@@ -1320,7 +1321,7 @@ def direction_groups_with_params(id, year, education_type):
     ).order_by(Group.course_year, Group.name).all()
     
     if not groups:
-        flash(f"{year}-yil {education_type} ta'lim shakli bo'yicha guruhlar mavjud emas", 'error')
+        flash(t('no_groups_for_year_education_type', year=year, education_type=education_type), 'error')
         return redirect(url_for('admin.direction_detail', id=id))
     
     # Har bir guruh uchun talabalar soni
@@ -1353,7 +1354,7 @@ def direction_curriculum(id, year=None, education_type=None):
         ).all()
         
         if not groups:
-            flash(f"{year}-yil {education_type} ta'lim shakli bo'yicha guruhlar mavjud emas", 'warning')
+            flash(t('no_groups_for_year_education_type', year=year, education_type=education_type), 'warning')
             # Redirect to general view if specific view has no groups
             return redirect(url_for('admin.direction_curriculum', id=id))
             
@@ -1476,20 +1477,20 @@ def import_curriculum(id, year=None, education_type=None):
     
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             if year and education_type:
                 return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('admin.direction_curriculum', id=id))
         
         file = request.files['file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             if year and education_type:
                 return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('admin.direction_curriculum', id=id))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat .xlsx yoki .xls formatidagi fayllar qabul qilinadi", 'error')
+            flash(t('only_xlsx_or_xls_allowed'), 'error')
             if year and education_type:
                 return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('admin.direction_curriculum', id=id))
@@ -1506,13 +1507,13 @@ def import_curriculum(id, year=None, education_type=None):
                     message += f" {len(result['errors'])} ta xatolik yuz berdi."
                 flash(message, 'success' if not result['errors'] else 'warning')
             else:
-                flash("Hech qanday o'zgarish kiritilmadi", 'info')
+                flash(t('no_changes_made'), 'info')
             
             if result['errors']:
                 for error in result['errors'][:10]:  # Faqat birinchi 10 ta xatolikni ko'rsatish
                     flash(error, 'error')
         else:
-            flash(f"Import qilishda xatolik: {', '.join(result['errors'])}", 'error')
+            flash(t('import_error', error=', '.join(result['errors'])), 'error')
         
         if year and education_type:
             return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
@@ -1559,7 +1560,7 @@ def direction_subjects(id, year=None, education_type=None):
             return redirect(url_for('admin.direction_subjects', id=id, year=first_group.enrollment_year, education_type=first_group.education_type))
         else:
             # Agar guruhlar bo'lmasa, shunchaki xabar beramiz yoki empty template chiqaramiz
-            flash("Yo'nalishda guruhlar mavjud emas", 'warning')
+            flash(t('direction_no_groups'), 'warning')
             return redirect(url_for('admin.directions'))
 
     # Berilgan qabul yili va ta'lim shakli bo'yicha guruhlar
@@ -1579,7 +1580,7 @@ def direction_subjects(id, year=None, education_type=None):
             groups.append(g)
     
     if not groups and not all_groups:
-        flash(f"{year}-yil {education_type} ta'lim shakli bo'yicha guruhlar mavjud emas", 'error')
+        flash(t('no_groups_for_year_education_type', year=year, education_type=education_type), 'error')
         return redirect(url_for('admin.direction_subjects', id=id))
     
     # Agar talabasi bor/biriktirilgan guruhlar bo'lmasa, lekin guruhlar mavjud bo'lsa, hammasini korsatamiz
@@ -1597,13 +1598,13 @@ def direction_subjects(id, year=None, education_type=None):
     if request.method == 'POST':
         semester = request.form.get('semester', type=int)
         if not semester:
-            flash("Semestr tanlanmagan", 'error')
+            flash(t('semester_not_selected'), 'error')
             return redirect(url_for('admin.direction_subjects', id=id, year=year, education_type=education_type))
         
         # Bu semestr uchun faol guruhlar
         active_semester_groups = groups_by_semester.get(semester, [])
         if not active_semester_groups:
-            flash(f"{semester}-semestrda faol guruhlar topilmadi", 'error')
+            flash(t('no_active_groups_for_semester', semester=semester), 'error')
             return redirect(url_for('admin.direction_subjects', id=id, year=year, education_type=education_type))
 
         # Semestrdagi barcha fanlar uchun o'qituvchilarni yangilash
@@ -1692,7 +1693,7 @@ def direction_subjects(id, year=None, education_type=None):
                             db.session.delete(teacher_subject)
         
         db.session.commit()
-        flash(f"{semester}-semestr o'qituvchilari muvaffaqiyatli saqlandi", 'success')
+        flash(t('semester_teachers_saved', semester=semester), 'success')
         return redirect(url_for('admin.direction_subjects', id=id, year=year, education_type=education_type))
     
     # O'quv rejadagi fanlar (semestr bo'yicha guruhlangan)
@@ -1777,12 +1778,12 @@ def delete_curriculum_item(id, item_id, year=None, education_type=None):
     item = DirectionCurriculum.query.get_or_404(item_id)
     
     if item.direction_id != direction.id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('admin.faculties'))
     
     db.session.delete(item)
     db.session.commit()
-    flash("Fan o'quv rejasidan o'chirildi", 'success')
+    flash(t('subject_removed_from_curriculum'), 'success')
     if year and education_type:
         return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('admin.direction_curriculum', id=id))
@@ -1800,7 +1801,7 @@ def add_subject_to_curriculum(id, year=None, education_type=None):
     semester = request.form.get('semester', type=int)
     
     if not subject_ids or not semester:
-        flash("Fan va semestr tanlash majburiy", 'error')
+        flash(t('subject_and_semester_required'), 'error')
         if year and education_type:
             return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
         return redirect(url_for('admin.direction_curriculum', id=id))
@@ -1833,7 +1834,7 @@ def add_subject_to_curriculum(id, year=None, education_type=None):
             added += 1
     
     db.session.commit()
-    flash(f"{added} ta fan o'quv rejaga qo'shildi", 'success')
+    flash(t('subjects_added_to_curriculum', added=added), 'success')
     if year and education_type:
         return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('admin.direction_curriculum', id=id))
@@ -1884,7 +1885,7 @@ def update_semester_curriculum(id, semester, year=None, education_type=None):
         updated_count += 1
         
     db.session.commit()
-    flash(f"{semester}-semestr o'quv rejasi yangilandi", 'success')
+    flash(t('curriculum_updated', semester=semester), 'success')
     
     if year and education_type:
         return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
@@ -1901,12 +1902,12 @@ def replace_curriculum_item(id, item_id, year=None, education_type=None):
     item = DirectionCurriculum.query.get_or_404(item_id)
     
     if item.direction_id != direction.id:
-        flash("Noto'g'ri murojaat", 'error')
+        flash(t('invalid_request'), 'error')
         return redirect(url_for('admin.direction_curriculum', id=id))
 
     new_subject_id = request.form.get('subject_id', type=int)
     if not new_subject_id:
-        flash("Yangi fan tanlanmagan", 'error')
+        flash(t('new_subject_not_selected'), 'error')
     else:
         new_subject = Subject.query.get(new_subject_id)
         if new_subject:
@@ -1920,13 +1921,13 @@ def replace_curriculum_item(id, item_id, year=None, education_type=None):
             ).first()
             
             if existing and existing.id != item.id:
-                flash(f"{new_subject.name} fani bu semestrda allaqachon mavjud", 'error')
+                flash(t('subject_already_in_semester', subject_name=new_subject.name), 'error')
             else:
                 item.subject_id = new_subject_id
                 db.session.commit()
-                flash(f"Fan {new_subject.name} ga almashtirildi", 'success')
+                flash(t('subject_replaced', subject_name=new_subject.name), 'success')
         else:
-            flash("Tanlangan fan topilmadi", 'error')
+            flash(t('subject_not_found'), 'error')
             
     if year and education_type:
         return redirect(url_for('admin.direction_curriculum', id=id, year=year, education_type=education_type))
@@ -1995,7 +1996,7 @@ def change_faculty_dean(id):
                 dean.faculty_id = faculty.id
         
         db.session.commit()
-        flash("Masul dekanlar muvaffaqiyatli o'zgartirildi", 'success')
+        flash(t('responsible_deans_changed'), 'success')
         return redirect(url_for('admin.faculty_detail', id=faculty.id))
     
     return render_template('admin/change_faculty_dean.html',
@@ -2045,7 +2046,7 @@ def download_schedule_sample():
             download_name='dars_jadvali_namuna.xlsx'
         )
     except Exception as e:
-        flash(f'Namuna fayl yaratishda xatolik: {str(e)}', 'danger')
+        flash(t('template_file_creation_error', error=str(e)), 'danger')
         return redirect(url_for('admin.schedule'))
 
 @bp.route('/schedule/import', methods=['GET', 'POST'])
@@ -2054,12 +2055,12 @@ def download_schedule_sample():
 def import_schedule():
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash('Fayl tanlanmagan', 'danger')
+            flash(t('file_not_selected'), 'danger')
             return redirect(request.url)
             
         file = request.files['file']
         if file.filename == '':
-            flash('Fayl tanlanmagan', 'danger')
+            flash(t('file_not_selected'), 'danger')
             return redirect(request.url)
             
         if file and file.filename.endswith('.xlsx'):
@@ -2074,17 +2075,17 @@ def import_schedule():
                         for error in errors[:10]:
                             flash(error, 'danger')
                         if count > 0:
-                            flash(f"{count} ta dars jadvali muvaffaqiyatli import qilindi", 'warning')
+                            flash(t('schedules_imported', count=count), 'warning')
                     else:
-                        flash(f"{count} ta dars jadvali muvaffaqiyatli import qilindi", 'success')
+                        flash(t('schedules_imported', count=count), 'success')
                     return redirect(url_for('admin.schedule'))
                 else:
                     for error in result.get('errors', []):
                         flash(error, 'danger')
             except Exception as e:
-                flash(f"Xatolik yuz berdi: {str(e)}", 'danger')
+                flash(t('error_occurred', error=str(e)), 'danger')
         else:
-            flash("Faqat .xlsx formatidagi fayllarni yuklash mumkin", 'danger')
+            flash(t('only_xlsx_files_allowed'), 'danger')
             
     return render_template('admin/import_schedule.html')
 
@@ -2101,7 +2102,7 @@ def download_sample_import():
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
     except Exception as e:
-        flash(f"Namuna fayl yaratishda xatolik: {str(e)}", 'error')
+        flash(t('template_file_creation_error', error=str(e)), 'error')
         return redirect(url_for('admin.import_students'))
 
 @bp.route('/subjects/create', methods=['GET', 'POST'])
@@ -2113,7 +2114,7 @@ def create_subject():
         description = request.form.get('description', '').strip()
         
         if not name:
-            flash("Fan nomi majburiy maydon", 'error')
+            flash(t('subject_name_required'), 'error')
             return render_template('admin/create_subject.html')
         
         subject = Subject(
@@ -2126,7 +2127,7 @@ def create_subject():
         db.session.add(subject)
         db.session.commit()
         
-        flash("Fan muvaffaqiyatli yaratildi", 'success')
+        flash(t('subject_created'), 'success')
         return redirect(url_for('admin.subjects'))
     
     return render_template('admin/create_subject.html')
@@ -2143,14 +2144,14 @@ def edit_subject(id):
         description = request.form.get('description', '').strip()
         
         if not name:
-            flash("Fan nomi majburiy maydon", 'error')
+            flash(t('subject_name_required'), 'error')
             return render_template('admin/edit_subject.html', subject=subject)
         
         subject.name = name
         subject.description = description if description else None
         
         db.session.commit()
-        flash("Fan yangilandi", 'success')
+        flash(t('subject_updated'), 'success')
         return redirect(url_for('admin.subjects'))
     
     return render_template('admin/edit_subject.html', subject=subject)
@@ -2164,7 +2165,7 @@ def subject_delete_blocked(id):
     subject = Subject.query.get_or_404(id)
     curriculum_items = DirectionCurriculum.query.filter_by(subject_id=id).all()
     if not curriculum_items:
-        flash("Fan endi hech qanday o'quv rejada ishlatilmayapti. O'chirishingiz mumkin.", 'success')
+        flash(t('subject_not_in_curriculum'), 'success')
         return redirect(url_for('admin.subjects'))
     # Yo'nalish bo'yicha guruhlash, har birida (enrollment_year, education_type) ro'yxati
     by_direction = {}
@@ -2194,7 +2195,7 @@ def remove_subject_from_curriculum(id):
     subject = Subject.query.get_or_404(id)
     deleted = DirectionCurriculum.query.filter_by(subject_id=id).delete(synchronize_session=False)
     db.session.commit()
-    flash(f"«{subject.name}» barcha o'quv rejalardan olib tashlandi ({deleted} ta yozuv). Endi fanni o'chirishingiz mumkin.", 'success')
+    flash(t('subject_removed_from_all_curriculums', subject_name=subject.name, deleted=deleted), 'success')
     return redirect(url_for('admin.subjects'))
 
 
@@ -2211,7 +2212,7 @@ def delete_subject(id):
     
     db.session.delete(subject)
     db.session.commit()
-    flash("Fan o'chirildi", 'success')
+    flash(t('subject_deleted'), 'success')
     return redirect(url_for('admin.subjects'))
 
 
@@ -2232,7 +2233,7 @@ def export_subjects():
             download_name=filename
         )
     except Exception as e:
-        flash(f"Export xatosi: {str(e)}", 'error')
+        flash(t('export_error', error=str(e)), 'error')
         return redirect(url_for('admin.subjects'))
 
 
@@ -2243,16 +2244,16 @@ def import_subjects():
     """Excel fayldan fanlarni import qilish"""
     if request.method == 'POST':
         if 'excel_file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('admin.subjects'))
         
         file = request.files['excel_file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('admin.subjects'))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            flash(t('only_excel_files_allowed'), 'error')
             return redirect(url_for('admin.subjects'))
         
         try:
@@ -2260,11 +2261,11 @@ def import_subjects():
             
             if result['success']:
                 if result['imported'] > 0:
-                    flash(f"{result['imported']} ta fan muvaffaqiyatli import qilindi", 'success')
+                    flash(t('subjects_imported', imported_count=result['imported']), 'success')
                 if result['updated'] > 0:
-                    flash(f"{result['updated']} ta fan yangilandi", 'success')
+                    flash(t('subjects_updated', updated_count=result['updated']), 'success')
                 if result['imported'] == 0 and result['updated'] == 0:
-                    flash("Hech qanday fan import qilinmadi", 'warning')
+                    flash(t('no_subjects_imported'), 'warning')
                 
                 if result['errors']:
                     error_msg = f"Xatolar ({len(result['errors'])}): " + "; ".join(result['errors'][:5])
@@ -2272,12 +2273,12 @@ def import_subjects():
                         error_msg += f" va yana {len(result['errors']) - 5} ta xato"
                     flash(error_msg, 'warning')
             else:
-                flash(f"Import xatosi: {result['errors'][0] if result['errors'] else 'Noma`lum xatolik'}", 'error')
+                flash(t('import_error', error=result['errors'][0] if result['errors'] else 'Noma`lum xatolik'), 'error')
                 
         except ImportError as e:
-            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+            flash(t('excel_import_not_working', error=str(e)), 'error')
         except Exception as e:
-            flash(f"Import xatosi: {str(e)}", 'error')
+            flash(t('import_error', error=str(e)), 'error')
         
         return redirect(url_for('admin.subjects'))
     
@@ -2299,7 +2300,7 @@ def download_subjects_sample():
             download_name=filename
         )
     except Exception as e:
-        flash(f"Namuna fayl yuklab olishda xatolik: {str(e)}", 'error')
+        flash(t('template_file_download_error', error=str(e)), 'error')
         return redirect(url_for('admin.subjects'))
 
 
@@ -2361,7 +2362,7 @@ def create_grade():
         
         # Tekshirish: bu harf mavjudmi
         if GradeScale.query.filter_by(letter=letter).first():
-            flash("Bu baho harfi allaqachon mavjud", 'error')
+            flash(t('grade_letter_already_exists'), 'error')
             return render_template('admin/create_grade.html')
         
         # Ball oralig'ini tekshirish
@@ -2369,7 +2370,7 @@ def create_grade():
         max_score = request.form.get('max_score', type=float)
         
         if min_score > max_score:
-            flash("Minimal ball maksimaldan katta bo'lishi mumkin emas", 'error')
+            flash(t('min_score_greater_than_max'), 'error')
             return render_template('admin/create_grade.html')
         
         grade = GradeScale(
@@ -2386,7 +2387,7 @@ def create_grade():
         db.session.add(grade)
         db.session.commit()
         
-        flash("Baho muvaffaqiyatli qo'shildi", 'success')
+        flash(t('grade_added'), 'success')
         return redirect(url_for('admin.grade_scale'))
     
     return render_template('admin/create_grade.html')
@@ -2411,7 +2412,7 @@ def edit_grade(id):
         grade.order = request.form.get('order', type=int)
         
         db.session.commit()
-        flash("Baho yangilandi", 'success')
+        flash(t('grade_updated'), 'success')
         return redirect(url_for('admin.grade_scale'))
     
     return render_template('admin/edit_grade.html', grade=grade)
@@ -2425,7 +2426,7 @@ def delete_grade(id):
     grade = GradeScale.query.get_or_404(id)
     db.session.delete(grade)
     db.session.commit()
-    flash("Baho o'chirildi", 'success')
+    flash(t('grade_deleted'), 'success')
     return redirect(url_for('admin.grade_scale'))
 
 
@@ -2441,7 +2442,7 @@ def reset_grade_scale():
     # Standart baholarni qayta yaratish
     GradeScale.init_default_grades()
     
-    flash("Baholash tizimi standart holatga qaytarildi", 'success')
+    flash(t('grading_system_reset'), 'success')
     return redirect(url_for('admin.grade_scale'))
 
 
@@ -2453,16 +2454,16 @@ def import_students():
     """Excel fayldan talabalar import qilish"""
     if request.method == 'POST':
         if 'excel_file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('admin.students'))
         
         file = request.files['excel_file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('admin.students'))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            flash(t('only_excel_files_allowed'), 'error')
             return redirect(url_for('admin.students'))
         
         try:
@@ -2472,9 +2473,9 @@ def import_students():
             
             if result['success']:
                 if result['imported'] > 0:
-                    flash(f"{result['imported']} ta talaba muvaffaqiyatli import qilindi", 'success')
+                    flash(t('students_imported', imported_count=result['imported']), 'success')
                 else:
-                    flash("Hech qanday talaba import qilinmadi", 'warning')
+                    flash(t('no_students_imported'), 'warning')
                 
                 if result['errors']:
                     error_msg = f"Xatolar ({len(result['errors'])}): " + "; ".join(result['errors'][:5])
@@ -2482,12 +2483,12 @@ def import_students():
                         error_msg += f" va yana {len(result['errors']) - 5} ta xato"
                     flash(error_msg, 'warning')
             else:
-                flash(f"Import xatosi: {result['errors'][0] if result['errors'] else 'Noma`lum xatolik'}", 'error')
+                flash(t('import_error', error=result['errors'][0] if result['errors'] else 'Noma`lum xatolik'), 'error')
                 
         except ImportError as e:
-            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+            flash(t('excel_import_not_working', error=str(e)), 'error')
         except Exception as e:
-            flash(f"Import xatosi: {str(e)}", 'error')
+            flash(t('import_error', error=str(e)), 'error')
         
         return redirect(url_for('admin.students'))
     
@@ -2503,7 +2504,7 @@ def export_students():
     try:
         from app.utils.excel_export import create_students_excel
     except ImportError:
-        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('admin.students'))
     
     faculty_id = request.args.get('faculty_id', type=int)
@@ -2541,7 +2542,7 @@ def export_all_users():
     try:
         from app.utils.excel_export import create_staff_excel
     except ImportError:
-        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('admin.staff'))
     
     # Faqat xodimlar (talabalar emas) - bir nechta rollarni ham qo'shish
@@ -2582,16 +2583,16 @@ def import_all_users():
     """Excel fayldan barcha foydalanuvchilarni import qilish (rol bo'yicha ajratish)"""
     if request.method == 'POST':
         if 'excel_file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('admin.staff'))
         
         file = request.files['excel_file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('admin.staff'))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            flash(t('only_excel_files_allowed'), 'error')
             return redirect(url_for('admin.staff'))
         
         try:
@@ -2601,9 +2602,9 @@ def import_all_users():
             
             if result['success']:
                 if result['imported'] > 0:
-                    flash(f"{result['imported']} ta foydalanuvchi muvaffaqiyatli import qilindi", 'success')
+                    flash(t('users_imported', imported_count=result['imported']), 'success')
                 else:
-                    flash("Hech qanday foydalanuvchi import qilinmadi", 'warning')
+                    flash(t('no_users_imported'), 'warning')
                 
                 if result['errors']:
                     error_msg = f"Xatolar ({len(result['errors'])}): " + "; ".join(result['errors'][:5])
@@ -2611,12 +2612,12 @@ def import_all_users():
                         error_msg += f" va yana {len(result['errors']) - 5} ta xato"
                     flash(error_msg, 'warning')
             else:
-                flash(f"Import xatosi: {result['errors'][0] if result['errors'] else 'Noma`lum xatolik'}", 'error')
+                flash(t('import_error', error=result['errors'][0] if result['errors'] else 'Noma`lum xatolik'), 'error')
                 
         except ImportError as e:
-            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+            flash(t('excel_import_not_working', error=str(e)), 'error')
         except Exception as e:
-            flash(f"Import xatosi: {str(e)}", 'error')
+            flash(t('import_error', error=str(e)), 'error')
         
         return redirect(url_for('admin.staff'))
     
@@ -2640,7 +2641,7 @@ def download_staff_sample_import():
             headers={'Content-Disposition': f'attachment; filename={filename}'}
         )
     except Exception as e:
-        flash(f"Namuna fayl yaratishda xatolik: {str(e)}", 'error')
+        flash(t('template_file_creation_error', error=str(e)), 'error')
         return redirect(url_for('admin.import_all_users'))
 
 
@@ -2652,7 +2653,7 @@ def export_schedule():
     try:
         from app.utils.excel_export import create_schedule_excel
     except ImportError:
-        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('admin.schedule'))
     
     import calendar
@@ -2692,7 +2693,7 @@ def export_schedule():
                 start_code = 19000101  # Far past date
                 end_code = int(end_dt.strftime("%Y%m%d"))
         except ValueError:
-            flash("Sana formati noto'g'ri", 'error')
+            flash(t('date_invalid_format'), 'error')
             return redirect(url_for('admin.schedule'))
     else:
         # Default to all schedules if no date range specified
@@ -2827,24 +2828,24 @@ def create_group():
         
         # Validatsiya
         if not name:
-            flash("Guruh nomi majburiy", 'error')
+            flash(t('group_name_required'), 'error')
             return redirect(url_for('admin.create_group', faculty_id=faculty_id))
         
         if not faculty_id:
-            flash("Fakultet tanlash majburiy", 'error')
+            flash(t('faculty_required'), 'error')
             return redirect(url_for('admin.create_group'))
         
         if not direction_id:
-            flash("Yo'nalish tanlash majburiy", 'error')
+            flash(t('direction_required'), 'error')
             return redirect(url_for('admin.create_group', faculty_id=faculty_id))
             
         if not course_year or not semester:
-            flash("Kurs va semestr majburiy", 'error')
+            flash(t('group_course_and_semester_required'), 'error')
             return redirect(url_for('admin.create_group', faculty_id=faculty_id))
         
         # Bir yo'nalishda, kursda va semestrda bir xil guruh nomi bo'lishi mumkin emas
         if Group.query.filter_by(name=name.upper(), direction_id=direction_id, course_year=course_year, semester=semester).first():
-            flash("Bu yo'nalishda, kursda va semestrda bunday nomli guruh allaqachon mavjud", 'error')
+            flash(t('group_already_exists'), 'error')
             return render_template('admin/create_group.html', 
                                  faculties=Faculty.query.all(), 
                                  directions=Direction.query.filter_by(faculty_id=faculty_id).all() if faculty_id else Direction.query.all(),
@@ -2867,7 +2868,7 @@ def create_group():
         db.session.add(group)
         db.session.commit()
         
-        flash("Guruh muvaffaqiyatli yaratildi", 'success')
+        flash(t('group_created'), 'success')
         # Fakultet detail sahifasiga qaytish
         if faculty_id:
             return redirect(url_for('admin.faculty_detail', id=faculty_id))
@@ -2880,7 +2881,7 @@ def create_group():
     if faculty_id:
         faculty = Faculty.query.get(faculty_id)
         if not faculty:
-            flash("Fakultet topilmadi", 'error')
+            flash(t('faculty_not_found'), 'error')
             return redirect(url_for('admin.faculties'))
         
         # Yo'nalishlarni olish
@@ -2920,13 +2921,13 @@ def edit_group(id):
         
         # Validatsiya
         if not course_year or not semester or not education_type or not direction_id:
-            flash("Barcha majburiy maydonlar to'ldirilishi kerak", 'error')
+            flash(t('all_required_fields'), 'error')
             return redirect(url_for('admin.edit_group', id=group.id))
         
         # Yo'nalish tekshiruvi
         direction = Direction.query.get(direction_id)
         if not direction or direction.faculty_id != group.faculty_id:
-            flash("Noto'g'ri yo'nalish tanlandi", 'error')
+            flash(t('direction_incorrect_selection'), 'error')
             return redirect(url_for('admin.edit_group', id=group.id))
         
         # Bir yo'nalishda, kursda va semestrda bir xil guruh nomi bo'lishi mumkin emas
@@ -2934,7 +2935,7 @@ def edit_group(id):
         if (new_name != group.name or direction_id != group.direction_id or course_year != group.course_year or semester != group.semester):
             existing_group = Group.query.filter_by(name=new_name, direction_id=direction_id, course_year=course_year, semester=semester).first()
             if existing_group and existing_group.id != group.id:
-                flash("Bu yo'nalishda, kursda va semestrda bunday nomli guruh allaqachon mavjud", 'error')
+                flash(t('group_already_exists'), 'error')
                 return redirect(url_for('admin.edit_group', id=group.id))
         
         group.name = new_name
@@ -2946,7 +2947,7 @@ def edit_group(id):
         group.description = description if description else None
         
         db.session.commit()
-        flash("Guruh yangilandi", 'success')
+        flash(t('group_updated'), 'success')
         
         # Redireksiya
         if request.args.get('from_faculty'):
@@ -2994,7 +2995,7 @@ def add_student_to_group(id):
     student_ids = [int(sid) for sid in student_ids if sid]
     
     if not student_ids:
-        flash("Hech qanday talaba tanlanmagan", 'error')
+        flash(t('no_students_selected'), 'error')
         return redirect(url_for('admin.group_students', id=id))
     
     added_count = 0
@@ -3007,9 +3008,9 @@ def add_student_to_group(id):
     db.session.commit()
     
     if added_count > 0:
-        flash(f"{added_count} ta talaba guruhga qo'shildi", 'success')
+        flash(t('students_added_to_group', added_count=added_count), 'success')
     else:
-        flash("Hech qanday talaba qo'shilmadi. Tanlangan talabalar allaqachon boshqa guruhga biriktirilgan bo'lishi mumkin", 'warning')
+        flash(t('no_students_added'), 'warning')
     
     return redirect(url_for('admin.group_students', id=id))
 
@@ -3024,7 +3025,7 @@ def remove_students_from_group(id):
     student_ids = [int(sid) for sid in ids if sid]
     
     if not student_ids:
-        flash("Hech qanday talaba tanlanmagan", 'error')
+        flash(t('no_students_selected'), 'error')
         return redirect(url_for('admin.group_students', id=id))
     
     students = User.query.filter(
@@ -3041,9 +3042,9 @@ def remove_students_from_group(id):
     db.session.commit()
     
     if count:
-        flash(f"{count} ta talaba guruhdan chiqarildi", 'success')
+        flash(t('students_removed_from_group', count=count), 'success')
     else:
-        flash("Hech qanday talaba guruhdan chiqarilmadi", 'warning')
+        flash(t('no_students_removed'), 'warning')
     
     return redirect(url_for('admin.group_students', id=id))
 
@@ -3056,7 +3057,7 @@ def delete_group(id):
     
     # Guruhda talabalar borligini tekshirish
     if group.students.count() > 0:
-        flash("Guruhda talabalar bor. O'chirish mumkin emas", 'error')
+        flash(t('group_has_students'), 'error')
     else:
         # Guruhga bog'liq Schedule yozuvlarini o'chirish
         schedules = Schedule.query.filter_by(group_id=group.id).all()
@@ -3071,7 +3072,7 @@ def delete_group(id):
         # Guruhni o'chirish
         db.session.delete(group)
         db.session.commit()
-        flash("Guruh o'chirildi", 'success')
+        flash(t('group_deleted'), 'success')
     
     # Fakultet detail sahifasiga qaytish
     if request.args.get('from_faculty'):
@@ -3094,13 +3095,13 @@ def create_direction():
         faculty_id = request.form.get('faculty_id', type=int)
         # Validatsiya
         if not name or not code:
-            flash("Yo'nalish nomi va kodi majburiy", 'error')
+            flash(t('direction_name_and_code_required'), 'error')
             return render_template('admin/create_direction.html', 
                                  faculties=Faculty.query.all(),
                                  faculty_id=faculty_id)
         
         if not faculty_id:
-            flash("Fakultet tanlash majburiy", 'error')
+            flash(t('faculty_required'), 'error')
             return render_template('admin/create_direction.html', 
                                  faculties=Faculty.query.all(),
                                  faculty_id=faculty_id)
@@ -3112,7 +3113,7 @@ def create_direction():
         ).first()
         
         if existing:
-            flash("Bu kod, kurs, semestr va ta'lim shakli bilan yo'nalish allaqachon mavjud", 'error')
+            flash(t('direction_already_exists'), 'error')
             return render_template('admin/create_direction.html', 
                                  faculties=Faculty.query.all(),
                                  faculty_id=faculty_id)
@@ -3126,7 +3127,7 @@ def create_direction():
         db.session.add(direction)
         db.session.commit()
         
-        flash("Yo'nalish muvaffaqiyatli yaratildi", 'success')
+        flash(t('direction_created'), 'success')
         # Fakultet detail sahifasiga qaytish
         if faculty_id:
             return redirect(url_for('admin.faculty_detail', id=faculty_id))
@@ -3157,13 +3158,13 @@ def edit_direction(id):
         ).first()
         
         if existing:
-            flash("Bu kod bilan yo'nalish allaqachon mavjud", 'error')
+            flash(t('direction_code_already_exists'), 'error')
             return render_template('admin/edit_direction.html', 
                                  direction=direction,
                                  faculties=Faculty.query.all())
         
         db.session.commit()
-        flash("Yo'nalish yangilandi", 'success')
+        flash(t('direction_updated'), 'success')
         # Fakultet detail sahifasiga qaytish
         if request.args.get('faculty_id'):
             return redirect(url_for('admin.faculty_detail', id=direction.faculty_id))
@@ -3191,13 +3192,13 @@ def delete_direction(id):
             total_students += group.students.count()
         
         if total_students > 0:
-            flash(f"Yo'nalishda {len(groups)} ta guruh va {total_students} ta talaba mavjud. O'chirish mumkin emas", 'error')
+            flash(t('direction_has_groups_and_students', groups_count=len(groups), students_count=total_students), 'error')
         else:
-            flash(f"Yo'nalishda {len(groups)} ta guruh mavjud. Avval guruhlarni o'chiring yoki boshqa yo'nalishga o'tkazing", 'error')
+            flash(t('direction_has_groups', groups_count=len(groups)), 'error')
     else:
         db.session.delete(direction)
         db.session.commit()
-        flash("Yo'nalish o'chirildi", 'success')
+        flash(t('direction_deleted'), 'success')
     
     # Fakultet detail sahifasiga qaytish
     if request.args.get('from_faculty'):
@@ -3640,22 +3641,22 @@ def create_student():
         
         # Talaba ID majburiy
         if not student_id:
-            flash("Talaba ID majburiy maydon", 'error')
+            flash(t('student_id_required'), 'error')
             return render_template('admin/create_student.html')
         
         if User.query.filter_by(student_id=student_id).first():
-            flash("Bu talaba ID allaqachon mavjud", 'error')
+            flash(t('student_id_already_exists'), 'error')
             return render_template('admin/create_student.html')
         
         # Pasport seriyasi va raqami majburiy
         if not passport_number:
-            flash("Pasport seriyasi va raqami majburiy", 'error')
+            flash(t('passport_required'), 'error')
             return render_template('admin/create_student.html')
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email:
             if User.query.filter_by(email=email).first():
-                flash("Bu email allaqachon mavjud", 'error')
+                flash(t('email_already_exists'), 'error')
                 return render_template('admin/create_student.html')
         
         # Pasport raqamini katta harfga o'zgartirish
@@ -3667,7 +3668,7 @@ def create_student():
             try:
                 parsed_birth_date = datetime.strptime(birth_date, '%Y-%m-%d').date()
             except ValueError:
-                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                flash(t('birthdate_invalid_format'), 'error')
                 return render_template('admin/create_student.html')
         
         # Email maydonini tozalash
@@ -3759,7 +3760,7 @@ def create_student():
             else:
                 raise
         
-        flash(f"{student.full_name} muvaffaqiyatli yaratildi", 'success')
+        flash(t('student_created', full_name=student.full_name), 'success')
         return redirect(url_for('admin.students'))
     
     faculties = Faculty.query.all()
@@ -3774,7 +3775,7 @@ def edit_student(id):
     """Admin uchun talabani tahrirlash"""
     student = User.query.get_or_404(id)
     if student.role != 'student':
-        flash("Bu foydalanuvchi talaba emas", 'error')
+        flash(t('user_not_staff'), 'error')
         return redirect(url_for('admin.students'))
     
     if request.method == 'POST':
@@ -3790,25 +3791,25 @@ def edit_student(id):
         
         # Talaba ID majburiy
         if not student_id:
-            flash("Talaba ID majburiy maydon", 'error')
+            flash(t('student_id_required'), 'error')
             return render_template('admin/edit_student.html', student=student)
         
         # Talaba ID unikalligi (boshqa talabada bo'lmasligi kerak)
         existing_student = User.query.filter_by(student_id=student_id).first()
         if existing_student and existing_student.id != student.id:
-            flash("Bu talaba ID allaqachon boshqa talabada mavjud", 'error')
+            flash(t('student_id_already_exists'), 'error')
             return render_template('admin/edit_student.html', student=student)
         
         # Pasport seriyasi va raqami majburiy
         if not passport_number:
-            flash("Pasport seriyasi va raqami majburiy", 'error')
+            flash(t('passport_required'), 'error')
             return render_template('admin/edit_student.html', student=student)
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email:
             existing_student_with_email = User.query.filter_by(email=email).first()
             if existing_student_with_email and existing_student_with_email.id != student.id:
-                flash("Bu email allaqachon boshqa talabada mavjud", 'error')
+                flash(t('email_already_exists'), 'error')
                 return render_template('admin/edit_student.html', student=student)
         
         # Pasport raqamini katta harfga o'zgartirish
@@ -3819,7 +3820,7 @@ def edit_student(id):
             try:
                 student.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
-                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                flash(t('birthdate_invalid_format'), 'error')
                 return render_template('admin/edit_student.html', student=student)
         else:
             student.birth_date = None
@@ -3884,7 +3885,7 @@ def edit_student(id):
             student.group_id = None
             
         db.session.commit()
-        flash(f"{student.full_name} ma'lumotlari yangilandi", 'success')
+        flash(t('student_updated', full_name=student.full_name), 'success')
         return redirect(url_for('admin.students'))
     
     faculties = Faculty.query.all()
@@ -4360,7 +4361,7 @@ def delete_student(id):
     """Admin uchun talabani o'chirish"""
     student = User.query.get_or_404(id)
     if student.role != 'student':
-        flash("Bu foydalanuvchi talaba emas", 'error')
+        flash(t('user_not_staff'), 'error')
         return redirect(url_for('admin.students'))
     
     student_name = student.full_name
@@ -4385,7 +4386,7 @@ def delete_student(id):
     # Talabani o'chirish
     db.session.delete(student)
     db.session.commit()
-    flash(f"{student_name} o'chirildi", 'success')
+    flash(t('student_deleted', student_name=student_name), 'success')
     return redirect(url_for('admin.students'))
 
 @bp.route('/students/<int:id>/reset-password', methods=['POST'])
@@ -4395,18 +4396,18 @@ def reset_student_password(id):
     """Admin uchun talaba parolini boshlang'ich holatga qaytarish (pasport raqami)"""
     student = User.query.get_or_404(id)
     if student.role != 'student':
-        flash("Bu foydalanuvchi talaba emas", 'error')
+        flash(t('user_not_staff'), 'error')
         return redirect(url_for('admin.students'))
     
     # Parolni pasport seriya raqamiga qaytarish
     if not student.passport_number:
-        flash("Bu talabada pasport seriya raqami mavjud emas", 'error')
+        flash(t('passport_not_available_for_student'), 'error')
         return redirect(url_for('admin.students'))
     
     new_password = student.passport_number
     student.set_password(new_password)
     db.session.commit()
-    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
+    flash(t('user_password_reset', full_name=student.full_name, new_password=new_password), 'success')
     return redirect(url_for('admin.students'))
 
 @bp.route('/api/schedule/filters')
@@ -4732,11 +4733,11 @@ def create_schedule():
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
                 date_code = int(parsed_date.strftime("%Y%m%d"))
             except ValueError:
-                flash("Sana noto'g'ri formatda", 'error')
+                flash(t('date_invalid_format'), 'error')
                 return redirect(url_for('admin.create_schedule'))
         
         if not date_code:
-            flash("Sana tanlanishi shart", 'error')
+            flash(t('date_required'), 'error')
             return redirect(url_for('admin.create_schedule'))
         
         subject_id = request.form.get('subject_id', type=int)
@@ -4753,7 +4754,7 @@ def create_schedule():
         ).all()
         
         if not assignments:
-            flash("Ushbu o'qituvchiga bu guruh va fan uchun dars turi biriktirilmagan", 'error')
+            flash(t('teacher_not_assigned_to_lesson_type'), 'error')
             return redirect(url_for('admin.create_schedule'))
         
         # Dars turlarini yig'ish
@@ -4776,7 +4777,7 @@ def create_schedule():
         ).first()
         
         if existing:
-            flash(f"Bu vaqtda ({start_time}) guruhda dars allaqachon mavjud: {existing.subject.name}", 'warning')
+            flash(t('lesson_already_exists_at_time', start_time=start_time, subject_name=existing.subject.name), 'warning')
             return redirect(url_for('admin.schedule', year=parsed_date.year, month=parsed_date.month, group=group_id))
 
         schedule_entry = Schedule(
@@ -4793,7 +4794,7 @@ def create_schedule():
         db.session.add(schedule_entry)
         db.session.commit()
         
-        flash("Dars jadvaliga qo'shildi", 'success')
+        flash(t('schedule_added'), 'success')
             
         return redirect(url_for('admin.schedule', year=parsed_date.year, month=parsed_date.month, group=group_id))
     
@@ -4903,11 +4904,11 @@ def edit_schedule(id):
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
                 date_code = int(parsed_date.strftime("%Y%m%d"))
             except ValueError:
-                flash("Sana noto'g'ri formatda. Iltimos, kalendardan tanlang.", 'error')
+                flash(t('date_invalid_format_use_calendar'), 'error')
                 return redirect(url_for('admin.edit_schedule', id=id))
         
         if not date_code:
-            flash("Sana tanlanishi shart.", 'error')
+            flash(t('date_required_select'), 'error')
             return redirect(url_for('admin.edit_schedule', id=id))
         
         schedule.subject_id = request.form.get('subject_id', type=int)
@@ -4940,7 +4941,7 @@ def edit_schedule(id):
         
         db.session.commit()
         
-        flash("Dars jadvali yangilandi", 'success')
+        flash(t('schedule_updated'), 'success')
         return redirect(url_for(
             'admin.schedule',
             year=parsed_date.year,
@@ -4978,7 +4979,7 @@ def delete_schedule(id):
     
     db.session.delete(schedule)
     db.session.commit()
-    flash("Jadval o'chirildi", 'success')
+    flash(t('schedule_deleted'), 'success')
     
     return redirect(url_for('admin.schedule'))
 

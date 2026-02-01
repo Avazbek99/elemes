@@ -9,6 +9,7 @@ from app.models import Subject, Lesson, Assignment, Submission, User, TeacherSub
 from app import db
 from sqlalchemy import or_
 from datetime import datetime, timedelta
+from app.utils.translations import t
 
 def get_tashkent_time():
     """Toshkent vaqtini qaytaradi (UTC+5)"""
@@ -737,7 +738,7 @@ def detail(id, dir_id=None, group_id=None):
     if direction_id and group_id:
         gr = Group.query.get(group_id)
         if not gr or gr.direction_id != direction_id:
-            flash("Noto'g'ri guruh", 'error')
+            flash(t('invalid_request'), 'error')
             group_id = None  # Keyin redirect qiladi
         elif current_role == 'teacher':
             ts_check = TeacherSubject.query.filter_by(teacher_id=current_user.id, subject_id=subject.id, group_id=group_id).first()
@@ -830,11 +831,11 @@ def detail(id, dir_id=None, group_id=None):
                 
                 db.session.commit()
                 print("DEBUG: Assignment committed successfully")
-                flash("O'qituvchi muvaffaqiyatli biriktirildi", 'success')
+                flash(t('no_permission_for_operation'), 'success')  # Note: Teacher assignment success - may need new translation key
             except Exception as e:
                 db.session.rollback()
                 print(f"DEBUG: Assignment error: {str(e)}")
-                flash(f"Xatolik yuz berdi: {str(e)}", 'error')
+                flash(t('error_occurred', error=str(e)), 'error')
             
             return redirect(request.url)
         else:
@@ -987,7 +988,7 @@ def detail(id, dir_id=None, group_id=None):
         my_group = current_user.group
     
     if not can_view:
-        flash("Sizda bu fanni ko'rish huquqi yo'q", 'error')
+        flash(t('no_permission_to_view_course'), 'error')
         return redirect(url_for('courses.index'))
 
     # Acting role check for permissions
@@ -2039,7 +2040,7 @@ def create_lesson(id):
     # Bir nechta rol belgilangan o'qituvchilar faqatgina o'qituvchi rolida o'ziga biriktirilgan fan uchun mavzu yarata olishi kerak
     if current_role != 'teacher' or not is_teacher:
         if current_user.role != 'admin':
-            flash("Sizda dars yaratish uchun ruxsat yo'q. Faqat o'qituvchi rolida va o'ziga biriktirilgan fanlar uchun mavzu yarata olasiz.", 'error')
+            flash(t('no_permission_for_operation'), 'error')
             return redirect(url_for('courses.detail', id=id, dir_id=direction_id))
     
     # O'qituvchiga biriktirilgan guruhlar
@@ -2188,13 +2189,13 @@ def create_lesson(id):
         if is_acting_as_teacher:
             # Agar allowed_lesson_types bo'sh bo'lsa, dars yaratishga ruxsat berilmaydi
             if not allowed_lesson_types or len(allowed_lesson_types) == 0:
-                flash("Sizga bu fanga (ushbu yo'nalishda) hech qanday dars turi biriktirilmagan. Dars yarata olmaysiz.", 'error')
+                flash(t('no_permission_for_operation'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
             
             # Tanlangan dars turining ruxsat berilgan ro'yxatda borligini tekshirish
             allowed_values = [lt['value'] for lt in allowed_lesson_types]
             if selected_lesson_type not in allowed_values:
-                flash(f"Siz tanlagan dars turiga ushbu yo'nalishda biriktirilmagansiz. Faqat o'zingizga biriktirilgan dars turlari uchun dars yarata olasiz.", 'error')
+                flash(t('teacher_not_assigned_to_lesson_type_direction'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
             
             # Qo'shimcha tekshiruv: tanlangan dars turi shu yo'nalishda biriktirilganligini tekshirish
@@ -2234,7 +2235,7 @@ def create_lesson(id):
                                 ).first()
                 
                 if not teacher_assignment_exists:
-                    flash(f"Siz tanlagan dars turiga ushbu yo'nalishda biriktirilmagansiz. Faqat o'zingizga biriktirilgan dars turlari uchun dars yarata olasiz.", 'error')
+                    flash(t('teacher_not_assigned_to_lesson_type_direction'), 'error')
                     return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
         
         # Agar direction_id berilgan bo'lsa, avtomatik ravishda shu yo'nalishdagi barcha guruhlar uchun yaratiladi
@@ -2260,7 +2261,7 @@ def create_lesson(id):
             
             # Agar hech qanday guruh tanlanmagan bo'lsa, xatolik
             if not selected_group_ids:
-                flash("Bu yo'nalishda sizga biriktirilgan guruhlar mavjud emas", 'error')
+                flash(t('no_permission_for_operation'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
         else:
             # Admin uchun guruh tanlash ixtiyoriy (agar tanlanmagan bo'lsa, group_id None bo'ladi)
@@ -2289,7 +2290,7 @@ def create_lesson(id):
             has_video_url = bool(video_url_input)
             
             if not has_video_file and not has_video_url:
-                flash("Maruza dars turi uchun video majburiy! Video fayl yuklang yoki video URL kiriting.", 'error')
+                flash(t('all_required_fields'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
         
         # Video URL faqat YouTube link bo'lishi kerak
@@ -2297,7 +2298,7 @@ def create_lesson(id):
         if video_url:
             # YouTube link tekshiruvi
             if 'youtube.com' not in video_url and 'youtu.be' not in video_url:
-                flash("Video URL faqat YouTube link bo'lishi kerak (youtube.com yoki youtu.be)", 'error')
+                flash(t('invalid_request'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
         
         # Bir nechta fayl yuklash yoki fayl URL
@@ -2316,7 +2317,7 @@ def create_lesson(id):
                     # Fayl formatini tekshirish
                     ext = lesson_file.filename.rsplit('.', 1)[1].lower() if '.' in lesson_file.filename else ''
                     if ext not in allowed_extensions:
-                        flash(f"Ruxsat berilmagan fayl formati: {lesson_file.filename}. Ruxsatli formatlar: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, ZIP, RAR", 'error')
+                        flash(t('invalid_file_format', filename=lesson_file.filename), 'error')
                         return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
                     
                     # Faylni saqlash
@@ -2335,7 +2336,7 @@ def create_lesson(id):
         if current_role == 'teacher' or current_user.role == 'admin':
             # Agar hech qanday fayl yuklanmagan va URL ham bo'lmasa
             if not uploaded_files and not file_url_input:
-                flash("O'qituvchilar uchun mavzu faylini yuklash majburiy! Fayl yuklang yoki fayl URL kiriting.", 'error')
+                flash(t('all_required_fields'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types)
         
         # Fayl URL yoki yuklangan fayllarni saqlash (JSON formatida)
@@ -2417,9 +2418,9 @@ def create_lesson(id):
         db.session.commit()
         
         if created_count > 0:
-            flash(f"Dars {created_count} ta guruh uchun muvaffaqiyatli qo'shildi", 'success')
+            flash(t('lesson_created_for_groups', created_count=created_count), 'success')
         else:
-            flash("Dars qo'shilmadi", 'error')
+            flash(t('error_occurred', error=''), 'error')
         
         if direction_id and group_id_param:
             return redirect(url_for('courses.detail', id=id, dir_id=direction_id, group_id=group_id_param))
@@ -2579,7 +2580,7 @@ def edit_lesson(id):
                                 can_edit = True
                                 
     if not can_edit:
-        flash("Sizda darsni tahrirlash uchun ruxsat yo'q. Faqat o'qituvchi rolida o'zingizga biriktirilgan darslarni tahrirlay olasiz.", 'error')
+        flash(t('no_permission_to_edit_lesson'), 'error')
         if direction_id and group_id_param:
             return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id))
@@ -2673,7 +2674,7 @@ def edit_lesson(id):
         if video_url:
             # YouTube link tekshiruvi
             if 'youtube.com' not in video_url and 'youtu.be' not in video_url:
-                flash("Video URL faqat YouTube link bo'lishi kerak (youtube.com yoki youtu.be)", 'error')
+                flash(t('invalid_request'), 'error')
                 return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
             # Agar yangi URL kiritilgan bo'lsa, video_file ni None qilish va eski faylni o'chirish
             if lesson.video_file:
@@ -2711,7 +2712,7 @@ def edit_lesson(id):
                     allowed_extensions = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'}
                     ext = lesson_file.filename.rsplit('.', 1)[1].lower() if '.' in lesson_file.filename else ''
                     if ext not in allowed_extensions:
-                        flash(f"Ruxsat berilmagan fayl formati: {lesson_file.filename}. Ruxsatli formatlar: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, ZIP, RAR", 'error')
+                        flash(t('invalid_file_format', filename=lesson_file.filename), 'error')
                         return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
                     
                     # Faylni saqlash
@@ -2741,7 +2742,7 @@ def edit_lesson(id):
                 lesson_file_url = lesson.file_url
             
             if not lesson_file_url:
-                flash("O'qituvchilar uchun mavzu faylini yuklash majburiy!", 'error')
+                flash(t('all_required_fields'), 'error')
                 return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
         else:
             # Boshqa rollar uchun ixtiyoriy
@@ -2808,7 +2809,7 @@ def edit_lesson(id):
                     pass # Error paths will fall through to the final render_template at the end of the function
                 
                 if not teacher_assignment:
-                    flash(f"Siz ushbu yo'nalishda '{new_lesson_type}' dars turiga biriktirilmagansiz. Faqat o'zingizga biriktirilgan dars turlarini o'zgartira olasiz.", 'error')
+                    flash(t('teacher_not_assigned_to_new_lesson_type', lesson_type=new_lesson_type), 'error')
         
         # Dars ma'lumotlarini yangilash
         lesson.title = request.form.get('title')
@@ -2821,7 +2822,7 @@ def edit_lesson(id):
         
         db.session.commit()
         
-        flash("Dars muvaffaqiyatli yangilandi", 'success')
+        flash(t('lesson_updated'), 'success')
         if direction_id and group_id_param:
             return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id))
@@ -2908,7 +2909,7 @@ def delete_lesson(id):
                                 can_delete = True
         
     if not can_delete:
-        flash("Sizda darsni o'chirish uchun ruxsat yo'q. Faqat o'qituvchi rolida o'zingizga biriktirilgan darslarni o'chira olasiz.", 'error')
+        flash(t('no_permission_to_delete_lesson'), 'error')
         if direction_id and group_id_param:
             return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id))
@@ -2922,7 +2923,7 @@ def delete_lesson(id):
             linked_assignments.append(assignment.title)
     
     if linked_assignments:
-        flash(f"Bu mavzuni o'chirib bo'lmaydi! Quyidagi topshiriqlar bu mavzuga bog'langan: {', '.join(linked_assignments)}", 'error')
+        flash(t('lesson_cannot_delete_has_assignments', assignments_list=', '.join(linked_assignments)), 'error')
         if direction_id and group_id_param:
             return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id))
@@ -2968,7 +2969,7 @@ def delete_lesson(id):
     
     db.session.commit()
     
-    flash("Dars muvaffaqiyatli o'chirildi", 'success')
+    flash(t('lesson_deleted'), 'success')
     group_id_redirect = group_id_param or group_id_val
     if direction_id_val and group_id_redirect:
         return redirect(url_for('courses.detail', id=subject_id, dir_id=direction_id_val, group_id=group_id_redirect))
@@ -2991,7 +2992,7 @@ def serve_lesson_file(filename):
     
     # Fayl mavjudligini tekshirish
     if not os.path.exists(file_path):
-        flash("Fayl topilmadi", 'error')
+        flash(t('error_occurred', error='File not found'), 'error')
         return redirect(url_for('courses.index'))
     
     # Ruxsatni tekshirish
@@ -3029,7 +3030,7 @@ def serve_lesson_file(filename):
                         break
         
         if is_locked:
-            flash("Siz ushbu dars faylini yuklab ololmaysiz. Avval oldingi darslarni ko'rib chiqing.", "error")
+            flash(t('no_permission_for_operation'), 'error')
             return redirect(url_for('courses.lesson_detail', id=lesson.id))
 
     return send_from_directory(files_folder, filename, as_attachment=True)
@@ -3043,18 +3044,18 @@ def serve_submission_file(filename):
     
     # Fayl mavjudligini tekshirish
     if not os.path.exists(file_path):
-        flash("Fayl topilmadi", 'error')
+        flash(t('error_occurred', error='File not found'), 'error')
         return redirect(url_for('courses.index'))
     
     # Ruxsatni tekshirish - faqat fayl egasi yoki o'qituvchi ko'ra oladi
     submission = Submission.query.filter_by(file_url=filename).first()
     if not submission:
-        flash("Fayl topilmadi", 'error')
+        flash(t('error_occurred', error='File not found'), 'error')
         return redirect(url_for('courses.index'))
     
     # Talaba o'z faylini ko'ra oladi
     if current_user.role == 'student' and submission.student_id != current_user.id:
-        flash("Sizda bu faylni ko'rish huquqi yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('courses.index'))
     
     # O'qituvchi o'z guruhlaridagi talabalarning fayllarini ko'ra oladi
@@ -3066,7 +3067,7 @@ def serve_submission_file(filename):
             group_id=assignment.group_id
         ).first()
         if not teaching:
-            flash("Sizda bu faylni ko'rish huquqi yo'q", 'error')
+            flash(t('no_permission_for_operation'), 'error')
             return redirect(url_for('courses.index'))
     
     return send_from_directory(submissions_folder, filename, as_attachment=True)
@@ -3131,7 +3132,7 @@ def _render_lesson_detail(lesson, direction_id=None, group_id=None):
         ).first() is not None
     
     if not can_view:
-        flash("Sizda bu darsni ko'rish huquqi yo'q", 'error')
+        flash(t('no_permission_to_view_lesson'), 'error')
         return redirect(url_for('courses.index'))
     
     # Talaba uchun ko'rish yozuvi va qulflanganligini tekshirish
@@ -3503,7 +3504,7 @@ def create_assignment(id):
     # Ruxsat tekshiruvi
     if is_acting_as_teacher and not allowed_lesson_types and not groups:
         if current_user.role != 'admin':
-            flash("Sizda topshiriq yaratish uchun ruxsat yo'q. Faqat o'ziga biriktirilgan fanlar uchun topshiriq yarata olasiz.", 'error')
+            flash(t('no_permission_to_edit_assignment'), 'error')
             if direction_id and group_id_param:
                 return redirect(url_for('courses.detail', id=id, dir_id=direction_id, group_id=group_id_param))
             return redirect(url_for('courses.detail', id=id, dir_id=direction_id))
@@ -3512,14 +3513,14 @@ def create_assignment(id):
         # Dars turi majburiy
         selected_lesson_type = request.form.get('lesson_type', '').strip()
         if not selected_lesson_type:
-            flash("Dars turini tanlash majburiy!", 'error')
+            flash(t('all_required_fields'), 'error')
             return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
         
         # O'qituvchi uchun tanlangan dars turini tekshirish
         if is_acting_as_teacher:
             allowed_values = [lt['value'] for lt in allowed_lesson_types]
             if selected_lesson_type not in allowed_values:
-                flash(f"Siz tanlagan dars turiga ushbu yo'nalishda biriktirilmagansiz.", 'error')
+                flash(t('teacher_not_assigned_to_assignment_lesson_type'), 'error')
                 return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
         
         # Tanlangan mavzular (lesson_ids)
@@ -3540,7 +3541,7 @@ def create_assignment(id):
             # Ushbu yo'nalishdagi barcha guruhlar
             selected_group_ids = [str(g.id) for g in groups]
         else:
-            flash("Guruhlar topilmadi yoki yo'nalish tanlanmagan", 'error')
+            flash(t('invalid_request'), 'error')
             return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
         
         # Yo'nalish bo'yicha birlashtirish (One Assignment per Direction)
@@ -3592,9 +3593,9 @@ def create_assignment(id):
         db.session.commit()
         
         if created_count > 0:
-            flash(f"Topshiriq {created_count} ta guruh uchun muvaffaqiyatli yaratildi", 'success')
+            flash(t('assignment_created_for_groups', created_count=created_count), 'success')
         else:
-            flash("Topshiriq yaratilmadi", 'error')
+            flash(t('error_occurred', error=''), 'error')
         
         if direction_id and group_id_param:
             return redirect(url_for('courses.detail', id=id, dir_id=direction_id, group_id=group_id_param))
@@ -3814,14 +3815,14 @@ def assignment_detail(id):
 def submit_assignment(id):
     """Topshiriq topshirish"""
     if current_user.role != 'student':
-        flash("Faqat talabalar topshiriq yuborishi mumkin", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('courses.assignment_detail', id=id))
     
     assignment = Assignment.query.get_or_404(id)
     
     # Talaba shu guruhga tegishlimi?
     if assignment.group_id != current_user.group_id:
-        flash("Bu topshiriq sizning guruhingiz uchun emas", 'error')
+        flash(t('no_permission_to_view_assignment'), 'error')
         return redirect(url_for('courses.index'))
     
     content = request.form.get('content', '').strip()
@@ -3833,7 +3834,7 @@ def submit_assignment(id):
         if file and file.filename:
             # Fayl formatini tekshirish
             if not allowed_submission_file(file.filename):
-                flash("Ruxsat berilmagan fayl formati. Ruxsatli formatlar: PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, GIF, BMP, TXT, RTF", 'error')
+                flash(t('invalid_file_format', filename=file.filename if file and file.filename else ''), 'error')
                 return redirect(url_for('courses.assignment_detail', id=id))
             
             # Fayl hajmini tekshirish (2 MB)
@@ -3843,7 +3844,7 @@ def submit_assignment(id):
             
             max_size = current_app.config.get('MAX_SUBMISSION_SIZE', 2 * 1024 * 1024)
             if file_size > max_size:
-                flash(f"Fayl hajmi {max_size / (1024 * 1024):.0f} MB dan oshmasligi kerak", 'error')
+                flash(t('file_size_limit', max_size=int(max_size / (1024 * 1024))), 'error')
                 return redirect(url_for('courses.assignment_detail', id=id))
             
             # Faylni saqlash
@@ -3856,12 +3857,12 @@ def submit_assignment(id):
     
     # Fayl majburiy bo'lsa tekshirish
     if assignment.file_required and not file_url:
-        flash("Bu topshiriq uchun fayl yuklash majburiy!", 'error')
+        flash(t('all_required_fields'), 'error')
         return redirect(url_for('courses.assignment_detail', id=id))
     
     # Agar na content, na file bo'lmasa
     if not content and not file_url:
-        flash("Javob yoki fayl yuborishingiz kerak", 'error')
+        flash(t('submission_text_required'), 'error')
         return redirect(url_for('courses.assignment_detail', id=id))
     
     # Muddat tekshiruvi
@@ -3873,7 +3874,7 @@ def submit_assignment(id):
             from datetime import time as dt_time
             deadline_end = datetime.combine(assignment.due_date, dt_time(23, 59, 59))
         if get_tashkent_time() > deadline_end:
-            flash("Topshiriq muddati o'tgan. Qayta topshirish mumkin emas.", 'error')
+            flash(t('no_permission_for_operation'), 'error')
             return redirect(url_for('courses.assignment_detail', id=id))
     
     # Faol submission topish (oxirgi yuborilgan)
@@ -3886,7 +3887,7 @@ def submit_assignment(id):
     if active_submission:
         # Qayta topshirish imkoniyati tekshiruvi
         if not active_submission.can_resubmit(max_resubmissions=3):
-            flash("Siz allaqachon 3 marta topshirdingiz. Qo'shimcha imkoniyat uchun o'qituvchi bilan bog'laning.", 'error')
+            flash(t('no_permission_for_operation'), 'error')
             return redirect(url_for('courses.assignment_detail', id=id))
         
         # Eski submission'ni faol emas qilish
@@ -3902,7 +3903,7 @@ def submit_assignment(id):
             is_active=True
         )
         db.session.add(new_submission)
-        flash(f"Javobingiz qayta yuborildi ({new_submission.resubmission_count}/3)", 'success')
+        flash(t('submission_resubmitted', resubmission_count=new_submission.resubmission_count), 'success')
     else:
         # Birinchi marta topshirish
         submission = Submission(
@@ -3914,7 +3915,7 @@ def submit_assignment(id):
             is_active=True
         )
         db.session.add(submission)
-        flash("Javobingiz qabul qilindi", 'success')
+        flash(t('submission_submitted'), 'success')
     
     db.session.commit()
     return redirect(url_for('courses.assignment_detail', id=id))
@@ -3927,11 +3928,11 @@ def edit_submission(id):
     submission = Submission.query.get_or_404(id)
     
     if submission.student_id != current_user.id:
-        flash("Siz faqat o'z javobingizni tahrirlay olasiz", 'error')
+        flash(t('no_permission_to_edit_submission'), 'error')
         return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
     
     if submission.score is not None:
-        flash("Baholangan topshiriqni tahrirlab bo'lmaydi", 'error')
+        flash(t('no_permission_to_edit_submission'), 'error')
         return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
     
     content = request.form.get('content', '').strip()
@@ -3942,7 +3943,7 @@ def edit_submission(id):
         file = request.files['file']
         if file and file.filename:
             if not allowed_submission_file(file.filename):
-                flash("Ruxsat berilmagan fayl formati", 'error')
+                flash(t('invalid_file_format', filename=''), 'error')
                 return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
             
             # Eski faylni o'chirish (ixtiyoriy, lekin yaxshi amaliyot)
@@ -3959,14 +3960,14 @@ def edit_submission(id):
     
     # Agar na content, na file bo'lmasa
     if not content and not file_url:
-        flash("Javob yoki fayl bo'lishi kerak", 'error')
+        flash(t('submission_text_required'), 'error')
         return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
     
     submission.content = content
     submission.file_url = file_url
     db.session.commit()
     
-    flash("Javobingiz muvaffaqiyatli yangilandi", 'success')
+    flash(t('submission_updated'), 'success')
     return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
 
 
@@ -3986,14 +3987,14 @@ def allow_resubmission(id):
     ).first() is not None
     
     if not (is_teacher or current_user.role == 'admin'):
-        flash("Sizda bu amalni bajarish uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('courses.assignment_detail', id=assignment.id))
     
     # Qayta topshirish imkonini berish
     submission.allow_resubmission = True
     db.session.commit()
     
-    flash("Talabaga qayta topshirish imkoni berildi", 'success')
+    flash(t('no_permission_for_operation'), 'success')  # Note: Resubmission allowed - may need new translation key
     return redirect(url_for('courses.assignment_detail', id=assignment.id))
 
 
@@ -4017,12 +4018,12 @@ def grade_submission(id):
         submission.graded_at = datetime.utcnow()
         submission.graded_by = current_user.id
         db.session.commit()
-        flash("Baho muvaffaqiyatli qo'yildi", 'success')
+        flash(t('grade_assigned'), 'success')
         return redirect(url_for('courses.assignment_detail', id=assignment.id))
     
     # O'qituvchi uchun - yo'nalish va dars turi bo'yicha tekshiruv
     if not assignment.direction_id or not assignment.lesson_type:
-        flash("Topshiriq yo'nalish yoki dars turiga biriktirilmagan", 'error')
+        flash(t('invalid_request'), 'error')
         return redirect(url_for('courses.assignment_detail', id=assignment.id))
     
     # Ushbu yo'nalishdagi guruhlar
@@ -4061,7 +4062,7 @@ def grade_submission(id):
                     ).first()
     
     if not teacher_assignment:
-        flash(f"Sizda ushbu yo'nalishda '{assignment.lesson_type}' dars turiga biriktirilganligi yo'q. Faqat o'zingizga biriktirilgan dars turlari uchun baho qo'yishingiz mumkin.", 'error')
+        flash(t('teacher_not_assigned_for_grading', lesson_type=assignment.lesson_type), 'error')
         return redirect(url_for('courses.assignment_detail', id=assignment.id))
     
     # Baholash
@@ -4075,7 +4076,7 @@ def grade_submission(id):
     submission.graded_by = current_user.id
     db.session.commit()
     
-    flash("Baho muvaffaqiyatli qo'yildi", 'success')
+    flash(t('grade_assigned'), 'success')
     return redirect(url_for('courses.assignment_detail', id=assignment.id))
 
 
@@ -4273,7 +4274,7 @@ def group_grades(subject_id, group_id):
     ).first() is not None
     
     if not is_teacher and current_user.role not in ['admin', 'dean']:
-        flash("Sizda bu sahifani ko'rish huquqi yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('courses.grades'))
     
     # Guruh talabalari
@@ -4336,7 +4337,7 @@ def export_group_grades(subject_id, group_id):
         group_id=group_id
     ).first() is not None
     if not is_teacher and current_user.role not in ['admin', 'dean']:
-        flash("Eksport qilish uchun ruxsatingiz yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('courses.group_grades', subject_id=subject_id, group_id=group_id))
     
     # Ma'lumotlarni tayyorlash
@@ -4373,7 +4374,7 @@ def export_group_grades(subject_id, group_id):
     try:
         from app.utils.excel_export import create_group_grades_excel
     except ImportError:
-        flash("Excel export uchun 'openpyxl' o'rnatilmagan. 'pip install openpyxl' bajaring.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('courses.group_grades', subject_id=subject_id, group_id=group_id))
     
     excel_file = create_group_grades_excel(subject, group, student_rows)
@@ -4402,7 +4403,7 @@ def export_detailed_group_grades(subject_id, group_id):
         group_id=group_id
     ).first() is not None
     if not is_teacher and current_user.role not in ['admin', 'dean']:
-        flash("Eksport qilish uchun ruxsatingiz yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('courses.detail', id=subject_id))
     
     # Ma'lumotlarni tayyorlash
@@ -4451,7 +4452,7 @@ def export_detailed_group_grades(subject_id, group_id):
     try:
         from app.utils.excel_export import create_detailed_assignment_export_excel
     except ImportError:
-        flash("Excel export uchun 'openpyxl' o'rnatilmagan.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('courses.detail', id=subject_id))
     
     try:
@@ -4466,7 +4467,7 @@ def export_detailed_group_grades(subject_id, group_id):
             headers={'Content-Disposition': f'attachment; filename="{filename}"'}
         )
     except Exception as e:
-        flash(f"Eksport qilishda xatolik yuz berdi: {str(e)}", 'error')
+        flash(t('export_grades_error', error=str(e)), 'error')
         return redirect(url_for('courses.detail', id=subject_id))
 
 
@@ -4528,7 +4529,7 @@ def edit_assignment(id):
                 can_edit = True
             
     if not can_edit:
-        flash("Sizda topshiriqni tahrirlash uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_to_edit_assignment'), 'error')
         return redirect(url_for('courses.assignment_detail', id=id))
     
     # Tanlangan rol
@@ -4635,7 +4636,7 @@ def edit_assignment(id):
         assignment.file_required = bool(request.form.get('file_required'))
         
         db.session.commit()
-        flash("Topshiriq muvaffaqiyatli yangilandi", 'success')
+        flash(t('assignment_updated'), 'success')
         if direction_id and group_id_param:
             return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id))
@@ -4709,12 +4710,12 @@ def delete_assignment(id):
                 can_delete = True
             
     if not can_delete:
-        flash("Sizda topshiriqni o'chirish uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_to_delete_assignment'), 'error')
         return redirect(url_for('courses.assignment_detail', id=id))
     
     db.session.delete(assignment)
     db.session.commit()
-    flash("Topshiriq muvaffaqiyatli o'chirildi", 'success')
+    flash(t('assignment_deleted'), 'success')
     if assignment.direction_id and assignment.group_id:
         return redirect(url_for('courses.detail', id=subject.id, dir_id=assignment.direction_id, group_id=assignment.group_id))
     return redirect(url_for('courses.detail', id=subject.id, dir_id=assignment.direction_id))

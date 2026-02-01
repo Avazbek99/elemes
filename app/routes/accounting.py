@@ -5,6 +5,7 @@ from app import db
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import func
+from app.utils.translations import t
 
 bp = Blueprint('accounting', __name__, url_prefix='/accounting')
 
@@ -13,7 +14,7 @@ def accounting_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
         
         # Session'dan joriy rol ni olish
@@ -26,7 +27,7 @@ def accounting_required(f):
             # Agar joriy rol accounting emas, lekin foydalanuvchida accounting roli bor bo'lsa, ruxsat berish
             return f(*args, **kwargs)
         else:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
     return decorated_function
 
@@ -50,7 +51,7 @@ def index():
         # Dekan faqat o'z fakultetidagi talabalarni ko'radi
         faculty = Faculty.query.get(current_user.faculty_id)
         if not faculty:
-            flash("Sizga fakultet biriktirilmagan", 'error')
+            flash(t('faculty_not_assigned'), 'error')
             return redirect(url_for('main.dashboard'))
         
         faculty_group_ids = [g.id for g in faculty.groups.all()]
@@ -283,7 +284,7 @@ def index():
     
     else:
         # Boshqa rollar uchun ruxsat yo'q
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('main.dashboard'))
 
 
@@ -294,16 +295,16 @@ def import_payments():
     """Excel fayldan to'lov ma'lumotlarini import qilish"""
     if request.method == 'POST':
         if 'excel_file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('accounting.import_payments'))
         
         file = request.files['excel_file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('accounting.import_payments'))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            flash(t('only_excel_files_allowed'), 'error')
             return redirect(url_for('accounting.import_payments'))
         
         try:
@@ -313,22 +314,22 @@ def import_payments():
             
             if result['success']:
                 if result['imported'] > 0:
-                    flash(f"{result['imported']} ta yozuv muvaffaqiyatli import qilindi", 'success')
+                    flash(t('records_imported', imported_count=result['imported']), 'success')
                 else:
-                    flash("Hech qanday yozuv import qilinmadi", 'warning')
+                    flash(t('no_records_imported'), 'warning')
                 
                 if result['errors']:
-                    error_msg = f"Xatolar ({len(result['errors'])}): " + "; ".join(result['errors'][:5])
+                    errors_list = "; ".join(result['errors'][:5])
                     if len(result['errors']) > 5:
-                        error_msg += f" va yana {len(result['errors']) - 5} ta xato"
-                    flash(error_msg, 'warning')
+                        errors_list += f" va yana {len(result['errors']) - 5} ta xato"
+                    flash(t('import_error_with_details', errors=errors_list), 'warning')
             else:
-                flash(f"Import xatosi: {result['errors'][0] if result['errors'] else 'Noma`lum xatolik'}", 'error')
+                flash(t('import_error', error=result['errors'][0] if result['errors'] else 'Noma`lum xatolik'), 'error')
                 
         except ImportError as e:
-            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+            flash(t('excel_import_not_working', error=str(e)), 'error')
         except Exception as e:
-            flash(f"Import xatosi: {str(e)}", 'error')
+            flash(t('import_error', error=str(e)), 'error')
         
         return redirect(url_for('accounting.index'))
     
@@ -343,7 +344,7 @@ def download_sample_contracts():
     try:
         from app.utils.excel_export import create_sample_contracts_excel
     except ImportError:
-        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('accounting.import_payments'))
     
     excel_file = create_sample_contracts_excel()
@@ -364,12 +365,12 @@ def student_payments(student_id):
     
     # Ruxsat tekshiruvi
     if current_user.role == 'student' and current_user.id != student_id:
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('main.dashboard'))
     
     if current_user.role == 'dean':
         if not student.group or student.group.faculty_id != current_user.faculty_id:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
     
     # Admin va accounting barcha ma'lumotlarni ko'radi
@@ -401,7 +402,7 @@ def export_contracts():
     try:
         from app.utils.excel_export import create_contracts_excel
     except ImportError:
-        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('accounting.index'))
     
     course_year = request.args.get('course', type=int)
@@ -414,7 +415,7 @@ def export_contracts():
     if current_user.role == 'dean':
         faculty = Faculty.query.get(current_user.faculty_id)
         if not faculty:
-            flash("Sizga fakultet biriktirilmagan", 'error')
+            flash(t('faculty_not_assigned'), 'error')
             return redirect(url_for('main.dashboard'))
         
         faculty_group_ids = [g.id for g in faculty.groups.all()]
@@ -444,7 +445,7 @@ def export_contracts():
     payments = query.all()
     
     if not payments:
-        flash("Kontrakt ma'lumotlari topilmadi", 'warning')
+        flash(t('contract_not_found'), 'warning')
         return redirect(url_for('accounting.index'))
     
     excel_file = create_contracts_excel(payments, course_year)
@@ -469,12 +470,12 @@ def edit_payment(id):
     
     # Ruxsat tekshiruvi
     if current_user.role == 'student':
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('main.dashboard'))
     
     if current_user.role == 'dean':
         if not student.group or student.group.faculty_id != current_user.faculty_id:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
     
     # Admin va accounting barcha ma'lumotlarni tahrirlashi mumkin
@@ -487,7 +488,7 @@ def edit_payment(id):
         payment.notes = request.form.get('notes', '')
         
         db.session.commit()
-        flash("To'lov ma'lumotlari yangilandi", 'success')
+        flash(t('payment_info_updated'), 'success')
         return redirect(url_for('accounting.student_payments', student_id=student.id))
     
     return render_template('accounting/edit_payment.html', payment=payment, student=student)

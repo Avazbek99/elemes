@@ -9,6 +9,7 @@ import calendar
 from werkzeug.security import generate_password_hash
 from app.utils.excel_export import create_schedule_excel
 from app.utils.excel_import import generate_schedule_sample_file, import_schedule_from_excel
+from app.utils.translations import t
 
 bp = Blueprint('dean', __name__, url_prefix='/dean')
 
@@ -17,7 +18,7 @@ def dean_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
         
         # Session'dan joriy rol ni olish
@@ -30,7 +31,7 @@ def dean_required(f):
             # Agar joriy rol dekan emas, lekin foydalanuvchida dekan roli bor bo'lsa, ruxsat berish
             return f(*args, **kwargs)
         else:
-            flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+            flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
     return decorated_function
 
@@ -82,7 +83,7 @@ def index():
 def groups():
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     course_year = request.args.get('course_year', type=int)
@@ -133,7 +134,7 @@ def groups():
 def create_group():
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     # Fakultetdagi barcha yo'nalishlarni olish
@@ -151,30 +152,30 @@ def create_group():
 
         # Validatsiya
         if not name:
-            flash("Guruh nomi majburiy", 'error')
+            flash(t('group_name_required'), 'error')
             return render_template('dean/create_group.html', **_ctx())
         
         if not direction_id:
-            flash("Yo'nalish tanlash majburiy", 'error')
+            flash(t('direction_required'), 'error')
             return render_template('dean/create_group.html', **_ctx())
         
         direction = Direction.query.get(direction_id)
         if not direction or direction.faculty_id != faculty.id:
-            flash("Noto'g'ri yo'nalish tanlandi", 'error')
+            flash(t('direction_incorrect_selection'), 'error')
             return render_template('dean/create_group.html', **_ctx())
         
         course_year = request.form.get('course_year', type=int)
         semester = request.form.get('semester', type=int)
         education_type = request.form.get('education_type')
         if Group.query.filter_by(name=name.upper(), direction_id=direction_id, course_year=course_year, semester=semester).first():
-            flash("Bu yo'nalishda, kursda va semestrda bunday nomli guruh allaqachon mavjud", 'error')
+            flash(t('group_already_exists'), 'error')
             return render_template('dean/create_group.html', **_ctx())
         
         description = request.form.get('description', '').strip()
         enrollment_year = request.form.get('enrollment_year', type=int)
         
         if not course_year or not semester or not education_type:
-            flash("Kurs, semestr va ta'lim shakli majburiy", 'error')
+            flash(t('group_all_fields_required'), 'error')
             return render_template('dean/create_group.html', **_ctx())
         
         group = Group(
@@ -190,7 +191,7 @@ def create_group():
         db.session.add(group)
         db.session.commit()
         
-        flash("Guruh muvaffaqiyatli yaratildi", 'success')
+        flash(t('group_created'), 'success')
         if request.args.get('from_directions') or request.form.get('from_directions'):
             return redirect(url_for('dean.directions'))
         return redirect(url_for('dean.groups'))
@@ -212,7 +213,7 @@ def edit_group(id):
     
     # Faqat o'z fakultetidagi guruhlarni tahrirlashi mumkin
     if group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu guruhni tahrirlash huquqi yo'q", 'error')
+        flash(t('no_permission_to_edit_group'), 'error')
         return redirect(url_for('dean.groups'))
     
     # Faqat shu fakultetdagi yo'nalishlar
@@ -231,18 +232,18 @@ def edit_group(id):
         _edit_redirect = lambda: redirect(url_for('dean.edit_group', id=group.id, **({'from_directions': 1} if (request.args.get('from_directions') or request.form.get('from_directions')) else {})))
         
         if not course_year or not semester or not education_type or not direction_id or not enrollment_year:
-            flash("Barcha maydonlar to'ldirilishi kerak", 'error')
+            flash(t('all_fields_required'), 'error')
             return _edit_redirect()
         
         direction = Direction.query.get(direction_id)
         if not direction or direction.faculty_id != group.faculty_id:
-            flash("Noto'g'ri yo'nalish tanlandi", 'error')
+            flash(t('direction_incorrect_selection'), 'error')
             return _edit_redirect()
         
         if (new_name != group.name or direction_id != group.direction_id or course_year != group.course_year or semester != group.semester):
             existing_group = Group.query.filter_by(name=new_name, direction_id=direction_id, course_year=course_year, semester=semester).first()
             if existing_group and existing_group.id != group.id:
-                flash("Bu yo'nalishda, kursda va semestrda bunday nomli guruh allaqachon mavjud", 'error')
+                flash(t('group_already_exists'), 'error')
                 return _edit_redirect()
         
         group.name = new_name
@@ -255,7 +256,7 @@ def edit_group(id):
         group.description = description if description else None
         
         db.session.commit()
-        flash("Guruh yangilandi", 'success')
+        flash(t('group_updated'), 'success')
         
         # Redireksiya
         if request.args.get('from_directions') or request.form.get('from_directions'):
@@ -286,15 +287,15 @@ def delete_group(id):
     group = Group.query.get_or_404(id)
     
     if group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu guruhni o'chirish huquqi yo'q", 'error')
+        flash(t('no_permission_to_delete_group'), 'error')
         return redirect(url_for('dean.groups'))
     
     if group.students.count() > 0:
-        flash("Guruhda talabalar mavjud. Avval talabalarni boshqa guruhga o'tkazing", 'error')
+        flash(t('group_has_students_transfer_first'), 'error')
     else:
         db.session.delete(group)
         db.session.commit()
-        flash("Guruh o'chirildi", 'success')
+        flash(t('group_deleted'), 'success')
     
     if request.args.get('from_directions'):
         return redirect(url_for('dean.directions'))
@@ -310,7 +311,7 @@ def group_students(id):
     group = Group.query.get_or_404(id)
     
     if group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu guruhni ko'rish huquqi yo'q", 'error')
+        flash(t('no_permission_to_view_group'), 'error')
         return redirect(url_for('dean.groups'))
     
     students = group.students.order_by(User.full_name).all()
@@ -330,7 +331,7 @@ def add_student_to_group(id):
     group = Group.query.get_or_404(id)
     
     if group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu guruhga talaba qo'shish huquqi yo'q", 'error')
+        flash(t('no_permission_to_add_students_to_group'), 'error')
         return redirect(url_for('dean.groups'))
     
     # Bir nechta talabani qo'shish
@@ -338,7 +339,7 @@ def add_student_to_group(id):
     student_ids = [int(sid) for sid in student_ids if sid]
     
     if not student_ids:
-        flash("Hech qanday talaba tanlanmagan", 'error')
+        flash(t('no_students_selected'), 'error')
         return redirect(url_for('dean.group_students', id=id))
     
     added_count = 0
@@ -351,9 +352,9 @@ def add_student_to_group(id):
     db.session.commit()
     
     if added_count > 0:
-        flash(f"{added_count} ta talaba guruhga qo'shildi", 'success')
+        flash(t('students_added_to_group', added_count=added_count), 'success')
     else:
-        flash("Hech qanday talaba qo'shilmadi. Tanlangan talabalar allaqachon boshqa guruhga biriktirilgan bo'lishi mumkin", 'warning')
+        flash(t('no_students_added'), 'warning')
     
     return redirect(url_for('dean.group_students', id=id))
 
@@ -365,13 +366,13 @@ def remove_student_from_group(id, student_id):
     group = Group.query.get_or_404(id)
     
     if group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.groups'))
     
     student = User.query.get_or_404(student_id)
     student.group_id = None
     db.session.commit()
-    flash(f"{student.full_name} guruhdan chiqarildi", 'success')
+    flash(t('student_removed_from_group', full_name=student.full_name), 'success')
     
     return redirect(url_for('dean.group_students', id=id))
 
@@ -384,14 +385,14 @@ def remove_students_from_group(id):
     group = Group.query.get_or_404(id)
     
     if group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.groups'))
     
     ids = request.form.getlist('remove_student_ids')
     student_ids = [int(sid) for sid in ids if sid]
     
     if not student_ids:
-        flash("Hech qanday talaba tanlanmagan", 'error')
+        flash(t('no_students_selected'), 'error')
         return redirect(url_for('dean.group_students', id=id))
     
     students = User.query.filter(
@@ -408,9 +409,9 @@ def remove_students_from_group(id):
     db.session.commit()
     
     if count:
-        flash(f"{count} ta talaba guruhdan chiqarildi", 'success')
+        flash(t('students_removed_from_group', count=count), 'success')
     else:
-        flash("Hech qanday talaba guruhdan chiqarilmadi", 'warning')
+        flash(t('no_students_removed'), 'warning')
     
     return redirect(url_for('dean.group_students', id=id))
 
@@ -503,7 +504,7 @@ def courses():
     """Dekan uchun kurslar bo'limi (Yo'nalishlar)"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     # Filtrlarni olish
@@ -740,7 +741,7 @@ def students():
     
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     page = request.args.get('page', 1, type=int)
@@ -1159,21 +1160,21 @@ def import_students():
     """Excel fayldan talabalar import qilish"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
         if 'excel_file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('dean.students'))
         
         file = request.files['excel_file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('dean.students'))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            flash(t('only_excel_files_allowed'), 'error')
             return redirect(url_for('dean.students'))
         
         try:
@@ -1183,22 +1184,22 @@ def import_students():
             
             if result['success']:
                 if result['imported'] > 0:
-                    flash(f"{result['imported']} ta talaba muvaffaqiyatli import qilindi", 'success')
+                    flash(t('students_imported', imported_count=result['imported']), 'success')
                 else:
-                    flash("Hech qanday talaba import qilinmadi", 'warning')
+                    flash(t('no_students_imported'), 'warning')
                 
                 if result['errors']:
-                    error_msg = f"Xatolar ({len(result['errors'])}): " + "; ".join(result['errors'][:5])
+                    errors_list = "; ".join(result['errors'][:5])
                     if len(result['errors']) > 5:
-                        error_msg += f" va yana {len(result['errors']) - 5} ta xato"
-                    flash(error_msg, 'warning')
+                        errors_list += f" va yana {len(result['errors']) - 5} ta xato"
+                    flash(t('import_error_with_details', errors=errors_list), 'warning')
             else:
-                flash(f"Import xatosi: {result['errors'][0] if result['errors'] else 'Noma`lum xatolik'}", 'error')
+                flash(t('import_error', error=result['errors'][0] if result['errors'] else 'Noma`lum xatolik'), 'error')
                 
         except ImportError as e:
-            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+            flash(t('excel_import_not_working', error=str(e)), 'error')
         except Exception as e:
-            flash(f"Import xatosi: {str(e)}", 'error')
+            flash(t('import_error', error=str(e)), 'error')
         
         return redirect(url_for('dean.students'))
     
@@ -1220,7 +1221,7 @@ def download_sample_import():
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
     except Exception as e:
-        flash(f"Namuna fayl yaratishda xatolik: {str(e)}", 'error')
+        flash(t('template_file_creation_error', error=str(e)), 'error')
         return redirect(url_for('dean.import_students'))
 
 
@@ -1231,13 +1232,13 @@ def export_students():
     """Dekan uchun talabalar ro'yxatini Excel formatida yuklab olish (faqat o'z fakulteti)"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     try:
         from app.utils.excel_export import create_students_excel
     except ImportError:
-        flash("Excel export funksiyasi ishlamayapti. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.", 'error')
+        flash(t('openpyxl_not_installed'), 'error')
         return redirect(url_for('dean.students'))
     
     # Faqat o'z fakultetidagi talabalar
@@ -1267,7 +1268,7 @@ def create_student():
     
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
@@ -1283,22 +1284,22 @@ def create_student():
         
         # Talaba ID majburiy
         if not student_id:
-            flash("Talaba ID majburiy maydon", 'error')
+            flash(t('student_id_required'), 'error')
             return render_template('dean/create_student.html', faculty=faculty)
         
         if User.query.filter_by(student_id=student_id).first():
-            flash("Bu talaba ID allaqachon mavjud", 'error')
+            flash(t('student_id_already_exists'), 'error')
             return render_template('dean/create_student.html', faculty=faculty)
         
         # Pasport seriyasi va raqami majburiy
         if not passport_number:
-            flash("Pasport seriyasi va raqami majburiy", 'error')
+            flash(t('passport_required'), 'error')
             return render_template('dean/create_student.html', faculty=faculty)
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email:
             if User.query.filter_by(email=email).first():
-                flash("Bu email allaqachon mavjud", 'error')
+                flash(t('email_already_exists'), 'error')
                 return render_template('dean/create_student.html', faculty=faculty)
         
         # Pasport raqamini katta harfga o'zgartirish
@@ -1310,7 +1311,7 @@ def create_student():
             try:
                 parsed_birth_date = datetime.strptime(birth_date, '%Y-%m-%d').date()
             except ValueError:
-                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                flash(t('birthdate_invalid_format'), 'error')
                 return render_template('dean/create_student.html', faculty=faculty)
         
         # Email maydonini tozalash
@@ -1393,7 +1394,7 @@ def create_student():
             else:
                 raise
         
-        flash(f"{student.full_name} muvaffaqiyatli yaratildi", 'success')
+        flash(t('student_created', full_name=student.full_name), 'success')
         return redirect(url_for('dean.students'))
     
     # Fakultetdagi barcha yo'nalishlar
@@ -1410,19 +1411,19 @@ def edit_student(id):
     
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     student = User.query.get_or_404(id)
     
     # Faqat talaba va shu fakultetga tegishli guruhda bo'lishi kerak (agar guruh bo'lsa)
     if student.role != 'student':
-        flash("Bu foydalanuvchi talaba emas", 'error')
+        flash(t('user_not_student'), 'error')
         return redirect(url_for('dean.students'))
     
     # Agar talabaning guruh bo'lsa, fakultetni tekshirish
     if student.group and student.group.faculty_id != faculty.id:
-        flash("Sizda bu talabani tahrirlash huquqi yo'q", 'error')
+        flash(t('no_permission_to_edit_student'), 'error')
         return redirect(url_for('dean.students'))
     
     if request.method == 'POST':
@@ -1438,25 +1439,25 @@ def edit_student(id):
         
         # Talaba ID majburiy
         if not student_id:
-            flash("Talaba ID majburiy maydon", 'error')
+            flash(t('student_id_required'), 'error')
             return render_template('dean/edit_student.html', faculty=faculty, student=student)
         
         # Talaba ID unikalligi (boshqa talabada bo'lmasligi kerak)
         existing_student = User.query.filter_by(student_id=student_id).first()
         if existing_student and existing_student.id != student.id:
-            flash("Bu talaba ID allaqachon boshqa talabada mavjud", 'error')
+            flash(t('student_id_already_exists_other_student'), 'error')
             return render_template('dean/edit_student.html', faculty=faculty, student=student)
         
         # Pasport seriyasi va raqami majburiy
         if not passport_number:
-            flash("Pasport seriyasi va raqami majburiy", 'error')
+            flash(t('passport_required'), 'error')
             return render_template('dean/edit_student.html', faculty=faculty, student=student)
         
         # Email ixtiyoriy, lekin agar kiritilgan bo'lsa, unikallikni tekshirish
         if email:
             existing_student_with_email = User.query.filter_by(email=email).first()
             if existing_student_with_email and existing_student_with_email.id != student.id:
-                flash("Bu email allaqachon boshqa talabada mavjud", 'error')
+                flash(t('email_already_exists_other_student'), 'error')
                 return render_template('dean/edit_student.html', faculty=faculty, student=student)
         
         # Pasport raqamini katta harfga o'zgartirish
@@ -1467,7 +1468,7 @@ def edit_student(id):
             try:
                 student.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
             except ValueError:
-                flash("Tug'ilgan sana noto'g'ri formatda (yyyy-mm-dd)", 'error')
+                flash(t('birthdate_invalid_format'), 'error')
                 return render_template('dean/edit_student.html', faculty=faculty, student=student)
         else:
             student.birth_date = None
@@ -1527,7 +1528,7 @@ def edit_student(id):
             student.group_id = None
             
         db.session.commit()
-        flash(f"{student.full_name} ma'lumotlari yangilandi", 'success')
+        flash(t('student_updated', full_name=student.full_name), 'success')
         return redirect(url_for('dean.students'))
     
     # Fakultetdagi barcha yo'nalishlar
@@ -1542,19 +1543,19 @@ def toggle_student_status(id):
     """Talabani bloklash / blokdan chiqarish (dekan faqat o'z fakulteti bo'yicha)"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     student = User.query.get_or_404(id)
     if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
-        flash("Sizda bu amal uchun huquq yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.students'))
     
     student.is_active = not student.is_active
     db.session.commit()
     
     status = "faollashtirildi" if student.is_active else "bloklandi"
-    flash(f"Talaba {student.full_name} {status}", 'success')
+    flash(t('student_status_changed', full_name=student.full_name, status=status), 'success')
     return redirect(url_for('dean.students'))
 
 
@@ -1565,18 +1566,18 @@ def reset_student_password(id):
     """Talaba parolini boshlang'ich holatga qaytarish (student123)"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     student = User.query.get_or_404(id)
     if student.role != 'student' or not student.group or student.group.faculty_id != faculty.id:
-        flash("Sizda bu amal uchun huquq yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.students'))
     
     new_password = 'student123'
     student.set_password(new_password)
     db.session.commit()
-    flash(f"{student.full_name} paroli boshlang'ich holatga qaytarildi. Yangi parol: {new_password}", 'success')
+    flash(t('student_password_reset', student=student, new_password=new_password), 'success')
     return redirect(url_for('dean.students'))
 
 
@@ -1587,17 +1588,17 @@ def delete_student(id):
     """Talabani o'chirish"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     student = User.query.get_or_404(id)
     if student.role != 'student':
-        flash("Bu foydalanuvchi talaba emas", 'error')
+        flash(t('user_not_student'), 'error')
         return redirect(url_for('dean.students'))
     
     # Fakultet tekshiruvi (agar guruh bo'lsa)
     if student.group and student.group.faculty_id != faculty.id:
-        flash("Sizda bu amal uchun huquq yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.students'))
     
     student_name = student.full_name
@@ -1622,7 +1623,7 @@ def delete_student(id):
     # Talabani o'chirish
     db.session.delete(student)
     db.session.commit()
-    flash(f"{student_name} o'chirildi", 'success')
+    flash(t('student_deleted', student_name=student_name), 'success')
     return redirect(url_for('dean.students'))
 
 
@@ -1633,7 +1634,7 @@ def delete_student(id):
 def teachers():
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     # Fakultetda dars beradigan o'qituvchilar (guruhlar orqali)
@@ -1684,7 +1685,7 @@ def directions():
     """Yo'nalishlar sahifasi – admin faculty_detail ga mos (Yil+Ta'lim shakli → Yo'nalish → Kurs → Semestr → Guruhlar)"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
 
     course_filter = request.args.get('course', type=int)
@@ -1895,21 +1896,21 @@ def import_directions():
     """Excel fayldan yo'nalish va guruhlarni import qilish"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
         if 'excel_file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('dean.import_directions'))
         
         file = request.files['excel_file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('dean.import_directions'))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat Excel fayllar (.xlsx, .xls) qo'llab-quvvatlanadi", 'error')
+            flash(t('only_excel_files_allowed'), 'error')
             return redirect(url_for('dean.import_directions'))
         
         try:
@@ -1920,24 +1921,24 @@ def import_directions():
                 d_count = result.get('imported_directions', 0)
                 g_count = result.get('imported_groups', 0)
                 if d_count or g_count:
-                    flash(f"{d_count} ta yo'nalish va {g_count} ta guruh import qilindi", 'success')
+                    flash(t('directions_and_groups_imported', d_count=d_count, g_count=g_count), 'success')
                 else:
-                    flash("Hech qanday yo'nalish yoki guruh import qilinmadi", 'warning')
+                    flash(t('no_records_imported'), 'warning')
                 
                 errors = result.get('errors', [])
                 if errors:
-                    msg = f"Xatolar ({len(errors)}): " + "; ".join(errors[:5])
+                    errors_list = "; ".join(errors[:5])
                     if len(errors) > 5:
-                        msg += f" va yana {len(errors) - 5} ta xato"
-                    flash(msg, 'warning')
+                        errors_list += f" va yana {len(errors) - 5} ta xato"
+                    flash(t('import_error_with_details', errors=errors_list), 'warning')
             else:
                 errors = result.get('errors', [])
-                flash(errors[0] if errors else "Import xatosi", 'error')
+                flash(t('import_error', error=errors[0] if errors else 'Import xatosi'), 'error')
         
         except ImportError as e:
-            flash(f"Excel import funksiyasi ishlamayapti: {str(e)}", 'error')
+            flash(t('excel_import_not_working', error=str(e)), 'error')
         except Exception as e:
-            flash(f"Import xatosi: {str(e)}", 'error')
+            flash(t('import_error', error=str(e)), 'error')
         
         return redirect(url_for('dean.directions'))
     
@@ -1950,7 +1951,7 @@ def import_directions():
 def create_direction():
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     if request.method == 'POST':
@@ -1960,7 +1961,7 @@ def create_direction():
         
         # Validatsiya
         if not name or not code:
-            flash("Yo'nalish nomi va kodi majburiy", 'error')
+            flash(t('direction_name_and_code_required'), 'error')
             return render_template('dean/create_direction.html', faculty=faculty)
         
         # Kod takrorlanmasligini tekshirish (faqat fakultet va kod bo'yicha)
@@ -1970,7 +1971,7 @@ def create_direction():
         ).first()
         
         if existing:
-            flash("Bu kod bilan yo'nalish allaqachon mavjud", 'error')
+            flash(t('direction_code_already_exists'), 'error')
             return render_template('dean/create_direction.html', faculty=faculty)
         
         direction = Direction(
@@ -1982,7 +1983,7 @@ def create_direction():
         db.session.add(direction)
         db.session.commit()
         
-        flash("Yo'nalish muvaffaqiyatli yaratildi", 'success')
+        flash(t('direction_created'), 'success')
         return redirect(url_for('dean.directions'))
     
     return render_template('dean/create_direction.html', faculty=faculty)
@@ -1999,7 +2000,7 @@ def assign_groups_to_direction(id):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.directions'))
     
     # Tanlangan guruhlar
@@ -2018,7 +2019,7 @@ def assign_groups_to_direction(id):
             group.direction_id = direction.id
     
     db.session.commit()
-    flash("Guruhlar yo'nalishga biriktirildi", 'success')
+    flash(t('groups_assigned_to_direction'), 'success')
     return redirect(url_for('dean.direction_detail', id=id))
 
 
@@ -2030,7 +2031,7 @@ def edit_direction(id):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.directions'))
     
     if request.method == 'POST':
@@ -2039,7 +2040,7 @@ def edit_direction(id):
         description = request.form.get('description', '')
         
         if not name or not code:
-            flash("Yo'nalish nomi va kodi to'ldirilishi shart", 'error')
+            flash(t('direction_name_and_code_required_fill'), 'error')
             return render_template('dean/edit_direction.html', direction=direction)
         
         # Kod takrorlanmasligini tekshirish (o'z kodini hisobga olmasdan)
@@ -2049,7 +2050,7 @@ def edit_direction(id):
             Direction.id != id
         ).first()
         if existing:
-            flash("Bu kod bilan yo'nalish allaqachon mavjud", 'error')
+            flash(t('direction_code_already_exists'), 'error')
             return render_template('dean/edit_direction.html', direction=direction)
         
         direction.name = name
@@ -2058,7 +2059,7 @@ def edit_direction(id):
         
         db.session.commit()
         
-        flash("Yo'nalish yangilandi", 'success')
+        flash(t('direction_updated'), 'success')
         return redirect(url_for('dean.directions'))
     
     return render_template('dean/edit_direction.html', direction=direction)
@@ -2072,7 +2073,7 @@ def delete_direction(id):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.directions'))
     
     # Guruhlar borligini tekshirish
@@ -2080,13 +2081,13 @@ def delete_direction(id):
     if groups:
         total_students = sum(g.students.count() for g in groups)
         if total_students > 0:
-            flash(f"Yo'nalishda {len(groups)} ta guruh va {total_students} ta talaba mavjud. O'chirish mumkin emas", 'error')
+            flash(t('direction_has_groups_and_students', groups_count=len(groups), total_students=total_students), 'error')
         else:
-            flash(f"Yo'nalishda {len(groups)} ta guruh mavjud. Avval guruhlarni o'chiring yoki boshqa yo'nalishga o'tkazing", 'error')
+            flash(t('direction_has_groups', groups_count=len(groups)), 'error')
     else:
         db.session.delete(direction)
         db.session.commit()
-        flash("Yo'nalish o'chirildi", 'success')
+        flash(t('direction_deleted'), 'success')
     
     return redirect(url_for('dean.directions'))
 
@@ -2115,7 +2116,7 @@ def direction_groups_with_params(id, year, education_type):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('dean.directions'))
     
     # Berilgan qabul yili va ta'lim shakli bo'yicha guruhlar
@@ -2126,7 +2127,7 @@ def direction_groups_with_params(id, year, education_type):
     ).order_by(Group.course_year, Group.name).all()
     
     if not groups:
-        flash(f"{year}-yil {education_type} ta'lim shakli bo'yicha guruhlar mavjud emas", 'error')
+        flash(t('no_groups_for_year_education_type', year=year, education_type=education_type), 'error')
         return redirect(url_for('dean.directions'))
     
     # Har bir guruh uchun talabalar soni
@@ -2159,7 +2160,7 @@ def direction_curriculum(id, year=None, education_type=None):
             
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('dean.courses'))
     
     # Contextni aniqlash (yil va ta'lim shakli bo'yicha)
@@ -2245,7 +2246,7 @@ def export_curriculum(id, year=None, education_type=None):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('dean.courses'))
     
     # O'quv rejadagi barcha elementlar (independent curriculum support)
@@ -2288,25 +2289,25 @@ def import_curriculum(id, year=None, education_type=None):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('dean.courses'))
     
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             if year and education_type:
                 return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('dean.direction_curriculum', id=id))
         
         file = request.files['file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             if year and education_type:
                 return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('dean.direction_curriculum', id=id))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat .xlsx yoki .xls formatidagi fayllar qabul qilinadi", 'error')
+            flash(t('only_xlsx_or_xls_allowed'), 'error')
             if year and education_type:
                 return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
             return redirect(url_for('dean.direction_curriculum', id=id))
@@ -2316,20 +2317,20 @@ def import_curriculum(id, year=None, education_type=None):
         
         if result['success']:
             if result['imported'] > 0 or result['updated'] > 0:
-                message = f"Muvaffaqiyatli! {result['imported']} ta yangi qo'shildi, {result['updated']} ta yangilandi."
+                message = t('curriculum_import_success', imported=result['imported'], updated=result['updated'])
                 if result.get('subjects_created', 0) > 0:
-                    message += f" {result['subjects_created']} ta yangi fan yaratildi."
+                    message += " " + t('curriculum_import_subjects_created', subjects_created=result['subjects_created'])
                 if result['errors']:
-                    message += f" {len(result['errors'])} ta xatolik yuz berdi."
+                    message += " " + t('curriculum_import_errors', errors_count=len(result['errors']))
                 flash(message, 'success' if not result['errors'] else 'warning')
             else:
-                flash("Hech qanday o'zgarish kiritilmadi", 'info')
+                flash(t('no_changes_made'), 'info')
             
             if result['errors']:
                 for error in result['errors'][:10]:  # Faqat birinchi 10 ta xatolikni ko'rsatish
-                    flash(error, 'error')
+                    flash(t('import_error', error=error), 'error')
         else:
-            flash(f"Import qilishda xatolik: {', '.join(result['errors'])}", 'error')
+            flash(t('import_error_joined', errors=', '.join(result['errors'])), 'error')
         
         if year and education_type:
             return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
@@ -2352,7 +2353,7 @@ def download_curriculum_sample(id):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('dean.courses'))
     
     excel_file = generate_curriculum_sample_file()
@@ -2380,7 +2381,7 @@ def direction_subjects(id, year=None, education_type=None):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu sahifaga kirish huquqi yo'q", 'error')
+        flash(t('no_access_permission'), 'error')
         return redirect(url_for('dean.courses'))
     
     # Berilgan qabul yili va ta'lim shakli bo'yicha guruhlar (optional context support)
@@ -2415,7 +2416,7 @@ def direction_subjects(id, year=None, education_type=None):
     if request.method == 'POST':
         semester = request.form.get('semester', type=int)
         if not semester:
-            flash("Semestr tanlanmagan", 'error')
+            flash(t('semester_not_selected'), 'error')
             if year and education_type:
                 return redirect(url_for('dean.direction_subjects', id=id, year=year, education_type=education_type))
             return redirect(url_for('dean.direction_subjects', id=id))
@@ -2423,7 +2424,7 @@ def direction_subjects(id, year=None, education_type=None):
         # Bu semestr uchun faol guruhlar
         active_semester_groups = groups_by_semester.get(semester, [])
         if not active_semester_groups:
-            flash(f"{semester}-semestrda faol guruhlar topilmadi", 'error')
+            flash(t('no_active_groups_for_semester', semester=semester), 'error')
             if year and education_type:
                 return redirect(url_for('dean.direction_subjects', id=id, year=year, education_type=education_type))
             return redirect(url_for('dean.direction_subjects', id=id))
@@ -2511,7 +2512,7 @@ def direction_subjects(id, year=None, education_type=None):
                             db.session.delete(teacher_subject)
         
         db.session.commit()
-        flash(f"{semester}-semestr o'qituvchilari muvaffaqiyatli saqlandi", 'success')
+        flash(t('semester_teachers_saved', semester=semester), 'success')
         if year and education_type:
             return redirect(url_for('dean.direction_subjects', id=id, year=year, education_type=education_type))
         return redirect(url_for('dean.direction_subjects', id=id))
@@ -2593,14 +2594,14 @@ def add_subject_to_curriculum(id, year=None, education_type=None):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.courses'))
     
     subject_ids = request.form.getlist('subject_ids')
     semester = request.form.get('semester', type=int)
     
     if not subject_ids or not semester:
-        flash("Fan va semestr tanlash majburiy", 'error')
+        flash(t('subject_and_semester_required'), 'error')
         if year and education_type:
             return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
         return redirect(url_for('dean.direction_curriculum', id=id))
@@ -2633,7 +2634,7 @@ def add_subject_to_curriculum(id, year=None, education_type=None):
             added += 1
     
     db.session.commit()
-    flash(f"{added} ta fan o'quv rejaga qo'shildi", 'success')
+    flash(t('subjects_added_to_curriculum', added=added), 'success')
     if year and education_type:
         return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('dean.direction_curriculum', id=id))
@@ -2649,7 +2650,7 @@ def update_curriculum_item(id, item_id):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id or item.direction_id != direction.id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.courses'))
     
     item.hours_maruza = request.form.get('hours_maruza', type=int) or 0
@@ -2660,7 +2661,7 @@ def update_curriculum_item(id, item_id):
     item.hours_mustaqil = request.form.get('hours_mustaqil', type=int) or 0
     
     db.session.commit()
-    flash("O'quv reja yangilandi", 'success')
+    flash(t('curriculum_updated', semester=1), 'success')  # Note: semester not available, using default
     return redirect(url_for('dean.direction_curriculum', id=id))
 
 
@@ -2674,7 +2675,7 @@ def update_semester_curriculum(id, semester, year=None, education_type=None):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.courses'))
     
     # Bu semestr uchun barcha fanlarni olish (context-aware)
@@ -2703,7 +2704,7 @@ def update_semester_curriculum(id, semester, year=None, education_type=None):
         updated += 1
     
     db.session.commit()
-    flash(f"{semester}-semestr o'quv rejasi yangilandi", 'success')
+    flash(t('curriculum_updated', semester=semester), 'success')
     if year and education_type:
         return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('dean.direction_curriculum', id=id))
@@ -2720,17 +2721,17 @@ def replace_curriculum_subject(id, item_id, year=None, education_type=None):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id or item.direction_id != direction.id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.courses'))
     
     new_subject_id = request.form.get('subject_id', type=int)
     if not new_subject_id:
-        flash("Fan tanlash majburiy", 'error')
+        flash(t('subject_and_semester_required'), 'error')
         return _redirect_curriculum(id, year, education_type, item)
     
     new_subject = Subject.query.get(new_subject_id)
     if not new_subject:
-        flash("Tanlangan fan topilmadi", 'error')
+        flash(t('subject_not_found'), 'error')
         return _redirect_curriculum(id, year, education_type, item)
     
     # Takrorlanmasligini tekshirish (context-aware: URL yoki item bo‘yicha)
@@ -2753,12 +2754,12 @@ def replace_curriculum_subject(id, item_id, year=None, education_type=None):
     existing = existing.first()
     
     if existing:
-        flash(f"{new_subject.name} fani bu semestrda allaqachon mavjud", 'error')
+        flash(t('subject_already_in_semester', subject_name=new_subject.name), 'error')
         return _redirect_curriculum(id, year, education_type, item)
     
     item.subject_id = new_subject_id
     db.session.commit()
-    flash(f"Fan {new_subject.name} ga almashtirildi", 'success')
+    flash(t('subject_replaced', new_subject_name=new_subject.name), 'success')
     return _redirect_curriculum(id, year, education_type, item)
 
 
@@ -2781,12 +2782,12 @@ def delete_curriculum_item(id, item_id, year=None, education_type=None):
     
     # Fakultet tekshiruvi
     if direction.faculty_id != current_user.faculty_id or item.direction_id != direction.id:
-        flash("Sizda bu amal uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.courses'))
     
     db.session.delete(item)
     db.session.commit()
-    flash("Fan o'quv rejadan o'chirildi", 'success')
+    flash(t('subject_removed_from_curriculum'), 'success')
     if year and education_type:
         return redirect(url_for('dean.direction_curriculum', id=id, year=year, education_type=education_type))
     return redirect(url_for('dean.direction_curriculum', id=id))
@@ -2800,7 +2801,7 @@ def delete_curriculum_item(id, item_id, year=None, education_type=None):
 def schedule():
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     today = datetime.now()
@@ -2948,16 +2949,16 @@ def import_schedule():
     """Dars jadvalini Excel fayldan import qilish"""
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('dean.schedule'))
         
         file = request.files['file']
         if file.filename == '':
-            flash("Fayl tanlanmagan", 'error')
+            flash(t('file_not_selected'), 'error')
             return redirect(url_for('dean.schedule'))
         
         if not file.filename.endswith(('.xlsx', '.xls')):
-            flash("Faqat Excel (.xlsx, .xls) fayllar qabul qilinadi", 'error')
+            flash(t('only_xlsx_or_xls_allowed'), 'error')
             return redirect(url_for('dean.schedule'))
             
         try:
@@ -2965,18 +2966,18 @@ def import_schedule():
             result = import_schedule_from_excel(file)
             
             if result['success']:
-                msg = f"{result['imported']} ta dars jadvali import qilindi."
+                msg = t('schedules_imported', count=result['imported'])
                 if result['errors']:
-                    msg += f" {len(result['errors'])} ta xatolik."
+                    msg += " " + t('curriculum_import_errors', errors_count=len(result['errors']))
                 flash(msg, 'success' if not result['errors'] else 'warning')
                 
                 for err in result['errors'][:5]:
-                    flash(err, 'error')
+                    flash(t('import_error', error=err), 'error')
             else:
-                flash(f"Import xatosi: {'; '.join(result['errors'])}", 'error')
+                flash(t('import_error_with_details', errors='; '.join(result['errors'])), 'error')
                 
         except Exception as e:
-            flash(f"Xatolik yuz berdi: {str(e)}", 'error')
+            flash(t('error_occurred', error=str(e)), 'error')
             
         return redirect(url_for('dean.schedule'))
         
@@ -2997,7 +2998,7 @@ def schedule_sample():
             download_name=filename
         )
     except Exception as e:
-        flash(f"Namuna fayl yaratishda xatolik: {str(e)}", 'error')
+        flash(t('template_file_creation_error', error=str(e)), 'error')
         return redirect(url_for('dean.schedule'))
 
 @bp.route('/schedule/export')
@@ -3007,7 +3008,7 @@ def export_schedule():
     """Dars jadvalini Excelga eksport qilish"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Fakultet topilmadi", 'error')
+        flash(t('faculty_not_found'), 'error')
         return redirect(url_for('dean.schedule'))
 
     # Parametrlarni olish
@@ -3036,7 +3037,7 @@ def export_schedule():
                 start_code = 19000101
                 end_code = int(end_dt.strftime("%Y%m%d"))
         except ValueError:
-            flash("Sana formati noto'g'ri", 'error')
+            flash(t('date_invalid_format'), 'error')
             return redirect(url_for('dean.schedule'))
     else:
         # Standart holatda barcha
@@ -3148,7 +3149,7 @@ def api_schedule_filters():
 def create_schedule():
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     faculty_id = faculty.id
@@ -3223,11 +3224,11 @@ def create_schedule():
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
                 date_code = int(parsed_date.strftime("%Y%m%d"))
             except ValueError:
-                flash("Sana noto'g'ri formatda", 'error')
+                flash(t('date_invalid_format'), 'error')
                 return redirect(url_for('dean.create_schedule'))
         
         if not date_code:
-            flash("Sana tanlanishi shart.", 'error')
+            flash(t('date_required_select'), 'error')
             return redirect(url_for('dean.create_schedule'))
         
         # Takrorlanishni tekshirish
@@ -3276,7 +3277,7 @@ def create_schedule():
         db.session.add(schedule)
         db.session.commit()
         
-        flash("Dars jadvalga qo'shildi", 'success')
+        flash(t('schedule_added'), 'success')
         return redirect(url_for(
             'dean.schedule',
             year=parsed_date.year,
@@ -3303,12 +3304,12 @@ def delete_schedule(id):
     
     # Faqat o'z fakultetidagi jadvallarni o'chirishi mumkin
     if schedule.group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.schedule'))
     
     db.session.delete(schedule)
     db.session.commit()
-    flash("Jadval o'chirildi", 'success')
+    flash(t('schedule_deleted'), 'success')
     
     return redirect(url_for('dean.schedule'))
 
@@ -3321,7 +3322,7 @@ def edit_schedule(id):
     
     # Faqat o'z fakultetidagi jadvallarni tahrirlashi mumkin
     if schedule.group.faculty_id != current_user.faculty_id:
-        flash("Sizda bu amaliyot uchun huquq yo'q", 'error')
+        flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('dean.schedule'))
     
     faculty = current_user.managed_faculty
@@ -3397,11 +3398,11 @@ def edit_schedule(id):
                 parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
                 date_code = int(parsed_date.strftime("%Y%m%d"))
             except ValueError:
-                flash("Sana noto'g'ri formatda", 'error')
+                flash(t('date_invalid_format'), 'error')
                 return redirect(url_for('dean.edit_schedule', id=id))
         
         if not date_code:
-            flash("Sana tanlanishi shart.", 'error')
+            flash(t('date_required_select'), 'error')
             return redirect(url_for('dean.edit_schedule', id=id))
         
         schedule.subject_id = request.form.get('subject_id', type=int)
@@ -3433,7 +3434,7 @@ def edit_schedule(id):
         
         db.session.commit()
         
-        flash("Dars jadvali yangilandi", 'success')
+        flash(t('schedule_updated'), 'success')
         return redirect(url_for(
             'dean.schedule',
             year=parsed_date.year,
@@ -3471,7 +3472,7 @@ def edit_schedule(id):
 def reports():
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
     
     # Fakultet statistikasi
@@ -3511,7 +3512,7 @@ def curriculum_subjects():
     """O'quv rejaga biriktirilgan fanlar ro'yxati (yo'nalish, guruh, o'qituvchi, fan)"""
     faculty = Faculty.query.get(current_user.faculty_id)
     if not faculty:
-        flash("Sizga fakultet biriktirilmagan", 'error')
+        flash(t('faculty_not_assigned'), 'error')
         return redirect(url_for('main.dashboard'))
 
     semester_filter = request.args.get('semester', type=int)

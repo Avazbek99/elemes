@@ -8,7 +8,7 @@ def get_tashkent_time():
     """Toshkent vaqtini qaytaradi (UTC+5)"""
     return datetime.utcnow() + timedelta(hours=5)
 from sqlalchemy import func, or_, and_
-from app.utils.translations import get_translation, get_current_language
+from app.utils.translations import get_translation, get_current_language, t
 import calendar
 
 bp = Blueprint('main', __name__)
@@ -48,10 +48,10 @@ def switch_role(role):
     if role in user_roles:
         session['current_role'] = role
         role_name = role_names.get(role, role)
-        flash(f"Profil {role_name} roliga o'zgartirildi. Endi siz {role_name} sifatida ishlayapsiz.", 'success')
+        flash(t('profile_role_changed', role_name=role_name), 'success')
         return redirect(url_for('main.dashboard'))
     else:
-        flash("Sizda bu rolga kirish huquqi yo'q", 'error')
+        flash(t('no_permission_for_role'), 'error')
         return redirect(url_for('main.dashboard'))
 
 @bp.route('/')
@@ -913,7 +913,7 @@ def announcements():
 def create_announcement():
     """Yangi e'lon yaratish"""
     if not current_user.has_permission('create_announcement'):
-        flash("Sizda e'lon yaratish huquqi yo'q", 'error')
+        flash(t('no_permission_to_create_announcement'), 'error')
         return redirect(url_for('main.announcements'))
     
     if request.method == 'POST':
@@ -923,7 +923,7 @@ def create_announcement():
         is_important = request.form.get('is_important') == 'on'
         
         if not title or not content:
-            flash("Sarlavha va matn majburiy", 'error')
+            flash(t('title_and_text_required'), 'error')
             return render_template('create_announcement.html')
         
         # Target roles ni string sifatida saqlash
@@ -945,7 +945,7 @@ def create_announcement():
         db.session.add(announcement)
         db.session.commit()
         
-        flash("E'lon muvaffaqiyatli yaratildi", 'success')
+        flash(t('announcement_created'), 'success')
         return redirect(url_for('main.announcements'))
     
     return render_template('create_announcement.html')
@@ -965,7 +965,7 @@ def edit_announcement(id):
     is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
     
     if not is_admin_with_admin_role and announcement.author_id != current_user.id:
-        flash("Sizda bu e'lonni tahrirlash huquqi yo'q", 'error')
+        flash(t('no_permission_to_edit_announcement'), 'error')
         return redirect(url_for('main.announcements'))
     
     if request.method == 'POST':
@@ -975,7 +975,7 @@ def edit_announcement(id):
         is_important = request.form.get('is_important') == 'on'
         
         if not title or not content:
-            flash("Sarlavha va matn majburiy", 'error')
+            flash(t('title_and_text_required'), 'error')
             return render_template('edit_announcement.html', announcement=announcement)
         
         # Target roles ni string sifatida saqlash
@@ -988,7 +988,7 @@ def edit_announcement(id):
         
         db.session.commit()
         
-        flash("E'lon muvaffaqiyatli yangilandi", 'success')
+        flash(t('announcement_updated'), 'success')
         return redirect(url_for('main.announcements'))
     
     return render_template('edit_announcement.html', announcement=announcement)
@@ -1007,16 +1007,16 @@ def delete_announcement(id):
     is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
     
     if not is_admin_with_admin_role and announcement.author_id != current_user.id:
-        flash("Sizda bu e'lonni o'chirish huquqi yo'q", 'error')
+        flash(t('no_permission_to_delete_announcement'), 'error')
         return redirect(url_for('main.announcements'))
     
     try:
         db.session.delete(announcement)
         db.session.commit()
-        flash("E'lon o'chirildi", 'success')
+        flash(t('announcement_deleted'), 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f"E'lonni o'chirishda xatolik yuz berdi: {str(e)}", 'error')
+        flash(t('announcement_delete_error', error=str(e)), 'error')
     
     return redirect(url_for('main.announcements'))
 
@@ -1031,7 +1031,7 @@ def delete_all_announcements():
     is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
     
     if not is_admin_with_admin_role:
-        flash("Sizda barcha e'lonlarni o'chirish huquqi yo'q", 'error')
+        flash(t('no_permission_to_delete_all_announcements'), 'error')
         return redirect(url_for('main.announcements'))
     
     try:
@@ -1043,10 +1043,10 @@ def delete_all_announcements():
             db.session.delete(announcement)
         
         db.session.commit()
-        flash(f"Barcha {count} ta e'lon o'chirildi", 'success')
+        flash(t('all_announcements_deleted', count=count), 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f"E'lonlarni o'chirishda xatolik yuz berdi: {str(e)}", 'error')
+        flash(t('announcements_delete_error', error=str(e)), 'error')
     
     return redirect(url_for('main.announcements'))
 
@@ -1148,7 +1148,7 @@ def settings():
             # Email unikalligini tekshirish
             existing_user = User.query.filter_by(email=new_email).first()
             if existing_user and existing_user.id != user.id:
-                flash("Bu email allaqachon boshqa foydalanuvchi tomonidan ishlatilmoqda", 'error')
+                flash(t('email_used_by_another_user'), 'error')
                 return render_template('settings.html')
             user.email = new_email if new_email else None
         
@@ -1161,16 +1161,16 @@ def settings():
             if new_password == confirm_password:
                 if len(new_password) >= 8:
                     user.set_password(new_password)
-                    flash("Parol muvaffaqiyatli o'zgartirildi", 'success')
+                    flash(t('password_changed_success_short'), 'success')
                 else:
-                    flash("Parol kamida 8 ta belgidan iborat bo'lishi kerak", 'error')
+                    flash(t('password_min_length_8'), 'error')
                     return render_template('settings.html')
             else:
-                flash("Yangi parollar mos kelmaydi", 'error')
+                flash(t('new_passwords_do_not_match'), 'error')
                 return render_template('settings.html')
         
         db.session.commit()
-        flash("Ma'lumotlar muvaffaqiyatli yangilandi", 'success')
+        flash(t('profile_updated'), 'success')
         return redirect(url_for('main.settings'))
     
     return render_template('settings.html')
@@ -1209,7 +1209,7 @@ def chat(user_id):
             allowed = True
             
     if not allowed and user.id != other_user.id:
-        flash("Sizda ushbu foydalanuvchi bilan suhbatlashish uchun ruxsat yo'q", 'error')
+        flash(t('no_permission_to_chat'), 'error')
         return redirect(url_for('main.messages'))
     
     # Xabar yuborish
@@ -1223,10 +1223,10 @@ def chat(user_id):
             )
             db.session.add(message)
             db.session.commit()
-            flash("Xabar yuborildi", 'success')
+            flash(t('message_sent'), 'success')
             return redirect(url_for('main.chat', user_id=user_id))
         else:
-            flash("Xabar bo'sh bo'lishi mumkin emas", 'error')
+            flash(t('message_cannot_be_empty'), 'error')
     
     # Ikki foydalanuvchi o'rtasidagi barcha xabarlar
     messages = Message.query.filter(
