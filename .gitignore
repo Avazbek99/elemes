@@ -1,0 +1,20 @@
+# IDE / editor
+.idea/
+.vscode/
+.cursor/
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# Virtual env
+.venv/
+venv/
+
+# Local data / logs / uploads (repo root = ELMS1.3)
+instance/
+uploads/
+server.log
+.env
+*.db

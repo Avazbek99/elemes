@@ -1,0 +1,746 @@
+from app import db, login_manager
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, date, timedelta
+
+@login_manager.user_loader
+def load_user(id):
+    return User.query.get(int(id))
+
+
+# ==================== FAKULTET ====================
+class Faculty(db.Model):
+    """Fakultet modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False, unique=True)
+    code = db.Column(db.String(20), nullable=False, unique=True)  # IT, IQ, HQ
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    groups = db.relationship('Group', backref='faculty', lazy='dynamic', cascade='all, delete-orphan')
+
+
+# ==================== YO'NALISH (DIRECTION) ====================
+class Direction(db.Model):
+    """Akademik yo'nalish modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)  # Dasturiy injiniring
+    code = db.Column(db.String(20), nullable=False)  # DI (15 tagacha belgi)
+    description = db.Column(db.Text)
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    faculty = db.relationship('Faculty', backref='directions')
+    groups = db.relationship('Group', backref='direction', lazy='dynamic')
+    curriculum_items = db.relationship('DirectionCurriculum', backref='direction', lazy='dynamic', cascade='all, delete-orphan')
+    
+    @property
+    def formatted_direction(self):
+        """Get formatted direction name from groups: [Year] - [Code] - [Name] ([Education Type])"""
+        # Get the first group from this direction to extract enrollment year and education type
+        first_group = self.groups.first()
+        if first_group and first_group.enrollment_year and first_group.education_type:
+            year = first_group.enrollment_year
+            edu_type = first_group.education_type.capitalize()
+            return f"{year} - {self.code} - {self.name} ({edu_type})"
+        else:
+            # Fallback for directions without groups - use empty year and education type
+            return f"____ - {self.code} - {self.name}"
+
+
+# ==================== GURUH ====================
+class Group(db.Model):
+    """Guruh modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)  # DI-21, IQ-22
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)  # Yo'nalishga biriktirish
+    course_year = db.Column(db.Integer, nullable=False)  # 1, 2, 3, 4-kurs
+    semester = db.Column(db.Integer, nullable=False, default=1)  # 1-10 semestr
+    education_type = db.Column(db.String(20), default='kunduzgi')  # kunduzgi, sirtqi, kechki
+    enrollment_year = db.Column(db.Integer)  # Qabul yili (masalan: 2024)
+    description = db.Column(db.Text)  # Guruh haqida tavsif
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    students = db.relationship('User', backref='group', lazy='dynamic', foreign_keys='User.group_id')
+    
+    @property
+    def formatted_direction(self):
+        """Standardized direction display: [Year] - [Code] - [Name] ([Education Type])"""
+        if self.direction:
+            year = self.enrollment_year if self.enrollment_year else "____"
+            edu_type = self.education_type.capitalize() if self.education_type else "____"
+            return f"{year} - {self.direction.code} - {self.direction.name} ({edu_type})"
+        return self.name  # Fallback to group name if no direction
+
+    def get_students_count(self):
+        return self.students.count()
+
+
+# ==================== FAN (SUBJECT) ====================
+class Subject(db.Model):
+    """Fan modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    code = db.Column(db.String(20), nullable=True)  # Fan kodi (ixtiyoriy)
+    description = db.Column(db.Text)
+    credits = db.Column(db.Integer, default=3)  # Kredit soni
+    semester = db.Column(db.Integer, default=1)  # 1-8 semestr
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    lessons = db.relationship('Lesson', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
+    assignments = db.relationship('Assignment', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
+    teacher_assignments = db.relationship('TeacherSubject', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
+    schedules = db.relationship('Schedule', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def get_teacher(self, group_id=None):
+        """Ushbu fan uchun biriktirilgan o'qituvchini olish (birinchi topilgan)"""
+        query = TeacherSubject.query.filter_by(subject_id=self.id)
+        if group_id:
+            query = query.filter_by(group_id=group_id)
+        assignment = query.first()
+        return assignment.teacher if assignment else None
+
+    def get_teacher_for_type(self, group_id, lesson_type):
+        """Ushbu fan uchun dars turi bo'yicha biriktirilgan o'qituvchini olish"""
+        # lesson_type formatini to'g'irlash (Maruza -> maruza)
+        normalized_type = (lesson_type or '').lower().strip()
+        
+        # 1. Exact match search
+        assignment = TeacherSubject.query.filter_by(
+            subject_id=self.id,
+            group_id=group_id,
+            lesson_type=normalized_type
+        ).first()
+        
+        # 2. Normalized fallback if not found
+        db_type = normalized_type # Initialize for potential use in fallback
+        if not assignment:
+            if 'maru' in normalized_type or 'lect' in normalized_type:
+                db_type = 'maruza'
+            elif 'sem' in normalized_type:
+                db_type = 'seminar'
+            else:
+                db_type = 'amaliyot' if 'amal' in normalized_type or 'lab' in normalized_type or 'kurs' in normalized_type else normalized_type
+            
+            if db_type != normalized_type:
+                assignment = TeacherSubject.query.filter_by(
+                    subject_id=self.id,
+                    group_id=group_id,
+                    lesson_type=db_type
+                ).first()
+
+        # Har bir guruh uchun faqat o'sha guruhga biriktirilgan o'qituvchini qaytarish.
+        # Boshqa guruhlardan fallback qilmaslik - aks holda forma boshqa guruhni avtomatik to'ldiradi.
+        return assignment.teacher if assignment else None
+    
+    def check_curriculum_completion(self, direction_id=None, teacher_id=None, is_admin=False):
+        """O'quv reja bo'yicha darslar to'liqligini tekshirish
+        Args:
+            direction_id: Yo'nalish ID
+            teacher_id: O'qituvchi ID (agar berilgan bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlari tekshiriladi)
+            is_admin: Admin uchun barcha dars turlarini ko'rsatish
+        Returns: {'has_issue': bool, 'warnings': list, 'stats': {'lessons_count': int, 'assignments_count': int}}
+        """
+        if not direction_id:
+            return {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}}
+        
+        # Ushbu yo'nalish uchun o'quv rejani olish
+        curriculum = DirectionCurriculum.query.filter_by(
+            direction_id=direction_id,
+            subject_id=self.id
+        ).first()
+        
+        if not curriculum:
+            return {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}}
+        
+        # Ushbu yo'nalishdagi guruhlar
+        direction_group_ids = [g.id for g in db.session.query(Group).filter_by(direction_id=direction_id).all()]
+        
+        # Ushbu yo'nalish uchun barcha darslar va topshiriqlar soni
+        lessons_count = Lesson.query.filter_by(
+            subject_id=self.id,
+            direction_id=direction_id
+        ).count()
+        
+        assignments_count = Assignment.query.filter_by(
+            subject_id=self.id,
+            direction_id=direction_id
+        ).count()
+        
+        # Agar teacher_id berilgan bo'lsa va admin emas bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlarini olish
+        teacher_lesson_types = None
+        if teacher_id and not is_admin:
+            # O'qituvchiga biriktirilgan dars turlari
+            teacher_assignments = db.session.query(TeacherSubject).filter(
+                TeacherSubject.teacher_id == teacher_id,
+                TeacherSubject.subject_id == self.id,
+                TeacherSubject.group_id.in_(direction_group_ids)
+            ).all()
+            
+            # Dars turlarini normallashtirish
+            teacher_lesson_types = set()
+            for ta in teacher_assignments:
+                if ta.lesson_type:
+                    l_type = ta.lesson_type.lower().strip()
+                    matched = False
+                    
+                    # Laboratoriya (lab, lob, laboratoriya, lobaratoriya)
+                    if 'lab' in l_type or 'lob' in l_type:
+                        teacher_lesson_types.add('laboratoriya')
+                        matched = True
+                    
+                    # Kurs ishi (kurs, course)
+                    if 'kurs' in l_type or 'course' in l_type:
+                        teacher_lesson_types.add('kurs_ishi')
+                        matched = True
+                    
+                    # Amaliyot (amaliyot, amal, practice) - bu Lobaratoriya va Kurs ishini ham o'z ichiga oladi
+                    if 'amal' in l_type or 'prac' in l_type:
+                        teacher_lesson_types.add('amaliyot')
+                        teacher_lesson_types.add('laboratoriya')
+                        teacher_lesson_types.add('kurs_ishi')
+                        matched = True
+                    
+                    # Maruza (maruza, lecture, ma'ruza)
+                    if 'maru' in l_type or 'lect' in l_type:
+                        teacher_lesson_types.add('maruza')
+                        matched = True
+                    
+                    # Seminar
+                    if 'sem' in l_type:
+                        teacher_lesson_types.add('seminar')
+                        matched = True
+                    
+                    if not matched:
+                        teacher_lesson_types.add(l_type)
+        
+        warnings = []
+        has_issue = False
+        
+        # Har bir dars turi uchun tekshirish (har bir mavzu = 2 soat = 1 para)
+        lesson_types_check = {
+            'maruza': {
+                'name': 'Maruza',
+                'hours': curriculum.hours_maruza or 0,
+                'required_topics': (curriculum.hours_maruza or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'amaliyot': {
+                'name': 'Amaliyot',
+                'hours': curriculum.hours_amaliyot or 0,
+                'required_topics': (curriculum.hours_amaliyot or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'laboratoriya': {
+                'name': 'Laboratoriya',
+                'hours': curriculum.hours_laboratoriya or 0,
+                'required_topics': (curriculum.hours_laboratoriya or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'seminar': {
+                'name': 'Seminar',
+                'hours': curriculum.hours_seminar or 0,
+                'required_topics': (curriculum.hours_seminar or 0) / 2.0,
+                'actual_topics': 0
+            },
+            'kurs_ishi': {
+                'name': 'Kurs ishi',
+                'hours': curriculum.hours_kurs_ishi or 0,
+                'required_topics': (curriculum.hours_kurs_ishi or 0) / 2.0,
+                'actual_topics': 0
+            }
+        }
+        
+        # Ushbu yo'nalish uchun mavjud darslarni sanash
+        lessons = Lesson.query.filter_by(
+            subject_id=self.id,
+            direction_id=direction_id
+        ).all()
+        
+        for lesson in lessons:
+            if lesson.lesson_type in lesson_types_check:
+                lesson_types_check[lesson.lesson_type]['actual_topics'] += 1
+        
+        # Har bir dars turi uchun tekshirish
+        for lesson_type, data in lesson_types_check.items():
+            if data['hours'] > 0:  # Faqat soat belgilangan dars turlarini tekshirish
+                # Agar teacher_id berilgan bo'lsa va admin emas bo'lsa, faqat o'qituvchiga biriktirilgan dars turlarini tekshirish
+                if teacher_lesson_types is not None and not is_admin and lesson_type not in teacher_lesson_types:
+                    continue  # Bu dars turi o'qituvchiga biriktirilmagan, o'tkazib yuborish
+                
+                required = data['required_topics']
+                actual = data['actual_topics']
+                
+                if lesson_type == 'kurs_ishi':
+                    # Kurs ishi uchun kamida 1 ta mavzu bo'lishi kerak
+                    if actual < 1:
+                        has_issue = True
+                        warnings.append(
+                            f"{data['name']}: Kamida 1 ta mavzu yaratilishi kerak, lekin hali yaratilmagan"
+                        )
+                elif actual < required:
+                    has_issue = True
+                    missing = required - actual
+                    warnings.append(
+                        f"{data['name']}: {data['hours']} soat uchun {required:.1f} para mavzu kerak, "
+                        f"lekin {actual} para kiritilgan (kam: {missing:.1f} para)"
+                    )
+        
+        return {
+            'has_issue': has_issue, 
+            'warnings': warnings,
+            'stats': {
+                'lessons_count': lessons_count,
+                'assignments_count': assignments_count
+            }
+        }
+
+    def has_lessons_without_content(self):
+        """Tarkibi bo'lmagan darslar borligini tekshirish"""
+        for lesson in self.lessons:
+            # Agar kontent, video va fayl bo'lmasa - dars bo'sh
+            if not lesson.content and not lesson.video_url and not lesson.video_file and not lesson.file_url:
+                return True
+        return False
+
+
+# ==================== O'QUV REJA (YO'NALISH-FAN BOG'LANISHI) ====================
+class DirectionCurriculum(db.Model):
+    """Yo'nalish o'quv rejasi - yo'nalish, semestr va fanlar o'rtasidagi bog'lanish"""
+    id = db.Column(db.Integer, primary_key=True)
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    semester = db.Column(db.Integer, nullable=False)  # 1-10 semestr
+    
+    # Qaysi o'quv yiliga va ta'lim shakliga tegishli ekanligi (Independent Curriculum)
+    enrollment_year = db.Column(db.Integer, nullable=True) # 2025, 2026 ...
+    education_type = db.Column(db.String(20), nullable=True) # kunduzgi, masofaviy ...
+
+    hours_maruza = db.Column(db.Integer, default=0)  # M - Maruza soatlari
+    hours_amaliyot = db.Column(db.Integer, default=0)  # A - Amaliyot soatlari
+    hours_laboratoriya = db.Column(db.Integer, default=0)  # L - Laboratoriya soatlari
+    hours_seminar = db.Column(db.Integer, default=0)  # S - Seminar soatlari
+    hours_kurs_ishi = db.Column(db.Integer, default=0)  # K - Kurs ishi soatlari
+    hours_mustaqil = db.Column(db.Integer, default=0)  # MT - Mustaqil ta'lim soatlari
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    subject = db.relationship('Subject', backref='curriculum_items')
+    
+    # Unique constraint: bir yo'nalishda bir semestrda bir fan bir marta bo'lishi kerak (yil va ta'lim shakli bo'yicha)
+    __table_args__ = (db.UniqueConstraint('direction_id', 'subject_id', 'semester', 'enrollment_year', 'education_type', name='uq_direction_subject_semester_year_type'),)
+
+
+# ==================== O'QITUVCHI-FAN BOG'LANISHI ====================
+class TeacherSubject(db.Model):
+    """O'qituvchini fanga biriktirish"""
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    lesson_type = db.Column(db.String(20), default='maruza')  # maruza yoki amaliyot
+    academic_year = db.Column(db.String(20))  # 2024-2025
+    semester = db.Column(db.Integer, default=1)  # 1 yoki 2
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    assigned_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Relationships
+    teacher = db.relationship('User', foreign_keys=[teacher_id], backref='teaching_subjects')
+    group = db.relationship('Group', backref='subject_assignments')
+    assigner = db.relationship('User', foreign_keys=[assigned_by])
+
+
+# ==================== FOYDALANUVCHI ROLI ====================
+class UserRole(db.Model):
+    """Foydalanuvchi rollari (bir nechta rol qo'llab-quvvatlash uchun)"""
+    __tablename__ = 'user_roles'
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    role = db.Column(db.String(20), primary_key=True)  # admin, teacher, student, dean, accounting
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ==================== FOYDALANUVCHI ====================
+class User(UserMixin, db.Model):
+    """Foydalanuvchi modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=True, default=None)  # Email ixtiyoriy
+    login = db.Column(db.String(50), unique=True)  # Login (xodimlar uchun majburiy)
+    password_hash = db.Column(db.String(256), nullable=False)
+    full_name = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='student')  # admin, teacher, student, dean, accounting
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    phone = db.Column(db.String(20))
+    
+    # Talaba uchun
+    student_id = db.Column(db.String(20), unique=True)  # Talaba ID raqami (talabalar uchun majburiy)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'))
+    enrollment_year = db.Column(db.Integer)  # Qabul yili
+    semester = db.Column(db.Integer)  # Semestr (1-8)
+    # Qo'shimcha talaba ma'lumotlari
+    passport_number = db.Column(db.String(20))   # Pasport raqami
+    pinfl = db.Column(db.String(14))            # JSHSHIR (PINFL)
+    birth_date = db.Column(db.Date)             # Tug'ilgan sana
+    specialty = db.Column(db.String(200))       # Yo'nalish nomi (agar to'g'ridan-to'g'ri berilsa)
+    specialty_code = db.Column(db.String(50))   # Yo'nalish kodi (shifr)
+    education_type = db.Column(db.String(50))   # Ta'lim shakli (kunduzgi, sirtqi, kechki)
+    
+    # O'qituvchi/Dekan uchun
+    department = db.Column(db.String(100))
+    position = db.Column(db.String(50))
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'))  # Dekan qaysi fakultetga tegishli
+    description = db.Column(db.Text)  # Xodim haqida tavsif
+    
+    # Relationships
+    submissions = db.relationship('Submission', backref='student', lazy='dynamic', foreign_keys='Submission.student_id')
+    announcements = db.relationship('Announcement', backref='author', lazy='dynamic')
+    managed_faculty = db.relationship('Faculty', foreign_keys=[faculty_id], uselist=False)
+    # Bir nechta rollar
+    roles_list = db.relationship('UserRole', backref='user', lazy='dynamic', cascade='all, delete-orphan', foreign_keys='UserRole.user_id')
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def get_roles(self):
+        """Foydalanuvchining barcha rollarini olish"""
+        if self.roles_list.count() > 0:
+            return [r.role for r in self.roles_list]
+        # Agar roles_list bo'sh bo'lsa, eski role maydonini qaytaramiz
+        return [self.role] if self.role else []
+    
+    def has_role(self, role_name):
+        """Foydalanuvchida bunday rol bormi?"""
+        return role_name in self.get_roles()
+    
+    def add_role(self, role_name):
+        """Foydalanuvchiga rol qo'shish"""
+        if not self.has_role(role_name):
+            user_role = UserRole(user_id=self.id, role=role_name)
+            db.session.add(user_role)
+            db.session.commit()
+    
+    def remove_role(self, role_name):
+        """Foydalanuvchidan rol olib tashlash"""
+        UserRole.query.filter_by(user_id=self.id, role=role_name).delete()
+        db.session.commit()
+    
+    def set_roles(self, role_list):
+        """Foydalanuvchiga bir nechta rol biriktirish (eski rollarni o'chirib, yangilarini qo'shish)"""
+        # Eski rollarni o'chirish
+        UserRole.query.filter_by(user_id=self.id).delete()
+        # Yangi rollarni qo'shish
+        for role in role_list:
+            user_role = UserRole(user_id=self.id, role=role)
+            db.session.add(user_role)
+        db.session.commit()
+    
+    def get_role_display(self):
+        """Asosiy rol nomini olish (eski kodlar bilan mosligi uchun)"""
+        roles = {
+            'admin': 'Administrator',
+            'teacher': "O'qituvchi",
+            'student': 'Talaba',
+            'dean': 'Dekan',
+            'accounting': 'Buxgalteriya'
+        }
+        return roles.get(self.role, self.role)
+    
+    def get_all_roles_display(self):
+        """Barcha rollarni ko'rinishda olish (tartiblangan)"""
+        roles = {
+            'admin': 'Administrator',
+            'teacher': "O'qituvchi",
+            'student': 'Talaba',
+            'dean': 'Dekan',
+            'accounting': 'Buxgalteriya'
+        }
+        user_roles = self.get_roles()
+        # Rollarni belgilangan tartibda saralash: admin, dean, teacher, accounting, student
+        role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
+        sorted_roles = []
+        for ordered_role in role_order:
+            if ordered_role in user_roles:
+                sorted_roles.append(roles.get(ordered_role, ordered_role))
+        # Agar tartibda bo'lmagan rollar bo'lsa, ularni oxiriga qo'shish
+        for role in user_roles:
+            if role not in role_order:
+                sorted_roles.append(roles.get(role, role))
+        return sorted_roles
+    
+    def has_permission(self, permission):
+        permissions = {
+            'admin': ['all'],
+            'dean': ['view_subjects', 'view_students', 'view_teachers', 'view_reports', 
+                    'create_announcement', 'manage_groups', 'assign_teachers'],
+            'teacher': ['view_subjects', 'create_lesson', 'create_assignment', 
+                       'grade_students', 'view_students', 'create_announcement'],
+            'student': ['view_subjects', 'submit_assignment', 'view_grades']
+        }
+        user_perms = permissions.get(self.role, [])
+        return 'all' in user_perms or permission in user_perms
+    
+    def get_subjects(self):
+        """Foydalanuvchi uchun fanlarni olish"""
+        if self.role == 'student' and self.group_id:
+            # Talaba - guruhiga biriktirilgan fanlar
+            return Subject.query.join(TeacherSubject).filter(
+                TeacherSubject.group_id == self.group_id
+            ).all()
+        elif self.role == 'teacher':
+            # O'qituvchi - unga biriktirilgan fanlar
+            return Subject.query.join(TeacherSubject).filter(
+                TeacherSubject.teacher_id == self.id
+            ).all()
+        return []
+
+
+# ==================== DARS ====================
+class Lesson(db.Model):
+    """Dars modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text)
+    video_url = db.Column(db.String(500))  # External video URL (YouTube, etc.)
+    video_file = db.Column(db.String(500))  # Uploaded video file path
+    file_url = db.Column(db.String(500))  # Dars materiallari
+    duration = db.Column(db.Integer)  # minutes
+    order = db.Column(db.Integer, default=0)
+    lesson_type = db.Column(db.String(20), default='maruza')  # maruza yoki amaliyot
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)  # Qaysi guruh uchun
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)  # Qaysi yo'nalish uchun
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    creator = db.relationship('User', backref='created_lessons')
+    group = db.relationship('Group', backref='lessons')
+    direction = db.relationship('Direction', backref='lessons')
+    
+    # Video ko'rish yozuvlari
+    views = db.relationship('LessonView', backref='lesson', lazy='dynamic', cascade='all, delete-orphan')
+
+
+# ==================== DARS KO'RISH YOZUVI ====================
+class LessonView(db.Model):
+    """Talaba darsni ko'rganligini qayd qilish"""
+    id = db.Column(db.Integer, primary_key=True)
+    lesson_id = db.Column(db.Integer, db.ForeignKey('lesson.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    attention_checks_passed = db.Column(db.Integer, default=0)  # 3 ta tekshiruvdan o'tganlar
+    is_completed = db.Column(db.Boolean, default=False)
+    watch_duration = db.Column(db.Integer, default=0)  # seconds
+    
+    student = db.relationship('User', backref='lesson_views')
+
+
+# ==================== TOPSHIRIQ ====================
+class Assignment(db.Model):
+    """Topshiriq modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'))  # Qaysi guruh uchun
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)  # Qaysi yo'nalish uchun
+    lesson_type = db.Column(db.String(20), nullable=True)  # Qaysi dars turi uchun (maruza, amaliyot, etc.)
+    lesson_ids = db.Column(db.Text)  # Qaysi mavzularga tegishli (JSON array: [1, 2, 3])
+    due_date = db.Column(db.DateTime)
+    max_score = db.Column(db.Float, default=100.0)
+    file_required = db.Column(db.Boolean, default=False)  # Fayl yuklash majburiy yoki ixtiyoriy
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Relationships
+    submissions = db.relationship('Submission', backref='assignment', lazy='dynamic', cascade='all, delete-orphan')
+    creator = db.relationship('User', backref='created_assignments')
+    group = db.relationship('Group', backref='assignments')
+    direction = db.relationship('Direction', backref='assignments')
+    # subject relationship - Subject modelida allaqachon backref mavjud
+    
+    def get_submission_count(self):
+        return self.submissions.count()
+    
+    def get_lesson_ids_list(self):
+        """Lesson IDs ni list sifatida qaytarish"""
+        if self.lesson_ids:
+            try:
+                import json
+                return json.loads(self.lesson_ids)
+            except:
+                return []
+        return []
+
+
+# ==================== JAVOB ====================
+class Submission(db.Model):
+    """Talaba javobi"""
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignment.id'), nullable=False)
+    content = db.Column(db.Text)
+    file_url = db.Column(db.String(500))
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    score = db.Column(db.Float)
+    feedback = db.Column(db.Text)
+    graded_at = db.Column(db.DateTime)
+    graded_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    resubmission_count = db.Column(db.Integer, default=0)  # Qayta topshirishlar soni
+    allow_resubmission = db.Column(db.Boolean, default=False)  # O'qituvchi qo'shimcha imkon berishi mumkin
+    is_active = db.Column(db.Boolean, default=True)  # Faol topshiriq (oxirgi yuborilgan)
+    
+    grader = db.relationship('User', foreign_keys=[graded_by], backref='graded_submissions')
+    
+    def can_resubmit(self, max_resubmissions=3):
+        """Qayta topshirish mumkinligini tekshirish"""
+        if self.allow_resubmission:
+            return True  # O'qituvchi maxsus ruxsat bergan
+        return self.resubmission_count < max_resubmissions
+
+
+# ==================== E'LON ====================
+class Announcement(db.Model):
+    """E'lon modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    author_role = db.Column(db.String(50))  # E'lon yaratilganda foydalanuvchining tanlangan roli
+    is_important = db.Column(db.Boolean, default=False)
+    target_roles = db.Column(db.String(100))  # comma-separated: student,teacher,dean
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'))  # Faqat shu fakultet uchun
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    target_faculty = db.relationship('Faculty', backref='announcements')
+
+
+# ==================== DARS JADVALI ====================
+class Schedule(db.Model):
+    """Dars jadvali (onlayn konsultatsiyalar)"""
+    id = db.Column(db.Integer, primary_key=True)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    # Sana: YYYYMMDD formatida butun son ko'rinishida saqlanadi, masalan 20251210
+    # Eski ma'lumotlarda bu maydon hafta kuni sifatida ishlatilgan bo'lishi mumkin.
+    day_of_week = db.Column(db.Integer)
+    start_time = db.Column(db.String(5))  # HH:MM
+    end_time = db.Column(db.String(5))
+    link = db.Column(db.String(500))  # Meeting link (Zoom, Teams, etc.)
+    lesson_type = db.Column(db.String(20))  # lecture, practice, lab
+    
+    group = db.relationship('Group', backref='schedules')
+    teacher = db.relationship('User', backref='teaching_schedules')
+
+
+# ==================== XABAR ====================
+class Message(db.Model):
+    """Xabar modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_messages')
+    receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_messages')
+
+
+# ==================== PAROLNI TIKLASH TOKENI ====================
+class PasswordResetToken(db.Model):
+    """Parolni tiklash tokeni"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False)
+    
+    user = db.relationship('User', backref='password_reset_tokens')
+
+
+# ==================== BUXGALTERIYA ====================
+class StudentPayment(db.Model):
+    """Talaba kontrakt va to'lov ma'lumotlari"""
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    contract_amount = db.Column(db.Numeric(15, 2), nullable=False)  # Kontrakt miqdori
+    paid_amount = db.Column(db.Numeric(15, 2), default=0)  # To'lagan summasi
+    academic_year = db.Column(db.String(20))  # O'quv yili (2024-2025)
+    semester = db.Column(db.Integer, default=1)  # Semestr
+    notes = db.Column(db.Text)  # Qo'shimcha eslatmalar
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    student = db.relationship('User', backref='payments')
+    
+    def get_remaining_amount(self):
+        """Qolgan to'lov summasi"""
+        return float(self.contract_amount) - float(self.paid_amount)
+    
+    def get_payment_percentage(self):
+        """To'lov foizi"""
+        if float(self.contract_amount) == 0:
+            return 0
+        return (float(self.paid_amount) / float(self.contract_amount)) * 100
+
+
+# ==================== BAHOLASH TIZIMI ====================
+class GradeScale(db.Model):
+    """Baholash tizimi (ballik tizim)"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)  # A, B, C, D, F
+    letter = db.Column(db.String(5), nullable=False)  # A, B, C, D, F
+    min_score = db.Column(db.Float, nullable=False)  # Minimal ball
+    max_score = db.Column(db.Float, nullable=False)  # Maksimal ball
+    description = db.Column(db.String(100))  # A'lo, Yaxshi, va h.k.
+    gpa_value = db.Column(db.Float, default=0)  # GPA qiymati (4.0, 3.5, ...)
+    color = db.Column(db.String(20), default='gray')  # green, blue, yellow, orange, red
+    order = db.Column(db.Integer, default=0)
+    is_passing = db.Column(db.Boolean, default=True)  # O'tish bahosimi
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    @staticmethod
+    def get_grade(score, max_score=100):
+        """Ball asosida bahoni aniqlash"""
+        if max_score == 0:
+            return None
+        percent = (score / max_score) * 100
+        grade = GradeScale.query.filter(
+            GradeScale.min_score <= percent,
+            GradeScale.max_score >= percent
+        ).first()
+        return grade
+    
+    @staticmethod
+    def get_all_ordered():
+        """Barcha baholarni tartibda olish"""
+        return GradeScale.query.order_by(GradeScale.order).all()
+    
+    @staticmethod
+    def init_default_grades():
+        """Standart baholarni yaratish"""
+        if GradeScale.query.first() is not None:
+            return
+        
+        default_grades = [
+            {'letter': 'A', 'name': "A'lo", 'min_score': 90.0, 'max_score': 100.0, 'description': "A'lo natija", 'gpa_value': 5.0, 'color': 'green', 'order': 1, 'is_passing': True},
+            {'letter': 'B', 'name': 'Yaxshi', 'min_score': 70.0, 'max_score': 89.99, 'description': 'Yaxshi natija', 'gpa_value': 4.0, 'color': 'blue', 'order': 2, 'is_passing': True},
+            {'letter': 'C', 'name': 'Qoniqarli', 'min_score': 60.0, 'max_score': 69.99, 'description': 'Qoniqarli natija', 'gpa_value': 3.0, 'color': 'yellow', 'order': 3, 'is_passing': True},
+            {'letter': 'D', 'name': "O'tmadi", 'min_score': 0.0, 'max_score': 59.99, 'description': "Qoniqarsiz natija", 'gpa_value': 2.0, 'color': 'red', 'order': 4, 'is_passing': False},
+        ]
+        
+        for g in default_grades:
+            grade = GradeScale(**g)
+            db.session.add(grade)
+        db.session.commit()
