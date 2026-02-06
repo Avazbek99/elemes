@@ -276,23 +276,55 @@
             </table>
 
             {% if students.pages > 1 %}
-            <div class="px-6 py-6 border-t border-gray-50 flex items-center justify-between">
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    {{ t('page_of', page=students.page, pages=students.pages) }}
-                </p>
+            <div class="px-6 py-6 border-t border-gray-50 mt-6 flex flex-col items-center gap-4">
                 <div class="flex items-center gap-2">
+                    {% if students.has_prev %}
+                    <a href="{{ url_for('accounting.index', page=1, search=search or '', group=current_group, faculty=current_faculty, course=current_course, semester=current_semester, education_type=current_education_type or '', direction=current_direction) }}"
+                        class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">{{ t('first') }}</a>
+                    <a href="{{ url_for('accounting.index', page=students.prev_num, search=search or '', group=current_group, faculty=current_faculty, course=current_course, semester=current_semester, education_type=current_education_type or '', direction=current_direction) }}"
+                        class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">«</a>
+                    {% else %}
+                    <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
+                    <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+                    {% endif %}
+
                     {% for page_num in students.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                     {% if page_num %}
-                    <a href="{{ url_for('accounting.index', page=page_num, search=search or '', group=current_group, faculty=current_faculty, course=current_course, semester=current_semester, education_type=current_education_type or '', direction=current_direction) }}"
-                        class="w-10 h-10 flex items-center justify-center rounded-2xl text-sm font-bold transition-all {% if page_num == students.page %}bg-primary-600 text-white shadow-lg shadow-primary-200{% else %}bg-white border border-gray-100 text-gray-500 hover:bg-gray-50 hover:text-primary-600{% endif %}">
-                        {{ page_num }}
-                    </a>
+                    {% if page_num == students.page %}
+                    <span class="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium">{{ page_num }}</span>
                     {% else %}
-                    <span class="text-gray-300">...</span>
+                    <a href="{{ url_for('accounting.index', page=page_num, search=search or '', group=current_group, faculty=current_faculty, course=current_course, semester=current_semester, education_type=current_education_type or '', direction=current_direction) }}"
+                        class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">{{ page_num }}</a>
+                    {% endif %}
+                    {% else %}
+                    <span class="px-2 text-gray-400">...</span>
                     {% endif %}
                     {% endfor %}
+
+                    {% if students.has_next %}
+                    <a href="{{ url_for('accounting.index', page=students.next_num, search=search or '', group=current_group, faculty=current_faculty, course=current_course, semester=current_semester, education_type=current_education_type or '', direction=current_direction) }}"
+                        class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">»</a>
+                    <a href="{{ url_for('accounting.index', page=students.pages, search=search or '', group=current_group, faculty=current_faculty, course=current_course, semester=current_semester, education_type=current_education_type or '', direction=current_direction) }}"
+                        class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">{{ t('last') }}</a>
+                    {% else %}
+                    <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+                    <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-600">
+                    {% set start = (students.page - 1) * students.per_page + 1 %}
+                    {% set end = students.page * students.per_page if students.page * students.per_page <= students.total else students.total %}
+                    {{ t('pagination_range', start=start, end=end, total=students.total) }}
                 </div>
             </div>
+            {% else %}
+            {% if students.total > 0 %}
+            <div class="px-6 py-6 border-t border-gray-50 mt-6 text-center text-sm text-gray-600">
+                {% set start = (students.page - 1) * students.per_page + 1 %}
+                {% set end = students.page * students.per_page if students.page * students.per_page <= students.total else students.total %}
+                {{ t('pagination_range', start=start, end=end, total=students.total) }}
+            </div>
+            {% endif %}
             {% endif %}
 
             {% else %}
