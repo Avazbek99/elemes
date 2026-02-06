@@ -1,127 +1,110 @@
 {% extends "base.html" %}
 
-{% block title %}Talabalar import{% endblock %}
+{% block title %}{{ t('import_students_title') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
     <div class="mb-6">
-        <a href="{{ url_for('admin.users', role='student') }}"
+        <a href="{{ url_for('admin.students') }}"
             class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Orqaga
+            {{ t('back') }}
         </a>
-        <h1 class="text-2xl font-bold text-gray-900">Talabalarni import qilish</h1>
-        <p class="text-gray-500 mt-1">Excel fayldan talabalar ro'yxatini import qilish</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('import_students_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('import_students_subtitle') }}</p>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Excel fayl format</h2>
-        <p class="text-gray-600 mb-4">Excel faylda quyidagi ustunlar bo'lishi kerak:</p>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('excel_file_format') }}</h2>
+        <p class="text-gray-600 mb-4">{{ t('excel_columns_required') }}</p>
 
         <div class="bg-gray-50 rounded-xl p-4 mb-4 overflow-x-auto">
             <table class="w-full text-sm min-w-[480px]">
                 <thead>
                     <tr class="border-b border-gray-200">
-                        <th class="text-left py-2 px-3 font-semibold text-gray-700">Ustun nomi</th>
-                        <th class="text-left py-2 px-3 font-semibold text-gray-700">Tavsif</th>
-                        <th class="text-left py-2 px-3 font-semibold text-gray-700">Majburiy</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">{{ t('column_name') }}</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">{{ t('description') }}</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">{{ t('required_field') }}/{{ t('optional_field') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                <tbody class="divide-y divide-gray-100">
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Talaba ID (A)</td>
-                        <td class="py-2 px-3 text-gray-600">Talaba ID raqami</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_student_id') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_student_id') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">{{ t('required_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">To'liq ism (B)</td>
-                        <td class="py-2 px-3 text-gray-600">Talabaning to'liq ismi (Familiya Ism Sharif)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_full_name') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_full_name') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">{{ t('required_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Pasport seriya raqami (C)</td>
-                        <td class="py-2 px-3 text-gray-600">Pasport seriya va raqami</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Majburiy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_passport') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_passport') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">{{ t('required_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">PINFL (D)</td>
-                        <td class="py-2 px-3 text-gray-600">JSHSHIR kod (14 xonali)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_pinfl') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_pinfl') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Tug'ilgan sana (E)</td>
-                        <td class="py-2 px-3 text-gray-600">DD.MM.YYYY yoki YYYY-MM-DD formatida</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_birth_date') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_birth_date') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Telefon (F)</td>
-                        <td class="py-2 px-3 text-gray-600">Telefon raqami</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_phone') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_phone') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Email (G)</td>
-                        <td class="py-2 px-3 text-gray-600">Email manzil (takrorlanmasligi kerak)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_email') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_email') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Fakultet (I)</td>
-                        <td class="py-2 px-3 text-gray-600">Fakultet nomi (guruh biriktirish uchun)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_faculty') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_faculty') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Kurs (J)</td>
-                        <td class="py-2 px-3 text-gray-600">Kurs raqami (1-kurs, 2-kurs formatida)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_course') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_course') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Semestr (K)</td>
-                        <td class="py-2 px-3 text-gray-600">Semestr raqami (1-semestr, 2-semestr formatida)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_semester') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_semester') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Ta'lim shakli (L)</td>
-                        <td class="py-2 px-3 text-gray-600">Kunduzgi, Sirtqi, Kechki, Masofaviy (bosh harf katta)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_education_type') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_education_type') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Qabul yili (M)</td>
-                        <td class="py-2 px-3 text-gray-600">Qabul yili (masalan: 2024, 2025)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_enrollment_year') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_enrollment_year') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Mutaxassislik kodi (N)</td>
-                        <td class="py-2 px-3 text-gray-600">Yo'nalish kodi (masalan: DI)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_specialty_code') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_specialty_code') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Mutaxassislik nomi (O)</td>
-                        <td class="py-2 px-3 text-gray-600">Yo'nalish nomi (masalan: Dasturiy injiniring)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_specialty_name') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_specialty_name') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">Guruh (P)</td>
-                        <td class="py-2 px-3 text-gray-600">Guruh nomi (masalan: DI-21)</td>
-                        <td class="py-2 px-3"><span
-                                class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">Ixtiyoriy</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_group') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_group') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
-                </tbody>
                 </tbody>
             </table>
         </div>
@@ -134,17 +117,16 @@
                         d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                    <p class="text-sm font-medium text-blue-900 mb-1">Eslatma:</p>
+                    <p class="text-sm font-medium text-blue-900 mb-1">{{ t('import_note_title') }}</p>
                     <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
-                        <li>Fayl .xlsx yoki .xls formatida bo'lishi kerak</li>
-                        <li><strong>Majburiy maydonlar:</strong> To'liq ism, Talaba ID, Pasport seriya raqami</li>
-                        <li><strong>Ixtiyoriy maydonlar:</strong> Qolgan barcha maydonlar</li>
-                        <li>Agar Fakultet, Kurs, Ta'lim shakli, Qabul yili va Guruh ma'lumotlari to'liq bo'lsa, talaba avtomatik guruhga qo'shiladi</li>
-                        <li>Qabul yili yo'nalishga biriktirishda muhim (masalan: 2024, 2025)</li>
-                        <li>Guruh nomi to'g'ri yozilishi kerak (masalan: DI-21). Agar guruh mavjud bo'lmasa, yangi yaratiladi</li>
-                        <li>Email va Talaba ID takrorlanmasligi kerak</li>
-                        <li>Yangi talabalar uchun boshlang'ich parol: <code
-                                class="bg-blue-100 px-1 rounded">Pasport seriya raqami</code></li>
+                        <li>{{ t('import_note_file_format') }}</li>
+                        <li><strong>{{ t('import_note_required') }}</strong></li>
+                        <li><strong>{{ t('import_note_optional') }}</strong></li>
+                        <li>{{ t('import_note_auto_group') }}</li>
+                        <li>{{ t('import_note_enrollment') }}</li>
+                        <li>{{ t('import_note_group_name') }}</li>
+                        <li>{{ t('import_note_unique') }}</li>
+                        <li>{{ t('import_note_password') }}</li>
                     </ul>
                 </div>
             </div>
@@ -152,25 +134,25 @@
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Excel fayl yuklash</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('excel_upload_title') }}</h2>
 
         <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Excel fayl *</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('excel_file_label') }}</label>
                 <div class="relative">
                     <input type="file" name="excel_file" accept=".xlsx,.xls" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
                 </div>
                 <div class="flex items-center justify-between mb-4">
-                    <p class="text-sm text-gray-600 mb-0">Fayl formati: .xlsx yoki .xls</p>
+                    <p class="text-sm text-gray-600 mb-0">{{ t('file_format_note') }}</p>
                     <a href="{{ url_for('admin.download_sample_import') }}"
                         class="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Namuna yuklab olish
+                        {{ t('download_sample') }}
                     </a>
                 </div>
             </div>
@@ -178,11 +160,11 @@
             <div class="pt-4 border-t border-gray-100 flex gap-3">
                 <button type="submit"
                     class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
-                    Import qilish
+                    {{ t('import_button') }}
                 </button>
-                <a href="{{ url_for('admin.users', role='student') }}"
+                <a href="{{ url_for('admin.students') }}"
                     class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
-                    Bekor qilish
+                    {{ t('cancel') }}
                 </a>
             </div>
         </form>

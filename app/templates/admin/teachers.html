@@ -1,28 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}O'qituvchilar{% endblock %}
+{% block title %}{{ t('teachers') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">O'qituvchilar</h1>
-        <p class="text-gray-500 mt-1">Barcha o'qituvchilar ro'yxati</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('teachers') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('all_teachers_list') }}</p>
     </div>
     
-    <!-- Qidiruv -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <form method="GET" class="flex flex-wrap gap-4">
             <div class="flex-1 min-w-[200px] relative search-input-wrap">
-                <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="O'qituvchi qidirish (ism, email, telefon)..."
+                <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_teacher_placeholder') }}"
                     class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                <button type="button" class="search-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
             </div>
             <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
-                Qidirish
+                {{ t('search') }}
             </button>
             {% if search %}
             <a href="{{ url_for('admin.teachers') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
-                Tozalash
+                {{ t('clear') }}
             </a>
             {% endif %}
         </form>
@@ -40,10 +39,10 @@
                     <div class="flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900 truncate">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</h3>
                         <span class="px-2 py-1 text-xs rounded-full {% if teacher.is_active %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-600{% endif %}">
-                            {% if teacher.is_active %}Faol{% else %}Nofaol{% endif %}
+                            {% if teacher.is_active %}{{ t('active') }}{% else %}{{ t('inactive') }}{% endif %}
                         </span>
                     </div>
-                    <p class="text-sm text-gray-500">{{ teacher.position or "O'qituvchi" }}</p>
+                    <p class="text-sm text-gray-500">{{ teacher.position or t('teacher') }}</p>
                     <p class="text-sm text-primary-600">{{ teacher.department or '-' }}</p>
                 </div>
             </div>
@@ -52,7 +51,7 @@
                 <div class="grid grid-cols-2 gap-4 text-center">
                     <div>
                         <p class="text-xl font-bold text-gray-900">{{ teacher.courses_teaching.count() }}</p>
-                        <p class="text-xs text-gray-500">Kurslar</p>
+                        <p class="text-xs text-gray-500">{{ t('taught_courses_label') }}</p>
                     </div>
                     <div>
                         {% set student_count = namespace(value=0) %}
@@ -60,7 +59,7 @@
                             {% set student_count.value = student_count.value + course.get_enrolled_count() %}
                         {% endfor %}
                         <p class="text-xl font-bold text-gray-900">{{ student_count.value }}</p>
-                        <p class="text-xs text-gray-500">Talabalar</p>
+                        <p class="text-xs text-gray-500">{{ t('students') }}</p>
                     </div>
                 </div>
             </div>
@@ -79,7 +78,7 @@
         {% else %}
         <div class="col-span-full text-center py-12">
             <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <h3 class="text-lg font-medium text-gray-600">O'qituvchilar topilmadi</h3>
+            <h3 class="text-lg font-medium text-gray-600">{{ t('teachers_not_found') }}</h3>
         </div>
         {% endfor %}
     </div>
@@ -88,11 +87,11 @@
     {% if teachers.pages > 1 %}
     <div class="flex justify-center gap-2">
         {% if teachers.has_prev %}
-        <a href="{{ url_for('admin.teachers', page=teachers.prev_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Oldingi</a>
+        <a href="{{ url_for('admin.teachers', page=teachers.prev_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">{{ t('previous') }}</a>
         {% endif %}
         <span class="px-4 py-2 bg-primary-600 text-white rounded-xl">{{ teachers.page }} / {{ teachers.pages }}</span>
         {% if teachers.has_next %}
-        <a href="{{ url_for('admin.teachers', page=teachers.next_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">Keyingi</a>
+        <a href="{{ url_for('admin.teachers', page=teachers.next_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">{{ t('next') }}</a>
         {% endif %}
     </div>
     {% endif %}

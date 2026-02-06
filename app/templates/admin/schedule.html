@@ -38,14 +38,14 @@
 </style>
 {% endblock %}
 
-{% block title %}Dars jadvali{% endblock %}
+{% block title %}{{ t('schedule') }}{% endblock %}
 
 {% block content %}
 <div class="schedule-page space-y-6">
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Dars jadvali</h1>
-        <p class="text-gray-500 mt-1">Barcha darslar ro'yxati</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('schedule') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('all_lessons_list') }}</p>
     </div>
     <div class="flex gap-2">
         <button type="submit" form="filterForm" formaction="{{ url_for('admin.export_schedule') }}"
@@ -55,7 +55,7 @@
                     d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
                 </path>
             </svg>
-            Export
+            {{ t('export') }}
         </button>
         <a href="{{ url_for('admin.import_schedule') }}"
             class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
@@ -63,7 +63,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
-            Import
+            {{ t('import') }}
         </a>
         <a href="{{ url_for('admin.create_schedule') }}"
             class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
@@ -71,7 +71,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6">
                 </path>
             </svg>
-            Yangi dars
+            {{ t('new_lesson') }}
         </a>
     </div>
 </div>
@@ -83,12 +83,11 @@
         <input type="hidden" name="month" value="{{ month }}" />
 
         <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <!-- 1. Fakultet -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Fakultet</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('faculty') }}</label>
                 <select id="faculty_id" name="faculty_id"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm tom-select-init">
-                    <option value="">Barcha fakultetlar</option>
+                    <option value="">{{ t('all_faculties') }}</option>
                     {% for faculty in faculties %}
                     <option value="{{ faculty.id }}" {% if current_faculty_id==faculty.id %}selected{% endif %}>{{
                         faculty.name }}</option>
@@ -96,36 +95,33 @@
                 </select>
             </div>
 
-            <!-- 2. Kurs -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Kurs</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('course') }}</label>
                 <select id="course_year" name="course_year"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Barcha kurslar</option>
+                    <option value="">{{ t('all_courses') }}</option>
                     {% for c in all_courses %}
-                    <option value="{{ c }}" {% if current_course_year==c %}selected{% endif %}>{{ c }}-kurs</option>
+                    <option value="{{ c }}" {% if current_course_year==c %}selected{% endif %}>{{ c }}{{ t('course_suffix') }}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <!-- 3. Semestr -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Semestr</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('semester') }}</label>
                 <select id="semester" name="semester"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Barcha semestrlar</option>
+                    <option value="">{{ t('all_semesters') }}</option>
                     {% for s in all_semesters %}
-                    <option value="{{ s }}" {% if current_semester==s %}selected{% endif %}>{{ s }}-semestr</option>
+                    <option value="{{ s }}" {% if current_semester==s %}selected{% endif %}>{{ s }}{{ t('semester_suffix') }}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <!-- 4. Yo'nalish -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Yo'nalish</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
                 <select id="direction_id" name="direction_id"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Barcha yo'nalishlar</option>
+                    <option value="">{{ t('all_directions') }}</option>
                     {% for d in all_directions %}
                     <option value="{{ d.id }}" {% if current_direction_id==d.id %}selected{% endif %}>
                         {{ d.code }} - {{ d.name }}
@@ -134,26 +130,24 @@
                 </select>
             </div>
 
-            <!-- 5. Guruh -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Guruh</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('group') }}</label>
                 <select id="group_id" name="group_id"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Barcha guruhlar</option>
+                    <option value="">{{ t('all_groups') }}</option>
                     {% for g in all_groups %}
                     <option value="{{ g.id }}" {% if current_group_id==g.id %}selected{% endif %}>{{ g.name }}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <!-- 6. O'qituvchi -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">O'qituvchi</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('teacher') }}</label>
                 <select id="teacher_id" name="teacher_id"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option value="">Barcha o'qituvchilar</option>
-                    {% for t in all_teachers %}
-                    <option value="{{ t.id }}" {% if current_teacher_id==t.id %}selected{% endif %}>{{ t.full_name }}
+                    <option value="">{{ t('all_teachers') }}</option>
+                    {% for teacher in all_teachers %}
+                    <option value="{{ teacher.id }}" {% if current_teacher_id==teacher.id %}selected{% endif %}>{{ teacher.full_name }}
                     </option>
                     {% endfor %}
                 </select>
@@ -163,24 +157,24 @@
         <!-- Date Range and Action Buttons in One Row -->
         <div class="flex items-end gap-3 pt-6">
             <div class="flex-1">
-                <label class="block text-xs font-medium text-gray-500 mb-1">Boshlanish sanasi</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('start_date') }}</label>
                 <input type="text" name="start_date" value="{{ request.args.get('start_date', '') }}"
-                    placeholder="dd.mm.yyyy"
+                    placeholder="{{ t('date_placeholder') }}"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flatpickr-date">
             </div>
             <div class="flex-1">
-                <label class="block text-xs font-medium text-gray-500 mb-1">Tugash sanasi</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('end_date') }}</label>
                 <input type="text" name="end_date" value="{{ request.args.get('end_date', '') }}"
-                    placeholder="dd.mm.yyyy"
+                    placeholder="{{ t('date_placeholder') }}"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flatpickr-date">
             </div>
             <button type="submit"
                 class="px-8 py-2.5 bg-[#0091ea] text-white rounded-lg font-semibold shadow-sm hover:bg-[#0081d1] transition-colors whitespace-nowrap">
-                Qidirish
+                {{ t('search') }}
             </button>
-            <a href="{{ url_for('admin.schedule') }}"
+            <a href="{{ url_for('admin.schedule', year=year, month=month) }}"
                 class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors whitespace-nowrap">
-                Tozalash
+                {{ t('clear') }}
             </a>
 
         </div>
@@ -200,9 +194,8 @@
             </a>
 
             <h2 class="text-xl font-bold text-gray-900 tracking-tight min-w-[140px] text-center">
-                {% set month_names =
-                ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentyabr','Oktyabr','Noyabr','Dekabr']
-                %} {{ month_names[month-1] }} {{ year }}
+                {% set month_names = [t('month_1'), t('month_2'), t('month_3'), t('month_4'), t('month_5'), t('month_6'), t('month_7'), t('month_8'), t('month_9'), t('month_10'), t('month_11'), t('month_12')] %}
+                {{ month_names[month-1] }} {{ year }}
             </h2>
 
             <a href="{{ url_for('admin.schedule', year=next_year, month=next_month, faculty_id=current_faculty_id, course_year=current_course_year, semester=current_semester, direction_id=current_direction_id, group_id=current_group_id) }}"
@@ -242,20 +235,20 @@
 
             <button type="submit"
                 class="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold hover:bg-primary-700 transition-all shadow-sm active:scale-95 leading-none">
-                OK
+                {{ t('ok') }}
             </button>
         </form>
     </div>
 
     <div
         class="grid grid-cols-7 text-center text-xs font-semibold text-gray-1000 border-b border-gray-200 bg-gray-200">
-        <div class="py-3">Dushanba</div>
-        <div class="py-3">Seshanba</div>
-        <div class="py-3">Chorshanba</div>
-        <div class="py-3">Payshanba</div>
-        <div class="py-3">Juma</div>
-        <div class="py-3">Shanba</div>
-        <div class="py-3">Yakshanba</div>
+        <div class="py-3">{{ t('day_monday') }}</div>
+        <div class="py-3">{{ t('day_tuesday') }}</div>
+        <div class="py-3">{{ t('day_wednesday') }}</div>
+        <div class="py-3">{{ t('day_thursday') }}</div>
+        <div class="py-3">{{ t('day_friday') }}</div>
+        <div class="py-3">{{ t('day_saturday') }}</div>
+        <div class="py-3">{{ t('day_sunday') }}</div>
     </div>
 
     <div class="grid grid-cols-7 gap-3 bg-gray-200 p-4 border-t border-gray-100">
@@ -296,7 +289,7 @@
                                 </svg>
                             </a>
                             <form action="{{ url_for('admin.delete_schedule', id=schedule.id) }}" method="POST"
-                                onsubmit="return confirm('Darsni o\'chirmoqchimisiz?');">
+                                onsubmit="return confirm('{{ t('confirm_delete_lesson')|escapejs }}');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                 <button type="submit"
                                     class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-600 shadow-sm hover:shadow hover:bg-red-100 transition-all">
@@ -321,26 +314,29 @@
                                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                                     stroke-width="2"></path>
                             </svg>
-                            {% if schedule.group %}
-                            {{ schedule.group.formatted_direction }}
+                            {% if schedule.group and schedule.group.direction %}
+                            {{ schedule.group.enrollment_year or '____' }} - {{ schedule.group.direction.code }} - {{ schedule.group.direction.name }} ({{ schedule.group.education_type|education_type_label }})
+                            {% elif schedule.group %}
+                            {{ schedule.group.name }}
                             {% else %}
-                            Noma'lum
+                            {{ t('unknown') }}
                             {% endif %}
                         </p>
                         <p class="text-[9px] text-gray-500 font-medium">
-                            Guruh: {{ schedule.group.name }}
+                            {{ t('group_label') }}: {{ schedule.group.name }}
                         </p>
                         <p class="text-[9px] text-gray-500 font-medium">
-                            Turi:
-                            {% set assigned_types = [] %}
-                            {% for a in schedule.subject.teacher_assignments %}
-                            {% if a.group_id == schedule.group_id and a.teacher_id == schedule.teacher_id %}
-                            {% set _ = assigned_types.append({'maruza': 'Ma\'ruza', 'lecture': 'Ma\'ruza', 'amaliyot':
-                            'Amaliyot', 'practice': 'Amaliyot', 'lab': 'Laboratoriya', 'seminar':
-                            'Seminar'}.get(a.lesson_type, a.lesson_type|capitalize)) %}
-                            {% endif %}
+                            {{ t('type_label') }}:
+                            {% set lesson_types = schedule.get_teacher_lesson_types() %}
+                            {% if lesson_types %}
+                            {% set translated_types = [] %}
+                            {% for lt in lesson_types %}
+                            {% set _ = translated_types.append(lt|lesson_type_label) %}
                             {% endfor %}
-                            {{ assigned_types|unique|join('/') }}
+                            {{ translated_types|unique|join('/') }}
+                            {% else %}
+                            {{ schedule.lesson_type|lesson_type_label }}
+                            {% endif %}
                         </p>
                         {% if schedule.teacher %}
                         <p class="text-[9px] text-primary-700 bg-primary-50/50 px-1 rounded inline-block">
@@ -357,7 +353,7 @@
                                 d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
                             </path>
                         </svg>
-                        Darsga kirish
+                        {{ t('join_lesson') }}
                     </a>
                     {% endif %}
                 </div>
@@ -365,13 +361,86 @@
             </div>
         </div>
         {% else %}
+        {# Oldingi yoki keyingi oy kunlari #}
         {% set other_date_str = '%04d-%02d-%02d' % (d.year, d.month, d.day) %}
-        <div class="min-h-[160px] rounded-2xl bg-gray-100/80 border border-gray-200/50 schedule-day-placeholder schedule-day-other-month p-4 flex flex-col">
+        {% set other_schedules = schedule_by_date.get(other_date_str, []) %}
+        <div class="min-h-[160px] p-4 flex flex-col gap-3 transition-all relative group border rounded-2xl bg-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-sm{% if not other_schedules %} schedule-day-empty{% endif %}">
             <div class="flex items-center justify-between mb-1">
                 <span class="text-sm font-bold text-gray-400">{{ d.day }}</span>
                 <a href="{{ url_for('admin.create_schedule', date=other_date_str, group=current_group_id) }}"
-                    class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-200/80 text-gray-500 text-lg leading-none hover:bg-gray-300 hover:text-gray-700 transition-opacity">+</a>
+                    class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 text-gray-500 text-lg leading-none hover:bg-gray-300 hover:text-gray-700 transition-colors">+</a>
             </div>
+            
+            {% if other_schedules %}
+            <div class="flex flex-col gap-2">
+                {% for schedule in other_schedules %}
+                <div class="p-2 rounded-xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow relative">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-[10px] font-bold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{{ schedule.start_time }}</span>
+                        <div class="flex gap-1.5">
+                            <a href="{{ url_for('admin.edit_schedule', id=schedule.id) }}"
+                                class="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-primary-600 shadow-sm hover:shadow hover:bg-gray-50 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-width="2.5"></path>
+                                </svg>
+                            </a>
+                            <form action="{{ url_for('admin.delete_schedule', id=schedule.id) }}" method="POST"
+                                onsubmit="return confirm('{{ t('confirm_delete_lesson')|escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit"
+                                    class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-600 shadow-sm hover:shadow hover:bg-red-100 transition-all">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2.5"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <p class="text-[11px] font-bold text-gray-900 leading-tight mb-1 line-clamp-2">{{ schedule.subject.name }}</p>
+                    <div class="space-y-0.5 mb-2">
+                        <p class="text-[9px] text-gray-500 flex items-center gap-1">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-width="2"></path>
+                            </svg>
+                            {% if schedule.group and schedule.group.direction %}
+                            {{ schedule.group.enrollment_year or '____' }} - {{ schedule.group.direction.code }} - {{ schedule.group.direction.name }} ({{ schedule.group.education_type|education_type_label }})
+                            {% elif schedule.group %}
+                            {{ schedule.group.name }}
+                            {% else %}
+                            {{ t('unknown') }}
+                            {% endif %}
+                        </p>
+                        <p class="text-[9px] text-gray-500 font-medium">{{ t('group_label') }}: {{ schedule.group.name }}</p>
+                        <p class="text-[9px] text-gray-500 font-medium">
+                            {{ t('type_label') }}:
+                            {% set lesson_types = schedule.get_teacher_lesson_types() %}
+                            {% if lesson_types %}
+                            {% set translated_types = [] %}
+                            {% for lt in lesson_types %}
+                            {% set _ = translated_types.append(lt|lesson_type_label) %}
+                            {% endfor %}
+                            {{ translated_types|unique|join('/') }}
+                            {% else %}
+                            {{ schedule.lesson_type|lesson_type_label }}
+                            {% endif %}
+                        </p>
+                        {% if schedule.teacher %}
+                        <p class="text-[9px] text-primary-700 bg-primary-50/50 px-1 rounded inline-block">{{ schedule.teacher.full_name }}</p>
+                        {% endif %}
+                    </div>
+                    {% if schedule.link %}
+                    <a href="{{ schedule.link }}" target="_blank"
+                        class="w-full py-1 bg-primary-600 text-white text-[9px] font-bold rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-1">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        {{ t('join_lesson') }}
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
         {% endif %}
         {% endfor %}
@@ -388,6 +457,11 @@
     .scrollbar-hide {
         -ms-overflow-style: none;
         scrollbar-width: none;
+    }
+    
+    /* Bo'sh kunlar uchun kichik balandlik */
+    .schedule-day-empty {
+        min-height: 80px !important;
     }
 </style>
 
@@ -406,25 +480,23 @@
         };
 
     const filters = ['faculty_id', 'course_year', 'semester', 'direction_id', 'group_id', 'teacher_id'];
+    const filterForm = document.getElementById('filterForm');
+    
     filters.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            new TomSelect(el, {
+            const tomSelectInstance = new TomSelect(el, {
                 create: false,
                 allowEmptyOption: true,
                 maxOptions: 10000,
-                plugins: ['dropdown_input']
+                plugins: ['dropdown_input'],
+                onChange: function() {
+                    // Filtr o'zgarganda avtomatik qidirish
+                    filterForm.submit();
+                }
             });
         }
     });
-
-    const facultySelect = document.getElementById('faculty_id');
-    if (facultySelect) {
-        facultySelect.addEventListener('change', () => {
-            // Implement dynamic filtering if needed, though most is handled by Jinja2 refresh
-            // This is a placeholder for future enhancements
-        });
-    }
     });
 </script>
 

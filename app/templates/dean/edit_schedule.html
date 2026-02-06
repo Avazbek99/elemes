@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Darsni tahrirlash{% endblock %}
+{% block title %}{{ t('edit_schedule') }}{% endblock %}
 
 {% block content %}
 <div class="w-full mx-auto">
@@ -10,9 +10,9 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Orqaga
+            {{ t('back') }}
         </a>
-        <h1 class="text-2xl font-bold text-gray-900">Darsni tahrirlash</h1>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('edit_schedule') }}</h1>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -21,38 +21,37 @@
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Kurs *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('course') }} *</label>
                     <select id="course_year" name="course_year" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
-                        <option value="">Kursni tanlang...</option>
+                        <option value="">{{ t('select_course_placeholder') }}</option>
                         {% for course in faculty_courses %}
-                        <option value="{{ course }}" {% if course==current_course_year %}selected{% endif %}>{{ course
-                            }}-kurs</option>
+                        <option value="{{ course }}" {% if course==current_course_year %}selected{% endif %}>{{ course }}{{ t('course_suffix') }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Semestr *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('semester') }} *</label>
                     <select id="semester" name="semester" required disabled
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
-                        <option value="">Semestrni tanlang...</option>
+                        <option value="">{{ t('select_semester_placeholder') }}</option>
                     </select>
                 </div>
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Yo'nalish *</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction') }} *</label>
                 <select id="direction_id" name="direction_id" required disabled
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
-                    <option value="">Yo'nalishni tanlang...</option>
+                    <option value="">{{ t('select_direction_placeholder') }}</option>
                 </select>
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Guruh *</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('group') }} *</label>
                 <select id="group_id" name="group_id" required disabled
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
-                    <option value="">Guruhni tanlang...</option>
+                    <option value="">{{ t('select_group_placeholder') }}</option>
                 </select>
             </div>
 
@@ -60,17 +59,17 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Fan *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject') }} *</label>
                     <select id="subject_id" name="subject_id" required disabled
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
-                        <option value="">Fanni tanlang...</option>
+                        <option value="">{{ t('select_subject_placeholder') }}</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">O'qituvchi *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('teacher') }} *</label>
                     <select id="teacher_id" name="teacher_id" required disabled
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
-                        <option value="">O'qituvchini tanlang...</option>
+                        <option value="">{{ t('select_teacher_placeholder') }}</option>
                     </select>
                 </div>
             </div>
@@ -79,13 +78,13 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Sana *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('schedule_date_label') }} *</label>
                     <input type="text" name="schedule_date" required value="{{ schedule_date }}"
-                        placeholder="dd.mm.yyyy"
+                        placeholder="{{ t('date_placeholder') }}"
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all flatpickr-date">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Boshlanish vaqti *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('start_time_label') }} *</label>
                     <input type="text" name="start_time" required pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
                         placeholder="09:00" maxlength="5" value="{{ schedule.start_time or '' }}"
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all time-input-24">
@@ -93,8 +92,8 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Online konsultatsiya uchun link</label>
-                <input type="url" name="link" placeholder="Zoom, Teams yoki boshqa link..."
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('online_link_label') }}</label>
+                <input type="url" name="link" placeholder="{{ t('online_link_placeholder') }}"
                     value="{{ schedule.link or '' }}"
                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
             </div>
@@ -102,11 +101,11 @@
             <div class="pt-4 border-t border-gray-100 flex gap-3">
                 <button type="submit"
                     class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
-                    Saqlash
+                    {{ t('save_changes') }}
                 </button>
                 <a href="{{ url_for('dean.schedule', year=year, month=month, group=schedule.group_id) }}"
                     class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium flex items-center justify-center">
-                    Bekor qilish
+                    {{ t('cancel') }}
                 </a>
             </div>
         </form>
@@ -145,6 +144,26 @@
         teacher: document.getElementById('teacher_id')
     };
 
+    const placeholders = {
+        course: {{ t('select_course_placeholder') | tojson }},
+        semester: {{ t('select_semester_placeholder') | tojson }},
+        direction: {{ t('select_direction_placeholder') | tojson }},
+        group: {{ t('select_group_placeholder') | tojson }},
+        subject: {{ t('select_subject_placeholder') | tojson }},
+        teacher: {{ t('select_teacher_placeholder') | tojson }}
+    };
+
+    const i18nLabels = {
+        courseSuffix: {{ t('course_suffix') | tojson }},
+        semesterSuffix: {{ t('semester_suffix') | tojson }},
+        educationTypes: {
+            'kunduzgi': {{ t('education_type_kunduzgi') | tojson }},
+            'sirtqi': {{ t('education_type_sirtqi') | tojson }},
+            'kechki': {{ t('education_type_kechki') | tojson }},
+            'masofaviy': {{ t('education_type_masofaviy') | tojson }}
+        }
+    };
+
     function clearOptions(select, placeholder) {
         select.innerHTML = `<option value="">${placeholder}</option>`;
         select.disabled = true;
@@ -157,14 +176,16 @@
             let text = typeof opt === 'object' ? (opt[textKey] || opt.name || opt.full_name || opt.code) : opt;
 
             if (type === 'course') {
-                text = `${val}-kurs`;
+                text = `${val}${i18nLabels.courseSuffix}`;
             } else if (type === 'semester') {
-                text = `${val}-semestr`;
+                text = `${val}${i18nLabels.semesterSuffix}`;
             } else if (type === 'direction' && typeof opt === 'object') {
                 const year = opt.enrollment_year || '';
                 const code = opt.code || '';
                 const name = opt.name || '';
-                const eduType = opt.education_type ? ` (${opt.education_type})` : '';
+                const eduTypeRaw = opt.education_type ? opt.education_type.toLowerCase() : '';
+                const eduTypeTranslated = eduTypeRaw && i18nLabels.educationTypes[eduTypeRaw] ? i18nLabels.educationTypes[eduTypeRaw] : opt.education_type;
+                const eduType = eduTypeTranslated ? ` (${eduTypeTranslated})` : '';
                 text = `${year ? year + ' - ' : ''}${code ? code + ' - ' : ''}${name}${eduType}`;
             }
 
@@ -177,7 +198,7 @@
         const cId = selects.course.value;
         ['semester', 'direction', 'group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
         if (cId && data.faculty_course_semesters[cId]) {
-            updateOptions(selects.semester, data.faculty_course_semesters[cId], "Semestrni tanlang...", 'id', 'name', 'semester');
+            updateOptions(selects.semester, data.faculty_course_semesters[cId], placeholders.semester, 'id', 'name', 'semester');
         }
     });
 
@@ -191,7 +212,7 @@
             Object.values(eduDirections).forEach(directions => {
                 allDirections = allDirections.concat(directions);
             });
-            updateOptions(selects.direction, allDirections, "Yo'nalishni tanlang...", 'id', 'name', 'direction');
+            updateOptions(selects.direction, allDirections, placeholders.direction, 'id', 'name', 'direction');
         }
     });
 
@@ -199,7 +220,7 @@
         const dId = selects.direction.value;
         ['group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
         if (dId && data.direction_groups[dId]) {
-            updateOptions(selects.group, data.direction_groups[dId], "Guruhni tanlang...");
+            updateOptions(selects.group, data.direction_groups[dId], placeholders.group);
         }
     });
 
@@ -209,7 +230,7 @@
         if (gId) {
             const res = await fetch(`/dean/api/schedule/filters?group_id=${gId}`);
             const subjects = await res.json();
-            updateOptions(selects.subject, subjects, "Fanni tanlang...");
+            updateOptions(selects.subject, subjects, placeholders.subject);
         }
     });
 
@@ -220,7 +241,7 @@
         if (gId && sId) {
             const res = await fetch(`/dean/api/schedule/filters?group_id=${gId}&subject_id=${sId}`);
             const teachers = await res.json();
-            updateOptions(selects.teacher, teachers, "O'qituvchini tanlang...", 'id', 'full_name');
+            updateOptions(selects.teacher, teachers, placeholders.teacher, 'id', 'full_name');
         }
     });
 
@@ -231,31 +252,31 @@
         selects.course.value = initial.courseYear;
         // Trigger course change manually
         if (data.faculty_course_semesters[initial.courseYear]) {
-            updateOptions(selects.semester, data.faculty_course_semesters[initial.courseYear], "Semestrni tanlang...", 'id', 'name', 'semester');
+            updateOptions(selects.semester, data.faculty_course_semesters[initial.courseYear], placeholders.semester, 'id', 'name', 'semester');
             if (initial.semester) {
                 selects.semester.value = initial.semester;
                 if (data.faculty_course_semester_education_directions[initial.semester] && data.faculty_course_semester_education_directions[initial.semester][initial.courseYear]) {
                     const eduDirections = data.faculty_course_semester_education_directions[initial.semester][initial.courseYear];
                     let allDirections = [];
                     Object.values(eduDirections).forEach(directions => allDirections = allDirections.concat(directions));
-                    updateOptions(selects.direction, allDirections, "Yo'nalishni tanlang...", 'id', 'name', 'direction');
+                    updateOptions(selects.direction, allDirections, placeholders.direction, 'id', 'name', 'direction');
 
                     if (initial.directionId) {
                         selects.direction.value = initial.directionId;
                         if (data.direction_groups[initial.directionId]) {
-                            updateOptions(selects.group, data.direction_groups[initial.directionId], "Guruhni tanlang...");
+                            updateOptions(selects.group, data.direction_groups[initial.directionId], placeholders.group);
 
                             if (initial.groupId) {
                                 selects.group.value = initial.groupId;
                                 const subjRes = await fetch(`/dean/api/schedule/filters?group_id=${initial.groupId}`);
                                 const subjects = await subjRes.json();
-                                updateOptions(selects.subject, subjects, "Fanni tanlang...");
+                                updateOptions(selects.subject, subjects, placeholders.subject);
 
                                 if (initial.subjectId) {
                                     selects.subject.value = initial.subjectId;
                                     const teachRes = await fetch(`/dean/api/schedule/filters?group_id=${initial.groupId}&subject_id=${initial.subjectId}`);
                                     const teachers = await teachRes.json();
-                                    updateOptions(selects.teacher, teachers, "O'qituvchini tanlang...", 'id', 'full_name');
+                                    updateOptions(selects.teacher, teachers, placeholders.teacher, 'id', 'full_name');
 
                                     if (initial.teacherId) {
                                         selects.teacher.value = initial.teacherId;

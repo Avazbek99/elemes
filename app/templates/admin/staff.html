@@ -1,61 +1,61 @@
 {% extends "base.html" %}
 
-{% block title %}Xodimlar bazasi{% endblock %}
+{% block title %}{{ t('staff_database') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div class="flex flex-wrap justify-between items-center gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Xodimlar bazasi</h1>
-            <p class="text-gray-500 mt-1">Barcha xodimlar ro'yxati</p>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('staff_database') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('all_staff_list') }}</p>
         </div>
         <div class="flex gap-2 ml-auto shrink-0">
             <a href="{{ url_for('admin.export_all_users') }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Export
+                {{ t('export') }}
             </a>
             <a href="{{ url_for('admin.import_all_users') }}" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                Import
+                {{ t('import') }}
             </a>
             <a href="{{ url_for('admin.create_staff') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                Yangi xodim
+                {{ t('new_staff') }}
             </a>
         </div>
     </div>
     
-    <!-- Filters -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
         <form method="GET" id="filterForm" class="flex flex-wrap gap-4">
             <div class="flex-1 min-w-[200px] relative search-input-wrap">
-                <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="Qidirish (ism, login, pasport, JSHSHIR, telefon, email)..."
+                <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_student_fields') }}"
                     class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                <button type="button" class="search-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
             </div>
             <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
-                Qidirish
+                {{ t('search') }}
             </button>
             {% if search %}
             <a href="{{ url_for('admin.staff') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
-                Tozalash
+                {{ t('clear') }}
             </a>
             {% endif %}
         </form>
     </div>
     
-    <!-- Staff table + pagination (AJAX yangilanadi) -->
+    <span id="loading-text" class="hidden">{{ t('loading') }}</span>
+    <span id="load-error-text" class="hidden">{{ t('load_error') }}</span>
     <div id="staffResults">
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
         {% if users.items %}
         <table class="w-full min-w-[640px]">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">To'liq ism <br> Login</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Pasport raqami <br> JSHSHIR</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Telefon <br> Email</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Rollar</th>
-                    <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('full_name_login') }}</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('passport_pinfl') }}</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('phone_email') }}</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('roles') }}</th>
+                    <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -91,10 +91,10 @@
                         <td class="px-6 py-4">
                             <div class="flex flex-wrap gap-1">
                                 {% set role_display_names = {
-                                    'admin': 'Administrator',
-                                    'dean': 'Dekan',
-                                    'teacher': "O'qituvchi",
-                                    'accounting': 'Buxgalter'
+                                    'admin': t('admin'),
+                                    'dean': t('dean'),
+                                    'teacher': t('teacher'),
+                                    'accounting': t('accounting')
                                 } %}
                                 {% set role_order = ['admin', 'dean', 'teacher', 'accounting'] %}
                                 {% set user_roles = user.get_roles() %}
@@ -109,25 +109,22 @@
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="inline-flex items-center gap-1">
-                                <!-- Tahrirlash -->
-                                <a href="{{ url_for('admin.edit_staff', id=user.id) }}" class="p-2 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="Ma'lumotlarni tahrirlash">
+                                <a href="{{ url_for('admin.edit_staff', id=user.id) }}" class="p-2 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="{{ t('edit_info') }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                     </svg>
                                 </a>
-                                <!-- Parolni qaytarish -->
-                                <form action="{{ url_for('admin.reset_user_password', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('Parolni boshlang\'ich holatga qaytarmoqchimisiz?')">
+                                <form action="{{ url_for('admin.reset_user_password', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t("confirm_reset_password") | escapejs }}');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <button type="submit" class="p-2 rounded-lg hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors" title="Parolni qaytarish">
+                                    <button type="submit" class="p-2 rounded-lg hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors" title="{{ t('reset_password') }}">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                                         </svg>
                                     </button>
                                 </form>
-                                <!-- O'chirish -->
-                                <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('Bu xodimni o\'chirmoqchimisiz?')">
+                                <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t("confirm_delete_user") | escapejs }}');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="O'chirish">
+                                    <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="{{ t('delete') }}">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                         </svg>
@@ -151,13 +148,13 @@
                     </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">Xodimlar topilmadi</td>
+                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">{{ t('users_not_found') }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         {% else %}
-        <div class="px-6 py-12 text-center text-gray-500">Xodimlar topilmadi</div>
+        <div class="px-6 py-12 text-center text-gray-500">{{ t('users_not_found') }}</div>
         {% endif %}
     </div>
     
@@ -167,10 +164,10 @@
         <!-- Pagination buttons -->
         <div class="flex items-center gap-2">
             {% if users.has_prev %}
-            <a href="{{ url_for('admin.staff', page=1, search=search) }}" class="staff-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">Birinchi</a>
+            <a href="{{ url_for('admin.staff', page=1, search=search) }}" class="staff-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">{{ t('first') }}</a>
             <a href="{{ url_for('admin.staff', page=users.prev_num, search=search) }}" class="staff-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ users.prev_num }}">«</a>
             {% else %}
-            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Birinchi</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
             {% endif %}
             
@@ -188,10 +185,10 @@
             
             {% if users.has_next %}
             <a href="{{ url_for('admin.staff', page=users.next_num, search=search) }}" class="staff-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ users.next_num }}">»</a>
-            <a href="{{ url_for('admin.staff', page=users.pages, search=search) }}" class="staff-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ users.pages }}">Oxirgi</a>
+            <a href="{{ url_for('admin.staff', page=users.pages, search=search) }}" class="staff-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ users.pages }}">{{ t('last') }}</a>
             {% else %}
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
-            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Oxirgi</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>
             {% endif %}
         </div>
         
@@ -199,7 +196,7 @@
         <div class="text-sm text-gray-600">
             {% set start = (users.page - 1) * users.per_page + 1 %}
             {% set end = users.page * users.per_page if users.page * users.per_page <= users.total else users.total %}
-            {{ start }}-{{ end }} / jami {{ "{:,}".format(users.total) }} ta
+            {{ t('pagination_range', start=start, end=end, total="{:,}".format(users.total)) }}
         </div>
     </div>
     {% else %}
@@ -207,7 +204,7 @@
     <div class="mt-6 text-center text-sm text-gray-600">
         {% set start = (users.page - 1) * users.per_page + 1 %}
         {% set end = users.page * users.per_page if users.page * users.per_page <= users.total else users.total %}
-        {{ start }}-{{ end }} / jami {{ "{:,}".format(users.total) }} ta
+        {{ t('pagination_range', start=start, end=end, total="{:,}".format(users.total)) }}
     </div>
     {% endif %}
     {% endif %}
@@ -235,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function() {
         page = page || 1;
         var qs = buildParams(search, page);
         var url = baseUrl + (qs ? '?' + qs : '');
-        staffResults.innerHTML = '<div class="flex justify-center py-12"><span class="text-gray-500">Yuklanmoqda…</span></div>';
+        staffResults.innerHTML = '<div class="flex justify-center py-12"><span class="text-gray-500">' + (document.getElementById('loading-text') ? document.getElementById('loading-text').textContent : '') + '</span></div>';
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { return r.text(); })
             .then(function(html) {
@@ -244,7 +241,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 history.replaceState(null, '', baseUrl + (hasSearch || page > 1 ? '?' + [hasSearch ? 'search=' + encodeURIComponent(search) : '', page > 1 ? 'page=' + page : ''].filter(Boolean).join('&') : ''));
             })
             .catch(function() {
-                staffResults.innerHTML = '<div class="py-12 text-center text-red-500">Yuklashda xatolik. Sahifani yangilab ko\'ring.</div>';
+                var errEl = document.getElementById('load-error-text');
+                staffResults.innerHTML = '<div class="py-12 text-center text-red-500">' + (errEl ? errEl.textContent : (document.getElementById('load-error-text') ? document.getElementById('load-error-text').textContent : '')) + '</div>';
             });
     }
 

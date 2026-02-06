@@ -12,7 +12,7 @@
         </svg>
     </button>
 
-    <div class="w-full max-w-6xl mx-auto px-4 flex flex-col justify-center h-full relative">
+    <div class="w-full mx-auto px-4 flex flex-col justify-center h-full relative" style="max-width: 896px !important;">
         <!-- Header: Title and Stats -->
         <div class="flex items-center justify-between text-white mb-6">
             <h2 class="text-2xl font-bold line-clamp-1">{{ lesson.title }}</h2>
@@ -21,7 +21,7 @@
             <div class="flex items-center gap-4 shrink-0">
                 <div
                     class="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-300 rounded-full text-sm font-medium border border-blue-500/30">
-                    Tekshiruv: <span id="check-counter-modal">{{ lesson_view.attention_checks_passed if lesson_view else
+                    {{ t('check_label') }}: <span id="check-counter-modal">{{ lesson_view.attention_checks_passed if lesson_view else
                         0 }}/3</span>
                 </div>
                 <div id="completion-badge-modal"
@@ -29,7 +29,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
-                    To'liq ko'rilgan
+                    {{ t('completed_at') }}
                 </div>
             </div>
             {% endif %}
@@ -42,7 +42,7 @@
                 and lesson_view.is_completed) %}controlsList="nodownload noremoteplayback nofullscreen"
                 oncontextmenu="return false;" {% else %}controls{% endif %}>
                 <source src="{{ url_for('courses.serve_video', filename=lesson.video_file) }}" type="video/mp4">
-                Brauzeringiz video tegini qo'llab-quvvatlamaydi.
+                {{ t('video_not_supported') }}
             </video>
             {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}
             <!-- Custom controls for first-time viewing -->
@@ -166,7 +166,7 @@
                 and lesson_view.is_completed) %}controlsList="nodownload noremoteplayback nofullscreen"
                 oncontextmenu="return false;" {% else %}controls{% endif %}>
                 <source src="{{ lesson.video_url }}">
-                Brauzeringiz video tegini qo'llab-quvvatlamaydi.
+                {{ t('video_not_supported') }}
             </video>
             {% if current_user.role == 'student' and not (lesson_view and lesson_view.is_completed) %}
             <div id="custom-controls"
@@ -216,6 +216,7 @@
             {% endif %}
             {% endif %}
 
+            <span id="js-attention-failed" class="hidden">{{ t('attention_check_failed') }}</span>
             <!-- Attention Check Modal (Moved outside for all video types) -->
             <div id="attention-modal"
                 class="absolute inset-0 bg-black/70 backdrop-blur-sm z-[80] hidden items-center justify-center">
@@ -230,15 +231,15 @@
                                     d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                         </div>
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">DIQQAT TEKSHIRUVI!</h2>
-                        <p class="text-gray-500 mb-6">Video darsni ko'ryapsizmi?</p>
-                        <p class="text-gray-500 mb-6">Aks holda video dars qaytadan boshlanadi!</p>
-                        <p class="text-sm text-gray-400 mb-4" id="attention-timer">Javob vaqti: <span
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ t('attention_check_title') }}</h2>
+                        <p class="text-gray-500 mb-6">{{ t('video_watching_question') }}</p>
+                        <p class="text-gray-500 mb-6">{{ t('video_restart_warning') }}</p>
+                        <p class="text-sm text-gray-400 mb-4" id="attention-timer">{{ t('answer_time') }} <span
                                 id="timer-seconds">10</span>
-                            soniya</p>
+                            {{ t('seconds_unit') }}</p>
                         <button onclick="confirmAttention()"
                             class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-lg font-semibold rounded-2xl transition-all transform hover:scale-105 shadow-lg">
-                            ✓ Ha, ko'ryapman
+                            ✓ {{ t('yes_watching') }}
                         </button>
                     </div>
                 </div>
@@ -256,14 +257,12 @@
                                     d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Tabriklaymiz! 🎉</h2>
-                        <p class="text-gray-500 mb-6">Siz darsni muvaffaqiyatli tamomladingiz va barcha tekshiruvlardan
-                            o'tdingiz
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ t('congratulations') }}</h2>
+                        <p class="text-gray-500 mb-6">{{ t('lesson_completed_success') }}
                         </p>
                         <div id="success-modal-next-lesson-info"
                             class="hidden mb-6 text-left p-4 bg-primary-50 rounded-2xl border border-primary-100">
-                            <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">Keyingi
-                                dars:
+                            <p class="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">{{ t('next_lesson') }}:
                             </p>
                             <p class="text-base font-bold text-gray-900 leading-tight" id="next-lesson-title"></p>
                         </div>
@@ -271,12 +270,12 @@
                         <div class="flex gap-3">
                             <button onclick="window.location.reload();"
                                 class="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
-                                Darsga qaytish
+                                {{ t('back_to_lesson') }}
                             </button>
                             <div id="success-modal-next-lesson" class="hidden flex-1">
                                 <a id="next-lesson-link" href="#"
                                     class="block w-full px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors text-center shadow-md hover:shadow-lg">
-                                    Keyingi dars →
+                                    {{ t('next_lesson') }} →
                                 </a>
                             </div>
                         </div>
@@ -493,7 +492,7 @@
                     youtubeAPI.pauseVideo();
                 }
 
-                alert("Siz diqqat tekshiruvidan o'ta olmadingiz!");
+                alert((document.getElementById('js-attention-failed') || {}).textContent || "Siz diqqat tekshiruvidan o'ta olmadingiz!");
                 window.location.reload();
             }
         }, 1000);

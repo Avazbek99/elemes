@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, redirect, url_for, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
@@ -13,6 +13,13 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = "Iltimos, tizimga kiring"
 csrf = CSRFProtect()
+
+@login_manager.unauthorized_handler
+def unauthorized_callback():
+    """Session tugaganda /logout ga yo'naltirilganda next= parametri qo'shilmasin."""
+    if request.path and '/logout' in request.path:
+        return redirect(url_for('auth.login'))
+    return redirect(url_for('auth.login', next=request.url))
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -56,6 +63,88 @@ def create_app(config_class=Config):
         from datetime import timedelta
         return value + timedelta(hours=5)
     
+    # Escape string for use inside JavaScript single-quoted string (e.g. confirm('...'))
+    @app.template_filter('escapejs')
+    def escapejs_filter(value):
+        """Escape backslash and single quote so UZ/RU text in confirm() does not break JS."""
+        if value is None:
+            return ''
+        return str(value).replace('\\', '\\\\').replace("'", "\\'")
+    
+    # O'quv yilini "2025-2026" formatida ko'rsatish
+    @app.template_filter('academic_year_display')
+    def academic_year_display_filter(value):
+        if value is None:
+            return '—'
+        try:
+            y = int(value)
+            return f'{y}-{y + 1}'
+        except (ValueError, TypeError):
+            return str(value)
+
+    # Ta'lim shaklini tanlangan tilda ko'rsatish (Kunduzgi → Дневная / Full-time)
+    @app.template_filter('education_type_label')
+    def education_type_label_filter(value):
+        from flask import session
+        from app.utils.translations import get_translation
+        if not value:
+            return get_translation('education_type_not_set', session.get('language', 'uz'))
+        key = str(value).strip().lower()
+        if key in ('kunduzgi', 'sirtqi', 'kechki', 'masofaviy'):
+            return get_translation('education_type_' + key, session.get('language', 'uz'))
+        return get_translation('education_type_not_set', session.get('language', 'uz'))
+    
+    # Dars turini tanlangan tilda ko'rsatish (Maruza → Лекция / Lecture)
+    @app.template_filter('lesson_type_label')
+    def lesson_type_label_filter(value):
+        from flask import session
+        from app.utils.translations import get_translation
+        if not value:
+            return value
+        # Dars turi kalitlarini aniqlash
+        lesson_type_map = {
+            # O'zbekcha variantlar
+            'maruza': 'lesson_type_maruza',
+            'ma\'ruza': 'lesson_type_maruza',
+            'amaliyot': 'lesson_type_amaliyot',
+            'laboratoriya': 'lesson_type_laboratoriya',
+            'lobaratoriya': 'lesson_type_laboratoriya',  # Xato yozilgan variant
+            'seminar': 'lesson_type_seminar',
+            'kurs ishi': 'lesson_type_kurs_ishi',
+            'kurs_ishi': 'lesson_type_kurs_ishi',
+            'mustaqil ta\'lim': 'lesson_type_mustaqil_talim',
+            'mustaqil talim': 'lesson_type_mustaqil_talim',
+            # Inglizcha variantlar
+            'lecture': 'lesson_type_maruza',
+            'practice': 'lesson_type_amaliyot',
+            'practical': 'lesson_type_amaliyot',
+            'lab': 'lesson_type_laboratoriya',
+            'laboratory': 'lesson_type_laboratoriya',
+            # Ruscha variantlar (lowercase)
+            'лекция': 'lesson_type_maruza',
+            'практика': 'lesson_type_amaliyot',
+            'лабораторная': 'lesson_type_laboratoriya',
+            'семинар': 'lesson_type_seminar',
+        }
+        lang = session.get('language', 'uz')
+        
+        # Agar vergul bilan ajratilgan bo'lsa, har birini alohida tarjima qilish
+        if ',' in str(value):
+            parts = [p.strip() for p in str(value).split(',')]
+            translated_parts = []
+            for part in parts:
+                key = part.lower()
+                if key in lesson_type_map:
+                    translated_parts.append(get_translation(lesson_type_map[key], lang))
+                else:
+                    translated_parts.append(part)
+            return ', '.join(translated_parts)
+        
+        key = str(value).strip().lower()
+        if key in lesson_type_map:
+            return get_translation(lesson_type_map[key], lang)
+        return value  # Agar topilmasa, asl qiymatni qaytarish
+    
     # Context processor for translations
     @app.context_processor
     def inject_global_data():
@@ -77,7 +166,7 @@ def create_app(config_class=Config):
                 pass
                 
         return {
-            't': lambda key: get_translation(key, lang),
+            't': lambda key, **kwargs: get_translation(key, lang, **kwargs),
             'current_lang': lang,
             'unread_msg_count': unread_msg_count,
             'languages': {

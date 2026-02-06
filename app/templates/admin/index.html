@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Admin panel{% endblock %}
+{% block title %}{{ t('admin_panel') }}{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Admin boshqaruv paneli</h1>
-    <p class="text-gray-600">Tizimni boshqarish va monitoring</p>
+    <h1 class="text-2xl font-bold text-gray-900">{{ t('admin_control_panel') }}</h1>
+    <p class="text-gray-600">{{ t('system_management_monitoring') }}</p>
 </div>
 
 <!-- Stats -->
@@ -13,7 +13,7 @@
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500 mb-1">Jami foydalanuvchilar</p>
+                <p class="text-sm text-gray-500 mb-1">{{ t('total_users') }}</p>
                 <p class="text-3xl font-bold text-gray-900">{{ stats.total_users }}</p>
             </div>
             <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -28,7 +28,7 @@
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500 mb-1">Talabalar</p>
+                <p class="text-sm text-gray-500 mb-1">{{ t('students') }}</p>
                 <p class="text-3xl font-bold text-gray-900">{{ stats.total_students }}</p>
             </div>
             <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
@@ -43,7 +43,7 @@
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500 mb-1">O'qituvchilar</p>
+                <p class="text-sm text-gray-500 mb-1">{{ t('total_teachers') }}</p>
                 <p class="text-3xl font-bold text-gray-900">{{ stats.total_teachers }}</p>
             </div>
             <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
@@ -58,7 +58,7 @@
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-gray-500 mb-1">Dekanlar</p>
+                <p class="text-sm text-gray-500 mb-1">{{ t('deans') }}</p>
                 <p class="text-3xl font-bold text-gray-900">{{ stats.total_deans }}</p>
             </div>
             <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -84,7 +84,7 @@
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_faculties }}</p>
-                <p class="text-gray-500">Fakultetlar</p>
+                <p class="text-gray-500">{{ t('faculties') }}</p>
             </div>
         </div>
     </div>
@@ -100,7 +100,7 @@
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_groups }}</p>
-                <p class="text-gray-500">Guruhlar</p>
+                <p class="text-gray-500">{{ t('groups') }}</p>
             </div>
         </div>
     </div>
@@ -116,7 +116,7 @@
             </div>
             <div>
                 <p class="text-2xl font-bold text-gray-900">{{ stats.total_subjects }}</p>
-                <p class="text-gray-500">Fanlar</p>
+                <p class="text-gray-500">{{ t('subjects') }}</p>
             </div>
         </div>
     </div>
@@ -132,7 +132,7 @@
                     d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
         </div>
-        <span class="font-medium text-gray-700">Foydalanuvchi qo'shish</span>
+        <span class="font-medium text-gray-700">{{ t('add_user') }}</span>
     </a>
 
     <a href="{{ url_for('admin.create_faculty') }}"
@@ -142,7 +142,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
         </div>
-        <span class="font-medium text-gray-700">Fakultet qo'shish</span>
+        <span class="font-medium text-gray-700">{{ t('add_faculty') }}</span>
     </a>
 
     <a href="{{ url_for('admin.create_subject') }}"
@@ -152,7 +152,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
         </div>
-        <span class="font-medium text-gray-700">Fan qo'shish</span>
+        <span class="font-medium text-gray-700">{{ t('add_subject') }}</span>
     </a>
 
     <a href="{{ url_for('admin.reports') }}"
@@ -163,15 +163,15 @@
                     d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
         </div>
-        <span class="font-medium text-gray-700">Hisobotlar</span>
+        <span class="font-medium text-gray-700">{{ t('reports') }}</span>
     </a>
 </div>
 
 <!-- Recent users -->
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
     <div class="p-6 border-b border-gray-100 flex justify-between items-center">
-        <h2 class="text-lg font-semibold text-gray-900">So'nggi foydalanuvchilar</h2>
-        <a href="{{ url_for('admin.users') }}" class="text-primary-600 text-sm hover:underline">Barchasini ko'rish</a>
+        <h2 class="text-lg font-semibold text-gray-900">{{ t('recent_users') }}</h2>
+        <a href="{{ url_for('admin.users') }}" class="text-primary-600 text-sm hover:underline">{{ t('view_all') }}</a>
     </div>
     <div class="divide-y divide-gray-100">
         {% for user in recent_users %}
@@ -192,14 +192,14 @@
                     {% elif user.role == 'dean' %}bg-amber-100 text-amber-700
                     {% elif user.role == 'teacher' %}bg-purple-100 text-purple-700
                     {% else %}bg-blue-100 text-blue-700{% endif %}">
-                    {{ user.get_role_display() }}
+                    {{ t(user.role) }}
                 </span>
                 <span class="text-xs text-gray-400">{{ user.created_at.strftime('%d.%m.%Y') }}</span>
             </div>
         </div>
         {% else %}
         <div class="p-8 text-center text-gray-500">
-            <p>Foydalanuvchilar mavjud emas</p>
+            <p>{{ t('no_users') }}</p>
         </div>
         {% endfor %}
     </div>

@@ -46,6 +46,9 @@ def login():
             login_user(user, remember=remember)
             
             next_page = request.args.get('next')
+            # next=/logout bo'lsa e'tiborsiz qoldirish (session tugagach qayta kirishda)
+            if next_page and '/logout' in next_page:
+                next_page = None
             return redirect(next_page or url_for('main.dashboard'))
         else:
             flash(t('invalid_login_credentials'), 'error')

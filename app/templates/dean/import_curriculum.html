@@ -15,7 +15,7 @@
         <h1 class="text-2xl font-bold text-gray-900">O'quv rejani import qilish</h1>
         <p class="text-gray-500 mt-1">
             {% if enrollment_year and education_type %}
-            {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|capitalize }})
+            {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|education_type_label }})
             {% else %}
             {{ direction.formatted_direction }}
             {% endif %}

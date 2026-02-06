@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Yangi guruh{% endblock %}
+{% block title %}{{ t('create_group_page_title') }}{% endblock %}
 
 {% block content %}
 <div class="w-full mx-auto">
@@ -10,9 +10,9 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Orqaga
+            {{ t('back') }}
         </a>
-        <h1 class="text-2xl font-bold text-gray-900">Yangi guruh</h1>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('create_group_page_title') }}</h1>
     </div>
 
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
@@ -24,17 +24,17 @@
                 <!-- Fakultet (avtomatik) -->
                 {% if faculty %}
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty') }}</label>
                     <input type="text" value="{{ faculty.name }}" disabled
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
-                    <p class="text-xs text-gray-500 mt-1">Fakultet avtomatik tanlangan</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ t('faculty_auto_selected') }}</p>
                 </div>
                 {% else %}
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_label') }}</label>
                     <select name="faculty_id" id="facultySelect" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
-                        <option value="">Tanlang...</option>
+                        <option value="">{{ t('select_option_choose') }}</option>
                         {% for fac in faculties %}
                         <option value="{{ fac.id }}" {% if faculty_id==fac.id %}selected{% endif %}>{{ fac.name }}
                         </option>
@@ -45,7 +45,7 @@
 
                 <!-- Qabul yili -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Qabul yili *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('enrollment_year') }} *</label>
                     <input type="number" name="enrollment_year" id="enrollmentYearInput" placeholder="2025" min="1900"
                         max="2100" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
@@ -53,54 +53,54 @@
 
                 <!-- Kurs -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Kurs *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('course') }} *</label>
                     <select name="course_year" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
-                        <option value="">Tanlang...</option>
+                        <option value="">{{ t('select_course_placeholder') }}</option>
                         {% for i in range(1, 8) %}
-                        <option value="{{ i }}">{{ i }}-kurs</option>
+                        <option value="{{ i }}">{{ t('course_year_option', n=i) }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
                 <!-- Semestr -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Semestr *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('semester') }} *</label>
                     <select name="semester" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
-                        <option value="">Tanlang...</option>
+                        <option value="">{{ t('select_semester_placeholder') }}</option>
                         {% for i in range(1, 15) %}
-                        <option value="{{ i }}">{{ i }}-semestr</option>
+                        <option value="{{ i }}">{{ i }}{{ t('semester_suffix') }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
                 <!-- Ta'lim shakli -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Ta'lim shakli *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('education_type') }} *</label>
                     <select name="education_type" id="educationTypeSelect" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
-                        <option value="">Tanlang...</option>
-                        <option value="kunduzgi">Kunduzgi</option>
-                        <option value="sirtqi">Sirtqi</option>
-                        <option value="masofaviy">Masofaviy</option>
-                        <option value="kechki">Kechki</option>
+                        <option value="">{{ t('select_education_type_placeholder') }}</option>
+                        <option value="kunduzgi">{{ t('education_type_kunduzgi') }}</option>
+                        <option value="sirtqi">{{ t('education_type_sirtqi') }}</option>
+                        <option value="masofaviy">{{ t('education_type_masofaviy') }}</option>
+                        <option value="kechki">{{ t('education_type_kechki') }}</option>
                     </select>
                 </div>
 
                 <!-- Guruh nomi -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Guruh nomi *</label>
-                    <input type="text" name="name" required placeholder="Masalan: DI-21"
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('group_name_label') }}</label>
+                    <input type="text" name="name" required placeholder="{{ t('group_name_placeholder_example') }}"
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all uppercase">
                 </div>
 
                 <!-- Yo'nalish -->
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Yo'nalish *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction') }} *</label>
                     <select name="direction_id" id="directionSelect" required
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
-                        <option value="">Tanlang...</option>
+                        <option value="">{{ t('select_direction_placeholder') }}</option>
                         {% for direction in all_directions %}
                         <option value="{{ direction.id }}" data-code="{{ direction.code }}"
                             data-name="{{ direction.name }}" {% if direction_id==direction.id %}selected{% endif %}>
@@ -112,8 +112,8 @@
 
                 <!-- Tavsif (Full Width) -->
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Tavsif</label>
-                    <textarea name="description" rows="3" placeholder="Guruh haqida qisqacha tavsif (ixtiyoriy)"
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('description') }}</label>
+                    <textarea name="description" rows="3" placeholder="{{ t('group_description_placeholder') }}"
                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"></textarea>
                 </div>
             </div>
@@ -121,11 +121,11 @@
             <div class="pt-6 border-t border-gray-100 flex gap-3">
                 <button type="submit"
                     class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
-                    Saqlash
+                    {{ t('save') }}
                 </button>
                 <a href="{% if faculty_id %}{{ url_for('admin.faculty_detail', id=faculty_id) }}{% else %}{{ url_for('admin.groups') }}{% endif %}"
                     class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
-                    Bekor qilish
+                    {{ t('cancel') }}
                 </a>
             </div>
         </form>

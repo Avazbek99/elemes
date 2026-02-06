@@ -38,90 +38,85 @@
 </style>
 {% endblock %}
 
-{% block title %}Guruhlar{% endblock %}
+{% block title %}{{ t('groups') }}{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Guruhlar</h1>
-    <p class="text-gray-600 mt-1">Faqat talabasi bor (faol) guruhlar • Fakultet bo'yicha filtrlash</p>
+    <h1 class="text-2xl font-bold text-gray-900">{{ t('groups') }}</h1>
+    <p class="text-gray-600 mt-1">{{ t('groups_page_subtitle') }}</p>
 </div>
 
 <!-- Filters -->
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
     <form method="GET" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <!-- 1. Fakultet -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Fakultet</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('faculty') }}</label>
                 <div class="filter-select-wrap relative">
                     <select name="faculty_id" id="faculty_id"
                         class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm tom-select-init">
-                        <option value="">Barcha fakultetlar</option>
+                        <option value="">{{ t('all_faculties') }}</option>
                         {% for faculty in faculties %}
                         <option value="{{ faculty.id }}" {% if current_faculty==faculty.id %}selected{% endif %}>{{ faculty.name }}</option>
                         {% endfor %}
                     </select>
-                    <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                    <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                 </div>
             </div>
 
-            <!-- 2. Kurs -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Kurs</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('course') }}</label>
                 <div class="filter-select-wrap relative">
                     <select name="course_year" id="course_year"
                         class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm tom-select-init">
-                        <option value="">Barcha kurslar</option>
+                        <option value="">{{ t('all_courses') }}</option>
                         {% for c in all_courses %}
-                        <option value="{{ c }}" {% if current_course_year==c %}selected{% endif %}>{{ c }}-kurs</option>
+                        <option value="{{ c }}" {% if current_course_year==c %}selected{% endif %}>{{ c }}{{ t('course_suffix') }}</option>
                         {% endfor %}
                     </select>
                     <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
                 </div>
             </div>
 
-            <!-- 3. Semestr -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Semestr</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('semester') }}</label>
                 <div class="filter-select-wrap relative">
                     <select name="semester" id="semester"
                         class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm tom-select-init">
-                        <option value="">Barcha semestrlar</option>
+                        <option value="">{{ t('all_semesters') }}</option>
                         {% for s in all_semesters %}
-                        <option value="{{ s }}" {% if current_semester==s %}selected{% endif %}>{{ s }}-semestr</option>
+                        <option value="{{ s }}" {% if current_semester==s %}selected{% endif %}>{{ s }}{{ t('semester_suffix') }}</option>
                         {% endfor %}
                     </select>
-                    <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                    <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                 </div>
             </div>
 
-            <!-- 4. Yo'nalish -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Yo'nalish</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
                 <div class="filter-select-wrap relative">
                     <select name="direction_id" id="direction_id"
                         class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm tom-select-init">
-                        <option value="">Barcha yo'nalishlar</option>
+                        <option value="">{{ t('all_directions') }}</option>
                         {% for d in all_directions %}
                         <option value="{{ d.id }}" {% if current_direction_id==d.id %}selected{% endif %}>{{ d.code or '' }} - {{ d.name or '' }}</option>
                         {% endfor %}
                     </select>
-                    <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                    <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                 </div>
             </div>
 
-            <!-- 5. Qidiruv -->
             <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Qidiruv</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('search') }}</label>
                 <div class="flex flex-wrap gap-4">
                     <div class="flex-1 min-w-[200px] relative search-input-wrap">
-                        <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="Guruh nomini qidirish..."
+                        <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_group_placeholder') }}"
                             class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <button type="button" class="search-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                        <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                     </div>
-                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">Qidirish</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">{{ t('search') }}</button>
                     {% if search %}
-                    <a href="{{ url_for('admin.groups') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">Tozalash</a>
+                    <a href="{{ url_for('admin.groups') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">{{ t('clear') }}</a>
                     {% endif %}
                 </div>
             </div>
@@ -143,15 +138,15 @@
                     <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
                         <h3 class="text-base font-bold text-gray-900">{{ group.name }}</h3>
                         <span class="text-xs px-2 py-0.5 rounded-md font-medium {% if group.education_type == 'kunduzgi' %}bg-emerald-100 text-emerald-700{% elif group.education_type == 'sirtqi' %}bg-amber-100 text-amber-700{% else %}bg-violet-100 text-violet-700{% endif %}">
-                            {{ group.education_type|default('—')|capitalize }}
+                            {{ group.education_type|education_type_label }}
                         </span>
                     </div>
-                    <p class="text-xs text-gray-500 mb-1">{{ group.course_year }}-kurs • {{ group.semester }}-semestr</p>
+                    <p class="text-xs text-gray-500 mb-1">{{ group.course_year }}{{ t('course_suffix') }} • {{ group.semester }}{{ t('semester_suffix') }}</p>
                     {% if group.direction %}
                     {% set year = group.enrollment_year if group.enrollment_year else "____" %}
                     <p class="text-xs text-gray-500 truncate" title="{{ year }} - {{ group.direction.code }} - {{ group.direction.name }}">{{ year }} - {{ group.direction.code }} - {{ group.direction.name }}</p>
                     {% else %}
-                    <p class="text-xs text-gray-500 truncate">Yo'nalish biriktirilmagan</p>
+                    <p class="text-xs text-gray-500 truncate">{{ t('direction_not_assigned') }}</p>
                     {% endif %}
                     <div class="flex items-center gap-2 mt-2 flex-wrap">
                         <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
@@ -165,14 +160,14 @@
         </a>
         <div class="px-4 pb-4 flex items-center justify-end gap-2">
             <a href="{{ url_for('admin.edit_group', id=group.id) }}"
-                class="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors" title="Tahrirlash"
+                class="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors" title="{{ t('edit_info') }}"
                 onclick="event.preventDefault(); event.stopPropagation(); window.location.href='{{ url_for('admin.edit_group', id=group.id) }}';">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
             </a>
             <form action="{{ url_for('admin.delete_group', id=group.id) }}" method="POST" class="inline"
-                onsubmit="return confirm('Bu guruhni o\'chirmoqchimisiz? Ichidagi talabalar ham o\'chib ketishi mumkin.');">
+                onsubmit="return confirm('{{ t("confirm_delete_group") | escapejs }}');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <button type="submit" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="O'chirish"
+                <button type="submit" class="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors" title="{{ t('delete') }}"
                     onclick="event.stopPropagation();">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
@@ -185,14 +180,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">Faol guruhlar topilmadi</h3>
-        <p class="text-gray-500 mb-4">Talabasi bor guruhlar shu yerda ko'rsatiladi. Qidiruvni o'zgartiring yoki yangi guruh yarating.</p>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('no_active_groups') }}</h3>
+        <p class="text-gray-500 mb-4">{{ t('groups_empty_hint') }}</p>
         <a href="{{ url_for('admin.create_group') }}"
             class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Guruh yaratish
+            {{ t('create_group') }}
         </a>
     </div>
     {% endfor %}

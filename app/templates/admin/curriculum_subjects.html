@@ -42,14 +42,14 @@
 </style>
 {% endblock %}
 
-{% block title %}Fanlar bazasi{% endblock %}
+{% block title %}{{ t('subjects_database') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6 curriculum-subjects-page">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Fanlar bazasi</h1>
-            <p class="text-gray-500 mt-1">O'quv rejaga biriktirilgan fanlar (yo'nalish, guruh, o'qituvchi, fan)</p>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('subjects_database') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('subjects_database_subtitle') }}</p>
         </div>
     </div>
 
@@ -59,81 +59,81 @@
             <!-- Filtrlar -->
             <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Fakultet</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('faculty') }}</label>
                     <div class="filter-select-wrap relative">
                         <select name="faculty" id="faculty"
                             class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
-                            <option value="">Barcha fakultetlar</option>
+                            <option value="">{{ t('all_faculties') }}</option>
                             {% for faculty in faculties %}
                             <option value="{{ faculty.id }}" {% if current_faculty == faculty.id %}selected{% endif %}>{{ faculty.name }}</option>
                             {% endfor %}
                         </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Kurs</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('course') }}</label>
                     <div class="filter-select-wrap relative">
                         <select name="course" id="course"
                             class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
-                            <option value="">Barcha kurslar</option>
+                            <option value="">{{ t('all_courses') }}</option>
                             {% for course in courses %}
-                            <option value="{{ course }}" {% if current_course == course %}selected{% endif %}>{{ course }}-kurs</option>
+                            <option value="{{ course }}" {% if current_course == course %}selected{% endif %}>{{ course }}{{ t('course_suffix') }}</option>
                             {% endfor %}
                         </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Semestr</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('semester') }}</label>
                     <div class="filter-select-wrap relative">
                         <select name="semester" id="semester"
                             class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
-                            <option value="">Barcha semestrlar</option>
+                            <option value="">{{ t('all_semesters') }}</option>
                             {% for sem in semesters %}
-                            <option value="{{ sem }}" {% if current_semester == sem %}selected{% endif %}>{{ sem }}-semestr</option>
+                            <option value="{{ sem }}" {% if current_semester == sem %}selected{% endif %}>{{ sem }}{{ t('semester_suffix') }}</option>
                             {% endfor %}
                         </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Ta'lim shakli</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('education_type') }}</label>
                     <div class="filter-select-wrap relative">
                         <select name="education_type" id="education_type"
                             class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
-                            <option value="">Barcha shakllar</option>
+                            <option value="">{{ t('all_education_types') }}</option>
                             {% for et in education_types %}
-                            <option value="{{ et }}" {% if current_education_type == et %}selected{% endif %}>{{ et.capitalize() }}</option>
+                            <option value="{{ et }}" {% if current_education_type == et %}selected{% endif %}>{{ et|education_type_label }}</option>
                             {% endfor %}
                         </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Yo'nalish</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
                     <div class="filter-select-wrap relative">
                         <select name="direction" id="direction"
                             class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
-                            <option value="">Barcha yo'nalishlar</option>
+                            <option value="">{{ t('all_directions') }}</option>
                             {% for direction in directions %}
                             <option value="{{ direction.id }}" {% if current_direction == direction.id %}selected{% endif %}>{{ direction.formatted_direction }}</option>
                             {% endfor %}
                         </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Guruh</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('group') }}</label>
                     <div class="filter-select-wrap relative">
                         <select name="group" id="group"
                             class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
-                            <option value="">Barcha guruhlar</option>
+                            <option value="">{{ t('all_groups') }}</option>
                             {% for group in groups %}
                             <option value="{{ group.id }}" {% if current_group == group.id %}selected{% endif %}>{{ group.name }}</option>
                             {% endfor %}
                         </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                     </div>
                 </div>
             </div>
@@ -141,16 +141,16 @@
             <!-- Qidiruv va Tugmalar -->
             <div class="flex flex-wrap gap-4">
                 <div class="flex-1 min-w-[200px] relative search-input-wrap">
-                    <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="Fan nomi, qabul yili, yo'nalish nomi/kodi, guruh nomi, o'qituvchi, ta'lim shakli bo'yicha qidirish..."
+                    <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_placeholder_curriculum') }}"
                         class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <button type="button" class="search-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                    <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
                 </div>
                 <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
-                    Qidirish
+                    {{ t('search') }}
                 </button>
                 {% if search or current_faculty or current_course or current_semester or current_education_type or current_direction or current_group %}
                 <a href="{{ url_for('admin.curriculum_subjects') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
-                    Tozalash
+                    {{ t('clear') }}
                 </a>
                 {% endif %}
             </div>
@@ -165,9 +165,9 @@
         <div>
             <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <span class="w-1 h-8 bg-primary-600 rounded"></span>
-                {{ course_year }}-kurs, {{ semester }}-semestr
+                {{ course_year }}{{ t('course_suffix') }}, {{ semester }}{{ t('semester_suffix') }}
                 <span class="text-base font-normal text-gray-500 ml-2">
-                    ({{ subjects_by_semester[semester]|length }} fan)
+                    ({{ subjects_by_semester[semester]|length }} {{ t('subject_count') }})
                 </span>
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 curriculum-subjects-cards">
@@ -180,18 +180,18 @@
                     <div class="relative p-5 bg-gradient-to-br from-primary-500 to-primary-600">
                         <div class="absolute top-4 right-4 flex flex-col gap-2">
                             <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">
-                                {{ data.course_year }}-kurs, {{ data.semester }}-semestr
+                                {{ data.course_year }}{{ t('course_suffix') }}, {{ data.semester }}{{ t('semester_suffix') }}
                             </span>
                             {% set total_hours = (data.curriculum_item.hours_maruza or 0) + (data.curriculum_item.hours_amaliyot or 0) + (data.curriculum_item.hours_laboratoriya or 0) + (data.curriculum_item.hours_seminar or 0) + (data.curriculum_item.hours_mustaqil or 0) %}
                             {% set credits = total_hours / 30 if total_hours > 0 else (subject.credits or 0) %}
                             <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">
-                                {{ "%.2f"|format(credits) }} kredit
+                                {{ "%.2f"|format(credits) }} {{ t('credit') }}
                             </span>
                         </div>
                         <div class="pr-24">
                             <h3 class="text-2xl font-bold text-white mb-3">{{ subject.name }}</h3>
                             <p class="text-lg font-medium text-white/95 mb-3">
-                                {{ direction.formatted_direction }}
+                                {{ data.enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ data.education_type|education_type_label }})
                             </p>
                             {% if data.groups %}
                             <div class="flex flex-wrap gap-2 mb-2">
@@ -214,13 +214,13 @@
                         </div>
                     </div>
                     <div class="p-5">
-                        <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ subject.description or 'Tavsif mavjud emas' }}</p>
+                        <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ subject.description or t('no_description') }}</p>
                         <div class="flex flex-wrap gap-2 text-xs text-gray-600">
-                            {% if data.curriculum_item.hours_maruza %}<span>Maruza: {{ data.curriculum_item.hours_maruza }} soat</span>{% endif %}
-                            {% if data.curriculum_item.hours_amaliyot %}<span>Amaliyot: {{ data.curriculum_item.hours_amaliyot }} soat</span>{% endif %}
-                            {% if data.curriculum_item.hours_laboratoriya %}<span>Lab: {{ data.curriculum_item.hours_laboratoriya }} soat</span>{% endif %}
-                            {% if data.curriculum_item.hours_seminar %}<span>Seminar: {{ data.curriculum_item.hours_seminar }} soat</span>{% endif %}
-                            {% if data.curriculum_item.hours_mustaqil %}<span>Mustaqil: {{ data.curriculum_item.hours_mustaqil }} soat</span>{% endif %}
+                            {% if data.curriculum_item.hours_maruza %}<span>{{ t('lecture') }}: {{ data.curriculum_item.hours_maruza }} {{ t('hour') }}</span>{% endif %}
+                            {% if data.curriculum_item.hours_amaliyot %}<span>{{ t('practice') }}: {{ data.curriculum_item.hours_amaliyot }} {{ t('hour') }}</span>{% endif %}
+                            {% if data.curriculum_item.hours_laboratoriya %}<span>{{ t('lab') }}: {{ data.curriculum_item.hours_laboratoriya }} {{ t('hour') }}</span>{% endif %}
+                            {% if data.curriculum_item.hours_seminar %}<span>{{ t('seminar') }}: {{ data.curriculum_item.hours_seminar }} {{ t('hour') }}</span>{% endif %}
+                            {% if data.curriculum_item.hours_kurs_ishi %}<span>{{ t('course_work') }}: {{ t('available') }}</span>{% endif %}
                         </div>
                     </div>
                 </div>
@@ -237,8 +237,8 @@
                     d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
         </div>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">Fanlar topilmadi</h3>
-        <p class="text-gray-500 mb-6 max-w-sm mx-auto">Qidiruvni o'zgartiring.</p>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">{{ t('subjects_not_found') }}</h3>
+        <p class="text-gray-500 mb-6 max-w-sm mx-auto">{{ t('change_search') }}</p>
     </div>
     {% endif %}
 </div>

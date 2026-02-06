@@ -36,18 +36,9 @@ def switch_role(role):
     # Foydalanuvchining mavjud rollarini tekshirish
     user_roles = current_user.get_roles()
     
-    # Rol nomlarini o'zbek tilida
-    role_names = {
-        'admin': 'Administrator',
-        'dean': 'Dekan',
-        'teacher': "O'qituvchi",
-        'student': 'Talaba',
-        'accounting': 'Buxgalter'
-    }
-    
     if role in user_roles:
         session['current_role'] = role
-        role_name = role_names.get(role, role)
+        role_name = t(role)  # Tanlangan til bo'yicha rol nomi
         flash(t('profile_role_changed', role_name=role_name), 'success')
         return redirect(url_for('main.dashboard'))
     else:
@@ -92,19 +83,19 @@ def dashboard():
     payment_info = None
     direction_id = None
     
-    # Salomlashuv va bugungi sana
+    # Salomlashuv va bugungi sana (tanlangan til bo'yicha)
     now = get_tashkent_time()
     today = now.strftime('%d.%m.%Y')
-    
+    lang = session.get('language', 'uz')
     hour = now.hour
     if 5 <= hour < 10:
-        greeting = "Xayrli tong"
+        greeting = get_translation('good_morning', lang)
     elif 10 <= hour < 18:
-        greeting = "Xayrli kun"
+        greeting = get_translation('good_afternoon', lang)
     elif 18 <= hour < 22:
-        greeting = "Xayrli kecha"
+        greeting = get_translation('good_evening', lang)
     else:
-        greeting = "Xayrli tun"
+        greeting = get_translation('good_night', lang)
     
     if active_role == 'student':
         from app.models import DirectionCurriculum, Direction
@@ -124,12 +115,11 @@ def dashboard():
             # Fetch curriculum items for all subjects in the current semester (o'z yo'nalishi, yili, ta'lim shakli)
             curriculum_list = []
             if direction_id and group:
-                curriculum_list = DirectionCurriculum.query.join(Subject).filter(
+                curr_q = DirectionCurriculum.query.filter(
                     DirectionCurriculum.direction_id == direction_id,
-                    DirectionCurriculum.semester == current_semester,
-                    or_(DirectionCurriculum.enrollment_year.is_(None), DirectionCurriculum.enrollment_year == group.enrollment_year),
-                    or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == group.education_type)
-                ).order_by(Subject.name).all()
+                    DirectionCurriculum.semester == current_semester
+                ).join(Subject).order_by(Subject.name)
+                curriculum_list = DirectionCurriculum.filter_by_group_context(curr_q, group).all()
             
             # Populate basic info and collect subject IDs
             subject_ids = []
@@ -270,13 +260,11 @@ def dashboard():
             group = Group.query.get(user.group_id)
             if group and group.direction_id:
                 # Joriy semestrdagi fanlar (yo'nalish, yil, ta'lim shakli bo'yicha)
-                curriculum_items = DirectionCurriculum.query.filter_by(
+                curr_q = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
                     semester=current_semester
-                ).filter(
-                    or_(DirectionCurriculum.enrollment_year.is_(None), DirectionCurriculum.enrollment_year == group.enrollment_year),
-                    or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == group.education_type)
-                ).all()
+                )
+                curriculum_items = DirectionCurriculum.filter_by_group_context(curr_q, group).all()
                 current_semester_subject_ids = [item.subject_id for item in curriculum_items]
                 
                 if current_semester_subject_ids:
@@ -519,21 +507,17 @@ def dashboard():
         # semester_progress, total_semester_score, total_semester_max_score already calculated above for students
         pass
         
-        # To'lov ma'lumotlari
+        # To'lov ma'lumotlari: joriy o'quv yili uchun (maxsus kontrakt, ortiqcha to'lov bilan)
         payment_info = None
-        student_payments = StudentPayment.query.filter_by(student_id=user.id).order_by(StudentPayment.created_at.desc()).all()
-        if student_payments:
-            # Oxirgi to'lov ma'lumotlarini olish
-            latest_payment = student_payments[0]
-            total_contract = float(latest_payment.contract_amount)
-            total_paid = sum(float(p.paid_amount) for p in student_payments)
-            payment_percentage = (total_paid / total_contract * 100) if total_contract > 0 else 0
-            
+        from app.utils.payment_utils import get_current_year_payment_info
+        pi = get_current_year_payment_info(user)
+        if pi:
             payment_info = {
-                'contract': total_contract,
-                'paid': total_paid,
-                'remaining': total_contract - total_paid,
-                'percentage': payment_percentage
+                'contract': pi['contract'],
+                'paid': pi['paid_display'],  # Kontrakt miqdorigacha ko'rsatiladi
+                'remaining': pi['remaining'],
+                'percentage': pi['percentage'],
+                'overpayment': pi.get('overpayment', 0)
             }
     
     elif active_role == 'teacher':
@@ -561,14 +545,12 @@ def dashboard():
                 seen_subject_group.add(sg_key)
                 # Only show subjects that belong to the group's current semester (yil, ta'lim shakli)
                 current_semester = group.semester if group.semester else 1
-                curriculum_item = DirectionCurriculum.query.filter_by(
+                curr_q = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
                     subject_id=ts.subject_id,
                     semester=current_semester
-                ).filter(
-                    or_(DirectionCurriculum.enrollment_year.is_(None), DirectionCurriculum.enrollment_year == group.enrollment_year),
-                    or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == group.education_type)
-                ).first()
+                )
+                curriculum_item = DirectionCurriculum.filter_by_group_context(curr_q, group).first()
                 if curriculum_item:
                     subject = Subject.query.get(ts.subject_id)
                     if subject:
@@ -693,28 +675,62 @@ def dashboard():
             Assignment.subject_id.in_(subject_ids)
         ).order_by(Assignment.due_date.desc()).limit(5).all() if subject_ids else []
         
-        # Topshiriqlar ro'yxati (Assignments)
+        # Topshiriqlar ro'yxati (Assignments) — faqat o'qituvchiga biriktirilgan guruhlar bo'yicha
         teacher_assignments_list = []
         if subject_ids:
-            # Teacher assigned subjects are in subject_ids
-            # Filter logic: Show assignments for these subjects AND created by THIS teacher
+            # O'qituvchiga biriktirilgan (subject_id, group_id) juftliklari — faqat faol guruhlar
+            teacher_subject_group = set()
+            teacher_direction_groups = {}
+            for ts in TeacherSubject.query.filter_by(teacher_id=user.id).all():
+                if not ts.group_id:
+                    continue
+                gr = Group.query.get(ts.group_id)
+                if not gr or gr.get_students_count() == 0:
+                    continue
+                teacher_subject_group.add((ts.subject_id, ts.group_id))
+                if gr.direction_id:
+                    if gr.direction_id not in teacher_direction_groups:
+                        teacher_direction_groups[gr.direction_id] = {}
+                    teacher_direction_groups[gr.direction_id][ts.subject_id] = teacher_direction_groups[gr.direction_id].get(ts.subject_id, [])
+                    if gr.name and gr.name not in teacher_direction_groups[gr.direction_id][ts.subject_id]:
+                        teacher_direction_groups[gr.direction_id][ts.subject_id].append(gr.name)
+            for k in teacher_direction_groups:
+                for s in teacher_direction_groups[k]:
+                    teacher_direction_groups[k][s].sort(key=lambda x: (x or '').upper())
+
             assignments_query = Assignment.query.filter(
                 Assignment.subject_id.in_(subject_ids),
                 Assignment.created_by == user.id
             ).order_by(Assignment.due_date.desc()).all()
-            
+
             for asm in assignments_query:
-                # Yangi javoblarni sanash (Submission.score == None)
-                # Count submissions associated with this assignment
+                group_name = None
+                if asm.group_id:
+                    # Guruh darajasidagi topshiriq — faqat o'qituvchi shu fan uchun shu guruhga biriktirilgan bo'lsa
+                    if (asm.subject_id, asm.group_id) not in teacher_subject_group:
+                        continue
+                    gr = Group.query.get(asm.group_id)
+                    if not gr or gr.get_students_count() == 0:
+                        continue
+                    group_name = gr.name
+                else:
+                    # Yo'nalish darajasidagi topshiriq — o'qituvchi shu fan uchun shu yo'nalishdagi guruhga biriktirilgan bo'lsa
+                    if not asm.direction_id or asm.direction_id not in teacher_direction_groups:
+                        continue
+                    subj_groups = teacher_direction_groups[asm.direction_id].get(asm.subject_id)
+                    if not subj_groups:
+                        continue
+                    group_name = ', '.join(subj_groups)
+
                 pending_query = asm.submissions.filter(Submission.score == None)
                 pending_count = pending_query.count()
                 resubmitted_count = pending_query.filter(Submission.resubmission_count > 0).count()
-                
+
                 item = {
                     'id': asm.id,
                     'title': asm.title,
                     'subject_name': asm.subject.name,
-                    'group_name': asm.group.name if asm.group else "Barcha guruhlar",
+                    'group_name': group_name,
                     'due_date': asm.due_date,
                     'lesson_type': asm.lesson_type,
                     'pending_count': pending_count,
@@ -724,6 +740,9 @@ def dashboard():
             
             # Pending topshiriqlar ro'yxati (Tekshirilmagan)
             teacher_pending_assignments_list = [a for a in teacher_assignments_list if a['pending_count'] > 0]
+            # Stats ni filtrlangan topshiriqlarga moslashtirish
+            stats['assignments'] = len(teacher_assignments_list)
+            stats['pending_submissions'] = sum(a['pending_count'] for a in teacher_assignments_list)
 
 
     elif active_role == 'dean':
@@ -758,6 +777,52 @@ def dashboard():
         # E'lonlar
         announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
 
+    # To'lov statistikasi: admin, accounting, dean uchun dashboardda
+    payment_total_contract = 0
+    payment_total_paid = 0
+    payment_stats_by_course = {}
+    if active_role in ('admin', 'accounting', 'dean'):
+        from app.models import DirectionContractAmount
+        from collections import defaultdict
+        faculty_restrict = user.faculty_id if active_role == 'dean' and user.faculty_id else None
+        students_q = User.query.filter(User.role == 'student')
+        if faculty_restrict:
+            faculty_group_ids = [g.id for g in Group.query.filter_by(faculty_id=faculty_restrict).all()]
+            students_q = students_q.filter(User.group_id.in_(faculty_group_ids))
+        _students_list = students_q.all()
+        payment_total_contract = sum(DirectionContractAmount.get_contract_for_student(s) for s in _students_list)
+        _student_ids = [s.id for s in _students_list]
+        payment_total_paid = db.session.query(func.sum(StudentPayment.paid_amount)).filter(
+            StudentPayment.student_id.in_(_student_ids) if _student_ids else StudentPayment.student_id == -1
+        ).scalar() or 0
+        all_payments_for_stats = StudentPayment.query.all()
+        _stats = defaultdict(lambda: {'0%': 0, '25%': 0, '50%': 0, '75%': 0, '100%': 0, 'total': 0})
+        for s in _students_list:
+            if not s.group or (faculty_restrict and s.group.faculty_id != faculty_restrict):
+                continue
+            cy = s.group.course_year
+            contract = DirectionContractAmount.get_contract_for_student(s)
+            if contract == 0:
+                contract = sum(float(x.contract_amount or 0) for x in all_payments_for_stats if x.student_id == s.id)
+            paid = sum(float(x.paid_amount or 0) for x in all_payments_for_stats if x.student_id == s.id)
+            pc = (paid / contract * 100) if contract > 0 else 0
+            if pc == 0 or pc <= 25:
+                _stats[cy]['0%'] += 1
+            elif pc <= 50:
+                _stats[cy]['25%'] += 1
+            elif pc <= 75:
+                _stats[cy]['50%'] += 1
+            elif pc < 100:
+                _stats[cy]['75%'] += 1
+            else:
+                _stats[cy]['100%'] += 1
+            _stats[cy]['total'] += 1
+        payment_stats_by_course = dict(sorted(_stats.items()))
+    else:
+        payment_total_contract = 0
+        payment_total_paid = 0
+        payment_stats_by_course = {}
+
     # today_schedule o'zgaruvchisini barcha rollar uchun yaratish (agar yaratilmagan bo'lsa)
     if 'today_schedule' not in locals():
         today_schedule = []
@@ -772,13 +837,11 @@ def dashboard():
         for ts in teacher_subjects:
             group = Group.query.get(ts.group_id)
             if group and group.direction_id:
-                curriculum_item = DirectionCurriculum.query.filter_by(
+                curr_q = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
                     subject_id=ts.subject_id
-                ).filter(
-                    or_(DirectionCurriculum.enrollment_year.is_(None), DirectionCurriculum.enrollment_year == group.enrollment_year),
-                    or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == group.education_type)
-                ).first()
+                )
+                curriculum_item = DirectionCurriculum.filter_by_group_context(curr_q, group).first()
                 if curriculum_item and ts.subject_id not in my_subjects_info:
                     course_year = ((curriculum_item.semester - 1) // 2) + 1
                     subject = Subject.query.get(ts.subject_id)
@@ -822,7 +885,7 @@ def dashboard():
                 'id': assignment.id,
                 'title': assignment.title,
                 'subject_name': assignment.subject.name if assignment.subject else 'Noma\'lum',
-                'group_name': assignment.group.name if assignment.group else "Barcha guruhlar",
+                'group_name': assignment.group.name if assignment.group else None,
                 'due_date': assignment.due_date,
                 'lesson_type': assignment.lesson_type,
                 'pending_count': pending_count,
@@ -855,6 +918,61 @@ def dashboard():
     if 'now_dt' not in locals():
         now_dt = get_tashkent_time()
 
+    # To'lov statistikasi (admin, accounting, dean uchun dashboardda) - fakultetlar bo'yicha, har birida kurslar
+    payment_total_contract = 0
+    payment_total_paid = 0
+    payment_stats_by_faculty = []
+    if active_role in ('admin', 'accounting', 'dean'):
+        from collections import defaultdict
+        from app.models import DirectionContractAmount
+        faculty_restrict = user.faculty_id if active_role == 'dean' and user.faculty_id else None
+        _faculties = Faculty.query.order_by(Faculty.name).all()
+        if faculty_restrict:
+            _faculties = [f for f in _faculties if f.id == faculty_restrict]
+        faculty_group_ids = [g.id for g in Group.query.filter_by(faculty_id=faculty_restrict).all()] if faculty_restrict else None
+        _base_q = User.query.filter(User.role == 'student')
+        if faculty_restrict and faculty_group_ids:
+            _base_q = _base_q.filter(User.group_id.in_(faculty_group_ids))
+        _students = _base_q.all()
+        payment_total_contract = float(sum(DirectionContractAmount.get_contract_for_student(s) for s in _students))
+        _sid_list = [s.id for s in _students]
+        payment_total_paid = float(db.session.query(func.sum(StudentPayment.paid_amount)).filter(
+            StudentPayment.student_id.in_(_sid_list) if _sid_list else StudentPayment.student_id == -1
+        ).scalar() or 0)
+        _all_p = StudentPayment.query.all()
+        _paid_by_student = defaultdict(float)
+        for x in _all_p:
+            _paid_by_student[x.student_id] += float(x.paid_amount or 0)
+        # faculty_id -> course_year -> stats (barcha talabalar, faqat to'lov yozuvi borlar emas)
+        _by_faculty = defaultdict(lambda: defaultdict(lambda: {'0%': 0, '25%': 0, '50%': 0, '75%': 0, '100%': 0, 'total': 0}))
+        for s in _students:
+            if not s.group or (faculty_restrict and s.group.faculty_id != faculty_restrict):
+                continue
+            g = s.group
+            fid, cy = g.faculty_id, g.course_year
+            contract = DirectionContractAmount.get_contract_for_student(s)
+            if contract == 0:
+                contract = sum(float(x.contract_amount or 0) for x in _all_p if x.student_id == s.id)
+            paid = _paid_by_student[s.id]
+            pc = (paid / contract * 100) if contract > 0 else 0
+            st = _by_faculty[fid][cy]
+            if pc == 0 or pc <= 25:
+                st['0%'] += 1
+            elif pc <= 50:
+                st['25%'] += 1
+            elif pc <= 75:
+                st['50%'] += 1
+            elif pc < 100:
+                st['75%'] += 1
+            else:
+                st['100%'] += 1
+            st['total'] += 1
+        for f in _faculties:
+            courses = _by_faculty.get(f.id, {})
+            if courses:
+                courses_sorted = dict(sorted(courses.items()))
+                payment_stats_by_faculty.append({'faculty': f, 'courses': courses_sorted})
+
     return render_template('dashboard.html', stats=stats, **stats, announcements=announcements, 
                          recent_assignments=recent_assignments, upcoming_schedules=upcoming_schedules,
                          my_subjects=my_subjects, today_schedule=today_schedule, my_subjects_info=my_subjects_info,
@@ -864,10 +982,19 @@ def dashboard():
                          total_semester_max_score=total_semester_max_score if 'total_semester_max_score' in locals() else 0,
                          semester_grade=semester_grade if 'semester_grade' in locals() else None,
                          payment_info=payment_info if 'payment_info' in locals() else None,
+                         payment_total_contract=payment_total_contract if 'payment_total_contract' in locals() else 0,
+                         payment_total_paid=float(payment_total_paid) if 'payment_total_paid' in locals() else 0,
+                         payment_stats_by_faculty=payment_stats_by_faculty if 'payment_stats_by_faculty' in locals() else [],
                          upcoming_due_assignments=upcoming_due_assignments if 'upcoming_due_assignments' in locals() else [],
                          greeting=greeting, today=today, role=active_role, direction_id=direction_id,
                          teacher_assignments_list=teacher_assignments_list if 'teacher_assignments_list' in locals() else [],
                          teacher_pending_assignments_list=teacher_pending_assignments_list if 'teacher_pending_assignments_list' in locals() else [])
+
+@bp.route('/library')
+@login_required
+def library():
+    """Elektron kutubxona — unilibrary.uz tizim ichida"""
+    return render_template('library.html')
 
 @bp.route('/announcements')
 @login_required
@@ -959,12 +1086,11 @@ def edit_announcement(id):
     # Joriy rolni olish (session'dan yoki asosiy roldan)
     current_role = session.get('current_role', current_user.role)
     
-    # Ruxsat tekshiruvi
-    # Admin faqat admin roli tanlangan bo'lsa barcha e'lonlarni tahrirlay oladi
-    # Boshqa foydalanuvchilar faqat o'z e'lonlarini tahrirlay oladi
+    # Ruxsat: admin roli tanlangan bo'lsa barcha e'lonlarni; aks holda faqat shu rolda o'zi yaratganini
     is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
-    
-    if not is_admin_with_admin_role and announcement.author_id != current_user.id:
+    is_own_created_in_current_role = (announcement.author_id == current_user.id and
+                                      (announcement.author_role == current_role or announcement.author_role is None))
+    if not is_admin_with_admin_role and not is_own_created_in_current_role:
         flash(t('no_permission_to_edit_announcement'), 'error')
         return redirect(url_for('main.announcements'))
     
@@ -1002,11 +1128,11 @@ def delete_announcement(id):
     # Joriy rolni olish (session'dan yoki asosiy roldan)
     current_role = session.get('current_role', current_user.role)
     
-    # Admin faqat admin roli tanlangan bo'lsa barcha e'lonlarni o'chira oladi
-    # Boshqa foydalanuvchilar faqat o'z e'lonlarini o'chira oladi
+    # Ruxsat: admin roli tanlangan bo'lsa barcha e'lonlarni; aks holda faqat shu rolda o'zi yaratganini
     is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin'
-    
-    if not is_admin_with_admin_role and announcement.author_id != current_user.id:
+    is_own_created_in_current_role = (announcement.author_id == current_user.id and
+                                      (announcement.author_role == current_role or announcement.author_role is None))
+    if not is_admin_with_admin_role and not is_own_created_in_current_role:
         flash(t('no_permission_to_delete_announcement'), 'error')
         return redirect(url_for('main.announcements'))
     
@@ -1127,7 +1253,8 @@ def messages():
         # Admin va dekan hammani ko'ra oladi
         all_users = User.query.filter(User.id != user.id, User.is_active == True).all()
         
-    available_users = [u for u in all_users if u.id not in chats_dict.keys()]
+    # Barcha foydalanuvchilar (suhbat qilinganlar ham qidiruvda chiqishi kerak)
+    available_users = all_users
     
     return render_template('messages.html', chats=chats, available_users=available_users)
 
@@ -1272,14 +1399,19 @@ def schedule():
     today_month = today.month
     today_day = today.day
     
+    # Kalendarda ko'rinadigan barcha kunlarni qamrab olish
+    first_calendar_date = calendar_weeks[0][0]
+    last_calendar_date = calendar_weeks[-1][-1]
+    
     # Filter parameters
     group_id = request.args.get('group_id', type=int)
     subject_id = request.args.get('subject_id', type=int)
+    teacher_id = request.args.get('teacher_id', type=int)
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     
-    start_code = int(f"{year}{month:02d}01")
-    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    start_code = int(first_calendar_date.strftime("%Y%m%d"))
+    end_code = int(last_calendar_date.strftime("%Y%m%d"))
     
     # Date Range filtering
     if start_date:
@@ -1297,6 +1429,7 @@ def schedule():
     
     all_groups = []
     all_subjects = []
+    all_teachers = []
 
     if user.role == 'student':
         if user.group_id:
@@ -1307,17 +1440,21 @@ def schedule():
                 from app.models import DirectionCurriculum
                 current_semester = group.semester if group.semester else 1
                 
-                curr_items = DirectionCurriculum.query.filter_by(
+                curr_q = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
                     semester=current_semester
-                ).filter(
-                    or_(DirectionCurriculum.enrollment_year.is_(None), DirectionCurriculum.enrollment_year == group.enrollment_year),
-                    or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == group.education_type)
-                ).all()
+                )
+                curr_items = DirectionCurriculum.filter_by_group_context(curr_q, group).all()
                 s_ids = [item.subject_id for item in curr_items]
                 all_subjects = Subject.query.filter(Subject.id.in_(s_ids)).order_by(Subject.name).all()
-                
-                # Shcedule query'ni ham filterlash
+                # Talaba uchun o'qituvchilar ro'yxati (ushbu guruhda dars beradigan o'qituvchilar)
+                ts_teachers = TeacherSubject.query.filter(
+                    TeacherSubject.group_id == user.group_id,
+                    TeacherSubject.subject_id.in_(s_ids)
+                ).all()
+                teacher_ids = list({ts.teacher_id for ts in ts_teachers if ts.teacher_id})
+                all_teachers = User.query.filter(User.id.in_(teacher_ids)).order_by(User.full_name).all() if teacher_ids else []
+                # Schedule query'ni ham filterlash
                 query = query.filter(
                     Schedule.group_id == user.group_id,
                     Schedule.subject_id.in_(s_ids)
@@ -1340,14 +1477,12 @@ def schedule():
             if group and group.direction_id:
                 current_semester = group.semester if group.semester else 1
                 # Tekshirish: bu fan bu guruhda shu semestrda bormi? (yil, ta'lim shakli)
-                curr_item = DirectionCurriculum.query.filter_by(
+                curr_q = DirectionCurriculum.query.filter_by(
                     direction_id=group.direction_id,
                     subject_id=ts.subject_id,
                     semester=current_semester
-                ).filter(
-                    or_(DirectionCurriculum.enrollment_year.is_(None), DirectionCurriculum.enrollment_year == group.enrollment_year),
-                    or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == group.education_type)
-                ).first()
+                )
+                curr_item = DirectionCurriculum.filter_by_group_context(curr_q, group).first()
                 if curr_item:
                     valid_ts_ids.append(ts.id)
                     g_ids.add(ts.group_id)
@@ -1371,24 +1506,31 @@ def schedule():
         query = query.filter_by(group_id=group_id)
     if subject_id:
         query = query.filter_by(subject_id=subject_id)
+    if teacher_id:
+        query = query.filter_by(teacher_id=teacher_id)
     
     schedules = query.order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
+    # Sana bo'yicha guruhlash (YYYY-MM-DD formatida)
+    schedule_by_date = {}
     for s in schedules:
         try:
             code_str = str(s.day_of_week)
             if len(code_str) == 8:
-                s_year = int(code_str[:4])
-                s_month = int(code_str[4:6])
-                if s_year == year and s_month == month:
-                    day = int(code_str[6:8])
-                    if 1 <= day <= days_in_month:
-                        schedule_by_day[day].append(s)
+                date_key = f"{code_str[:4]}-{code_str[4:6]}-{code_str[6:8]}"
+                if date_key not in schedule_by_date:
+                    schedule_by_date[date_key] = []
+                schedule_by_date[date_key].append(s)
         except: continue
-        
-    for day in schedule_by_day:
-        schedule_by_day[day].sort(key=lambda x: x.start_time or '')
+    
+    for date_key in schedule_by_date:
+        schedule_by_date[date_key].sort(key=lambda x: x.start_time or '')
+    
+    # Eski format uchun moslik (faqat joriy oy kunlari)
+    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
+    for i in range(1, days_in_month + 1):
+        date_key = f"{year}-{month:02d}-{i:02d}"
+        schedule_by_day[i] = schedule_by_date.get(date_key, [])
     
     return render_template('schedule.html',
                           year=year, month=month,
@@ -1398,5 +1540,6 @@ def schedule():
                           days_in_month=days_in_month,
                           calendar_weeks=calendar_weeks,
                           schedule_by_day=schedule_by_day,
-                          all_groups=all_groups, all_subjects=all_subjects,
-                          current_group_id=group_id, current_subject_id=subject_id)
+                          schedule_by_date=schedule_by_date,
+                          all_groups=all_groups, all_subjects=all_subjects, all_teachers=all_teachers,
+                          current_group_id=group_id, current_subject_id=subject_id, current_teacher_id=teacher_id)

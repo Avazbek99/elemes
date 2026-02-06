@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Baholar{% endblock %}
+{% block title %}{{ t('grades') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Baholar</h1>
-        <p class="text-gray-500 mt-1">Fanlar va guruhlar bo'yicha talaba baholari</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('grades') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('teacher_grades_subtitle') }}</p>
     </div>
     
     {% if subject_groups %}
@@ -20,13 +20,13 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">{{ data.subject.name }}</h3>
-                        <p class="text-sm text-gray-500">{{ data.groups|length }} guruh</p>
+                        <p class="text-sm text-gray-500">{{ data.groups|length }} {{ t('group_count_label') }}</p>
                     </div>
                 </div>
             </div>
             
             <div class="p-4">
-                <p class="text-sm font-medium text-gray-700 mb-3">Guruhlar:</p>
+                <p class="text-sm font-medium text-gray-700 mb-3">{{ t('groups') }}:</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {% for group in data.groups %}
                     <a href="{{ url_for('courses.group_grades', subject_id=data.subject.id, group_id=group.id) }}" 
@@ -37,7 +37,7 @@
                             </div>
                             <div>
                                 <p class="font-medium text-gray-900">{{ group.name }}</p>
-                                <p class="text-xs text-gray-500">{{ group.course_year }}-kurs</p>
+                                <p class="text-xs text-gray-500">{{ group.course_year }}{{ t('course_suffix') }}</p>
                             </div>
                         </div>
                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -51,8 +51,8 @@
     {% else %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
         <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-        <h3 class="text-lg font-medium text-gray-600">Fanlar yo'q</h3>
-        <p class="text-gray-400">Hali sizga fan biriktirilmagan</p>
+        <h3 class="text-lg font-medium text-gray-600">{{ t('no_subjects') }}</h3>
+        <p class="text-gray-400">{{ t('no_subjects_assigned_to_you') }}</p>
     </div>
     {% endif %}
 </div>

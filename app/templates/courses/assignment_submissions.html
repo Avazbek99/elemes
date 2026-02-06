@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ assignment.title }} - Javoblar{% endblock %}
+{% block title %}{{ assignment.title }} - {{ t('answers_title') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -11,7 +11,7 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Orqaga
+            {{ t('back') }}
         </a>
     </div>
 
@@ -20,35 +20,34 @@
             <div class="flex items-center gap-2 mb-2">
                 <p class="text-gray-500 font-medium">{{ assignment.subject.name }}</p>
                 {% if assignment.lesson_type %}
-                {% if assignment.lesson_type == 'maruza' %}
-                <span
-                    class="px-2 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">Maruza</span>
-                {% elif assignment.lesson_type == 'amaliyot' %}
-                <span
-                    class="px-2 py-1 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">Amaliyot</span>
-                {% elif assignment.lesson_type == 'laboratoriya' %}
-                <span
-                    class="px-2 py-1 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200">Laboratoriya</span>
-                {% elif assignment.lesson_type == 'seminar' %}
-                <span
-                    class="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200">Seminar</span>
-                {% elif assignment.lesson_type == 'kurs_ishi' %}
-                <span
-                    class="px-2 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200">Kurs
-                    ishi</span>
-                {% endif %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md
+                    {% if assignment.lesson_type == 'maruza' %}bg-blue-100 text-blue-700 border border-blue-200
+                    {% elif assignment.lesson_type == 'amaliyot' %}bg-green-100 text-green-700 border border-green-200
+                    {% elif assignment.lesson_type == 'laboratoriya' %}bg-purple-100 text-purple-700 border border-purple-200
+                    {% elif assignment.lesson_type == 'seminar' %}bg-amber-100 text-amber-700 border border-amber-200
+                    {% elif assignment.lesson_type == 'kurs_ishi' %}bg-indigo-100 text-indigo-700 border border-indigo-200
+                    {% else %}bg-gray-100 text-gray-700 border border-gray-200{% endif %}">
+                    {{ assignment.lesson_type|lesson_type_label }}
+                </span>
                 {% endif %}
             </div>
             <h1 class="text-2xl font-bold text-gray-900 mt-1">{{ assignment.title }}</h1>
-            <p class="text-gray-500 mt-1">{{ assignment.group.name if assignment.group else '' }} • Talaba javoblari</p>
+            <p class="text-gray-500 mt-1">
+                {% if assignment_groups is defined and assignment_groups %}
+                {{ assignment_groups|map(attribute='name')|join(', ') }}
+                {% elif assignment.group %}
+                {{ assignment.group.name }}
+                {% endif %}
+                {% if assignment.group or (assignment_groups is defined and assignment_groups) %} • {% endif %}{{ t('student_answers') }}
+            </p>
         </div>
         <div class="flex items-center gap-4 text-sm">
             <div class="flex items-center gap-2">
-                <span class="text-gray-500">Maksimal ball:</span>
+                <span class="text-gray-500">{{ t('max_score') }}:</span>
                 <strong class="text-primary-600">{{ assignment.max_score }}</strong>
             </div>
             <div class="flex items-center gap-2">
-                <span class="text-gray-500">Topshirgan:</span>
+                <span class="text-gray-500">{{ t('submitted_count') }}:</span>
                 <strong class="text-gray-700">{{ total_submissions or submissions|length }}</strong>
             </div>
             {% if ungraded_count and ungraded_count > 0 %}
@@ -59,7 +58,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    {{ ungraded_count }} tekshirilmagan
+                    {{ ungraded_count }} {{ t('ungraded') }}
                 </span>
                 <span class="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
             </div>
@@ -69,12 +68,12 @@
 
     {% if assignment.description %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-2">Topshiriq tavsifi</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">{{ t('assignment_description') }}</h2>
         <p class="text-gray-600">{{ assignment.description }}</p>
 
         {% if related_lessons %}
         <div class="mt-4 pt-4 border-t border-gray-100">
-            <h3 class="text-sm font-semibold text-gray-700 mb-2">Tegishli mavzular:</h3>
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">{{ t('related_topics') }}</h3>
             <div class="flex flex-wrap gap-2">
                 {% for lesson in related_lessons %}
                 <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}"
@@ -91,7 +90,7 @@
     <!-- Submitted Students List -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-            <h2 class="text-lg font-semibold text-gray-900">Topshirgan talabalar</h2>
+            <h2 class="text-lg font-semibold text-gray-900">{{ t('submitted_students') }}</h2>
             {% if total_submissions %}
             <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
                 {{ total_submissions }}
@@ -105,15 +104,15 @@
                 <thead class="bg-gray-50 border-b border-gray-100">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Talaba</th>
+                            {{ t('student') }}</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Topshirgan vaqti</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Baho
+                            {{ t('submitted_at') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('grade') }}
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Izoh
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('feedback') }}
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Amallar</th>
+                            {{ t('actions') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -128,7 +127,7 @@
                                 <div>
                                     <p class="font-medium text-gray-900">{{ submission.student.full_name.upper() if
                                         submission.student.full_name else '-' }}</p>
-                                    <p class="text-xs text-blue-600">Urinishlar: {{
+                                    <p class="text-xs text-blue-600">{{ t('attempts') }}: {{
                                         submission.resubmission_count + 1 }}/3</p>
                                 </div>
                             </div>
@@ -146,13 +145,13 @@
                                 </span>
                                 {% if submission.score is not none and submission.score < highest_score %} <span
                                     class="text-[10px] font-bold text-gray-400 uppercase pl-1">
-                                    So'nggi: {{ "%.2f"|format(submission.score) }}
+                                    {{ t('last') }}: {{ "%.2f"|format(submission.score) }}
                                     </span>
                                     {% endif %}
                             </div>
                             {% else %}
                             <span class="px-3 py-1 text-sm font-medium rounded-full bg-amber-100 text-amber-700">
-                                Baholanmagan
+                                {{ t('not_graded_yet') }}
                             </span>
                             {% endif %}
                         </td>
@@ -178,7 +177,7 @@
                                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
                                 {% endif %}
-                                Ko'rish
+                                {{ t('view') }}
                             </button>
                         </td>
                     </tr>
@@ -192,33 +191,31 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <h3 class="text-lg font-medium text-gray-600">Javoblar yo'q</h3>
-            <p class="text-gray-400">Hali hech kim javob yubormagan</p>
+            <h3 class="text-lg font-medium text-gray-600">{{ t('no_answers') }}</h3>
+            <p class="text-gray-400">{{ t('no_submissions_yet') }}</p>
         </div>
         {% endif %}
     </div>
 
     <!-- Not Submitted Students -->
-    {% if not_submitted %}
     <div class="bg-amber-50 rounded-2xl border border-amber-200 p-4">
         <button onclick="openNotSubmittedModal()"
             class="w-full flex items-center justify-between hover:bg-amber-100 transition-colors rounded-lg p-2">
-            <h3 class="font-medium text-amber-800">Topshirmagan talabalar</h3>
+            <h3 class="font-medium text-amber-800">{{ t('unsubmitted_students') }}</h3>
             <span class="px-3 py-1 bg-amber-200 text-amber-800 rounded-full text-sm font-semibold">
-                {{ not_submitted|length }}
+                {{ (not_submitted|default([]))|length }}
             </span>
         </button>
     </div>
-    {% endif %}
 </div>
 
 <!-- Submission Detail Modal -->
 <div id="submissionModal"
     class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl w-full max-w-3xl shadow-xl transform transition-all max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-xl transform transition-all max-h-[90vh] overflow-y-auto overflow-x-hidden" style="width: 100%; max-width: 720px;">
         <div
             class="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center rounded-t-2xl">
-            <h3 class="text-lg font-bold text-gray-900" id="modalStudentName">Talaba javobi</h3>
+            <h3 class="text-lg font-bold text-gray-900" id="modalStudentName">{{ t('student_submission') }}</h3>
             <button onclick="closeSubmissionModal()" class="text-gray-400 hover:text-gray-600">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -231,13 +228,22 @@
     </div>
 </div>
 
+<style>
+#notSubmittedModal > div {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#notSubmittedModal > div::-webkit-scrollbar {
+    display: none;
+}
+</style>
 <!-- Not Submitted Students Modal -->
 <div id="notSubmittedModal"
     class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl w-full max-w-2xl shadow-xl transform transition-all max-h-[90vh] overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-xl transform transition-all max-h-[90vh] overflow-y-auto overflow-x-hidden" style="width: 100%; max-width: 720px;">
         <div
             class="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center rounded-t-2xl">
-            <h3 class="text-lg font-bold text-gray-900">Topshirmagan talabalar</h3>
+            <h3 class="text-lg font-bold text-gray-900">{{ t('unsubmitted_students') }}</h3>
             <button onclick="closeNotSubmittedModal()" class="text-gray-400 hover:text-gray-600">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -255,11 +261,31 @@
                     <p class="font-medium text-gray-900">{{ student.full_name.upper() if student.full_name else '-' }}
                     </p>
                 </div>
+                {% else %}
+                <p class="text-gray-500 text-center py-4">{{ t('all_submitted') }}</p>
                 {% endfor %}
             </div>
         </div>
     </div>
 </div>
+
+<!-- Translations for JavaScript -->
+<span id="t-all-attempts-history" class="hidden">{{ t('all_attempts_history') }}</span>
+<span id="t-attempt" class="hidden">{{ t('attempt') }}</span>
+<span id="t-resubmitted" class="hidden">{{ t('resubmitted') }}</span>
+<span id="t-file" class="hidden">{{ t('file') }}</span>
+<span id="t-download" class="hidden">{{ t('download') }}</span>
+<span id="t-grade" class="hidden">{{ t('grade') }}</span>
+<span id="t-not-graded-yet" class="hidden">{{ t('not_graded_yet') }}</span>
+<span id="t-grade-for-latest" class="hidden">{{ t('grade_for_latest') }}</span>
+<span id="t-grading" class="hidden">{{ t('grading') }}</span>
+<span id="t-cancel" class="hidden">{{ t('cancel') }}</span>
+<span id="t-comment-optional" class="hidden">{{ t('comment_optional') }}</span>
+<span id="t-leave-comment" class="hidden">{{ t('leave_comment') }}</span>
+<span id="t-save" class="hidden">{{ t('save') }}</span>
+<span id="t-edit" class="hidden">{{ t('edit') }}</span>
+<span id="t-no-grade-permission" class="hidden">{{ t('no_grade_permission') }}</span>
+<span id="t-grade-threshold-comment" class="hidden">{{ t('grade_below_threshold_comment', threshold='0') }}</span>
 
 <!-- Data for JavaScript (Decoupled to avoid syntax issues) -->
 <script id="submissions-data" type="application/json">
@@ -354,7 +380,7 @@
         if (data.history && data.history.length > 0) {
             const historyTitle = document.createElement('h4');
             historyTitle.className = 'font-bold text-gray-900 mt-6 mb-4 border-t pt-4';
-            historyTitle.textContent = 'Barcha urinishlar tarixi';
+            historyTitle.textContent = (document.getElementById('t-all-attempts-history') || {}).textContent || 'Barcha urinishlar tarixi';
             container.appendChild(historyTitle);
 
             data.history.forEach((hist, index) => {
@@ -366,7 +392,7 @@
                         <div class="text-xs text-gray-500 font-medium">${hist.submittedAt}</div>
                         <div class="flex items-center gap-2">
                              <span class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-gray-100 text-gray-600 border border-gray-200 uppercase tracking-wider">
-                                Urinish: ${index + 1}/3
+                                ${(document.getElementById('t-attempt') || {}).textContent || 'Urinish'}: ${index + 1}/3
                              </span>
                              ${index > 0 ? `
                              <span class="px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 animate-blink-red-blue">
@@ -393,9 +419,9 @@
                                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
-                                    <span class="text-[10px] font-bold text-gray-500 uppercase">${ext} fayl</span>
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase">${ext} ${(document.getElementById('t-file') || {}).textContent || 'fayl'}</span>
                                 </div>
-                                <a href="${hist.fileDownloadUrl}" class="text-[10px] text-primary-600 hover:text-primary-700 font-bold underline">Yuklab olish</a>
+                                <a href="${hist.fileDownloadUrl}" class="text-[10px] text-primary-600 hover:text-primary-700 font-bold underline">${(document.getElementById('t-download') || {}).textContent || 'Yuklab olish'}</a>
                             </div>
                         </div>
                     `;
@@ -405,14 +431,14 @@
                     histHtml += `
                         <div class="p-3 bg-green-50 rounded-lg border border-green-100">
                             <div class="flex justify-between items-center text-xs font-bold text-green-700 mb-1">
-                                <span>Baho:</span>
+                                <span>${(document.getElementById('t-grade') || {}).textContent || 'Baho'}:</span>
                                 <span>${hist.score.toFixed(2)}/{{ "%.2f"|format(assignment.max_score) }}</span>
                             </div>
                             ${hist.feedback ? `<p class="text-xs text-green-600 italic">💬 ${hist.feedback}</p>` : ''}
                         </div>
                     `;
                 } else {
-                    histHtml += `<div class="p-2 bg-amber-50 rounded-lg border border-amber-100 text-xs text-amber-700 italic">⏳ Hali baholanmagan</div>`;
+                    histHtml += `<div class="p-2 bg-amber-50 rounded-lg border border-amber-100 text-xs text-amber-700 italic">⏳ ${(document.getElementById('t-not-graded-yet') || {}).textContent || 'Hali baholanmagan'}</div>`;
                 }
 
                 histDiv.innerHTML = histHtml;
@@ -424,7 +450,7 @@
         if (data.canGrade) {
             const gradingTitle = document.createElement('h4');
             gradingTitle.className = 'font-bold text-gray-900 mt-8 mb-4 border-t pt-4';
-            gradingTitle.textContent = 'Baholash (So\'nggi urinish uchun)';
+            gradingTitle.textContent = (document.getElementById('t-grade-for-latest') || {}).textContent || 'Baholash (So\'nggi urinish uchun)';
             container.appendChild(gradingTitle);
 
             if (data.score === null) {
@@ -437,7 +463,7 @@
         } else {
             const warnDiv = document.createElement('div');
             warnDiv.className = 'p-4 bg-amber-50 rounded-xl border border-amber-200';
-            warnDiv.innerHTML = '<p class="text-sm text-amber-700">⚠️ Sizda ushbu topshiriqni baholash uchun ruxsat yo\'q.</p>';
+            warnDiv.innerHTML = '<p class="text-sm text-amber-700">⚠️ ' + ((document.getElementById('t-no-grade-permission') || {}).textContent || "Sizda ushbu topshiriqni baholash uchun ruxsat yo'q.") + '</p>';
             container.appendChild(warnDiv);
         }
 
@@ -456,26 +482,26 @@
                     <h4 class="font-medium text-gray-900">Baholash</h4>
                     ${data.score !== null ? `
                     <button type="button" onclick="cancelEdit('${data.id}')" class="text-sm text-gray-500 hover:text-gray-700">
-                        Bekor qilish
+                        ${(document.getElementById('t-cancel') || {}).textContent || 'Bekor qilish'}
                     </button>
                     ` : ''}
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Baho (0-{{ "%.2f"|format(assignment.max_score) }})</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">${(document.getElementById('t-grade') || {}).textContent || 'Baho'} (0-{{ "%.2f"|format(assignment.max_score) }})</label>
                         <input type="number" name="score" min="0" max="{{ assignment.max_score }}" step="0.01" required 
                             value="${data.score !== null ? data.score.toFixed(2) : ''}"
                             class="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Izoh (ixtiyoriy)</label>
-                        <input type="text" name="feedback" placeholder="Izoh qoldiring..." 
+                        <label class="block text-sm font-medium text-gray-700 mb-2">${(document.getElementById('t-comment-optional') || {}).textContent || 'Izoh (ixtiyoriy)'}</label>
+                        <input type="text" name="feedback" placeholder="${(document.getElementById('t-leave-comment') || {}).textContent || 'Izoh qoldiring...'}" 
                             value="${data.feedback || ''}"
                             class="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
                     </div>
                 </div>
                 <button type="submit" class="mt-4 w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
-                    Saqlash
+                    ${(document.getElementById('t-save') || {}).textContent || 'Saqlash'}
                 </button>
             </form>
         `;
@@ -496,7 +522,7 @@
         let html = `
             <div class="flex justify-between items-start">
                 <div>
-                    <h4 class="font-medium text-gray-900 mb-2">Baho</h4>
+                    <h4 class="font-medium text-gray-900 mb-2">${(document.getElementById('t-grade') || {}).textContent || 'Baho'}</h4>
                     <p class="text-2xl font-bold text-green-700">${data.score.toFixed(2)}/{{ "%.2f"|format(assignment.max_score) }}</p>
                     ${data.feedback ? `<p class="text-sm text-gray-700 mt-2">💬 ${data.feedback}</p>` : ''}
                 </div>
@@ -505,7 +531,7 @@
         if (canEdit) {
             html += `
                 <button onclick="switchToEdit('${data.id}')" class="px-3 py-1.5 bg-white border border-green-200 text-green-700 text-sm font-medium rounded-lg hover:bg-green-100 transition-colors">
-                    O'zgartirish
+                    ${(document.getElementById('t-edit') || {}).textContent || "O'zgartirish"}
                 </button>
             `;
         }
@@ -575,7 +601,8 @@
         const threshold = maxScore * 0.6;
 
         if (score < threshold && !feedbackInput.value.trim()) {
-            alert(`Baho o'tish balidan (${Math.ceil(threshold)}) past bo'lsa, izoh yozish majburiy!`);
+            const msg = (document.getElementById('t-grade-threshold-comment') || {}).textContent || "Baho o'tish balidan past bo'lsa, izoh yozish majburiy!";
+            alert(msg.replace(/\(\d+\)/, '(' + Math.ceil(threshold) + ')'));
             feedbackInput.focus();
             return false;
         }

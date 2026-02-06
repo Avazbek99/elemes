@@ -2,12 +2,116 @@ from flask import flash
 from app.models import Subject, Faculty
 from app import db
 from datetime import datetime
+from sqlalchemy import or_, func
 import io
 import re
 
+from app.utils.translations import get_translation
 
-def generate_sample_file():
-    """Talabalarni import qilish uchun namuna Excel fayl (yangi tartib)"""
+def _parse_date(val):
+    """DD.MM.YYYY, YYYY-MM-DD yoki Excel serial sonini date ga o'giradi."""
+    if val is None or (isinstance(val, str) and not str(val).strip()):
+        return None
+    from datetime import date
+    s = str(val).strip()
+    if not s or s in ('—', '-', 'none'):
+        return None
+    for fmt in ('%d.%m.%Y', '%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except (ValueError, TypeError):
+            pass
+    try:
+        n = float(s)
+        if n > 0:
+            from datetime import timedelta
+            return (datetime(1899, 12, 30) + timedelta(days=int(n))).date()
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+def _parse_academic_year(val):
+    """2025-2026 yoki 2025 formatini '2025-2026' qatoriga o'giradi."""
+    if not val:
+        return None
+    s = str(val).strip()
+    if not s or s in ('—', '-', 'none'):
+        return None
+    if '-' in s:
+        parts = s.split('-')
+        if len(parts) >= 2:
+            try:
+                y1 = int(parts[0].strip())
+                y2 = int(parts[1].strip())
+                return f"{y1}-{y2}"
+            except (ValueError, TypeError):
+                pass
+    try:
+        y = int(s)
+        return f"{y}-{y + 1}"
+    except (ValueError, TypeError):
+        return s
+
+
+# Ta'lim shaklini har qanday tildan kanonik (kunduzgi/sirtqi/kechki/masofaviy) ga o'girish
+def _normalize_education_type(val):
+    if not val or not isinstance(val, str):
+        return None
+    s = val.strip().lower().replace('-', '').replace(' ', '')
+    mapping = {
+        'kunduzgi': 'kunduzgi', 'sirtqi': 'sirtqi', 'kechki': 'kechki', 'masofaviy': 'masofaviy',
+        'fulltime': 'kunduzgi', 'parttime': 'sirtqi', 'evening': 'kechki', 'distance': 'masofaviy',
+        'дневная': 'kunduzgi', 'очная': 'kunduzgi', 'заочная': 'sirtqi',
+        'вечерняя': 'kechki', 'дистанционная': 'masofaviy',
+    }
+    return mapping.get(s, val.strip())
+
+# Talabalar import: barcha tillardagi ustun nomlari -> kanonik (o'zbekcha) nom
+_CANONICAL_STUDENT_HEADERS = [
+    "Talaba ID", "To'liq ism", "Pasport seriya raqami", "JSHSHIR", "Tug'ilgan sana",
+    "Telefon", "Email", "Tavsif", "Fakultet", "Kurs", "Semestr", "Ta'lim shakli",
+    "Qabul yili", "Mutaxassislik kodi", "Mutaxassislik nomi", "Guruh"
+]
+_STUDENT_HEADER_KEYS = [
+    'import_col_student_id', 'import_col_full_name', 'import_col_passport', 'import_col_pinfl',
+    'import_col_birth_date', 'import_col_phone', 'import_col_email', 'description',
+    'import_col_faculty', 'import_col_course', 'import_col_semester', 'import_col_education_type',
+    'import_col_enrollment_year', 'import_col_specialty_code', 'import_col_specialty_name', 'import_col_group'
+]
+
+# Xodimlar import: barcha tillardagi ustun nomlari -> kanonik (o'zbekcha)
+_CANONICAL_STAFF_HEADERS = [
+    "To'liq ism", "Login", "Pasport seriya raqami", "JSHSHIR", "Tug'ilgan sana",
+    "Telefon", "Email", "Tavsif", "Rollar"
+]
+_STAFF_HEADER_KEYS = ['full_name', 'login', 'passport_series_number', 'pinfl', 'birth_date', 'phone', 'email', 'description', 'roles']
+
+
+def _staff_import_header_map():
+    """Har qanday tildagi xodim ustun nomini kanonik (o'zbekcha) nomga map qiladi."""
+    m = {}
+    for lang in ('uz', 'ru', 'en'):
+        for i, key in enumerate(_STAFF_HEADER_KEYS):
+            h = get_translation(key, lang)
+            if h:
+                m[h.strip()] = _CANONICAL_STAFF_HEADERS[i]
+    return m
+
+
+def _student_import_header_map():
+    """Har qanday tildagi ustun nomini kanonik (o'zbekcha) nomga map qiladi."""
+    m = {}
+    for lang in ('uz', 'ru', 'en'):
+        for i, key in enumerate(_STUDENT_HEADER_KEYS):
+            h = get_translation(key, lang)
+            if h:
+                m[h.strip()] = _CANONICAL_STUDENT_HEADERS[i]
+    return m
+
+
+def generate_sample_file(lang='uz'):
+    """Talabalarni import qilish uchun namuna Excel fayl (tanlangan til: uz/ru/en)."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -17,44 +121,22 @@ def generate_sample_file():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Talabalar import"
+    ws.title = "Talabalar import" if lang == 'uz' else ("Студенты" if lang == 'ru' else "Students")
 
-    # Sarlavha
-    ws.merge_cells('A1:P1')
     title_cell = ws['A1']
-    title_cell.value = "Talabalar import uchun namuna fayl"
+    ws.merge_cells('A1:P1')
+    title_cell.value = get_translation('sample_students_title', lang)
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
 
-    # Import talablari
-    from datetime import datetime
-    ws['A2'] = "IMPORT TALABLARI:"
+    ws['A2'] = get_translation('sample_requirements_title', lang)
     ws.merge_cells('A2:P2')
     ws['A2'].font = Font(size=11, bold=True, color="000000")
     ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
     ws['A2'].fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
-    
-    # Talablar ro'yxati
-    requirements = [
-        "1. Talaba ID - majburiy maydon, unikal bo'lishi kerak",
-        "2. To'liq ism - majburiy maydon",
-        "3. Pasport seriya raqami - majburiy maydon (masalan: AB1234567)",
-        "4. JSHSHIR - ixtiyoriy maydon (14 raqam)",
-        "5. Tug'ilgan sana - ixtiyoriy maydon (DD.MM.YYYY yoki YYYY-MM-DD formatida)",
-        "6. Telefon - ixtiyoriy maydon",
-        "7. Email - ixtiyoriy maydon, unikal bo'lishi kerak",
-        "8. Tavsif - ixtiyoriy maydon",
-        "9. Fakultet - ixtiyoriy maydon (guruh biriktirish uchun)",
-        "10. Kurs - ixtiyoriy maydon (1-kurs, 2-kurs formatida, guruh biriktirish uchun)",
-        "11. Semestr - ixtiyoriy maydon (1-semestr, 2-semestr formatida)",
-        "12. Ta'lim shakli - ixtiyoriy maydon (Kunduzgi, Sirtqi, Kechki, Masofaviy - bosh harf katta, guruh biriktirish uchun)",
-        "13. Qabul yili - ixtiyoriy maydon (masalan: 2024, guruh biriktirish uchun)",
-        "14. Mutaxassislik kodi - ixtiyoriy maydon (yo'nalish kodi)",
-        "15. Mutaxassislik nomi - ixtiyoriy maydon (yo'nalish nomi)",
-        "16. Guruh - ixtiyoriy maydon (agar mavjud bo'lsa, qo'shiladi, aks holda yangi yaratiladi)"
-    ]
-    
+
+    requirements = [get_translation(f'sample_req_{i}', lang) for i in range(1, 17)]
     for idx, req in enumerate(requirements, start=3):
         ws.merge_cells(f'A{idx}:P{idx}')
         cell = ws.cell(row=idx, column=1)
@@ -63,54 +145,26 @@ def generate_sample_file():
         cell.alignment = Alignment(horizontal='left', vertical='center')
         cell.fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
 
-    # Eslatma qismi
     note_start_row = len(requirements) + 3
-    ws.merge_cells(f'A{note_start_row}:O{note_start_row}')
+    ws.merge_cells(f'A{note_start_row}:P{note_start_row}')
     note_title_cell = ws.cell(row=note_start_row, column=1)
-    note_title_cell.value = "ESLATMA:"
+    note_title_cell.value = get_translation('sample_note_title', lang)
     note_title_cell.font = Font(size=11, bold=True, color="000000")
     note_title_cell.alignment = Alignment(horizontal='left', vertical='center')
     note_title_cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
-    
-    notes = [
-        "• Fayl .xlsx yoki .xls formatida bo'lishi kerak",
-        "• Majburiy maydonlar: To'liq ism, Talaba ID, Pasport seriya raqami",
-        "• Ixtiyoriy maydonlar: Qolgan barcha maydonlar",
-        "• Agar Fakultet, Kurs, Ta'lim shakli, Qabul yili va Guruh ma'lumotlari to'liq bo'lsa, talaba avtomatik guruhga qo'shiladi",
-        "• Guruh nomi to'g'ri yozilishi kerak (masalan: DI-21). Agar guruh mavjud bo'lmasa, yangi yaratiladi",
-        "• Qabul yili yo'nalishga biriktirishda muhim (masalan: 2024, 2025)",
-        "• Email va Talaba ID takrorlanmasligi kerak",
-        "• Yangi talabalar uchun boshlang'ich parol: Pasport seriya raqami"
-    ]
-    
+
+    note_keys = ['import_note_file_format', 'import_note_required', 'import_note_optional', 'import_note_auto_group',
+                 'import_note_enrollment', 'import_note_group_name', 'import_note_unique', 'import_note_password']
+    notes = [get_translation(k, lang) for k in note_keys]
     for idx, note in enumerate(notes, start=note_start_row + 1):
         ws.merge_cells(f'A{idx}:P{idx}')
         cell = ws.cell(row=idx, column=1)
-        cell.value = note
+        cell.value = "• " + note if not note.startswith('•') else note
         cell.font = Font(size=10)
         cell.alignment = Alignment(horizontal='left', vertical='center')
         cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
 
-    # Jadval sarlavhalari (A ustunidan boshlanadi)
-    headers = [
-        "Talaba ID",              # A
-        "To'liq ism",             # B
-        "Pasport seriya raqami",  # C
-        "JSHSHIR",                # D
-        "Tug'ilgan sana",         # E
-        "Telefon",                # F
-        "Email",                  # G
-        "Tavsif",                 # H
-        "Fakultet",               # I
-        "Kurs",                   # J
-        "Semestr",                # K
-        "Ta'lim shakli",          # L
-        "Qabul yili",             # M
-        "Mutaxassislik kodi",     # N
-        "Mutaxassislik nomi",     # O
-        "Guruh"                   # P
-    ]
-
+    headers = [get_translation(k, lang) for k in _STUDENT_HEADER_KEYS]
     header_row = len(requirements) + len(notes) + 4
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=header_row, column=col_num)
@@ -119,30 +173,23 @@ def generate_sample_file():
         cell.alignment = Alignment(horizontal='center', vertical='center')
         cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
         cell.border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
         )
 
-    # Namuna ma'lumotlar (ismlar katta harflarda)
     sample_data = [
         ["ST2024001", "ALIYEV VALI", "AB1234567", "30202020200021", "2000-01-15", "+998901234567", "vali@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "2024", "DI", "Dasturiy injiniring", "DI-21"],
         ["ST2024002", "KARIMOVA ZUHRA", "AC2345678", "30202020200022", "2001-03-20", "+998901234568", "zuhra@example.com", "Talaba haqida ma'lumot", "IT", "1-kurs", "1-semestr", "Kunduzgi", "2024", "DI", "Dasturiy injiniring", "DI-21"]
     ]
-
     for row_num, row_data in enumerate(sample_data, start=header_row + 1):
         for col_num, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=col_num)
             cell.value = value
             cell.border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
+                left=Side(style='thin'), right=Side(style='thin'),
+                top=Side(style='thin'), bottom=Side(style='thin')
             )
 
-    # Ustun kengliklarini sozlash
     column_widths = [15, 30, 20, 18, 18, 16, 25, 40, 20, 12, 12, 15, 12, 20, 30, 15]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
@@ -153,8 +200,8 @@ def generate_sample_file():
     return output
 
 
-def generate_staff_sample_file():
-    """Xodimlarni import qilish uchun namuna Excel fayl (bitta sheet'da)"""
+def generate_staff_sample_file(lang='uz'):
+    """Xodimlarni import qilish uchun namuna Excel fayl (tanlangan til: uz/ru/en)."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -164,38 +211,32 @@ def generate_staff_sample_file():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Xodimlar"
-    
-    # Sarlavha
-    title = "Xodimlar import uchun namuna fayl"
+    ws.title = "Xodimlar" if lang == 'uz' else ("Сотрудники" if lang == 'ru' else "Staff")
+
     ws.merge_cells('A1:I1')
     title_cell = ws['A1']
-    title_cell.value = title
+    title_cell.value = get_translation('sample_staff_title', lang)
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    
-    # Import talablari
-    from datetime import datetime
-    ws['A2'] = "IMPORT TALABLARI:"
+
+    ws['A2'] = get_translation('sample_requirements_title', lang)
     ws.merge_cells('A2:I2')
     ws['A2'].font = Font(size=11, bold=True, color="000000")
     ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
     ws['A2'].fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
-    
-    # Talablar ro'yxati
+
     requirements = [
-        "1. To'liq ism - majburiy maydon",
-        "2. Login - majburiy maydon, unikal bo'lishi kerak",
-        "3. Pasport seriya raqami - majburiy maydon (masalan: AB1234567)",
-        "4. JSHSHIR - ixtiyoriy maydon (14 raqam)",
-        "5. Tug'ilgan sana - ixtiyoriy maydon (DD.MM.YYYY yoki YYYY-MM-DD formatida)",
-        "6. Telefon - ixtiyoriy maydon",
-        "7. Email - ixtiyoriy maydon, unikal bo'lishi kerak",
-        "8. Tavsif - ixtiyoriy maydon. Dekan roli bo'lsa, fakultet nomi yozilishi kerak (masalan: IT fakulteti dekani)",
-        "9. Rollar - majburiy maydon (kamida bitta rol tanlanishi kerak). Vergul bilan ajratilgan: Administrator, Dekan, O'qituvchi, Buxgalter"
+        "1. To'liq ism - majburiy maydon" if lang == 'uz' else ("1. Полное имя - обязательное поле" if lang == 'ru' else "1. Full name - required field"),
+        "2. Login - majburiy maydon, unikal bo'lishi kerak" if lang == 'uz' else ("2. Логин - обязательное поле, должен быть уникальным" if lang == 'ru' else "2. Login - required field, must be unique"),
+        "3. Pasport seriya raqami - majburiy maydon (masalan: AB1234567)" if lang == 'uz' else ("3. Серия и номер паспорта - обязательное поле (например: AB1234567)" if lang == 'ru' else "3. Passport series and number - required field (e.g. AB1234567)"),
+        "4. JSHSHIR - ixtiyoriy maydon (14 raqam)" if lang == 'uz' else ("4. ПИНФЛ - необязательное поле (14 цифр)" if lang == 'ru' else "4. PINFL - optional field (14 digits)"),
+        "5. Tug'ilgan sana - ixtiyoriy maydon (DD.MM.YYYY yoki YYYY-MM-DD)" if lang == 'uz' else ("5. Дата рождения - необязательное поле (DD.MM.YYYY или YYYY-MM-DD)" if lang == 'ru' else "5. Date of birth - optional field (DD.MM.YYYY or YYYY-MM-DD)"),
+        "6. Telefon - ixtiyoriy maydon" if lang == 'uz' else ("6. Телефон - необязательное поле" if lang == 'ru' else "6. Phone - optional field"),
+        "7. Email - ixtiyoriy maydon, unikal bo'lishi kerak" if lang == 'uz' else ("7. Email - необязательное поле, должен быть уникальным" if lang == 'ru' else "7. Email - optional field, must be unique"),
+        "8. Tavsif - ixtiyoriy maydon. Dekan roli bo'lsa, fakultet nomi yozilishi kerak" if lang == 'uz' else ("8. Описание - необязательное поле. Для декана укажите название факультета" if lang == 'ru' else "8. Description - optional field. For dean role specify faculty name"),
+        "9. Rollar - majburiy maydon (kamida bitta rol). Administrator, Dekan, O'qituvchi, Buxgalter" if lang == 'uz' else ("9. Роли - обязательное поле (минимум одна). Администратор, Декан, Преподаватель, Бухгалтер" if lang == 'ru' else "9. Roles - required field (at least one). Administrator, Dean, Teacher, Accountant"),
     ]
-    
     for idx, req in enumerate(requirements, start=3):
         ws.merge_cells(f'A{idx}:I{idx}')
         cell = ws.cell(row=idx, column=1)
@@ -204,34 +245,32 @@ def generate_staff_sample_file():
         cell.alignment = Alignment(horizontal='left', vertical='center')
         cell.fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
 
-    # Eslatma qismi
     note_start_row = len(requirements) + 3
     ws.merge_cells(f'A{note_start_row}:I{note_start_row}')
     note_title_cell = ws.cell(row=note_start_row, column=1)
-    note_title_cell.value = "ESLATMA:"
+    note_title_cell.value = get_translation('sample_note_title', lang)
     note_title_cell.font = Font(size=11, bold=True, color="000000")
     note_title_cell.alignment = Alignment(horizontal='left', vertical='center')
     note_title_cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
-    
+
     notes = [
-        "• Fayl .xlsx yoki .xls formatida bo'lishi kerak",
-        "• Majburiy maydonlar: To'liq ism, Login, Pasport seriya raqami, Rollar (kamida bitta)",
-        "• Ixtiyoriy maydonlar: Qolgan barcha maydonlar",
-        "• Dekan roli tanlangan bo'lsa, Tavsif maydonida fakultet nomi ko'rsatilishi kerak (masalan: IT fakulteti dekani)",
-        "• Login va Email takrorlanmasligi kerak",
-        "• Yangi xodimlar uchun boshlang'ich parol: Pasport seriya raqami"
+        get_translation('import_note_file_format', lang),
+        "Majburiy maydonlar: To'liq ism, Login, Pasport seriya raqami, Rollar" if lang == 'uz' else ("Обязательные поля: Полное имя, Логин, Серия и номер паспорта, Роли" if lang == 'ru' else "Required fields: Full name, Login, Passport series and number, Roles"),
+        get_translation('import_note_optional', lang),
+        "Dekan roli tanlangan bo'lsa, Tavsif maydonida fakultet nomi ko'rsatilishi kerak" if lang == 'uz' else ("Для роли декана укажите название факультета в поле Описание" if lang == 'ru' else "For dean role specify faculty name in Description field"),
+        get_translation('import_note_unique', lang),
+        get_translation('import_note_password', lang),
     ]
-    
     for idx, note in enumerate(notes, start=note_start_row + 1):
         ws.merge_cells(f'A{idx}:I{idx}')
         cell = ws.cell(row=idx, column=1)
-        cell.value = note
+        cell.value = "• " + note if not (note or '').strip().startswith('•') else note
         cell.font = Font(size=10)
         cell.alignment = Alignment(horizontal='left', vertical='center')
         cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
-    
-    # Jadval sarlavhalari (A ustunidan boshlanadi)
-    headers = ["To'liq ism", 'Login', 'Pasport seriya raqami', 'JSHSHIR', "Tug'ilgan sana", 'Telefon', 'Email', 'Tavsif', 'Rollar']
+
+    header_keys = ['full_name', 'login', 'passport_series_number', 'pinfl', 'birth_date', 'phone', 'email', 'description', 'roles']
+    headers = [get_translation(k, lang) for k in header_keys]
     header_row = len(requirements) + len(notes) + 4
     
     for col_num, header in enumerate(headers, 1):
@@ -278,6 +317,285 @@ def generate_staff_sample_file():
     return output
 
 
+def import_payments_from_excel(file):
+    """Excel fayldan to'lov ma'lumotlarini import qilish.
+    Ustunlar: Talaba_id, Ismi, To'lov miqdori, Eslatmalar.
+    Kontrakt yo'nalish bo'yicha belgilangan summadan olinadi."""
+    try:
+        from openpyxl import load_workbook
+        from app.models import User, StudentPayment
+        from app import db
+    except ImportError:
+        return {'success': False, 'imported': 0, 'errors': ["openpyxl kutubxonasi o'rnatilmagan"]}
+    try:
+        wb = load_workbook(file, read_only=True, data_only=True)
+        ws = wb.active
+        wb.close()
+    except Exception as e:
+        return {'success': False, 'imported': 0, 'errors': [str(e)]}
+    header_aliases = {
+        'talaba_id': ["Talaba_id", "Talaba ID", "Student_id", "Student ID", "ID студента"],
+        'ismi': ["Ismi", "To'liq ism", "Name", "Full name", "Полное имя"],
+        'tolov': ["To'lov miqdori", "To'lagani", "To'lagan", "Paid", "Оплачено", "Сумма оплаты"],
+        'eslatmalar': ["Eslatmalar", "Notes", "Примечания", "Izoh", "Izohlar"],
+    }
+
+    def find_col(aliases, hr):
+        for c in range(1, ws.max_column + 1):
+            val = ws.cell(row=hr, column=c).value
+            if not val:
+                continue
+            v = str(val).strip()
+            for a in aliases:
+                if v and (v.lower() == a.lower() or a.lower() in v.lower()):
+                    return c
+        return None
+
+    header_row = 1
+    for try_row in range(1, min(25, ws.max_row + 1)):
+        v = ws.cell(row=try_row, column=1).value
+        if v and 'talaba' in str(v).lower():
+            header_row = try_row
+            break
+        for c in range(2, min(8, ws.max_column + 1)):
+            v = ws.cell(row=try_row, column=c).value
+            if v and ('talaba' in str(v).lower() or 'talab' in str(v).lower() or 'to\'lov' in str(v).lower() or 'tolov' in str(v).lower()):
+                header_row = try_row
+                break
+        else:
+            continue
+        break
+    data_start = header_row + 1
+
+    talaba_col = find_col(header_aliases['talaba_id'], header_row) or find_col(["Talaba_id"], header_row)
+    ismi_col = find_col(header_aliases['ismi'], header_row)
+    tolov_col = find_col(header_aliases['tolov'], header_row)
+    eslatmalar_col = find_col(header_aliases['eslatmalar'], header_row)
+
+    if not talaba_col and not ismi_col:
+        return {'success': False, 'imported': 0, 'errors': ["Talaba_id yoki Ismi ustuni topilmadi"]}
+
+    imported = 0
+    errors = []
+    for row_num in range(data_start, ws.max_row + 1):
+        try:
+            talaba_val = str(ws.cell(row=row_num, column=talaba_col).value or '').strip() if talaba_col else ''
+            ismi_val = str(ws.cell(row=row_num, column=ismi_col).value or '').strip() if ismi_col else ''
+            tolov_val = ws.cell(row=row_num, column=tolov_col).value if tolov_col else 0
+            eslatmalar_val = str(ws.cell(row=row_num, column=eslatmalar_col).value or '').strip() if eslatmalar_col else ''
+
+            if not talaba_val and not ismi_val:
+                continue
+            student = None
+            if talaba_val:
+                student = User.query.filter(User.role == 'student').filter(
+                    or_(User.student_id == talaba_val, User.passport_number == talaba_val)
+                ).first()
+            if not student and ismi_val:
+                student = User.query.filter(User.role == 'student').filter(
+                    func.upper(User.full_name) == ismi_val.upper()
+                ).first()
+            if not student:
+                errors.append(f"Qator {row_num}: Talaba topilmadi")
+                continue
+
+            try:
+                paid = float(tolov_val) if tolov_val is not None else 0
+            except (TypeError, ValueError):
+                paid = 0
+            if paid <= 0:
+                continue
+
+            payment = StudentPayment(
+                student_id=student.id,
+                contract_amount=0,
+                paid_amount=paid,
+                academic_year=None,
+                notes=eslatmalar_val or None,
+            )
+            db.session.add(payment)
+            imported += 1
+        except Exception as e:
+            errors.append(f"Qator {row_num}: {str(e)}")
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'imported': 0, 'errors': [str(e)]}
+    return {'success': True, 'imported': imported, 'errors': errors}
+
+
+def import_contract_amounts_from_excel(file, faculty_restrict=None):
+    """Excel fayldan to'lov summasi (DirectionContractAmount) import.
+    Ustunlar: Fakultet, Yo'nalish kodi, Yo'nalish nomi, Ta'lim shakli, O'quv yili, Kontrakt miqdori."""
+    try:
+        from openpyxl import load_workbook
+        from app.models import Faculty, Direction, DirectionContractAmount
+        from app import db
+    except ImportError:
+        return {'success': False, 'imported': 0, 'errors': ["openpyxl o'rnatilmagan"]}
+    try:
+        wb = load_workbook(file, read_only=True, data_only=True)
+        ws = wb.active
+        wb.close()
+    except Exception as e:
+        return {'success': False, 'imported': 0, 'errors': [str(e)]}
+    header_map = {
+        'fakultet': ['Fakultet', 'Faculty', 'Факультет'],
+        'yonalish_kodi': ["Yo'nalish kodi", 'Direction code', 'Код направления', 'Kod'],
+        'yonalish_nomi': ["Yo'nalish nomi", 'Direction name', 'Название направления', 'Nomi'],
+        'talim_shakli': ["Ta'lim shakli", 'Education type', 'Форма обучения'],
+        'oquv_yili': ["O'quv yili", 'Academic year', 'Учебный год', "Qabul yili"],
+        'period_start': ['Boshlanish', 'Period start', 'Дата начала', 'Start', 'DD.MM.YYYY'],
+        'period_end': ['Tugash', 'Period end', 'Дата окончания', 'End', 'DD.MM.YYYY'],
+        'kontrakt': ['Kontrakt miqdori', 'Contract amount', 'Сумма контракта', 'Kontrakt'],
+    }
+
+    def find_col(keys, header_row):
+        for c in range(1, ws.max_column + 1):
+            v = ws.cell(row=header_row, column=c).value
+            if not v:
+                continue
+            v = str(v).strip().lower()
+            for k in keys:
+                if k.lower() in v or v == k.lower():
+                    return c
+        return None
+
+    header_row = 1
+    for try_row in range(1, min(25, ws.max_row + 1)):
+        found = False
+        for c in range(1, min(10, ws.max_column + 1)):
+            v = ws.cell(row=try_row, column=c).value
+            if v and ('fakultet' in str(v).lower() or 'kontrakt' in str(v).lower() or 'faculty' in str(v).lower() or 'boshlanish' in str(v).lower() or 'tugash' in str(v).lower()):
+                header_row = try_row
+                found = True
+                break
+        if found:
+            break
+    cols = {}
+    for key, aliases in header_map.items():
+        cols[key] = find_col(aliases, header_row)
+
+    if not cols.get('fakultet'):
+        return {'success': False, 'imported': 0, 'errors': ["Fakultet ustuni topilmadi"]}
+    if not cols.get('yonalish_kodi'):
+        return {'success': False, 'imported': 0, 'errors': ["Yo'nalish kodi ustuni topilmadi"]}
+    if not cols.get('yonalish_nomi'):
+        return {'success': False, 'imported': 0, 'errors': ["Yo'nalish nomi ustuni topilmadi"]}
+    if not cols.get('talim_shakli'):
+        return {'success': False, 'imported': 0, 'errors': ["Ta'lim shakli ustuni topilmadi"]}
+    if not cols.get('oquv_yili'):
+        return {'success': False, 'imported': 0, 'errors': ["O'quv yili ustuni topilmadi"]}
+    if not cols.get('period_start'):
+        return {'success': False, 'imported': 0, 'errors': ["Boshlanish ustuni topilmadi"]}
+    if not cols.get('period_end'):
+        return {'success': False, 'imported': 0, 'errors': ["Tugash ustuni topilmadi"]}
+    if not cols.get('kontrakt'):
+        return {'success': False, 'imported': 0, 'errors': ["Kontrakt miqdori ustuni topilmadi"]}
+
+    imported = 0
+    errors = []
+    data_start = header_row + 1
+    for row_num in range(data_start, ws.max_row + 1):
+        try:
+            fac_val = str(ws.cell(row=row_num, column=cols['fakultet']).value or '').strip()
+            code_val = str(ws.cell(row=row_num, column=cols['yonalish_kodi']).value or '').strip()
+            name_val = str(ws.cell(row=row_num, column=cols['yonalish_nomi']).value or '').strip()
+            et_val = str(ws.cell(row=row_num, column=cols['talim_shakli']).value or '').strip()
+            year_val = ws.cell(row=row_num, column=cols['oquv_yili']).value
+            period_start_raw = ws.cell(row=row_num, column=cols['period_start']).value
+            period_end_raw = ws.cell(row=row_num, column=cols['period_end']).value
+            kontrakt_val = ws.cell(row=row_num, column=cols['kontrakt']).value
+
+            if not fac_val and not code_val and not name_val:
+                continue
+
+            if not fac_val:
+                errors.append(f"Qator {row_num}: Fakultet majburiy")
+                continue
+            if not code_val:
+                errors.append(f"Qator {row_num}: Yo'nalish kodi majburiy")
+                continue
+            if not code_val.isdigit():
+                errors.append(f"Qator {row_num}: Yo'nalish kodi faqat raqamlardan iborat bo'lishi kerak")
+                continue
+            if not name_val:
+                errors.append(f"Qator {row_num}: Yo'nalish nomi majburiy")
+                continue
+            if not et_val or et_val.lower() in ('', '—', '-', 'none'):
+                errors.append(f"Qator {row_num}: Ta'lim shakli majburiy")
+                continue
+            if kontrakt_val is None or (isinstance(kontrakt_val, str) and not str(kontrakt_val).strip()):
+                errors.append(f"Qator {row_num}: Kontrakt miqdori majburiy")
+                continue
+
+            faculty = Faculty.query.filter(func.upper(Faculty.name) == fac_val.upper()).first()
+            if not faculty:
+                errors.append(f"Qator {row_num}: Fakultet topilmadi - {fac_val}")
+                continue
+
+            direction = Direction.query.filter(Direction.code == code_val, Direction.faculty_id == faculty.id).first()
+            if not direction:
+                direction = Direction.query.filter(func.upper(Direction.name) == name_val.upper(), Direction.faculty_id == faculty.id).first()
+            if not direction:
+                errors.append(f"Qator {row_num}: Yo'nalish topilmadi - {code_val}")
+                continue
+            if faculty_restrict and direction.faculty_id != faculty_restrict:
+                continue
+
+            try:
+                year_str = str(year_val or '').strip()
+                if '-' in year_str:
+                    year_int = int(year_str.split('-')[0].strip())
+                else:
+                    year_int = int(year_str) if year_str else None
+            except (TypeError, ValueError):
+                year_int = None
+            if year_int is None:
+                errors.append(f"Qator {row_num}: O'quv yili majburiy, 2025-2026 ko'rinishida")
+                continue
+
+            et_clean = _normalize_education_type(et_val)
+            if et_clean not in ('kunduzgi', 'sirtqi', 'kechki', 'masofaviy'):
+                errors.append(f"Qator {row_num}: Noto'g'ri ta'lim shakli - {et_val}")
+                continue
+
+            try:
+                amount = float(kontrakt_val)
+            except (TypeError, ValueError):
+                errors.append(f"Qator {row_num}: Kontrakt miqdori raqam bo'lishi kerak")
+                continue
+            if amount < 0:
+                errors.append(f"Qator {row_num}: Kontrakt manfiy bo'lmasligi kerak")
+                continue
+
+            period_start = _parse_date(period_start_raw)
+            period_end = _parse_date(period_end_raw)
+            if not period_start or not period_end:
+                errors.append(f"Qator {row_num}: Boshlanish va Tugash sanalarini kiriting (DD.MM.YYYY)")
+                continue
+            if period_start >= period_end:
+                errors.append(f"Qator {row_num}: Tugash sanasi boshlanish sanasidan keyin bo'lishi kerak")
+                continue
+
+            rec = DirectionContractAmount(
+                direction_id=direction.id, enrollment_year=year_int,
+                education_type=et_clean, contract_amount=amount,
+                period_start=period_start, period_end=period_end
+            )
+            db.session.add(rec)
+            imported += 1
+        except Exception as e:
+            errors.append(f"Qator {row_num}: {str(e)}")
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'imported': 0, 'errors': [str(e)]}
+    return {'success': True, 'imported': imported, 'errors': errors}
+
+
 def import_students_from_excel(file, faculty_id=None):
     """Excel fayldan talabalarni import qilish (yangi tartib)
     
@@ -305,14 +623,16 @@ def import_students_from_excel(file, faculty_id=None):
         updated = 0
         errors = []
         
-        # Sarlavha qatorini topish (dinamik ravishda)
+        # Sarlavha qatorini topish (uz/ru/en ustun nomlari qabul qilinadi)
+        header_map = _student_import_header_map()
         header_row = None
-        for row_num in range(1, min(20, ws.max_row + 1)):
+        for row_num in range(1, min(50, ws.max_row + 1)):
             first_cell = ws.cell(row=row_num, column=1).value
-            if first_cell and ("Talaba ID" in str(first_cell) or "To'liq ism" in str(first_cell)):
-                header_row = row_num
-                break
-        
+            if first_cell:
+                first_str = str(first_cell).strip()
+                if first_str in header_map or "Talaba ID" in first_str or "Student ID" in first_str or "ID студента" in first_str or "To'liq ism" in first_str or "Full name" in first_str or "Полное имя" in first_str:
+                    header_row = row_num
+                    break
         if not header_row:
             return {
                 'success': False,
@@ -320,22 +640,22 @@ def import_students_from_excel(file, faculty_id=None):
                 'updated': 0,
                 'errors': ["Sarlavha qatori topilmadi. Iltimos, fayl formati to'g'ri ekanligini tekshiring."]
             }
-        
-        headers = []
+        raw_headers = []
         for col in range(1, ws.max_column + 1):
             cell_value = ws.cell(row=header_row, column=col).value
             if cell_value:
-                headers.append(str(cell_value).strip())
-        
-        # Ma'lumotlarni o'qish
+                raw_headers.append(str(cell_value).strip())
+        headers_canonical = [header_map.get(h, h) for h in raw_headers]
+
         for row_num in range(header_row + 1, ws.max_row + 1):
             try:
                 row_data = {}
-                for col_num, header in enumerate(headers, 1):
-                    cell_value = ws.cell(row=row_num, column=col_num).value
-                    row_data[header] = str(cell_value).strip() if cell_value else ''
+                for col_num in range(len(raw_headers)):
+                    cell_value = ws.cell(row=row_num, column=col_num + 1).value
+                    val = str(cell_value).strip() if cell_value else ''
+                    canon = headers_canonical[col_num]
+                    row_data[canon] = val
                 
-                # Bo'sh qatorlarni o'tkazib yuborish
                 if not row_data.get("To'liq ism") and not row_data.get('Email'):
                     continue
                 
@@ -700,14 +1020,15 @@ def import_staff_from_excel(file):
         updated = 0
         errors = []
         
-        # Sarlavha qatorini topish (dinamik ravishda)
+        staff_header_map = _staff_import_header_map()
         header_row = None
-        for row_num in range(1, min(20, ws.max_row + 1)):  # Birinchi 20 qatorni tekshirish
+        for row_num in range(1, min(25, ws.max_row + 1)):
             first_cell = ws.cell(row=row_num, column=1).value
-            if first_cell and ("To'liq ism" in str(first_cell) or "To'liq ismi" in str(first_cell)):
-                header_row = row_num
-                break
-        
+            if first_cell:
+                first_str = str(first_cell).strip()
+                if first_str in staff_header_map or "To'liq ism" in first_str or "Full name" in first_str or "Полное имя" in first_str or "Login" in first_str or "Логин" in first_str:
+                    header_row = row_num
+                    break
         if not header_row:
             return {
                 'success': False,
@@ -715,22 +1036,22 @@ def import_staff_from_excel(file):
                 'updated': 0,
                 'errors': ["Sarlavha qatori topilmadi. Iltimos, fayl formati to'g'ri ekanligini tekshiring."]
             }
-        
-        headers = []
+        raw_headers = []
         for col in range(1, ws.max_column + 1):
             cell_value = ws.cell(row=header_row, column=col).value
             if cell_value:
-                headers.append(str(cell_value).strip())
-        
-        # Ma'lumotlarni o'qish
+                raw_headers.append(str(cell_value).strip())
+        headers_canonical = [staff_header_map.get(h, h) for h in raw_headers]
+
         for row_num in range(header_row + 1, ws.max_row + 1):
             try:
                 row_data = {}
-                for col_num, header in enumerate(headers, 1):
-                    cell_value = ws.cell(row=row_num, column=col_num).value
-                    row_data[header] = str(cell_value).strip() if cell_value else ''
+                for col_num in range(len(raw_headers)):
+                    cell_value = ws.cell(row=row_num, column=col_num + 1).value
+                    val = str(cell_value).strip() if cell_value else ''
+                    canon = headers_canonical[col_num]
+                    row_data[canon] = val
                 
-                # Bo'sh qatorlarni o'tkazib yuborish
                 if not row_data.get("To'liq ism") and not row_data.get('Email'):
                     continue
                 
@@ -988,8 +1309,8 @@ def import_all_users_from_excel(file):
     return import_staff_from_excel(file)
 
 
-def generate_subjects_sample_file():
-    """Fanlarni import qilish uchun namuna Excel fayl"""
+def generate_subjects_sample_file(lang='uz'):
+    """Fanlarni import qilish uchun namuna Excel fayl (tanlangan til: uz/ru/en)."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -999,20 +1320,18 @@ def generate_subjects_sample_file():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Fanlar import"
+    ws.title = "Fanlar import" if lang == 'uz' else ("Предметы" if lang == 'ru' else "Subjects")
 
-    # Sarlavha
     ws.merge_cells('A1:C1')
     title_cell = ws['A1']
-    title_cell.value = "Fanlar import uchun namuna fayl"
+    title_cell.value = get_translation('sample_subjects_title', lang)
     title_cell.font = Font(size=14, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
 
-    # Jadval sarlavhalari
     headers = [
-        "Fan nomi",      # A
-        "Tavsif"         # B
+        get_translation('subject_name', lang),
+        get_translation('description', lang)
     ]
 
     header_row = 3
@@ -1324,8 +1643,8 @@ def import_curriculum_from_excel(file, direction_id, enrollment_year=None, educa
         }
 
 
-def generate_curriculum_sample_file():
-    """O'quv rejani import qilish uchun namuna Excel fayl"""
+def generate_curriculum_sample_file(lang='uz'):
+    """O'quv rejani import qilish uchun namuna Excel fayl (tanlangan til: sarlavha va fayl nomi)."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -1335,12 +1654,11 @@ def generate_curriculum_sample_file():
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "O'quv reja"
+    ws.title = "O'quv reja" if lang == 'uz' else ("Учебный план" if lang == 'ru' else "Curriculum")
 
-    # Sarlavha
     ws.merge_cells('A1:I1')
     title_cell = ws['A1']
-    title_cell.value = "O'quv reja import uchun namuna fayl"
+    title_cell.value = get_translation('sample_curriculum_title', lang)
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
@@ -1447,8 +1765,8 @@ def generate_curriculum_sample_file():
 
 # Jadvalni import qilish uchun namuna Excel fayl
 # Jadvalni import qilish uchun namuna Excel fayl
-def generate_schedule_sample_file():
-    """Jadvalni import qilish uchun namuna Excel fayl (Student import kabi)"""
+def generate_schedule_sample_file(lang='uz'):
+    """Jadvalni import qilish uchun namuna Excel fayl (tanlangan til: sarlavha)."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -1476,10 +1794,9 @@ def generate_schedule_sample_file():
     num_cols = len(headers)
     last_col_letter = get_column_letter(num_cols)
 
-    # 1. Sarlavha (Title)
     ws.merge_cells(f'A1:{last_col_letter}1')
     title_cell = ws['A1']
-    title_cell.value = "Dars Jadvallarini Import uchun namuna fayl"
+    title_cell.value = get_translation('sample_schedule_title', lang)
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")

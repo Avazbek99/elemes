@@ -1113,11 +1113,15 @@ def faculty_detail(id):
         direction_key = (group.direction_id, group.education_type)
         
         if direction_key not in courses_dict[main_key]['directions']:
-            # Sarlavha shakllantirish
+            # Sarlavha shakllantirish (ta'lim shakli tanlangan tilda)
             if group.direction:
                 code = group.direction.code
                 name = group.direction.name
-                edu_type_str = group.education_type.capitalize() if group.education_type else ""
+                et = (group.education_type or "").strip().lower()
+                if et in ('kunduzgi', 'sirtqi', 'kechki', 'masofaviy'):
+                    edu_type_str = t('education_type_' + et)
+                else:
+                    edu_type_str = t('education_type_not_set')
                 enrollment_year_str = str(group.enrollment_year) if group.enrollment_year else "____"
                 heading = f"{enrollment_year_str} - {code} - {name} ({edu_type_str})"
             else:
@@ -1245,9 +1249,13 @@ def faculty_detail(id):
         if direction:
             combination_key = f"{d_id}_{year}_{e_type}"
             if combination_key not in used_combinations:
-                # Har bir yo'nalish-guruh kombinatsiyasi uchun formatted_direction yaratish
+                # Har bir yo'nalish-guruh kombinatsiyasi uchun formatted_direction (ta'lim shakli tilda)
                 year_str = str(year) if year else "____"
-                edu_type_str = e_type.capitalize() if e_type else ""
+                et = (e_type or "").strip().lower()
+                if et in ('kunduzgi', 'sirtqi', 'kechki', 'masofaviy'):
+                    edu_type_str = t('education_type_' + et)
+                else:
+                    edu_type_str = t('education_type_not_set') if e_type else ""
                 formatted = f"{year_str} - {direction.code} - {direction.name}"
                 if edu_type_str:
                     formatted += f" ({edu_type_str})"
@@ -1529,14 +1537,12 @@ def import_curriculum(id, year=None, education_type=None):
 @login_required
 @admin_required
 def download_curriculum_sample(id):
-    """O'quv reja import uchun namuna fayl yuklab olish"""
+    """O'quv reja import uchun namuna fayl yuklab olish (tanlangan til bo'yicha)"""
     from app.utils.excel_import import generate_curriculum_sample_file
-    
     direction = Direction.query.get_or_404(id)
-    
-    excel_file = generate_curriculum_sample_file()
-    
-    filename = f"oquv_reja_import_namuna_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    lang = session.get('language', 'uz')
+    excel_file = generate_curriculum_sample_file(lang=lang)
+    filename = t('sample_filename_curriculum') + f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     return send_file(
         excel_file,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -2038,12 +2044,14 @@ def subjects():
 @admin_required
 def download_schedule_sample():
     try:
-        output = generate_schedule_sample_file()
+        lang = session.get('language', 'uz')
+        output = generate_schedule_sample_file(lang=lang)
+        download_name = t('sample_filename_schedule') + ".xlsx"
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name='dars_jadvali_namuna.xlsx'
+            download_name=download_name
         )
     except Exception as e:
         flash(t('template_file_creation_error', error=str(e)), 'danger')
@@ -2094,11 +2102,13 @@ def import_schedule():
 @admin_required
 def download_sample_import():
     try:
-        file_stream = generate_sample_file()
+        lang = session.get('language', 'uz')
+        file_stream = generate_sample_file(lang=lang)
+        download_name = t('sample_filename_students') + '.xlsx'
         return send_file(
             file_stream,
             as_attachment=True,
-            download_name='talabalar_import_namuna.xlsx',
+            download_name=download_name,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
     except Exception as e:
@@ -2628,13 +2638,12 @@ def import_all_users():
 @login_required
 @admin_required
 def download_staff_sample_import():
-    """Xodimlar import uchun namuna Excel faylini yuklab olish"""
+    """Xodimlar import uchun namuna Excel faylini yuklab olish (tanlangan til bo'yicha)"""
     try:
         from app.utils.excel_import import generate_staff_sample_file
-        
-        excel_file = generate_staff_sample_file()
-        filename = f"xodimlar_import_namuna_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        
+        lang = session.get('language', 'uz')
+        excel_file = generate_staff_sample_file(lang=lang)
+        filename = t('sample_filename_staff') + f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         return Response(
             excel_file,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -3090,7 +3099,7 @@ def create_direction():
     
     if request.method == 'POST':
         name = request.form.get('name')
-        code = request.form.get('code', '').upper()
+        code = request.form.get('code', '').strip()
         description = request.form.get('description')
         faculty_id = request.form.get('faculty_id', type=int)
         # Validatsiya
@@ -3099,7 +3108,11 @@ def create_direction():
             return render_template('admin/create_direction.html', 
                                  faculties=Faculty.query.all(),
                                  faculty_id=faculty_id)
-        
+        if not code.isdigit():
+            flash(t('direction_code_digits_only'), 'error')
+            return render_template('admin/create_direction.html',
+                                 faculties=Faculty.query.all(),
+                                 faculty_id=faculty_id)
         if not faculty_id:
             flash(t('faculty_required'), 'error')
             return render_template('admin/create_direction.html', 
@@ -3487,15 +3500,18 @@ def curriculum_subjects():
         direction = item.direction
         subject = item.subject
         
+        # Curriculum itemda enrollment_year va education_type bo'lishi shart
+        # Aks holda bu eski/noto'g'ri yozuv
+        if not item.enrollment_year or not item.education_type:
+            continue
+        
         # Bu yo'nalish, semestr, yil, ta'lim shakli bo'yicha guruhlarni topish
         group_filters = {
             'direction_id': direction.id,
             'semester': item.semester,
+            'enrollment_year': item.enrollment_year,
+            'education_type': item.education_type,
         }
-        if item.enrollment_year:
-            group_filters['enrollment_year'] = item.enrollment_year
-        if item.education_type:
-            group_filters['education_type'] = item.education_type
         
         # Guruh filtri
         if group_filter:
@@ -4508,8 +4524,11 @@ def schedule():
     today_month = today.month
     today_day = today.day
     
-    start_code = int(f"{year}{month:02d}01")
-    end_code = int(f"{year}{month:02d}{days_in_month:02d}")
+    # Kalendarda ko'rinadigan barcha kunlarni qamrab olish (oldingi va keyingi oy kunlari ham)
+    first_calendar_date = calendar_weeks[0][0]  # Birinchi hafta, birinchi kun
+    last_calendar_date = calendar_weeks[-1][-1]  # Oxirgi hafta, oxirgi kun
+    start_code = int(first_calendar_date.strftime("%Y%m%d"))
+    end_code = int(last_calendar_date.strftime("%Y%m%d"))
     
     # Advanced Filters
     faculty_id = request.args.get('faculty_id', type=int)
@@ -4611,18 +4630,27 @@ def schedule():
         
     schedules = query.order_by(Schedule.day_of_week, Schedule.start_time).all()
     
-    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
+    # Sana bo'yicha guruhlash (YYYY-MM-DD formatida)
+    schedule_by_date = {}
     for s in schedules:
         try:
             code_str = str(s.day_of_week)
-            day = int(code_str[-2:])
-        except (TypeError, ValueError):
+            # YYYYMMDD dan YYYY-MM-DD ga o'tkazish
+            date_key = f"{code_str[:4]}-{code_str[4:6]}-{code_str[6:8]}"
+            if date_key not in schedule_by_date:
+                schedule_by_date[date_key] = []
+            schedule_by_date[date_key].append(s)
+        except (TypeError, ValueError, IndexError):
             continue
-        if 1 <= day <= days_in_month:
-            schedule_by_day[day].append(s)
     
-    for day in schedule_by_day:
-        schedule_by_day[day].sort(key=lambda x: x.start_time or '')
+    for date_key in schedule_by_date:
+        schedule_by_date[date_key].sort(key=lambda x: x.start_time or '')
+    
+    # Eski format uchun moslik (faqat joriy oy kunlari)
+    schedule_by_day = {i: [] for i in range(1, days_in_month + 1)}
+    for i in range(1, days_in_month + 1):
+        date_key = f"{year}-{month:02d}-{i:02d}"
+        schedule_by_day[i] = schedule_by_date.get(date_key, [])
     
     return render_template('admin/schedule.html', 
                          faculties=faculties,
@@ -4642,6 +4670,7 @@ def schedule():
                          current_group_id=group_id,
                          current_teacher_id=teacher_id,
                          schedule_by_day=schedule_by_day,
+                         schedule_by_date=schedule_by_date,
                          days_in_month=days_in_month,
                          calendar_weeks=calendar_weeks,
                          year=year,
@@ -4760,13 +4789,19 @@ def create_schedule():
         # Dars turlarini yig'ish
         types_map = {
             'maruza': 'Ma\'ruza',
+            'ma\'ruza': 'Ma\'ruza',
             'lecture': 'Ma\'ruza',
             'amaliyot': 'Amaliyot',
             'practice': 'Amaliyot',
+            'laboratoriya': 'Laboratoriya',
             'lab': 'Laboratoriya',
-            'seminar': 'Seminar'
+            'seminar': 'Seminar',
+            'kurs ishi': 'Kurs ishi',
+            'kurs_ishi': 'Kurs ishi',
+            'mustaqil ta\'lim': 'Mustaqil ta\'lim',
+            'mustaqil talim': 'Mustaqil ta\'lim',
         }
-        found_types = sorted(list(set([types_map.get(a.lesson_type, a.lesson_type.capitalize()) for a in assignments if a.lesson_type])))
+        found_types = sorted(list(set([types_map.get(a.lesson_type.lower() if a.lesson_type else '', a.lesson_type.capitalize() if a.lesson_type else '') for a in assignments if a.lesson_type])))
         lesson_type_display = "/".join(found_types) if found_types else 'Ma\'ruza'
         
         # Takrorlanishni tekshirish
@@ -4929,13 +4964,19 @@ def edit_schedule(id):
         
         types_map = {
             'maruza': 'Ma\'ruza',
+            'ma\'ruza': 'Ma\'ruza',
             'lecture': 'Ma\'ruza',
             'amaliyot': 'Amaliyot',
             'practice': 'Amaliyot',
+            'laboratoriya': 'Laboratoriya',
             'lab': 'Laboratoriya',
-            'seminar': 'Seminar'
+            'seminar': 'Seminar',
+            'kurs ishi': 'Kurs ishi',
+            'kurs_ishi': 'Kurs ishi',
+            'mustaqil ta\'lim': 'Mustaqil ta\'lim',
+            'mustaqil talim': 'Mustaqil ta\'lim',
         }
-        found_types = sorted(list(set([types_map.get(a.lesson_type, str(a.lesson_type).capitalize()) for a in assignments if a.lesson_type])))
+        found_types = sorted(list(set([types_map.get(a.lesson_type.lower() if a.lesson_type else '', a.lesson_type.capitalize() if a.lesson_type else '') for a in assignments if a.lesson_type])))
         schedule.lesson_type = "/".join(found_types)[:20] if found_types else 'Ma\'ruza'
 
         
@@ -4977,11 +5018,22 @@ def delete_schedule(id):
     """Admin uchun dars jadvalini o'chirish"""
     schedule = Schedule.query.get_or_404(id)
     
+    # O'chirishdan oldin yil va oyni saqlab qo'yamiz
+    # day_of_week maydonida sana YYYYMMDD formatida saqlanadi
+    if schedule.day_of_week and schedule.day_of_week > 7:
+        date_str = str(schedule.day_of_week)
+        schedule_year = int(date_str[:4])
+        schedule_month = int(date_str[4:6])
+    else:
+        from datetime import datetime
+        schedule_year = datetime.now().year
+        schedule_month = datetime.now().month
+    
     db.session.delete(schedule)
     db.session.commit()
     flash(t('schedule_deleted'), 'success')
     
-    return redirect(url_for('admin.schedule'))
+    return redirect(url_for('admin.schedule', year=schedule_year, month=schedule_month))
 
 
 # ==================== API ENDPOINTS ====================

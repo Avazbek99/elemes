@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}Buxgalteriya{% endblock %}
+{% block extra_head %}
+<!-- Tom Select CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>
+    .ts-wrapper { width: 100% !important; }
+    .ts-control { border-radius: 0.5rem !important; padding: 0.5rem 0.75rem !important; border: 1px solid #d1d5db !important; font-size: 0.875rem !important; box-shadow: none !important; }
+    .ts-control:focus-within { border-color: #0ea5e9 !important; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important; }
+    .ts-dropdown { border-radius: 0.75rem !important; margin-top: 4px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important; }
+    .ts-dropdown .active { background-color: #f0f9ff !important; color: #0369a1 !important; }
+    .ts-dropdown .option { padding: 8px 12px !important; font-size: 0.875rem !important; }
+</style>
+{% endblock %}
+
+{% block title %}{{ t('accounting') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -9,16 +22,16 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900">
                 {% if current_user.role == 'dean' %}
-                Fakultet moliyaviy nazorati 💰
+                {{ t('accounting_dean_title') }}
                 {% else %}
-                Buxgalteriya boshqaruvi 💳
+                {{ t('accounting_page_title') }}
                 {% endif %}
             </h1>
             <p class="text-gray-500 mt-1">
                 {% if current_user.role == 'dean' %}
-                {{ faculty.name }} - Kontraktlar monitoringi
+                {{ faculty.name }} - {{ t('accounting_dean_subtitle') }}
                 {% else %}
-                Tizim bo'yicha to'lovlar tahlili
+                {{ t('accounting_page_subtitle') }}
                 {% endif %}
             </p>
         </div>
@@ -31,242 +44,120 @@
                 </svg>
                 {{ now_dt.strftime('%d.%m.%Y') if now_dt else '' }}
             </div>
-            {% if current_user.role == 'accounting' %}
-            <a href="{{ url_for('accounting.import_payments') }}"
-                class="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 font-bold text-sm rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:text-purple-600 transition-all group">
-                <div
-                    class="p-1.5 bg-purple-50 rounded-lg group-hover:bg-purple-600 group-hover:text-white transition-all">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                </div>
-                Excel Import
-            </a>
-            {% endif %}
-            {% if current_user.role in ['accounting', 'dean'] %}
+            {% if current_user.role in ['admin', 'accounting', 'dean'] %}
             <a href="{{ url_for('accounting.export_contracts', course=request.args.get('course'), group=current_group, faculty=current_faculty) }}"
-                class="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-primary-200 hover:bg-primary-700 transform hover:scale-[1.02] transition-all">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Export Excel
+                {{ t('export') }}
+            </a>
+            <a href="{{ url_for('accounting.import_payments') }}"
+                class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {{ t('import') }}
             </a>
             {% endif %}
         </div>
     </div>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Total Contract -->
-        <div
-            class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-3xl p-6 text-white shadow-lg border border-indigo-400/20 transform hover:scale-[1.02] transition-all duration-300">
-            <div class="flex items-center justify-between mb-4">
-                <div class="p-3 bg-white/20 rounded-2xl">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                </div>
-                <span
-                    class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Kontrakt</span>
-            </div>
-            <div>
-                <p class="text-3xl font-bold">{{ "{:,.0f}".format(total_contract).replace(',', ' ') }}</p>
-                <p class="text-indigo-100 text-xs mt-1 font-medium">Jami shartnoma summasi (so'm)</p>
-            </div>
-        </div>
-
-        <!-- Total Paid -->
-        <div
-            class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl p-6 text-white shadow-lg border border-emerald-400/20 transform hover:scale-[1.02] transition-all duration-300">
-            <div class="flex items-center justify-between mb-4">
-                <div class="p-3 bg-white/20 rounded-2xl">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <span
-                    class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">To'langan</span>
-            </div>
-            <div>
-                <p class="text-3xl font-bold">{{ "{:,.0f}".format(total_paid).replace(',', ' ') }}</p>
-                <div class="flex items-center gap-2 mt-1">
-                    <div class="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
-                        <div class="h-full bg-white rounded-full"
-                            style="width: {{ (total_paid / total_contract * 100) if total_contract > 0 else 0 }}%">
-                        </div>
-                    </div>
-                    <span class="text-[10px] font-bold">{{ "{:.1f}".format((total_paid / total_contract * 100) if
-                        total_contract > 0 else 0) }}%</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Remaining -->
-        <div
-            class="bg-gradient-to-br from-rose-500 to-rose-600 rounded-3xl p-6 text-white shadow-lg border border-rose-400/20 transform hover:scale-[1.02] transition-all duration-300">
-            <div class="flex items-center justify-between mb-4">
-                <div class="p-3 bg-white/20 rounded-2xl">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <span
-                    class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Qarz</span>
-            </div>
-            <div>
-                <p class="text-3xl font-bold">{{ "{:,.0f}".format(total_contract - total_paid).replace(',', ' ') }}</p>
-                <p class="text-rose-100 text-xs mt-1 font-medium">Qolgan umumiy to'lov (so'm)</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Kurs bo'yicha to'lov statistikasi -->
-    {% if payment_stats_by_course %}
-    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-            <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <span class="w-2 h-6 bg-primary-500 rounded-full"></span>
-                Kurslar bo'yicha tahlil
-            </h2>
-            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">To'lov holati</span>
-        </div>
-
-        <div class="p-6">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {% for course_year, stats in payment_stats_by_course.items() %}
-                <div class="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all">
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-10 h-10 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 font-bold">
-                                {{ course_year }}
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-gray-900">{{ course_year }}-kurs talabalari</h3>
-                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Jami: {{
-                                    stats['total'] }} ta</p>
-                            </div>
-                        </div>
-                        <div class="flex -space-x-2">
-                            {% set total_paid_count = stats['100%'] + stats['75%'] + stats['50%'] %}
-                            <div class="w-8 h-8 rounded-full bg-emerald-100 border-2 border-white flex items-center justify-center text-emerald-600 text-[10px] font-bold"
-                                title="Yaxshi to'laganlar">
-                                {{ stats['100%'] }}
-                            </div>
-                            <div class="w-8 h-8 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center text-amber-600 text-[10px] font-bold"
-                                title="O'rta">
-                                {{ stats['50%'] + stats['75%'] }}
-                            </div>
-                            <div class="w-8 h-8 rounded-full bg-rose-100 border-2 border-white flex items-center justify-center text-rose-600 text-[10px] font-bold"
-                                title="Qarzlar">
-                                {{ stats['0%'] + stats['25%'] }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex h-3 rounded-full overflow-hidden bg-gray-100 mb-4 shadow-inner">
-                        <div class="h-full bg-emerald-500"
-                            style="width: {{ (stats['100%'] / stats['total'] * 100) if stats['total'] > 0 else 0 }}%"
-                            title="100%"></div>
-                        <div class="h-full bg-blue-500"
-                            style="width: {{ (stats['75%'] / stats['total'] * 100) if stats['total'] > 0 else 0 }}%"
-                            title="75%"></div>
-                        <div class="h-full bg-amber-400"
-                            style="width: {{ (stats['50%'] / stats['total'] * 100) if stats['total'] > 0 else 0 }}%"
-                            title="50%"></div>
-                        <div class="h-full bg-orange-400"
-                            style="width: {{ (stats['25%'] / stats['total'] * 100) if stats['total'] > 0 else 0 }}%"
-                            title="25%"></div>
-                        <div class="h-full bg-rose-500"
-                            style="width: {{ (stats['0%'] / stats['total'] * 100) if stats['total'] > 0 else 0 }}%"
-                            title="0%"></div>
-                    </div>
-
-                    <div class="grid grid-cols-5 gap-1">
-                        <div class="text-center">
-                            <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">100%</p>
-                            <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{{
-                                stats['100%'] }}</span>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">75%</p>
-                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{{
-                                stats['75%'] }}</span>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">50%</p>
-                            <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{{
-                                stats['50%'] }}</span>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">25%</p>
-                            <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">{{
-                                stats['25%'] }}</span>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">0%</p>
-                            <span class="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">{{
-                                stats['0%'] }}</span>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
 
     <!-- Filters & Table Section -->
     <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="p-6 border-b border-gray-50 bg-gray-50/30">
-            <form method="GET" class="flex flex-col md:flex-row gap-4">
-                <div class="flex-1 min-w-[200px] relative search-input-wrap">
-                    <input type="text" name="search" id="searchInput" value="{{ search }}"
-                        placeholder="Talaba ID yoki ism bo'yicha qidirish..."
-                        class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                    <button type="button" class="search-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
-                </div>
-
-                <div class="flex flex-wrap md:flex-nowrap gap-3">
-                    {% if current_user.role == 'accounting' and faculties %}
-                    <div class="relative filter-select-wrap md:w-48">
-                        <select name="faculty" id="faculty"
-                            class="block w-full px-3 py-2 pr-8 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm transition-all">
-                            <option value="">Barcha fakultetlar</option>
-                            {% for f in faculties %}
-                            <option value="{{ f.id }}" {% if current_faculty==f.id %}selected{% endif %}>{{ f.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+            <form method="GET" id="filterForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    {% if faculties %}
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('faculty') }}</label>
+                        <div class="filter-select-wrap relative">
+                            <select name="faculty" id="faculty" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                                <option value="">{{ t('all_faculties') }}</option>
+                                {% for f in faculties %}
+                                <option value="{{ f.id }}" {% if current_faculty==f.id %}selected{% endif %}>{{ f.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                        </div>
                     </div>
                     {% endif %}
-
-                    <div class="relative filter-select-wrap md:w-48">
-                        <select name="group" id="group"
-                            class="block w-full px-3 py-2 pr-8 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm transition-all">
-                            <option value="">Barcha guruhlar</option>
-                            {% for g in groups %}
-                            <option value="{{ g.id }}" {% if current_group==g.id %}selected{% endif %}>{{ g.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="button" class="filter-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('course') }}</label>
+                        <div class="filter-select-wrap relative">
+                            <select name="course" id="course" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                                <option value="">{{ t('all_courses') }}</option>
+                                {% for c in courses or [] %}
+                                <option value="{{ c }}" {% if current_course==c %}selected{% endif %}>{{ c }}{{ t('course_suffix') }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                        </div>
                     </div>
-
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('semester') }}</label>
+                        <div class="filter-select-wrap relative">
+                            <select name="semester" id="semester" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                                <option value="">{{ t('all_semesters') }}</option>
+                                {% for s in semesters or [] %}
+                                <option value="{{ s }}" {% if current_semester==s %}selected{% endif %}>{{ s }}{{ t('semester_suffix') }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('education_type') }}</label>
+                        <div class="filter-select-wrap relative">
+                            <select name="education_type" id="education_type" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                                <option value="">{{ t('all_types') }}</option>
+                                {% for et in education_types or [] %}
+                                <option value="{{ et }}" {% if current_education_type==et %}selected{% endif %}>{{ et|education_type_label if et else et }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
+                        <div class="filter-select-wrap relative">
+                            <select name="direction" id="direction" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                                <option value="">{{ t('all_directions') }}</option>
+                                {% for d in directions or [] %}
+                                <option value="{{ d.id }}" {% if current_direction==d.id %}selected{% endif %}>{{ d.code }} - {{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('group') }}</label>
+                        <div class="filter-select-wrap relative">
+                            <select name="group" id="group" class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                                <option value="">{{ t('all_groups') }}</option>
+                                {% for g in groups or [] %}
+                                <option value="{{ g.id }}" {% if current_group==g.id %}selected{% endif %}>{{ g.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[200px] relative search-input-wrap">
+                        <input type="text" name="search" id="searchInput" value="{{ search or '' }}"
+                            placeholder="{{ t('search_student_fields') }}"
+                            class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
                     <button type="submit"
                         class="inline-flex items-center px-6 py-2.5 border border-transparent text-sm font-bold rounded-2xl shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all">
-                        Filtrlash
+                        {{ t('search') }}
                     </button>
-
-                    {% if search or current_group or current_faculty %}
+                    {% if search or current_group or current_faculty or current_course or current_semester or current_education_type or current_direction %}
                     <a href="{{ url_for('accounting.index') }}"
                         class="inline-flex items-center px-4 py-2.5 border border-gray-200 text-sm font-bold rounded-2xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-all">
-                        Tozalash
+                        {{ t('clear_filters') }}
                     </a>
                     {% endif %}
                 </div>
@@ -274,79 +165,93 @@
         </div>
 
         <div class="overflow-x-auto">
-            {% if payments.items %}
+            {% if students and students.items %}
             <table class="w-full">
                 <thead class="bg-gray-50/50">
                     <tr>
                         <th class="px-6 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            Talaba va Guruh</th>
+                            {{ t('student_and_group') }}</th>
                         <th class="px-6 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            Kontrakt</th>
+                            {{ t('contract_col') }}</th>
                         <th class="px-6 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            To'langan</th>
+                            {{ t('paid_col') }}</th>
                         <th class="px-6 py-4 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            Qoldiq</th>
+                            {{ t('balance_col') }}</th>
                         <th class="px-6 py-4 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            Progress</th>
+                            {{ t('progress_col') }}</th>
                         <th class="px-6 py-4 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            Amallar</th>
+                            {{ t('actions') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    {% for payment in payments.items %}
+                    {% for student in students.items %}
+                    {% set pm = payment_map.get(student.id) %}
                     <tr class="hover:bg-gray-50/80 transition-all group">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-4">
                                 <div
                                     class="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-primary-200">
-                                    {{ payment.student.full_name[0] }}
+                                    {{ student.full_name[0] if student.full_name else '-' }}
                                 </div>
                                 <div>
-                                    <a href="{{ url_for('accounting.student_payments', student_id=payment.student.id) }}"
+                                    <a href="{{ url_for('accounting.student_payments', student_id=student.id) }}"
                                         class="font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
-                                        {{ payment.student.full_name }}
+                                        {{ student.full_name }}
                                     </a>
                                     <div class="flex items-center gap-2 mt-1">
-                                        <span class="text-[10px] font-bold text-gray-400 uppercase">{{
-                                            payment.student.student_id or 'ID YO\'Q' }}</span>
+                                        <span class="text-[10px] font-bold text-gray-400 uppercase">{{ student.student_id or t('no_id') }}</span>
                                         <span class="text-gray-300">•</span>
-                                        <span
-                                            class="text-[10px] font-bold text-primary-500 bg-primary-50 px-2 py-0.5 rounded-full">{{
-                                            payment.student.group.name if payment.student.group else 'GURUHSiz'
-                                            }}</span>
+                                        <span class="text-[10px] font-bold text-primary-500 bg-primary-50 px-2 py-0.5 rounded-full">{{ student.group.name if student.group else t('no_group') }}</span>
                                     </div>
                                 </div>
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="font-bold text-sm text-gray-900">{{
-                                "{:,.0f}".format(payment.contract_amount).replace(',', ' ') }}</span>
+                            {% if pm %}
+                            <span class="font-bold text-sm text-gray-900">{{ "{:,.0f}".format(pm.contract).replace(',', ' ') }}</span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4">
-                            <span class="font-bold text-sm text-emerald-600">{{
-                                "{:,.0f}".format(payment.paid_amount).replace(',', ' ') }}</span>
+                            {% if pm %}
+                            {% set paid_display = [pm.paid, pm.contract]|min %}
+                            <span class="font-bold text-sm text-emerald-600">{{ "{:,.0f}".format(paid_display).replace(',', ' ') }}</span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4">
-                            <span class="font-bold text-sm text-rose-500">{{
-                                "{:,.0f}".format(payment.get_remaining_amount()).replace(',', ' ') }}</span>
+                            {% if pm %}
+                            {% set remaining_display = [pm.remaining, 0]|max %}
+                            <span class="font-bold text-sm text-rose-500">{{ "{:,.0f}".format(remaining_display).replace(',', ' ') }}</span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4">
-                            {% set pct = payment.get_payment_percentage() %}
+                            {% if pm %}
+                            {% set pct = [pm.percentage|round|int, 100]|min %}
+                            {% set overpayment = pm.overpayment|default(0) %}
                             <div class="flex flex-col items-center gap-1.5">
-                                <span
-                                    class="text-[10px] font-bold {% if pct == 100 %}text-emerald-600{% elif pct >= 50 %}text-amber-600{% else %}text-rose-500{% endif %}">{{
-                                    pct }}%</span>
+                                <span class="text-[10px] font-bold {% if pct == 100 %}text-emerald-600{% elif pct >= 50 %}text-amber-600{% else %}text-rose-500{% endif %}">{{ pct }}%</span>
                                 <div class="w-24 bg-gray-100 rounded-full h-1.5 shadow-inner">
                                     <div class="h-full rounded-full transition-all duration-500 {% if pct == 100 %}bg-emerald-500{% elif pct >= 50 %}bg-amber-400{% else %}bg-rose-500{% endif %}"
-                                        style="width: {{ pct }}%"></div>
+                                        style="width: {{ pct }}%; max-width: 100%"></div>
                                 </div>
+                                {% if overpayment > 0 %}
+                                <span class="text-[9px] font-medium text-emerald-600">{{ t('overpayment_label') }}: {{ "{:,.0f}".format(overpayment).replace(',', ' ') }}</span>
+                                {% endif %}
                             </div>
+                            {% else %}
+                            <span class="text-gray-400 text-xs">{{ t('no_payment_info') }}</span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
-                                <a href="{{ url_for('accounting.student_payments', student_id=payment.student.id) }}"
+                                <a href="{{ url_for('accounting.student_payments', student_id=student.id) }}"
                                     class="p-2 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-primary-600 hover:border-primary-200 hover:shadow-sm transition-all"
-                                    title="Ko'rish">
+                                    title="{{ t('view_title') }}">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -355,12 +260,11 @@
                                     </svg>
                                 </a>
                                 {% if current_user.role in ['admin', 'dean', 'accounting'] %}
-                                <a href="{{ url_for('accounting.edit_payment', id=payment.id) }}"
-                                    class="p-2 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-amber-600 hover:border-amber-200 hover:shadow-sm transition-all"
-                                    title="Tahrirlash">
+                                <a href="{{ url_for('accounting.student_payments', student_id=student.id) }}?open=add_payment"
+                                    class="p-2 bg-white border border-gray-100 rounded-xl text-gray-400 hover:text-green-600 hover:border-green-200 hover:shadow-sm transition-all"
+                                    title="{{ t('add_payment') }}">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                                     </svg>
                                 </a>
                                 {% endif %}
@@ -371,17 +275,16 @@
                 </tbody>
             </table>
 
-            {% if payments.pages > 1 %}
+            {% if students.pages > 1 %}
             <div class="px-6 py-6 border-t border-gray-50 flex items-center justify-between">
                 <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    Sahifa {{ payments.page }} / {{ payments.pages }}
+                    {{ t('page_of', page=students.page, pages=students.pages) }}
                 </p>
                 <div class="flex items-center gap-2">
-                    {% for page_num in payments.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2)
-                    %}
+                    {% for page_num in students.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                     {% if page_num %}
-                    <a href="{{ url_for('accounting.index', page=page_num, search=search, group=current_group, faculty=current_faculty) }}"
-                        class="w-10 h-10 flex items-center justify-center rounded-2xl text-sm font-bold transition-all {% if page_num == payments.page %}bg-primary-600 text-white shadow-lg shadow-primary-200{% else %}bg-white border border-gray-100 text-gray-500 hover:bg-gray-50 hover:text-primary-600{% endif %}">
+                    <a href="{{ url_for('accounting.index', page=page_num, search=search or '', group=current_group, faculty=current_faculty, course=current_course, semester=current_semester, education_type=current_education_type or '', direction=current_direction) }}"
+                        class="w-10 h-10 flex items-center justify-center rounded-2xl text-sm font-bold transition-all {% if page_num == students.page %}bg-primary-600 text-white shadow-lg shadow-primary-200{% else %}bg-white border border-gray-100 text-gray-500 hover:bg-gray-50 hover:text-primary-600{% endif %}">
                         {{ page_num }}
                     </a>
                     {% else %}
@@ -400,13 +303,12 @@
                             d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 mb-2">Ma'lumotlar topilmadi</h3>
-                <p class="text-gray-500 max-w-xs mx-auto text-sm">Qidiruv natijasida hech qanday to'lov ma'lumoti
-                    topilmadi. Iltimos, filtrlarni tekshirib ko'ring.</p>
-                {% if search or current_group or current_faculty %}
+                <h3 class="text-xl font-bold text-gray-900 mb-2">{{ t('no_data_found') }}</h3>
+                <p class="text-gray-500 max-w-xs mx-auto text-sm">{{ t('no_payment_data_hint') }}</p>
+                {% if search or current_group or current_faculty or current_course or current_semester or current_education_type or current_direction %}
                 <a href="{{ url_for('accounting.index') }}"
                     class="mt-6 inline-flex items-center px-6 py-2 bg-primary-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-primary-200 hover:bg-primary-700 transition-all">
-                    Filtrlarni tozalash
+                    {{ t('clear_filters_button') }}
                 </a>
                 {% endif %}
             </div>
@@ -414,4 +316,55 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const searchInput = document.getElementById('searchInput');
+    const filterIds = ['faculty', 'course', 'semester', 'education_type', 'direction', 'group'];
+    const tsInstances = {};
+
+    filterIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            tsInstances[id] = new TomSelect(el, {
+                create: false,
+                allowEmptyOption: true,
+                maxOptions: 10000,
+                plugins: ['dropdown_input'],
+                onChange: function() { if (filterForm) filterForm.submit(); }
+            });
+        }
+    });
+
+    if (searchInput && filterForm) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() { filterForm.submit(); }, 500);
+        });
+    }
+
+    document.querySelectorAll('.filter-clear-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const wrap = this.closest('.filter-select-wrap');
+            const sel = wrap ? wrap.querySelector('select') : null;
+            if (sel && sel.id && tsInstances[sel.id]) {
+                tsInstances[sel.id].clear();
+                if (filterForm) filterForm.submit();
+            }
+        });
+    });
+    document.querySelectorAll('.search-clear-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const wrap = this.closest('.search-input-wrap');
+            const inp = wrap ? wrap.querySelector('input') : null;
+            if (inp) { inp.value = ''; if (filterForm) filterForm.submit(); }
+        });
+    });
+});
+</script>
 {% endblock %}

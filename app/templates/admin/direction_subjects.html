@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Fanlar - {{ direction.code }}{% endblock %}
+{% block title %}{{ t('subjects') }} - {{ direction.code }}{% endblock %}
 
 {% block content %}
 <!-- Select2 CSS -->
@@ -155,16 +155,16 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
-                Orqaga
+                {{ t('back') }}
             </a>
             <h1 class="text-2xl font-bold text-gray-900">
                 {% if enrollment_year and education_type %}
-                {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|capitalize }})
+                {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|education_type_label }})
                 {% else %}
                 {{ direction.formatted_direction }}
                 {% endif %}
             </h1>
-            <p class="text-gray-600 mt-1">Fan o'qituvchilari</p>
+            <p class="text-gray-600 mt-1">{{ t('curriculum_subject_teachers') }}</p>
         </div>
         <div class="flex gap-3">
             <a href="{% if enrollment_year and education_type %}{{ url_for('admin.direction_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('admin.direction_curriculum', id=direction.id) }}{% endif %}"
@@ -173,7 +173,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                O'quv reja
+                {{ t('curriculum_label') }}
             </a>
         </div>
     </div>
@@ -183,10 +183,10 @@
         {% for semester in range(1, 15) %}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                {{ semester }}-semestr
+                {{ semester }}{{ t('semester_suffix') }}
                 {% if subjects_by_semester.get(semester) %}
                 <span class="text-base font-normal text-primary-600 ml-2">
-                    ({{ subjects_by_semester.get(semester)|length }} fan)
+                    ({{ subjects_by_semester.get(semester)|length }} {{ t('subject_count_unit') }})
                 </span>
                 {% endif %}
             </h3>
@@ -203,11 +203,10 @@
                     <table class="w-full border-collapse bg-white">
                         <thead>
                             <tr class="bg-primary-600 text-white">
-                                <th class="px-4 py-3.5 text-left text-sm font-bold border-r border-primary-500">FANLAR
+                                <th class="px-4 py-3.5 text-left text-sm font-bold border-r border-primary-500">{{ t('curriculum_table_subjects') }}
                                 </th>
-                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">Dars
-                                    turi</th>
-                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">Soat
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">{{ t('lesson_type') }}</th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">{{ t('hours') }}
                                 </th>
                                 {% set semester_groups = groups_by_semester.get(semester, []) %}
                                 {% for group in semester_groups %}
@@ -234,7 +233,7 @@
                                 </td>
                                 {% endif %}
                                 <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-700 clickable-cell">
-                                    {{ lesson.type }}</td>
+                                    {{ lesson.type|lesson_type_label }}</td>
                                 <td
                                     class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-gray-900 bg-gray-100 clickable-cell">
                                     {{ lesson.hours }}</td>
@@ -246,7 +245,7 @@
                                     {# Amaliyot, Lobaratoriya va Kurs ishi uchun bitta o'qituvchi #}
                                     <select name="teacher_practical_{{ curriculum_item.id }}_{{ group.id }}"
                                         class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="">O'qituvchi qidirish...</option>
+                                        <option value="">{{ t('select_teacher_placeholder') }}</option>
                                         {% for teacher in teachers %}
                                         <option value="{{ teacher.id }}" {% if assigned_teacher and
                                             assigned_teacher.id==teacher.id %}selected{% endif %}>
@@ -258,7 +257,7 @@
                                     {% elif lesson.type == 'Maruza' %}
                                     <select name="teacher_maruza_{{ curriculum_item.id }}_{{ group.id }}"
                                         class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="">O'qituvchi qidirish...</option>
+                                        <option value="">{{ t('select_teacher_placeholder') }}</option>
                                         {% for teacher in teachers %}
                                         <option value="{{ teacher.id }}" {% if assigned_teacher and
                                             assigned_teacher.id==teacher.id %}selected{% endif %}>
@@ -270,7 +269,7 @@
                                     {% elif lesson.type == 'Seminar' %}
                                     <select name="teacher_seminar_{{ curriculum_item.id }}_{{ group.id }}"
                                         class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="">O'qituvchi qidirish...</option>
+                                        <option value="">{{ t('select_teacher_placeholder') }}</option>
                                         {% for teacher in teachers %}
                                         <option value="{{ teacher.id }}" {% if assigned_teacher and
                                             assigned_teacher.id==teacher.id %}selected{% endif %}>
@@ -304,13 +303,13 @@
                 <div class="mt-4 flex justify-end">
                     <button type="submit"
                         class="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
-                        Saqlash
+                        {{ t('save') }}
                     </button>
                 </div>
             </form>
             {% else %}
             <div class="text-center py-8 text-gray-500 text-sm">
-                <p>Bu semestrda fanlar mavjud emas</p>
+                <p>{{ t('curriculum_no_subjects_in_semester') }}</p>
             </div>
             {% endif %}
         </div>
@@ -322,20 +321,27 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+    // i18n translations
+    window.i18nSubjects = {
+        searchTeacherPlaceholder: {{ t('select_teacher_placeholder')|tojson }},
+        noResults: {{ t('no_results')|tojson }},
+        searching: {{ t('searching')|tojson }}
+    };
+    
     // Select2 ni barcha o'qituvchi select'larga qo'llash
     document.addEventListener('DOMContentLoaded', function () {
         $('.teacher-select').select2({
             placeholder: {
                 id: '',
-                text: 'O\'qituvchi qidirish...'
+                text: window.i18nSubjects.searchTeacherPlaceholder
             },
             allowClear: true,
             language: {
                 noResults: function () {
-                    return "Natija topilmadi";
+                    return window.i18nSubjects.noResults;
                 },
                 searching: function () {
-                    return "Qidirilmoqda...";
+                    return window.i18nSubjects.searching;
                 }
             }
         });

@@ -1,57 +1,58 @@
 {% extends "base.html" %}
 
-{% block title %}Fanlarni boshqarish{% endblock %}
+{% block title %}{{ t('subjects_database') }}{% endblock %}
 
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Fanlarni bazasi</h1>
-        <p class="text-gray-600">Barcha fanlar ro'yxati</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('subjects_database') }}</h1>
+        <p class="text-gray-600">{{ t('all_subjects_list') }}</p>
     </div>
     <div class="flex gap-3">
         <a href="{{ url_for('admin.export_subjects') }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-            Export
+            {{ t('export') }}
         </a>
         <a href="{{ url_for('admin.import_subjects') }}" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-            Import
+            {{ t('import') }}
         </a>
         <a href="{{ url_for('admin.create_subject') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            Yangi fan
+            {{ t('new_subject') }}
         </a>
     </div>
 </div>
 
-<!-- Qidiruv -->
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
     <form method="GET" id="filterForm" class="flex flex-wrap gap-4">
         <div class="flex-1 min-w-[200px] relative search-input-wrap">
-            <input type="text" name="search" id="searchInput" value="{{ search or '' }}" placeholder="Fan nomi yoki tavsif bo'yicha qidirish..."
+            <input type="text" name="search" id="searchInput" value="{{ search or '' }}" placeholder="{{ t('search_subject_placeholder') }}"
                 class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-            <button type="button" class="search-clear-btn" title="Tozalash" aria-label="Tozalash">×</button>
+            <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
         </div>
         <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
-            Qidirish
+            {{ t('search') }}
         </button>
         {% if search %}
         <a href="{{ url_for('admin.subjects') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
-            Tozalash
+            {{ t('clear') }}
         </a>
         {% endif %}
     </form>
 </div>
 
+<span id="loading-text" class="hidden">{{ t('loading') }}</span>
+<span id="load-error-text" class="hidden">{{ t('load_error') }}</span>
 <div id="subjectResults">
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto subjects-table-wrap">
     {% if subjects %}
     <table class="w-full min-w-[640px] subjects-table">
         <thead class="bg-gray-50">
             <tr>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Fan nomi</th>
-                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tavsif</th>
-                <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('subject_name') }}</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('description') }}</th>
+                <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
@@ -62,7 +63,7 @@
                     <div class="space-y-1">
                         <p class="font-medium text-base {% if has_issue %}text-red-600{% else %}text-gray-900{% endif %}">{{ subject.name }}</p>
                         {% if has_issue %}
-                        <p class="text-xs text-red-600 font-medium mt-1">⚠️ Darslar mavjud, lekin videolar/fayllar yo'q</p>
+                        <p class="text-xs text-red-600 font-medium mt-1">⚠️ {{ t('lessons_no_content_warning') }}</p>
                         {% endif %}
                     </div>
                 </td>
@@ -70,7 +71,7 @@
                     {% if subject.description %}
                     <p class="text-sm text-gray-600">{{ subject.description }}</p>
                     {% else %}
-                    <p class="text-sm text-gray-400 italic">Tavsif mavjud emas</p>
+                    <p class="text-sm text-gray-400 italic">{{ t('description_not_available') }}</p>
                     {% endif %}
                 </td>
                 <td class="px-6 py-4 text-right">
@@ -78,7 +79,7 @@
                         <a href="{{ url_for('admin.edit_subject', id=subject.id) }}" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </a>
-                        <form action="{{ url_for('admin.delete_subject', id=subject.id) }}" method="POST" class="inline" onsubmit="return confirm('Bu fanni o\'chirmoqchimisiz?')">
+                        <form action="{{ url_for('admin.delete_subject', id=subject.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t("confirm_delete_subject") | escapejs }}');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -93,11 +94,11 @@
     {% else %}
     <div class="p-12 text-center">
         <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">Fanlar mavjud emas</h3>
-        <p class="text-gray-500 mb-4">Yangi fan yaratishni boshlang</p>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('no_subjects') }}</h3>
+        <p class="text-gray-500 mb-4">{{ t('start_creating_subject') }}</p>
         <a href="{{ url_for('admin.create_subject') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            Fan yaratish
+            {{ t('create_subject') }}
         </a>
     </div>
     {% endif %}
@@ -109,10 +110,10 @@
     <!-- Pagination buttons -->
     <div class="flex items-center gap-2">
             {% if subjects.has_prev %}
-            <a href="{{ url_for('admin.subjects', page=1, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">Birinchi</a>
+            <a href="{{ url_for('admin.subjects', page=1, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">{{ t('first') }}</a>
             <a href="{{ url_for('admin.subjects', page=subjects.prev_num, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.prev_num }}">«</a>
             {% else %}
-            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Birinchi</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
             {% endif %}
         
@@ -130,10 +131,10 @@
         
             {% if subjects.has_next %}
             <a href="{{ url_for('admin.subjects', page=subjects.next_num, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.next_num }}">»</a>
-            <a href="{{ url_for('admin.subjects', page=subjects.pages, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.pages }}">Oxirgi</a>
+            <a href="{{ url_for('admin.subjects', page=subjects.pages, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.pages }}">{{ t('last') }}</a>
             {% else %}
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
-            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Oxirgi</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>
             {% endif %}
     </div>
     
@@ -141,7 +142,7 @@
     <div class="text-sm text-gray-600">
         {% set start = (subjects.page - 1) * subjects.per_page + 1 %}
         {% set end = subjects.page * subjects.per_page if subjects.page * subjects.per_page <= subjects.total else subjects.total %}
-        {{ start }}-{{ end }} / jami {{ "{:,}".format(subjects.total) }} ta
+        {{ t('pagination_range', start=start, end=end, total=subjects.total) }}
     </div>
 </div>
 {% else %}
@@ -149,7 +150,7 @@
 <div class="mt-6 text-center text-sm text-gray-600">
     {% set start = (subjects.page - 1) * subjects.per_page + 1 %}
     {% set end = subjects.page * subjects.per_page if subjects.page * subjects.per_page <= subjects.total else subjects.total %}
-    {{ start }}-{{ end }} / jami {{ "{:,}".format(subjects.total) }} ta
+    {{ t('pagination_range', start=start, end=end, total=subjects.total) }}
 </div>
 {% endif %}
 {% endif %}
@@ -172,7 +173,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (search) params.set('search', search);
         if (page > 1) params.set('page', page);
         const url = baseUrl + (params.toString() ? '?' + params.toString() : '');
-        subjectResults.innerHTML = '<div class="flex justify-center py-12"><span class="text-gray-500">Yuklanmoqda…</span></div>';
+        var loadingEl = document.getElementById('loading-text');
+        subjectResults.innerHTML = '<div class="flex justify-center py-12"><span class="text-gray-500">' + (loadingEl ? loadingEl.textContent : '...') + '</span></div>';
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { return r.text(); })
             .then(function(html) {
@@ -183,7 +185,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 history.replaceState(null, '', baseUrl + (historyParams.length ? '?' + historyParams.join('&') : ''));
             })
             .catch(function() {
-                subjectResults.innerHTML = '<div class="py-12 text-center text-red-500">Yuklashda xatolik. Sahifani yangilab ko\'ring.</div>';
+                var errEl = document.getElementById('load-error-text');
+                subjectResults.innerHTML = '<div class="py-12 text-center text-red-500">' + (errEl ? errEl.textContent : 'Error') + '</div>';
             });
     }
 

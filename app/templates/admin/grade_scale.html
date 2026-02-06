@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}Baholash tizimi{% endblock %}
+{% block title %}{{ t('grading_system') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Baholash tizimi</h1>
-            <p class="text-gray-500 mt-1">Ballik tizim sozlamalari</p>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('grading_system') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('grade_scale_settings') }}</p>
         </div>
         <div class="flex gap-2">
-            <form method="POST" action="{{ url_for('admin.reset_grade_scale') }}" onsubmit="return confirm('Haqiqatan ham standart holatga qaytarishni xohlaysizmi?')">
+            <form method="POST" action="{{ url_for('admin.reset_grade_scale') }}" onsubmit="return confirm('{{ t('confirm_reset_grades') }}')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <button type="submit" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    Standartga qaytarish
+                    {{ t('reset_to_default') }}
                 </button>
             </form>
             <a href="{{ url_for('admin.create_grade') }}" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                Yangi baho
+                {{ t('new_grade') }}
             </a>
         </div>
     </div>
@@ -31,8 +31,8 @@
                 <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <div>
-                <h3 class="font-semibold text-blue-900">Baholash tizimi haqida</h3>
-                <p class="text-sm text-blue-700 mt-1">Bu yerda talabalar baholarini hisoblash uchun ishlatiladigan ballik tizimni sozlashingiz mumkin. Har bir baho uchun minimal va maksimal ball oralig'ini, GPA qiymatini va boshqa parametrlarni belgilang.</p>
+                <h3 class="font-semibold text-blue-900">{{ t('about_grading_system') }}</h3>
+                <p class="text-sm text-blue-700 mt-1">{{ t('grading_system_description') }}</p>
             </div>
         </div>
     </div>
@@ -40,7 +40,7 @@
     <!-- Grade scale table -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="px-6 py-4 bg-gray-50 border-b border-gray-100">
-            <h2 class="text-lg font-semibold text-gray-900">Baholar jadvali</h2>
+            <h2 class="text-lg font-semibold text-gray-900">{{ t('grades_table') }}</h2>
         </div>
         
         {% if grades %}
@@ -48,13 +48,13 @@
             <table class="w-full">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tartib</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Baho</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Nomi</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">Ball oralig'i</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('order') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('grade') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('name') }}</th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">{{ t('score_range') }}</th>
                         <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">GPA</th>
-                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">Holat</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
+                        <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">{{ t('status') }}</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -104,9 +104,9 @@
                         </td>
                         <td class="px-6 py-4 text-center">
                             {% if grade.is_passing %}
-                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">O'tdi</span>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">{{ t('passed') }}</span>
                             {% else %}
-                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">O'tmadi</span>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">{{ t('failed') }}</span>
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 text-right">
@@ -114,7 +114,7 @@
                                 <a href="{{ url_for('admin.edit_grade', id=grade.id) }}" class="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </a>
-                                <form method="POST" action="{{ url_for('admin.delete_grade', id=grade.id) }}" onsubmit="return confirm('Haqiqatan ham o\'chirmoqchimisiz?')">
+                                <form method="POST" action="{{ url_for('admin.delete_grade', id=grade.id) }}" onsubmit="return confirm('{{ t('confirm_delete_grade') }}')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -130,11 +130,11 @@
         {% else %}
         <div class="p-12 text-center">
             <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-            <h3 class="text-lg font-medium text-gray-600">Baholar yo'q</h3>
-            <p class="text-gray-400 mb-4">Hali baholash tizimi sozlanmagan</p>
+            <h3 class="text-lg font-medium text-gray-600">{{ t('no_grades') }}</h3>
+            <p class="text-gray-400 mb-4">{{ t('grading_system_not_configured') }}</p>
             <a href="{{ url_for('admin.create_grade') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                Yangi baho qo'shish
+                {{ t('add_new_grade') }}
             </a>
         </div>
         {% endif %}
@@ -143,7 +143,7 @@
     <!-- Visual preview -->
     {% if grades %}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Vizual ko'rinish</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('visual_appearance') }}</h2>
         <div class="flex flex-wrap gap-3">
             {% for grade in grades %}
             <div class="flex items-center gap-3 px-4 py-3 rounded-xl
@@ -173,6 +173,3 @@
     {% endif %}
 </div>
 {% endblock %}
-
-
-

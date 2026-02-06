@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Baholar{% endblock %}
+{% block title %}{{ t('grades') }}{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Baholar</h1>
-        <p class="text-gray-500 mt-1">Sizning akademik natijalaringiz (ballik tizim)</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('grades') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('grades_subtitle') }}</p>
     </div>
 
     {% if grades_by_subject %}
@@ -17,7 +17,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span class="font-medium text-blue-900">Baholash tizimi</span>
+            <span class="font-medium text-blue-900">{{ t('grading_system') }}</span>
         </div>
         <div class="flex flex-wrap gap-3 text-sm">
             {% for g in grade_scales %}
@@ -44,7 +44,7 @@
         {% set overall_text_class = overall_classes.text %}
         {% set overall_bar_class = overall_classes.bar %}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-sm text-gray-500 mb-2">O'zlashtirish</p>
+            <p class="text-sm text-gray-500 mb-2">{{ t('assimilation') }}</p>
             <div class="flex items-end gap-3">
                 <p class="text-4xl font-bold text-gray-900">
                     {{ overall_grade and overall_grade.letter or '–' }}
@@ -61,7 +61,7 @@
 
         <!-- Umumiy baho -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-sm text-gray-500 mb-2">Umumiy ball</p>
+            <p class="text-sm text-gray-500 mb-2">{{ t('overall_score') }}</p>
             <div class="flex items-center gap-3">
                 <div class="w-16 h-16 rounded-2xl flex items-center justify-center {{ overall_bg_class }}">
                     <span class="text-3xl font-bold {{ overall_text_class }}">
@@ -80,22 +80,22 @@
 
         <!-- Fanlar soni -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-sm text-gray-500 mb-2">Fanlar</p>
+            <p class="text-sm text-gray-500 mb-2">{{ t('subjects') }}</p>
             <p class="text-4xl font-bold text-gray-900">{{ grades_by_subject|length }}</p>
-            <p class="text-sm text-gray-500 mt-2">ta fan bo'yicha baho</p>
+            <p class="text-sm text-gray-500 mt-2">{{ t('subject_count_grades') }}</p>
         </div>
 
         <!-- Baholangan topshiriqlar -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-sm text-gray-500 mb-2">Baholangan</p>
+            <p class="text-sm text-gray-500 mb-2">{{ t('graded') }}</p>
             <p class="text-4xl font-bold text-gray-900">{{ submission_count.value }}</p>
-            <p class="text-sm text-gray-500 mt-2">ta topshiriq</p>
+            <p class="text-sm text-gray-500 mt-2">{{ t('assignment_count_grades') }}</p>
         </div>
     </div>
 
     <!-- Grades by subject -->
     <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-gray-900">Fanlar bo'yicha baholar</h2>
+        <h2 class="text-lg font-semibold text-gray-900">{{ t('subjects_by_grades') }}</h2>
 
         {% for subject_id, data in grades_by_subject.items() %}
         {% set percent = data.percent %}
@@ -114,7 +114,7 @@
                     </div>
                     <div class="text-left">
                         <h3 class="text-lg font-semibold text-gray-900">{{ data.subject.name }}</h3>
-                        <p class="text-sm text-gray-500">{{ data.subject.description or 'Tavsif mavjud emas' }}</p>
+                        <p class="text-sm text-gray-500">{{ data.subject.description or t('no_description') }}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-6">
@@ -123,7 +123,7 @@
                             {{ "%.2f"|format(data.total_score|float) }} / {{ "%.2f"|format(data.max_score|float) }}
                         </p>
                         <p class="text-sm text-gray-500">{{ "%.2f"|format(percent|float) }}% • {{
-                            data.submissions|length }} topshiriq</p>
+                            data.submissions|length }} {{ t('assignment') }}</p>
                     </div>
                     <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -135,7 +135,7 @@
                 <!-- Progress bar -->
                 <div class="mb-4">
                     <div class="flex justify-between text-sm mb-1">
-                        <span class="text-gray-500">O'zlashtirilgan</span>
+                        <span class="text-gray-500">{{ t('mastered_label') }}</span>
                         <span class="font-medium
                             {% if percent >= 90 %}text-green-600
                             {% elif percent >= 70 %}text-blue-600
@@ -153,13 +153,13 @@
                     <table class="w-full">
                         <thead>
                             <tr class="text-left text-xs font-medium text-gray-500 uppercase">
-                                <th class="pb-3">Topshiriq</th>
-                                <th class="pb-3 text-center">Dars turi</th>
-                                <th class="pb-3 text-center">Ball</th>
-                                <th class="pb-3 text-center">Maks</th>
+                                <th class="pb-3">{{ t('assignment') }}</th>
+                                <th class="pb-3 text-center">{{ t('lesson_type') }}</th>
+                                <th class="pb-3 text-center">{{ t('score') }}</th>
+                                <th class="pb-3 text-center">{{ t('max_short') }}</th>
                                 <th class="pb-3 text-center">%</th>
-                                <th class="pb-3 text-center">Baho</th>
-                                <th class="pb-3 text-right">Sana</th>
+                                <th class="pb-3 text-center">{{ t('grade') }}</th>
+                                <th class="pb-3 text-right">{{ t('date') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -177,12 +177,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="py-3 text-center text-sm text-gray-500">
-                                    {% if sub.assignment.lesson_type == 'maruza' %}Maruza
-                                    {% elif sub.assignment.lesson_type == 'amaliyot' %}Amaliyot
-                                    {% elif sub.assignment.lesson_type == 'laboratoriya' %}Laboratoriya
-                                    {% elif sub.assignment.lesson_type == 'seminar' %}Seminar
-                                    {% elif sub.assignment.lesson_type == 'kurs_ishi' %}Kurs ishi
-                                    {% else %}{{ sub.assignment.lesson_type or '-' }}{% endif %}
+                                    {{ sub.assignment.lesson_type|lesson_type_label if sub.assignment.lesson_type else '-' }}
                                 </td>
                                 <td class="py-3 text-center">
                                     {% if sub.submission %}
@@ -194,7 +189,7 @@
                                         {{ "%.2f"|format(sub.score|float) }}
                                     </span>
                                     {% else %}
-                                    <span class="text-xs font-medium text-gray-400">Topshirilmagan</span>
+                                    <span class="text-xs font-medium text-gray-400">{{ t('not_submitted') }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="py-3 text-center text-gray-500">{{
@@ -230,7 +225,7 @@
                         </tbody>
                         <tfoot class="border-t-2 border-gray-200">
                             <tr class="font-semibold">
-                                <td class="py-3 text-gray-900">Jami</td>
+                                <td class="py-3 text-gray-900">{{ t('total') }}</td>
                                 <td></td>
                                 <td class="py-3 text-center text-lg
                                     {% if percent >= 90 %}text-green-600
@@ -275,8 +270,8 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
-        <h3 class="text-lg font-medium text-gray-600">Baholar yo'q</h3>
-        <p class="text-gray-400">Hali baholangan topshiriqlar mavjud emas</p>
+        <h3 class="text-lg font-medium text-gray-600">{{ t('no_grades') }}</h3>
+        <p class="text-gray-400">{{ t('no_graded_assignments') }}</p>
     </div>
     {% endif %}
 </div>

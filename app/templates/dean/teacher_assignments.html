@@ -71,7 +71,7 @@
                 <td class="px-6 py-4">
                     <span class="text-gray-600">{{ assignment.academic_year }}</span>
                     <span class="text-gray-400 mx-1">•</span>
-                    <span class="text-gray-600">{{ assignment.semester }}-semestr</span>
+                    <span class="text-gray-600">{{ assignment.semester }}{{ t('semester_suffix') }}</span>
                 </td>
                 <td class="px-6 py-4 text-right">
                     <form action="{{ url_for('dean.delete_assignment', id=assignment.id) }}" method="POST"

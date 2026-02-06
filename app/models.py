@@ -1,7 +1,21 @@
 from app import db, login_manager
+from flask import has_request_context, session
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, date, timedelta
+
+
+def _education_type_label(edu_type_raw):
+    """Ta'lim shaklini tanlangan tilda qaytarish (request context bo'lsa)."""
+    if not edu_type_raw:
+        return "____"
+    if has_request_context():
+        from app.utils.translations import get_translation
+        key = str(edu_type_raw).strip().lower()
+        if key in ('kunduzgi', 'sirtqi', 'kechki', 'masofaviy'):
+            return get_translation('education_type_' + key, session.get('language', 'uz'))
+        return get_translation('education_type_not_set', session.get('language', 'uz'))
+    return edu_type_raw.capitalize() if isinstance(edu_type_raw, str) else str(edu_type_raw)
 
 @login_manager.user_loader
 def load_user(id):
@@ -43,7 +57,7 @@ class Direction(db.Model):
         first_group = self.groups.first()
         if first_group and first_group.enrollment_year and first_group.education_type:
             year = first_group.enrollment_year
-            edu_type = first_group.education_type.capitalize()
+            edu_type = _education_type_label(first_group.education_type)
             return f"{year} - {self.code} - {self.name} ({edu_type})"
         else:
             # Fallback for directions without groups - use empty year and education type
@@ -72,7 +86,7 @@ class Group(db.Model):
         """Standardized direction display: [Year] - [Code] - [Name] ([Education Type])"""
         if self.direction:
             year = self.enrollment_year if self.enrollment_year else "____"
-            edu_type = self.education_type.capitalize() if self.education_type else "____"
+            edu_type = _education_type_label(self.education_type)
             return f"{year} - {self.direction.code} - {self.direction.name} ({edu_type})"
         return self.name  # Fallback to group name if no direction
 
@@ -277,19 +291,21 @@ class Subject(db.Model):
                 actual = data['actual_topics']
                 
                 if lesson_type == 'kurs_ishi':
-                    # Kurs ishi uchun kamida 1 ta mavzu bo'lishi kerak
                     if actual < 1:
                         has_issue = True
-                        warnings.append(
-                            f"{data['name']}: Kamida 1 ta mavzu yaratilishi kerak, lekin hali yaratilmagan"
-                        )
+                        warnings.append({
+                            'lesson_type': lesson_type, 'no_topics': True,
+                            'name': data['name'], 'hours': data['hours'],
+                            'required': required, 'actual': actual, 'missing': 1.0
+                        })
                 elif actual < required:
                     has_issue = True
                     missing = required - actual
-                    warnings.append(
-                        f"{data['name']}: {data['hours']} soat uchun {required:.1f} para mavzu kerak, "
-                        f"lekin {actual} para kiritilgan (kam: {missing:.1f} para)"
-                    )
+                    warnings.append({
+                        'lesson_type': lesson_type, 'no_topics': False,
+                        'name': data['name'], 'hours': data['hours'],
+                        'required': required, 'actual': actual, 'missing': missing
+                    })
         
         return {
             'has_issue': has_issue, 
@@ -334,6 +350,22 @@ class DirectionCurriculum(db.Model):
     
     # Unique constraint: bir yo'nalishda bir semestrda bir fan bir marta bo'lishi kerak (yil va ta'lim shakli bo'yicha)
     __table_args__ = (db.UniqueConstraint('direction_id', 'subject_id', 'semester', 'enrollment_year', 'education_type', name='uq_direction_subject_semester_year_type'),)
+
+    @staticmethod
+    def filter_by_group_context(query, group):
+        """Guruh kontekstiga mos o'quv reja elementlarini filtrlash.
+        Agar guruhda enrollment_year va education_type bo'lsa, faqat aniq mos keladiganlar.
+        NULL-NULL (eski/umumiy) yozuvlar guruh konteksti bor bo'lganda ko'rsatilmaydi."""
+        if group and group.enrollment_year is not None and group.education_type:
+            return query.filter(
+                DirectionCurriculum.enrollment_year == group.enrollment_year,
+                DirectionCurriculum.education_type == group.education_type
+            )
+        from sqlalchemy import or_
+        return query.filter(
+            or_(DirectionCurriculum.enrollment_year.is_(None), DirectionCurriculum.enrollment_year == (group.enrollment_year if group else None)),
+            or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == (group.education_type if group else None))
+        )
 
 
 # ==================== O'QITUVCHI-FAN BOG'LANISHI ====================
@@ -415,6 +447,19 @@ class User(UserMixin, db.Model):
             return [r.role for r in self.roles_list]
         # Agar roles_list bo'sh bo'lsa, eski role maydonini qaytaramiz
         return [self.role] if self.role else []
+
+    def get_sorted_roles(self):
+        """Rollarni tartiblangan holda qaytarish: admin, dean, teacher, accounting, student"""
+        role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
+        user_roles = self.get_roles()
+        result = []
+        for r in role_order:
+            if r in user_roles:
+                result.append(r)
+        for r in user_roles:
+            if r not in role_order:
+                result.append(r)
+        return result
     
     def has_role(self, role_name):
         """Foydalanuvchida bunday rol bormi?"""
@@ -640,6 +685,76 @@ class Schedule(db.Model):
     
     group = db.relationship('Group', backref='schedules')
     teacher = db.relationship('User', backref='teaching_schedules')
+    
+    def get_teacher_lesson_types(self):
+        """Bu o'qituvchiga biriktirilgan dars turlarini curriculum asosida olish"""
+        # O'qituvchiga biriktirilgan turlarni olish
+        assignments = TeacherSubject.query.filter_by(
+            subject_id=self.subject_id,
+            group_id=self.group_id,
+            teacher_id=self.teacher_id
+        ).all()
+        
+        if not assignments:
+            return []
+        
+        # O'qituvchi qaysi kategoriyalarga biriktirilgan
+        has_maruza = any(a.lesson_type and a.lesson_type.lower() in ('maruza', 'ma\'ruza', 'lecture') for a in assignments)
+        has_amaliyot = any(a.lesson_type and a.lesson_type.lower() in ('amaliyot', 'practice') for a in assignments)
+        has_seminar = any(a.lesson_type and a.lesson_type.lower() == 'seminar' for a in assignments)
+        
+        # Curriculum'ni olish (enrollment_year va education_type bilan)
+        curriculum = None
+        if self.group and self.group.direction:
+            # Avval aniq moslikni qidirish
+            curriculum = DirectionCurriculum.query.filter_by(
+                direction_id=self.group.direction.id,
+                subject_id=self.subject_id,
+                semester=self.group.semester,
+                enrollment_year=self.group.enrollment_year,
+                education_type=self.group.education_type
+            ).first()
+            
+            # Agar topilmasa, faqat direction, subject, semester bo'yicha qidirish
+            if not curriculum:
+                curriculum = DirectionCurriculum.query.filter_by(
+                    direction_id=self.group.direction.id,
+                    subject_id=self.subject_id,
+                    semester=self.group.semester
+                ).first()
+        
+        lesson_types = []
+        
+        # Maruza
+        if has_maruza:
+            if curriculum and curriculum.hours_maruza and curriculum.hours_maruza > 0:
+                lesson_types.append('maruza')
+            elif not curriculum:
+                lesson_types.append('maruza')
+        
+        # Amaliyot kategoriyasi (amaliyot, laboratoriya, kurs ishi)
+        if has_amaliyot:
+            if curriculum:
+                # Faqat soati bor turlarni ko'rsatish
+                if curriculum.hours_amaliyot and curriculum.hours_amaliyot > 0:
+                    lesson_types.append('amaliyot')
+                if curriculum.hours_laboratoriya and curriculum.hours_laboratoriya > 0:
+                    lesson_types.append('laboratoriya')
+                if curriculum.hours_kurs_ishi and curriculum.hours_kurs_ishi > 0:
+                    lesson_types.append('kurs ishi')
+                # Agar hech biri yo'q - hech narsa qo'shmaymiz
+            else:
+                # Curriculum yo'q - umumiy amaliyot
+                lesson_types.append('amaliyot')
+        
+        # Seminar
+        if has_seminar:
+            if curriculum and curriculum.hours_seminar and curriculum.hours_seminar > 0:
+                lesson_types.append('seminar')
+            elif not curriculum:
+                lesson_types.append('seminar')
+        
+        return lesson_types
 
 
 # ==================== XABAR ====================
@@ -678,6 +793,8 @@ class StudentPayment(db.Model):
     paid_amount = db.Column(db.Numeric(15, 2), default=0)  # To'lagan summasi
     academic_year = db.Column(db.String(20))  # O'quv yili (2024-2025)
     semester = db.Column(db.Integer, default=1)  # Semestr
+    period_start = db.Column(db.Date, nullable=True)  # Maxsus kontrakt boshlanish sanasi
+    period_end = db.Column(db.Date, nullable=True)  # Maxsus kontrakt tugash sanasi
     notes = db.Column(db.Text)  # Qo'shimcha eslatmalar
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -693,6 +810,42 @@ class StudentPayment(db.Model):
         if float(self.contract_amount) == 0:
             return 0
         return (float(self.paid_amount) / float(self.contract_amount)) * 100
+
+
+class DirectionContractAmount(db.Model):
+    """Yo'nalish va o'quv yili bo'yicha standart kontrakt summasi (fakultet/yo'nalish uchun bir xil)"""
+    id = db.Column(db.Integer, primary_key=True)
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=False)
+    enrollment_year = db.Column(db.Integer, nullable=False)  # O'quv yili (2024, 2025)
+    education_type = db.Column(db.String(20), nullable=True)  # kunduzgi, sirtqi, kechki (bo'sh bo'lsa barcha uchun)
+    period_start = db.Column(db.Date, nullable=True)   # Boshlanish sanasi (masalan: 02.09.2025)
+    period_end = db.Column(db.Date, nullable=True)     # Tugash sanasi (masalan: 06.06.2026)
+    contract_amount = db.Column(db.Numeric(15, 2), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    direction = db.relationship('Direction', backref=db.backref('contract_amounts', lazy='dynamic', cascade='all, delete-orphan'))
+
+    @staticmethod
+    def get_contract_for_student(student):
+        """Talaba guruhining yo'nalishi, qabul yili va ta'lim shakliga mos kontrakt summalarini yig'adi.
+        Talaba qabul yilidan boshlab keyingi barcha o'quv yillaridagi kontrakt summalari qo'shiladi."""
+        if not student or not student.group or not student.group.direction_id:
+            return 0
+        g = student.group
+        base_year = g.enrollment_year or 0
+        grp_et = (g.education_type or '').strip() or None
+        amounts = DirectionContractAmount.query.filter(
+            DirectionContractAmount.direction_id == g.direction_id,
+            DirectionContractAmount.enrollment_year >= base_year
+        ).all()
+        # education_type bo'yicha filtrlash: aniq mos yoki NULL = barcha uchun
+        filtered = []
+        for a in amounts:
+            a_et = (a.education_type or '').strip() or None
+            if a_et is None or a_et == grp_et:
+                filtered.append(a)
+        return sum(float(a.contract_amount) for a in filtered)
 
 
 # ==================== BAHOLASH TIZIMI ====================

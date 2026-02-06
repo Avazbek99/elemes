@@ -2,6 +2,8 @@ from datetime import datetime
 from flask import Response
 import io
 
+from app.utils.translations import get_translation
+
 
 def create_students_excel(students, faculty_name=None):
     """Talabalar ro'yxatini Excel formatida yaratish (yangi tartib)"""
@@ -324,27 +326,32 @@ def create_schedule_excel(schedules, group_name=None, faculty_name=None):
 
 
 def create_contracts_excel(payments, course_year=None):
-    """Kontrakt ma'lumotlarini Excel formatida yaratish (kurs bo'yicha)"""
+    """Kontrakt ma'lumotlarini Excel formatida yaratish (kurs bo'yicha).
+    Kontrakt DirectionContractAmount dan, to'langan StudentPayment dan."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
         from openpyxl.utils import get_column_letter
     except ImportError:
         raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
+    from app.models import DirectionContractAmount
     
     wb = Workbook()
     
-    # Kurs bo'yicha guruhlash
+    # Kurs bo'yicha talabalar (bitta talaba bir marta)
     from collections import defaultdict
-    payments_by_course = defaultdict(list)
+    students_by_course = defaultdict(dict)
     
     for payment in payments:
         if payment.student and payment.student.group:
-            course = payment.student.group.course_year
-            payments_by_course[course].append(payment)
+            student = payment.student
+            course = student.group.course_year
+            if student.id not in students_by_course[course]:
+                students_by_course[course][student.id] = {'student': student, 'paid': 0}
+            students_by_course[course][student.id]['paid'] += float(payment.paid_amount or 0)
     
     # Har bir kurs uchun alohida worksheet
-    for course in sorted(payments_by_course.keys()):
+    for course in sorted(students_by_course.keys()):
         ws = wb.create_sheet(title=f"{course}-kurs")
         
         # Sarlavha
@@ -379,17 +386,19 @@ def create_contracts_excel(payments, course_year=None):
                 bottom=Side(style='thin')
             )
         
-        # Ma'lumotlar
-        course_payments = payments_by_course[course]
+        # Ma'lumotlar - har bir talaba uchun bitta qator
+        course_students = list(students_by_course[course].values())
         total_contract = 0
         total_paid = 0
         
-        for row_num, payment in enumerate(course_payments, start=header_row + 1):
-            student = payment.student
-            contract = float(payment.contract_amount)
-            paid = float(payment.paid_amount)
+        for row_num, item in enumerate(course_students, start=header_row + 1):
+            student = item['student']
+            paid = item['paid']
+            contract = DirectionContractAmount.get_contract_for_student(student)
+            if contract == 0:
+                contract = sum(float(p.contract_amount or 0) for p in payments if p.student_id == student.id)
             remaining = contract - paid
-            percentage = payment.get_payment_percentage()
+            percentage = (paid / contract * 100) if contract > 0 else 0
             
             total_contract += contract
             total_paid += paid
@@ -401,7 +410,7 @@ def create_contracts_excel(payments, course_year=None):
             ws.cell(row=row_num, column=5, value=contract)
             ws.cell(row=row_num, column=6, value=paid)
             ws.cell(row=row_num, column=7, value=remaining)
-            ws.cell(row=row_num, column=8, value=f"{percentage}%")
+            ws.cell(row=row_num, column=8, value=f"{percentage:.0f}%")
             
             # Stil
             for col_num in range(1, 9):
@@ -418,7 +427,7 @@ def create_contracts_excel(payments, course_year=None):
                 
                 # Foiz bo'yicha rang
                 if col_num == 8:
-                    if percentage == 100:
+                    if percentage >= 100:
                         cell.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
                         cell.font = Font(bold=True, color="006100")
                     elif percentage >= 75:
@@ -432,7 +441,7 @@ def create_contracts_excel(payments, course_year=None):
                         cell.font = Font(bold=True, color="9C0006")
         
         # Jami qator
-        summary_row = header_row + len(course_payments) + 2
+        summary_row = header_row + len(course_students) + 2
         ws.cell(row=summary_row, column=3, value="JAMI:")
         ws.cell(row=summary_row, column=3).font = Font(bold=True, size=12)
         ws.cell(row=summary_row, column=5, value=total_contract)
@@ -810,86 +819,193 @@ def create_staff_excel(users):
     return excel_file.getvalue()
 
 
-def create_sample_contracts_excel():
-    """Kontrakt import uchun namuna Excel fayl yaratish"""
+def create_sample_contracts_excel(lang='uz'):
+    """To'lov ma'lumotlari import uchun namuna Excel (Talaba_id, Ismi, To'lov miqdori, Eslatmalar)."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
         from openpyxl.utils import get_column_letter
     except ImportError:
         raise ImportError("openpyxl kutubxonasi o'rnatilmagan. Iltimos, 'pip install openpyxl' buyrug'ini bajaring.")
-    
     wb = Workbook()
     ws = wb.active
-    ws.title = "Namuna"
-    
-    # Sarlavha
-    ws.merge_cells('A1:D1')
+    ws.title = "To'lov import" if lang == 'uz' else ("Оплата" if lang == 'ru' else "Payments")
     title_cell = ws['A1']
-    title_cell.value = "Kontrakt ma'lumotlarini import qilish uchun namuna"
-    title_cell.font = Font(size=14, bold=True, color="FFFFFF")
+    ws.merge_cells('A1:D1')
+    title_cell.value = get_translation('sample_contracts_title', lang)
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    
-    # Sarlavha qatori
-    headers = ['Talaba_id', 'Ismi', 'Kontrakt miqdori', 'To\'lagani']
-    header_row = 2
-    
+    ws['A2'] = get_translation('sample_requirements_title', lang)
+    ws.merge_cells('A2:D2')
+    ws['A2'].font = Font(size=11, bold=True, color="000000")
+    ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
+    ws['A2'].fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+    note_keys = ['import_note_file_format', 'import_note_student_lookup', 'import_note_contract_from_direction', 'import_note_each_row_new_payment']
+    requirements = [get_translation(k, lang) for k in note_keys]
+    for idx, req in enumerate(requirements, start=3):
+        ws.merge_cells(f'A{idx}:D{idx}')
+        cell = ws.cell(row=idx, column=1, value=("• " + req if not req.startswith('•') else req))
+        cell.font = Font(size=10)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+    header_row = len(requirements) + 4
+    header_keys = ['col_header_payment_talaba_id', 'col_header_payment_ismi', 'col_header_payment_tolov', 'col_header_payment_eslatmalar']
+    headers = [get_translation(k, lang) for k in header_keys]
     for col_num, header in enumerate(headers, 1):
-        cell = ws.cell(row=header_row, column=col_num)
-        cell.value = header
+        cell = ws.cell(row=header_row, column=col_num, value=header)
         cell.font = Font(bold=True, color="FFFFFF")
         cell.alignment = Alignment(horizontal='center', vertical='center')
         cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        cell.border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
-    
-    # Namuna ma'lumotlar
+        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     sample_data = [
-        ['376100000000000', 'Tursunov Avazbek', '12652200', '6520020'],
-        ['376100000000001', 'Karimova Malika', '12652200', '12652200'],
-        ['376100000000002', 'Rahimov Dilshod', '12652200', '6326100'],
-        ['376100000000003', 'Aliyeva Nodira', '12652200', '0'],
+        ['376100000000000', 'Tursunov Avazbek', '6520020', '1-semestr'],
+        ['376100000000001', 'Karimova Malika', '12652200', "To'liq"],
+        ['376100000000002', 'Rahimov Dilshod', '6326100', 'Qisman'],
     ]
-    
     for row_num, row_data in enumerate(sample_data, start=header_row + 1):
         for col_num, value in enumerate(row_data, 1):
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = value
-            cell.alignment = Alignment(horizontal='left', vertical='center')
-            cell.border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
-            )
-            if row_num % 2 == 0:
-                cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-    
-    # Eslatma qatori
-    note_row = header_row + len(sample_data) + 2
-    ws.merge_cells(f'A{note_row}:D{note_row}')
-    note_cell = ws[f'A{note_row}']
-    note_cell.value = "ESLATMA: Talaba_id yoki Ismi orqali talaba topiladi. Kontrakt miqdori majburiy."
-    note_cell.font = Font(size=10, italic=True, color="666666")
-    note_cell.alignment = Alignment(horizontal='left', vertical='center')
-    note_cell.fill = PatternFill(start_color="FFF4E6", end_color="FFF4E6", fill_type="solid")
-    
-    # Ustun kengliklarini sozlash
-    column_widths = [20, 30, 18, 18]
-    for col_num, width in enumerate(column_widths, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=value)
+            cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    for col_num, width in enumerate([20, 28, 16, 24], 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
-    
-    # Excel faylni qaytarish
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    
-    return output
+    return output.getvalue()
+
+
+def _education_type_display(et):
+    """Ta'lim shaklini ko'rsatish"""
+    if not et:
+        return "—"
+    m = {'kunduzgi': "Kunduzgi", 'sirtqi': "Sirtqi", 'kechki': "Kechki", 'masofaviy': "Masofaviy"}
+    return m.get(str(et).strip().lower(), str(et))
+
+
+def _academic_year_display(y):
+    """O'quv yilini 2024-2025 ko'rinishida"""
+    if y is None:
+        return "—"
+    try:
+        return f"{int(y)}-{int(y) + 1}"
+    except (TypeError, ValueError):
+        return str(y)
+
+
+def create_contract_amounts_excel(items):
+    """To'lov summasi (DirectionContractAmount) ro'yxatini Excel formatida"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan")
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "To'lov summasi"
+    ws.merge_cells('A1:H1')
+    title_cell = ws['A1']
+    title_cell.value = "To'lov summasi (yo'nalish bo'yicha kontrakt)"
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+    ws.merge_cells('A2:H2')
+    ws['A2'].font = Font(size=10, italic=True)
+    headers = ['Fakultet', "Yo'nalish kodi", "Yo'nalish nomi", "Ta'lim shakli", "O'quv yili", "Boshlanish", "Tugash", "Kontrakt miqdori"]
+    for col, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=col, value=h)
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    for row_num, rec in enumerate(items, start=4):
+        d = rec.direction
+        f = d.faculty if d else None
+        ws.cell(row=row_num, column=1, value=f.name if f else '')
+        ws.cell(row=row_num, column=2, value=d.code if d else '')
+        ws.cell(row=row_num, column=3, value=d.name if d else '')
+        ws.cell(row=row_num, column=4, value=_education_type_display(rec.education_type))
+        ws.cell(row=row_num, column=5, value=_academic_year_display(rec.enrollment_year))
+        ws.cell(row=row_num, column=6, value=rec.period_start.strftime('%d.%m.%Y') if rec.period_start else '')
+        ws.cell(row=row_num, column=7, value=rec.period_end.strftime('%d.%m.%Y') if rec.period_end else '')
+        ws.cell(row=row_num, column=8, value=float(rec.contract_amount or 0))
+    for col in range(1, 9):
+        ws.column_dimensions[get_column_letter(col)].width = [20, 15, 35, 15, 14, 14, 14, 18][col - 1]
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
+
+def create_sample_contract_amounts_excel(lang='uz'):
+    """To'lov summasi import uchun namuna Excel (talabalar namunasiga o'xshash)."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise ImportError("openpyxl kutubxonasi o'rnatilmagan")
+    titles = {'uz': "To'lov summasi import", 'ru': "Импорт суммы оплаты", 'en': "Contract amounts import"}
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "To'lov summasi" if lang == 'uz' else ("Суммы" if lang == 'ru' else "Amounts")
+    title_cell = ws['A1']
+    ws.merge_cells('A1:H1')
+    title_cell.value = titles.get(lang, titles['uz'])
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    ws['A2'] = get_translation('sample_requirements_title', lang)
+    ws.merge_cells('A2:H2')
+    ws['A2'].font = Font(size=11, bold=True, color="000000")
+    ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
+    ws['A2'].fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+    reqs_uz = ["Barcha maydonlar majburiy", "Yo'nalish kodi faqat raqamlardan iborat", "O'quv yili 2025-2026 ko'rinishida", "Boshlanish va Tugash: DD.MM.YYYY (masalan 02.09.2025, 06.06.2026)", "Ta'lim shakli: kunduzgi, sirtqi, kechki, masofaviy", "Fayl .xlsx yoki .xls"]
+    reqs = {'uz': reqs_uz, 'ru': ["Все поля обязательны", "Код направления только цифры", "Учебный год: 2025-2026", "Начало и Конец: ДД.ММ.ГГГГ (напр. 02.09.2025, 06.06.2026)", "Форма: kunduzgi, sirtqi, kechki, masofaviy", "Файл .xlsx или .xls"], 'en': ["All fields required", "Direction code digits only", "Academic year: 2025-2026", "Start and End: DD.MM.YYYY (e.g. 02.09.2025, 06.06.2026)", "Education type: kunduzgi, sirtqi, kechki, masofaviy", "File .xlsx or .xls"]}
+    requirements = reqs.get(lang, reqs_uz)
+    for idx, req in enumerate(requirements, start=3):
+        ws.merge_cells(f'A{idx}:H{idx}')
+        cell = ws.cell(row=idx, column=1, value=req)
+        cell.font = Font(size=10)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.fill = PatternFill(start_color="FFF4CC", end_color="FFF4CC", fill_type="solid")
+    note_start = len(requirements) + 3
+    ws.merge_cells(f'A{note_start}:H{note_start}')
+    note_title = ws.cell(row=note_start, column=1, value=get_translation('sample_note_title', lang))
+    note_title.font = Font(size=11, bold=True, color="000000")
+    note_title.alignment = Alignment(horizontal='left', vertical='center')
+    note_title.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
+    notes_uz = [get_translation('import_note_file_format', lang), "Fakultet va yo'nalish tizimda mavjud bo'lishi kerak", "Mavjud yozuv yangilanadi"]
+    notes = notes_uz
+    for idx, note in enumerate(notes, start=note_start + 1):
+        ws.merge_cells(f'A{idx}:H{idx}')
+        cell = ws.cell(row=idx, column=1, value=("• " + note if not note.startswith('•') else note))
+        cell.font = Font(size=10)
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.fill = PatternFill(start_color="DEEBF7", end_color="DEEBF7", fill_type="solid")
+    header_row = note_start + len(notes) + 1
+    headers_uz = ['Fakultet', "Yo'nalish kodi", "Yo'nalish nomi", "Ta'lim shakli", "O'quv yili", "Boshlanish", "Tugash", "Kontrakt miqdori"]
+    for col_num, h in enumerate(headers_uz, 1):
+        cell = ws.cell(row=header_row, column=col_num, value=h)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    sample = [
+        ['Axborot texnologiyalari', '5230100', "Dasturiy injiniring", 'kunduzgi', '2025-2026', '02.09.2025', '06.06.2026', '12652200'],
+        ['Axborot texnologiyalari', '5230200', "Axborot xavfsizligi", 'kunduzgi', '2025-2026', '02.09.2025', '06.06.2026', '12652200'],
+        ['Iqtisodiyot', '5230300', "Iqtisodiyot", 'sirtqi', '2025-2026', '02.09.2025', '06.06.2026', '8500000'],
+    ]
+    for row_num, row_data in enumerate(sample, start=header_row + 1):
+        for col_num, val in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=val)
+            cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    for col in range(1, 9):
+        ws.column_dimensions[get_column_letter(col)].width = [22, 14, 28, 14, 14, 14, 14, 18][col - 1]
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
 
 
 def create_subjects_excel(subjects):
