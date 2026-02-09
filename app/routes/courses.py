@@ -1604,7 +1604,7 @@ def detail(id, dir_id=None, group_id=None):
             if curriculum_item.hours_kurs_ishi and curriculum_item.hours_kurs_ishi > 0:
                 direction_lesson_types.append({
                     'type': 'Kurs ishi',
-                    'hours': 0
+                    'hours': curriculum_item.hours_kurs_ishi
                 })
     
     # Talaba uchun ham dars turlarini ko'rsatish
@@ -1651,7 +1651,7 @@ def detail(id, dir_id=None, group_id=None):
             if curriculum_item.hours_kurs_ishi and curriculum_item.hours_kurs_ishi > 0:
                 direction_lesson_types.append({
                     'type': 'Kurs ishi',
-                    'hours': 0
+                    'hours': curriculum_item.hours_kurs_ishi
                 })
     
     if current_user.role == 'student' and current_user.group_id:
@@ -2031,16 +2031,10 @@ def detail(id, dir_id=None, group_id=None):
                     teacher_subject_lesson_types.add(lt)
     curriculum_lesson_type_keys = curriculum_lesson_type_keys | teacher_subject_lesson_types
 
-    # Header uchun direction_lesson_types ga o'qituvchi biriktirilgan turlarni qo'shish (soat 0)
-    type_from_curriculum = {d['type'] for d in direction_lesson_types}
-    key_to_type = {'maruza': 'Maruza', 'amaliyot': 'Amaliyot', 'laboratoriya': 'Laboratoriya',
-                   'seminar': 'Seminar', 'kurs_ishi': 'Kurs ishi'}
-    for lt in teacher_subject_lesson_types:
-        t = key_to_type.get(lt)
-        if t and t not in type_from_curriculum:
-            direction_lesson_types.append({'type': t, 'hours': 0})
-            type_from_curriculum.add(t)
-    
+    # direction_lesson_types faqat o'quv rejada soati > 0 bo'lgan dars turlarini ko'rsatadi.
+    # O'qituvchi biriktirilgan lekin rejada soati yo'q turlarni (soat 0 bilan) qo'shmaslik –
+    # ular "Amaliyot: Mavjud" kabi noto'g'ri ko'rinishga olib keladi.
+
     # Barcha o'qituvchilar (biriktirish uchun)
     all_available_teachers = []
     if current_user.role in ['admin', 'dean']:
@@ -3717,12 +3711,23 @@ def assignment_detail(id):
     assignment = Assignment.query.get_or_404(id)
     subject = assignment.subject
     
-    # O'qituvchi yoki adminmi?
-    is_teacher = TeacherSubject.query.filter_by(
-        teacher_id=current_user.id,
-        subject_id=subject.id,
-        group_id=assignment.group_id
-    ).first() is not None
+    # O'qituvchi yoki adminmi? Guruh darajasidagi topshiriqda – shu guruhga biriktirilgan; yo'nalish darajasida (group_id None) – shu yo'nalishdagi istalgan guruhga biriktirilgan bo'lsa ko'ra oladi
+    is_teacher = False
+    if assignment.group_id is not None:
+        is_teacher = TeacherSubject.query.filter_by(
+            teacher_id=current_user.id,
+            subject_id=subject.id,
+            group_id=assignment.group_id
+        ).first() is not None
+    else:
+        # Yo'nalish darajasidagi topshiriq – o'qituvchi shu yo'nalishdagi biror guruhga biriktirilgan bo'lsa ko'ra oladi
+        if assignment.direction_id:
+            direction_group_ids = [g.id for g in Group.query.filter_by(direction_id=assignment.direction_id).all()]
+            is_teacher = TeacherSubject.query.filter(
+                TeacherSubject.teacher_id == current_user.id,
+                TeacherSubject.subject_id == subject.id,
+                TeacherSubject.group_id.in_(direction_group_ids)
+            ).first() is not None
     
     if is_teacher or current_user.role == 'admin':
         # Barcha submissions (history uchun)
