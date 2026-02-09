@@ -1443,6 +1443,19 @@ def detail(id, dir_id=None, group_id=None):
     # unda allowed_lesson_types bo'sh bo'lib qoladi. Uni to'ldirishimiz kerak.
     if target_direction_id and not allowed_lesson_types:
         allowed_lesson_types = {'maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'}
+
+    # O'qituvchi biriktirilgan dars turlarini qo'shish – Yo'nalish fanlarida Amaliyot/Seminar tabs ko'rinsin
+    if target_direction_id:
+        dir_grp_ids = [g.id for g in Group.query.filter_by(direction_id=target_direction_id).all()]
+        if dir_grp_ids:
+            for ta in TeacherSubject.query.filter(
+                TeacherSubject.subject_id == subject.id,
+                TeacherSubject.group_id.in_(dir_grp_ids)
+            ).all():
+                if ta.lesson_type and ta.lesson_type.strip():
+                    lt = ta.lesson_type.strip().lower()
+                    if lt in ('maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'):
+                        allowed_lesson_types.add(lt)
     
     # Barcha o'qituvchilarni to'plash va takrorlanmas qilish
     seen_teacher_ids = set()
@@ -1978,10 +1991,64 @@ def detail(id, dir_id=None, group_id=None):
         if not requested_group:
             requested_group = Group.query.filter_by(name=requested_group_name).first()
 
-    # O'quv rejada faqat soat kiritilgan dars turlari (tab ko'rsatish uchun)
+    # O'quv rejada soat kiritilgan YOKI o'qituvchi biriktirilgan dars turlari (tab ko'rsatish uchun)
     type_to_key = {'Maruza': 'maruza', 'Amaliyot': 'amaliyot', 'Laboratoriya': 'laboratoriya',
                    'Seminar': 'seminar', 'Kurs ishi': 'kurs_ishi'}
     curriculum_lesson_type_keys = {type_to_key.get(d['type']) for d in direction_lesson_types if type_to_key.get(d['type'])}
+
+    # O'qituvchi direction_id siz kirganda ham o'quv rejadagi dars turlarini ko'rsatish
+    if not curriculum_lesson_type_keys and (current_role == 'teacher' or current_user.has_role('teacher')) and subject.id:
+        teacher_ts = TeacherSubject.query.filter_by(teacher_id=current_user.id, subject_id=subject.id).all()
+        seen_dir_ids = set()
+        for ts in teacher_ts:
+            if ts.group_id and ts.group and ts.group.direction_id and ts.group.direction_id not in seen_dir_ids:
+                seen_dir_ids.add(ts.group.direction_id)
+                dc_list = DirectionCurriculum.query.filter_by(
+                    direction_id=ts.group.direction_id,
+                    subject_id=subject.id
+                ).all()
+                for dc in dc_list:
+                    if (dc.hours_maruza or 0) > 0:
+                        curriculum_lesson_type_keys.add('maruza')
+                    if (dc.hours_amaliyot or 0) > 0:
+                        curriculum_lesson_type_keys.add('amaliyot')
+                    if (dc.hours_laboratoriya or 0) > 0:
+                        curriculum_lesson_type_keys.add('laboratoriya')
+                    if (dc.hours_seminar or 0) > 0:
+                        curriculum_lesson_type_keys.add('seminar')
+                    if (dc.hours_kurs_ishi or 0) > 0:
+                        curriculum_lesson_type_keys.add('kurs_ishi')
+
+    # O'qituvchi biriktirishlari (TeacherSubject) dan qo'shimcha dars turlarini qo'shish –
+    # Yo'nalish fanlarida Amaliyot/Seminar o'qituvchi biriktirilgan bo'lsa, tab ko'rinsin
+    teacher_subject_lesson_types = set()
+    if subject.id and (direction_id or current_role == 'teacher' or current_user.has_role('teacher')):
+        ts_query = TeacherSubject.query.filter_by(subject_id=subject.id)
+        if current_user.role == 'student' and current_user.group_id:
+            ts_query = ts_query.filter_by(group_id=current_user.group_id)
+        elif current_role == 'teacher':
+            ts_query = ts_query.filter_by(teacher_id=current_user.id)
+        else:
+            # Admin, dekan yoki boshqalar – yo'nalishdagi barcha guruhlar uchun
+            dir_group_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
+            if dir_group_ids:
+                ts_query = ts_query.filter(TeacherSubject.group_id.in_(dir_group_ids))
+        for ts in ts_query.all():
+            if ts.lesson_type and ts.lesson_type.strip():
+                lt = ts.lesson_type.strip().lower()
+                if lt in ('maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'):
+                    teacher_subject_lesson_types.add(lt)
+    curriculum_lesson_type_keys = curriculum_lesson_type_keys | teacher_subject_lesson_types
+
+    # Header uchun direction_lesson_types ga o'qituvchi biriktirilgan turlarni qo'shish (soat 0)
+    type_from_curriculum = {d['type'] for d in direction_lesson_types}
+    key_to_type = {'maruza': 'Maruza', 'amaliyot': 'Amaliyot', 'laboratoriya': 'Laboratoriya',
+                   'seminar': 'Seminar', 'kurs_ishi': 'Kurs ishi'}
+    for lt in teacher_subject_lesson_types:
+        t = key_to_type.get(lt)
+        if t and t not in type_from_curriculum:
+            direction_lesson_types.append({'type': t, 'hours': 0})
+            type_from_curriculum.add(t)
     
     # Barcha o'qituvchilar (biriktirish uchun)
     all_available_teachers = []

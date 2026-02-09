@@ -328,9 +328,8 @@ def import_payments_from_excel(file):
     except ImportError:
         return {'success': False, 'imported': 0, 'errors': ["openpyxl kutubxonasi o'rnatilmagan"]}
     try:
-        wb = load_workbook(file, read_only=True, data_only=True)
+        wb = load_workbook(file, data_only=True)
         ws = wb.active
-        wb.close()
     except Exception as e:
         return {'success': False, 'imported': 0, 'errors': [str(e)]}
     header_aliases = {
@@ -374,6 +373,13 @@ def import_payments_from_excel(file):
 
     if not talaba_col and not ismi_col:
         return {'success': False, 'imported': 0, 'errors': ["Talaba_id yoki Ismi ustuni topilmadi"]}
+
+    # Eski barcha to'lovlarni o'chirib, import faylidagi ma'lumotlar bilan almashtirish
+    try:
+        StudentPayment.query.delete()
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'imported': 0, 'errors': [f"Eski to'lovlarni o'chirishda xato: {str(e)}"]}
 
     imported = 0
     errors = []
@@ -435,9 +441,8 @@ def import_contract_amounts_from_excel(file, faculty_restrict=None):
     except ImportError:
         return {'success': False, 'imported': 0, 'errors': ["openpyxl o'rnatilmagan"]}
     try:
-        wb = load_workbook(file, read_only=True, data_only=True)
+        wb = load_workbook(file, data_only=True)
         ws = wb.active
-        wb.close()
     except Exception as e:
         return {'success': False, 'imported': 0, 'errors': [str(e)]}
     header_map = {
@@ -462,17 +467,21 @@ def import_contract_amounts_from_excel(file, faculty_restrict=None):
                     return c
         return None
 
-    header_row = 1
+    # Sarlavha qatori: "Fakultet" ustuni bor qatorni topamiz (1-qatorda bosh sarlavha bo‘lishi mumkin)
+    header_row = None
     for try_row in range(1, min(25, ws.max_row + 1)):
-        found = False
-        for c in range(1, min(10, ws.max_column + 1)):
+        for c in range(1, ws.max_column + 1):
             v = ws.cell(row=try_row, column=c).value
-            if v and ('fakultet' in str(v).lower() or 'kontrakt' in str(v).lower() or 'faculty' in str(v).lower() or 'boshlanish' in str(v).lower() or 'tugash' in str(v).lower()):
+            if not v:
+                continue
+            v_str = str(v).strip().lower()
+            if v_str in ('fakultet', 'faculty') or 'fakultet' in v_str or (c == 1 and v_str == 'факультет'):
                 header_row = try_row
-                found = True
                 break
-        if found:
+        if header_row is not None:
             break
+    if header_row is None:
+        return {'success': False, 'imported': 0, 'errors': ["Sarlavha qatori topilmadi (Fakultet ustuni bo‘lgan qator kerak)."]}
     cols = {}
     for key, aliases in header_map.items():
         cols[key] = find_col(aliases, header_row)
