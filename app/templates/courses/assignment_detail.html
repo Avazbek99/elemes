@@ -183,7 +183,11 @@
     </div>
     {% endif %}
 
-    {% if (not submission or can_resubmit) and remaining_attempts > 0 %}
+    {% if waiting_for_grade %}
+    <div class="bg-amber-50 rounded-2xl border border-amber-200 p-6">
+        <p class="text-amber-800 font-medium">ℹ️ {{ t('submission_wait_for_grade') }}</p>
+    </div>
+    {% elif (not submission or can_resubmit) and remaining_attempts > 0 %}
     <div id="submit-form" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">

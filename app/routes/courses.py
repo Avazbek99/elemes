@@ -611,70 +611,63 @@ def index():
                     grades_by_type[lesson_type] = {'score': 0, 'max': 0}
             
             for assignment in assignments:
-                submission = Submission.query.filter_by(
+                # Talaba uchun topshiriq bo'yicha eng yuqori ball (topshirmasa 0)
+                all_subs = Submission.query.filter_by(
                     student_id=current_user.id,
-                    assignment_id=assignment.id,
-                    is_active=True
-                ).first()
+                    assignment_id=assignment.id
+                ).all()
+                scores = [s.score for s in all_subs if s.score is not None]
+                best_score = max(scores) if scores else 0
                 
-                if submission and submission.score is not None:
-                    # Topshiriqning dars turini aniqlash
-                    lesson_type = assignment.lesson_type
-                    
-                    # Agar lesson_type bo'sh bo'lsa, o'qituvchi biriktirishiga qarab aniqlash
-                    if not lesson_type:
+                # Barcha topshiriqlar (topshirgan ham, topshirmagan ham) hisobga olinadi
+                lesson_type = assignment.lesson_type
+                if not lesson_type:
+                    assignment_creator = User.query.get(assignment.created_by) if assignment.created_by else None
+                    if assignment_creator:
+                        teacher_subject = TeacherSubject.query.filter_by(
+                            subject_id=subject.id,
+                            group_id=current_user.group_id,
+                            teacher_id=assignment_creator.id
+                        ).first()
+                        if teacher_subject:
+                            lesson_type = teacher_subject.lesson_type
+                if not lesson_type:
+                    assignment_title_lower = assignment.title.lower()
+                    if 'amaliy' in assignment_title_lower or 'amaliyot' in assignment_title_lower:
+                        lesson_type = 'amaliyot'
+                    elif 'laboratoriya' in assignment_title_lower or 'lab' in assignment_title_lower:
+                        lesson_type = 'laboratoriya'
+                    elif 'seminar' in assignment_title_lower:
+                        lesson_type = 'seminar'
+                    elif 'kurs' in assignment_title_lower or 'kurs ishi' in assignment_title_lower:
+                        lesson_type = 'kurs_ishi'
+                    else:
+                        lesson_type = 'maruza'
+                
+                # Har bir topshiriq uchun max ga qo'shamiz; ballga best_score (yoki 0)
+                if lesson_type in ['laboratoriya', 'kurs_ishi']:
+                    if lesson_type in grades_by_type:
+                        grades_by_type[lesson_type]['score'] += best_score
+                        grades_by_type[lesson_type]['max'] += (assignment.max_score or 0)
+                    elif not assignment.lesson_type:
                         assignment_creator = User.query.get(assignment.created_by) if assignment.created_by else None
                         if assignment_creator:
-                            teacher_subject = TeacherSubject.query.filter_by(
+                            amaliyot_teacher = TeacherSubject.query.filter_by(
                                 subject_id=subject.id,
                                 group_id=current_user.group_id,
-                                teacher_id=assignment_creator.id
+                                teacher_id=assignment_creator.id,
+                                lesson_type='amaliyot'
                             ).first()
-                            if teacher_subject:
-                                lesson_type = teacher_subject.lesson_type
-                    
-                    # Agar hali ham aniqlanmagan bo'lsa, topshiriq nomiga qarab
-                    if not lesson_type:
-                        assignment_title_lower = assignment.title.lower()
-                        if 'amaliy' in assignment_title_lower or 'amaliyot' in assignment_title_lower:
-                            lesson_type = 'amaliyot'
-                        elif 'laboratoriya' in assignment_title_lower or 'lab' in assignment_title_lower:
-                            lesson_type = 'laboratoriya'
-                        elif 'seminar' in assignment_title_lower:
-                            lesson_type = 'seminar'
-                        elif 'kurs' in assignment_title_lower or 'kurs ishi' in assignment_title_lower:
-                            lesson_type = 'kurs_ishi'
-                        else:
-                            lesson_type = 'maruza'  # Default
-                    
-                    # Laboratoriya va kurs_ishi uchun amaliyot o'qituvchisidan ham baholanishi mumkin
-                    if lesson_type in ['laboratoriya', 'kurs_ishi']:
-                        # Avval to'g'ridan-to'g'ri lesson_type bo'yicha qidirish
-                        if lesson_type in grades_by_type:
-                            grades_by_type[lesson_type]['score'] += submission.score
-                            grades_by_type[lesson_type]['max'] += assignment.max_score
-                        # Agar assignment.lesson_type bo'sh bo'lsa va amaliyot o'qituvchisi baholagan bo'lsa
-                        elif not assignment.lesson_type:
-                            # Amaliyot o'qituvchisi bilan tekshirish
-                            assignment_creator = User.query.get(assignment.created_by) if assignment.created_by else None
-                            if assignment_creator:
-                                amaliyot_teacher = TeacherSubject.query.filter_by(
-                                    subject_id=subject.id,
-                                    group_id=current_user.group_id,
-                                    teacher_id=assignment_creator.id,
-                                    lesson_type='amaliyot'
-                                ).first()
-                                if amaliyot_teacher:
-                                    grades_by_type['amaliyot']['score'] += submission.score
-                                    grades_by_type['amaliyot']['max'] += assignment.max_score
-                                else:
-                                    grades_by_type[lesson_type]['score'] += submission.score
-                                    grades_by_type[lesson_type]['max'] += assignment.max_score
-                    else:
-                        # Boshqa dars turlari uchun
-                        if lesson_type in grades_by_type:
-                            grades_by_type[lesson_type]['score'] += submission.score
-                            grades_by_type[lesson_type]['max'] += assignment.max_score
+                            if amaliyot_teacher and 'amaliyot' in grades_by_type:
+                                grades_by_type['amaliyot']['score'] += best_score
+                                grades_by_type['amaliyot']['max'] += (assignment.max_score or 0)
+                            elif lesson_type in grades_by_type:
+                                grades_by_type[lesson_type]['score'] += best_score
+                                grades_by_type[lesson_type]['max'] += (assignment.max_score or 0)
+                else:
+                    if lesson_type in grades_by_type:
+                        grades_by_type[lesson_type]['score'] += best_score
+                        grades_by_type[lesson_type]['max'] += (assignment.max_score or 0)
             
             # Jami ballarni hisoblash
             total_score = sum(g['score'] for g in grades_by_type.values())
@@ -1273,12 +1266,16 @@ def detail(id, dir_id=None, group_id=None):
             ).order_by(Submission.submitted_at.desc()).all()
             
             latest_sub = all_subs[0] if all_subs else None
+            # Ball hisoblash uchun eng yuqori baholangan javob
+            graded_subs = [s for s in all_subs if s.score is not None]
+            best_sub = max(graded_subs, key=lambda s: s.score) if graded_subs else None
             is_any_graded = any(s.score is not None for s in all_subs)
             remaining_attempts = 3 - len(all_subs)
             if remaining_attempts < 0: remaining_attempts = 0
             
             assignment_status[assignment.id] = {
                 'latest_sub': latest_sub,
+                'best_sub': best_sub,
                 'is_any_graded': is_any_graded,
                 'remaining_attempts': remaining_attempts,
                 'has_subs': bool(all_subs)
@@ -1323,8 +1320,8 @@ def detail(id, dir_id=None, group_id=None):
         
         for assignment in assignments:
             status_dict = assignment_status.get(assignment.id)
-            if status_dict and status_dict.get('latest_sub') and status_dict['latest_sub'].score is not None:
-                submission = status_dict['latest_sub']
+            if status_dict and status_dict.get('best_sub'):
+                submission = status_dict['best_sub']
                 # Topshiriq qaysi o'qituvchiga tegishli ekanligini aniqlash
                 assignment_creator = User.query.get(assignment.created_by) if assignment.created_by else None
                 
@@ -3912,9 +3909,12 @@ def assignment_detail(id):
         
         can_resubmit = True
         resubmission_count = 0
+        waiting_for_grade = False  # Baholanmagan javob bor – keyingi yuborish bloklangan
         if submission:
             resubmission_count = submission.resubmission_count
             can_resubmit = submission.can_resubmit(max_resubmissions=3)
+            if submission.score is None:
+                waiting_for_grade = True
             
         # Eng yuqori ballni hisoblash
         highest_score = 0
@@ -3975,6 +3975,7 @@ def assignment_detail(id):
                              remaining_attempts=remaining_attempts,
                              can_resubmit=can_resubmit,
                              resubmission_count=resubmission_count,
+                             waiting_for_grade=waiting_for_grade,
                              is_overdue=is_overdue,
                              related_lessons=related_lessons,
                              total_submissions=total_submissions,
@@ -4057,6 +4058,11 @@ def submit_assignment(id):
         assignment_id=id,
         is_active=True
     ).first()
+    
+    # O'qituvchi baholaguniga qadar keyingi javob yuborish mumkin emas
+    if active_submission and active_submission.score is None:
+        flash(t('submission_wait_for_grade'), 'error')
+        return redirect(url_for('courses.assignment_detail', id=id))
     
     if active_submission:
         # Qayta topshirish imkoniyati tekshiruvi
@@ -4515,9 +4521,20 @@ def export_group_grades(subject_id, group_id):
         flash(t('no_permission_for_operation'), 'error')
         return redirect(url_for('courses.group_grades', subject_id=subject_id, group_id=group_id))
     
+    assignments = Assignment.query.filter_by(subject_id=subject_id, group_id=group_id).all()
+    # Baholanmagan javob bo'lsa eksport qilish mumkin emas
+    if assignments:
+        assignment_ids = [a.id for a in assignments]
+        ungraded = Submission.query.filter(
+            Submission.assignment_id.in_(assignment_ids),
+            Submission.score.is_(None)
+        ).limit(1).first()
+        if ungraded:
+            flash(t('export_ungraded_blocked'), 'error')
+            return redirect(url_for('courses.group_grades', subject_id=subject_id, group_id=group_id))
+    
     # Ma'lumotlarni tayyorlash
     students = User.query.filter_by(role='student', group_id=group_id).order_by(User.full_name).all()
-    assignments = Assignment.query.filter_by(subject_id=subject_id, group_id=group_id).all()
     
     student_rows = []
     for student in students:
@@ -4588,6 +4605,17 @@ def export_detailed_group_grades(subject_id, group_id):
     # Agar guruh uchun topshiriqlar bo'lmasa, umumiy fanda yo'nalishsiz bo'lgan topshiriqlarni ham olishi mumkin
     if not assignments:
         assignments = Assignment.query.filter_by(subject_id=subject_id, group_id=None).order_by(Assignment.due_date).all()
+    
+    # Baholanmagan javob bo'lsa eksport qilish mumkin emas
+    if assignments:
+        assignment_ids = [a.id for a in assignments]
+        ungraded = Submission.query.filter(
+            Submission.assignment_id.in_(assignment_ids),
+            Submission.score.is_(None)
+        ).limit(1).first()
+        if ungraded:
+            flash(t('export_ungraded_blocked'), 'error')
+            return redirect(url_for('courses.detail', id=subject_id))
     
     matrix = []
     for student in students:
