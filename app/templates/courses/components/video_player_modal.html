@@ -217,28 +217,30 @@
             {% endif %}
 
             <span id="js-attention-failed" class="hidden">{{ t('attention_check_failed') }}</span>
-            <!-- Attention Check Modal (Moved outside for all video types) -->
+            <!-- Attention Check Modal: fixed to viewport so it always fits and is fully visible -->
             <div id="attention-modal"
-                class="absolute inset-0 bg-black/70 backdrop-blur-sm z-[80] hidden items-center justify-center">
-                <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4 transform scale-100 animate-bounce-in">
+                class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[90] p-4 flex items-center justify-center"
+                style="overflow-y: auto; display: none;">
+                <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full transform scale-100 animate-bounce-in flex-shrink-0"
+                    style="max-height: 90vh; overflow-y: auto;">
                     <div class="text-center">
                         <div
-                            class="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center animate-pulse">
-                            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center animate-pulse shrink-0">
+                            <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                         </div>
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ t('attention_check_title') }}</h2>
-                        <p class="text-gray-500 mb-6">{{ t('video_watching_question') }}</p>
-                        <p class="text-gray-500 mb-6">{{ t('video_restart_warning') }}</p>
+                        <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{{ t('attention_check_title') }}</h2>
+                        <p class="text-gray-500 mb-3 sm:mb-6 text-sm sm:text-base">{{ t('video_watching_question') }}</p>
+                        <p class="text-gray-500 mb-3 sm:mb-6 text-sm sm:text-base">{{ t('video_restart_warning') }}</p>
                         <p class="text-sm text-gray-400 mb-4" id="attention-timer">{{ t('answer_time') }} <span
                                 id="timer-seconds">10</span>
                             {{ t('seconds_unit') }}</p>
-                        <button onclick="confirmAttention()"
-                            class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-lg font-semibold rounded-2xl transition-all transform hover:scale-105 shadow-lg">
+                        <button onclick="confirmAttention()" type="button"
+                            class="w-full px-6 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-base sm:text-lg font-semibold rounded-2xl transition-all transform hover:scale-105 shadow-lg">
                             ✓ {{ t('yes_watching') }}
                         </button>
                     </div>
@@ -453,11 +455,11 @@
     }
 
     function showAttentionModal() {
-        if (document.getElementById('attention-modal').classList.contains('flex')) return;
-
         const modal = document.getElementById('attention-modal');
+        if (modal.style.display === 'flex') return;
+
+        modal.style.display = 'flex';
         modal.classList.remove('hidden');
-        modal.classList.add('flex');
 
         if (videoPlayer) videoPlayer.pause();
         if (youtubeAPI && typeof youtubeAPI.pauseVideo === 'function') youtubeAPI.pauseVideo();
@@ -469,8 +471,8 @@
             updateTimerDisplay();
             if (timerSeconds <= 0) {
                 clearInterval(attentionTimer);
+                modal.style.display = 'none';
                 modal.classList.add('hidden');
-                modal.classList.remove('flex');
 
                 // Penalize: Reset to previous milestone
                 let resetTime = 0;
@@ -506,8 +508,8 @@
     function confirmAttention() {
         clearInterval(attentionTimer);
         const modal = document.getElementById('attention-modal');
+        modal.style.display = 'none';
         modal.classList.add('hidden');
-        modal.classList.remove('flex');
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         fetch(`/subjects/lessons/${lessonId}/attention-check`, {
