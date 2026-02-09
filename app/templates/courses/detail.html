@@ -352,7 +352,8 @@
                                     </a>
                                     <form method="POST"
                                         action="{{ url_for('courses.delete_lesson', id=lesson.id) }}{% if direction_id or group_id %}?{% endif %}{% if direction_id %}direction_id={{ direction_id }}{% endif %}{% if direction_id and group_id %}&{% endif %}{% if group_id %}group_id={{ group_id }}{% endif %}"
-                                        onsubmit="return confirm('{{ t('confirm_delete_lesson')|e }}');"
+                                        data-confirm-message="{{ t('confirm_delete_lesson')|e }}"
+                                        onsubmit="return confirm(this.getAttribute('data-confirm-message'));"
                                         class="inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                         <button type="submit"
@@ -705,9 +706,10 @@
                                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
                                     </a>
-                                    <form action="{{ url_for('courses.delete_assignment', id=assignment.id) }}"
+                                    <form action="{{ url_for('courses.delete_assignment', id=assignment.id) }}{% if direction_id or group_id %}?{% endif %}{% if direction_id %}direction_id={{ direction_id }}{% endif %}{% if direction_id and group_id %}&{% endif %}{% if group_id %}group_id={{ group_id }}{% endif %}"
                                         method="POST" class="inline"
-                                        onsubmit="return confirm('{{ t('confirm_delete_short')|e }}')">
+                                        data-confirm-message="{{ t('confirm_delete_assignment')|e }}"
+                                        onsubmit="return confirm(this.getAttribute('data-confirm-message'));">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                         <button type="submit"
                                             class="p-1.5 text-gray-600 hover:text-red-600 hover:bg-white rounded-lg transition-colors border border-gray-100 shadow-sm"

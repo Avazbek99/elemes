@@ -74,7 +74,8 @@
                     <td class="px-6 py-3 capitalize">{{ assignment.lesson_type }}</td>
                     <td class="px-6 py-3">
                         <form action="{{ url_for('admin.delete_assignment', id=assignment.id) }}" method="POST"
-                            onsubmit="return confirm('Haqiqatan ham o\'chirmoqchimisiz?')" class="inline">
+                            data-confirm-message="{{ t('confirm_delete_assignment')|e }}"
+                            onsubmit="return confirm(this.getAttribute('data-confirm-message'));" class="inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                             <button type="submit"
                                 class="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
