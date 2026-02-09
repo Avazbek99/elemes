@@ -1444,19 +1444,9 @@ def detail(id, dir_id=None, group_id=None):
     if target_direction_id and not allowed_lesson_types:
         allowed_lesson_types = {'maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'}
 
-    # O'qituvchi biriktirilgan dars turlarini qo'shish – Yo'nalish fanlarida Amaliyot/Seminar tabs ko'rinsin
-    if target_direction_id:
-        dir_grp_ids = [g.id for g in Group.query.filter_by(direction_id=target_direction_id).all()]
-        if dir_grp_ids:
-            for ta in TeacherSubject.query.filter(
-                TeacherSubject.subject_id == subject.id,
-                TeacherSubject.group_id.in_(dir_grp_ids)
-            ).all():
-                if ta.lesson_type and ta.lesson_type.strip():
-                    lt = ta.lesson_type.strip().lower()
-                    if lt in ('maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'):
-                        allowed_lesson_types.add(lt)
-    
+    # allowed_lesson_types faqat o'quv rejadagi soatlardan aniqlanadi. O'qituvchi biriktirilgan
+    # dars turlarini bu yerga qo'shmaslik – rejadan soat o'chirilsa (masalan seminar), kartochkada ham ko'rinmasin.
+
     # Barcha o'qituvchilarni to'plash va takrorlanmas qilish
     seen_teacher_ids = set()
     for ta in all_teacher_assignments:
@@ -1483,8 +1473,9 @@ def detail(id, dir_id=None, group_id=None):
         
         # Dars turini ko'rsatish - faqat o'quv rejada soat kiritilgan dars turlarini ko'rsatish
         if should_add_lesson_type:
+            lt_normalized = (ta.lesson_type or '').strip().lower()
             # Yo'nalish tanlangan va o'quv reja bor bo'lsa, faqat soat kiritilgan dars turlarini ko'rsatish
-            if target_direction_id and curriculum_item and ta.lesson_type not in allowed_lesson_types:
+            if target_direction_id and curriculum_item and lt_normalized not in allowed_lesson_types:
                 pass  # O'quv rejada bu dars turi uchun soat yo'q - ko'rsatmaslik
             else:
                 lesson_type_name = lesson_type_names.get(ta.lesson_type, ta.lesson_type.capitalize())
@@ -2157,88 +2148,63 @@ def create_lesson(id):
     is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
     
     if is_acting_as_teacher:
-        # O'qituvchi uchun - faqat ushbu yo'nalishga biriktirilgan dars turlarini ko'rsatish
         lesson_types_set = set()
-        
         if direction_id:
-            # Faqat shu yo'nalishdagi guruhlar
             direction_group_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
-            
-            # Faqat shu yo'nalishdagi guruhlarga biriktirilgan TeacherSubject'lar
             teacher_assignments = TeacherSubject.query.filter(
                 TeacherSubject.teacher_id == current_user.id,
                 TeacherSubject.subject_id == subject.id,
                 TeacherSubject.group_id.in_(direction_group_ids)
             ).all()
-            
-            # Barcha biriktirilgan dars turlarini to'plash
             for ta in teacher_assignments:
                 if ta.lesson_type:
                     lesson_types_set.add(ta.lesson_type)
             
-            # DirectionCurriculum jadvalidan "laboratoriya" va "kurs_ishi" tekshiruvi
             curriculum_item = DirectionCurriculum.query.filter_by(
                 direction_id=direction_id,
                 subject_id=subject.id
             ).first()
-            
             if curriculum_item:
-                # Laboratoriya tekshiruvi
+                curriculum_lesson_types = set()
+                if (curriculum_item.hours_maruza or 0) > 0:
+                    curriculum_lesson_types.add('maruza')
+                if (curriculum_item.hours_amaliyot or 0) > 0:
+                    curriculum_lesson_types.add('amaliyot')
                 if (curriculum_item.hours_laboratoriya or 0) > 0:
-                    # Laboratoriya uchun o'qituvchini qidirish
+                    curriculum_lesson_types.add('laboratoriya')
+                if (curriculum_item.hours_seminar or 0) > 0:
+                    curriculum_lesson_types.add('seminar')
+                if (curriculum_item.hours_kurs_ishi or 0) > 0:
+                    curriculum_lesson_types.add('kurs_ishi')
+                if curriculum_lesson_types:
+                    lesson_types_set &= curriculum_lesson_types
+                if (curriculum_item.hours_laboratoriya or 0) > 0:
                     lab_teacher_assignment = TeacherSubject.query.filter(
                         TeacherSubject.subject_id == subject.id,
                         TeacherSubject.group_id.in_(direction_group_ids),
                         TeacherSubject.teacher_id == current_user.id,
-                        TeacherSubject.lesson_type == 'laboratoriya'
+                        TeacherSubject.lesson_type.in_(['laboratoriya', 'amaliyot'])
                     ).first()
-                    
-                    if not lab_teacher_assignment:
-                        # Agar alohida laboratoriya biriktirishi yo'q bo'lsa, amaliyot o'qituvchisini qidirish
-                        lab_teacher_assignment = TeacherSubject.query.filter(
-                            TeacherSubject.subject_id == subject.id,
-                            TeacherSubject.group_id.in_(direction_group_ids),
-                            TeacherSubject.teacher_id == current_user.id,
-                            TeacherSubject.lesson_type == 'amaliyot'
-                        ).first()
-                    
                     if lab_teacher_assignment:
                         lesson_types_set.add('laboratoriya')
-                
-                # Kurs ishi tekshiruvi
                 if (curriculum_item.hours_kurs_ishi or 0) > 0:
-                    # Kurs ishi uchun o'qituvchini qidirish
                     kurs_teacher_assignment = TeacherSubject.query.filter(
                         TeacherSubject.subject_id == subject.id,
                         TeacherSubject.group_id.in_(direction_group_ids),
                         TeacherSubject.teacher_id == current_user.id,
-                        TeacherSubject.lesson_type == 'kurs_ishi'
+                        TeacherSubject.lesson_type.in_(['kurs_ishi', 'amaliyot'])
                     ).first()
-                    
-                    if not kurs_teacher_assignment:
-                        # Agar alohida kurs_ishi biriktirishi yo'q bo'lsa, amaliyot o'qituvchisini qidirish
-                        kurs_teacher_assignment = TeacherSubject.query.filter(
-                            TeacherSubject.subject_id == subject.id,
-                            TeacherSubject.group_id.in_(direction_group_ids),
-                            TeacherSubject.teacher_id == current_user.id,
-                            TeacherSubject.lesson_type == 'amaliyot'
-                        ).first()
-                    
                     if kurs_teacher_assignment:
                         lesson_types_set.add('kurs_ishi')
         else:
-            # direction_id bo'lmasa, barcha biriktirishlar
             teacher_assignments = TeacherSubject.query.filter_by(
                 teacher_id=current_user.id,
                 subject_id=subject.id
             ).all()
-            
-            # Barcha biriktirilgan dars turlarini to'plash
             for ta in teacher_assignments:
                 if ta.lesson_type:
                     lesson_types_set.add(ta.lesson_type)
         
-        # Dars turlari nomlari
         lesson_type_names_map = {
             'maruza': 'Maruza',
             'amaliyot': 'Amaliyot',
@@ -2246,8 +2212,6 @@ def create_lesson(id):
             'seminar': 'Seminar',
             'kurs_ishi': 'Kurs ishi'
         }
-        
-        # Tartib bo'yicha dars turlarini yaratish
         lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
         for lesson_type_key in lesson_type_order:
             if lesson_type_key in lesson_types_set:
@@ -2256,8 +2220,31 @@ def create_lesson(id):
                     'name': lesson_type_names_map.get(lesson_type_key, lesson_type_key.capitalize())
                 })
     else:
-        # Faqat admin roli bo'lsa va o'qituvchi roli bo'lmasa, barcha dars turlari
-        if current_user.role == 'admin' and current_role != 'teacher':
+        if current_user.role == 'admin' and current_role != 'teacher' and direction_id:
+            curriculum_item = DirectionCurriculum.query.filter_by(
+                direction_id=direction_id,
+                subject_id=subject.id
+            ).first()
+            if curriculum_item:
+                if (curriculum_item.hours_maruza or 0) > 0:
+                    allowed_lesson_types.append({'value': 'maruza', 'name': 'Maruza'})
+                if (curriculum_item.hours_amaliyot or 0) > 0:
+                    allowed_lesson_types.append({'value': 'amaliyot', 'name': 'Amaliyot'})
+                if (curriculum_item.hours_laboratoriya or 0) > 0:
+                    allowed_lesson_types.append({'value': 'laboratoriya', 'name': 'Laboratoriya'})
+                if (curriculum_item.hours_seminar or 0) > 0:
+                    allowed_lesson_types.append({'value': 'seminar', 'name': 'Seminar'})
+                if (curriculum_item.hours_kurs_ishi or 0) > 0:
+                    allowed_lesson_types.append({'value': 'kurs_ishi', 'name': 'Kurs ishi'})
+            if not allowed_lesson_types:
+                allowed_lesson_types = [
+                    {'value': 'maruza', 'name': 'Maruza'},
+                    {'value': 'amaliyot', 'name': 'Amaliyot'},
+                    {'value': 'laboratoriya', 'name': 'Laboratoriya'},
+                    {'value': 'seminar', 'name': 'Seminar'},
+                    {'value': 'kurs_ishi', 'name': 'Kurs ishi'}
+                ]
+        elif current_user.role == 'admin' and current_role != 'teacher':
             allowed_lesson_types = [
                 {'value': 'maruza', 'name': 'Maruza'},
                 {'value': 'amaliyot', 'name': 'Amaliyot'},
@@ -2670,29 +2657,44 @@ def edit_lesson(id):
             return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id))
     
-    # Dars turlarini filtrlash
+    # Dars turlarini filtrlash: faqat o'quv rejada soati bor turlar + o'qituvchi biriktirilgan
     allowed_lesson_types = []
     
     check_dir_id = direction_id or lesson.direction_id
     if check_dir_id:
-        lesson_types_set = set()
         direction_group_ids_calc = [g.id for g in Group.query.filter_by(direction_id=check_dir_id).all()]
-        
-        teacher_assignments_calc = TeacherSubject.query.filter(
-            TeacherSubject.teacher_id == current_user.id,
-            TeacherSubject.subject_id == subject.id,
-            TeacherSubject.group_id.in_(direction_group_ids_calc)
-        ).all()
-        
-        for ta in teacher_assignments_calc:
-            if ta.lesson_type:
-                lesson_types_set.add(ta.lesson_type)
-        
         curriculum_item_calc = DirectionCurriculum.query.filter_by(
             direction_id=check_dir_id,
             subject_id=subject.id
         ).first()
         
+        # O'quv rejada qaysi dars turlariga soat berilgan
+        curriculum_lesson_types = set()
+        if curriculum_item_calc:
+            if (curriculum_item_calc.hours_maruza or 0) > 0:
+                curriculum_lesson_types.add('maruza')
+            if (curriculum_item_calc.hours_amaliyot or 0) > 0:
+                curriculum_lesson_types.add('amaliyot')
+            if (curriculum_item_calc.hours_laboratoriya or 0) > 0:
+                curriculum_lesson_types.add('laboratoriya')
+            if (curriculum_item_calc.hours_seminar or 0) > 0:
+                curriculum_lesson_types.add('seminar')
+            if (curriculum_item_calc.hours_kurs_ishi or 0) > 0:
+                curriculum_lesson_types.add('kurs_ishi')
+        
+        lesson_types_set = set()
+        teacher_assignments_calc = TeacherSubject.query.filter(
+            TeacherSubject.teacher_id == current_user.id,
+            TeacherSubject.subject_id == subject.id,
+            TeacherSubject.group_id.in_(direction_group_ids_calc)
+        ).all()
+        for ta in teacher_assignments_calc:
+            if ta.lesson_type:
+                lesson_types_set.add(ta.lesson_type)
+        
+        # Faqat o'quv rejada soati bor dars turlarini qoldirish (rejadan o'chirilgan tur ko'rinmasin)
+        if curriculum_lesson_types:
+            lesson_types_set &= curriculum_lesson_types
         if curriculum_item_calc:
             if (curriculum_item_calc.hours_laboratoriya or 0) > 0:
                 lab_teacher_calc = TeacherSubject.query.filter(
@@ -2703,7 +2705,6 @@ def edit_lesson(id):
                 ).first()
                 if lab_teacher_calc:
                     lesson_types_set.add('laboratoriya')
-            
             if (curriculum_item_calc.hours_kurs_ishi or 0) > 0:
                 kurs_teacher_calc = TeacherSubject.query.filter(
                     TeacherSubject.subject_id == subject.id,
@@ -2721,7 +2722,6 @@ def edit_lesson(id):
             'seminar': 'Seminar',
             'kurs_ishi': 'Kurs ishi'
         }
-        
         sorted_types = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
         allowed_lesson_types = []
         for l_type in sorted_types:
@@ -2730,6 +2730,10 @@ def edit_lesson(id):
                     'value': l_type,
                     'name': lesson_type_names_map.get(l_type, l_type.capitalize())
                 })
+        
+        # Admin uchun: yo'nalish bo'lsa faqat o'quv rejadagi turlarni ko'rsatish (o'qituvchi biriktirishisiz)
+        if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher' and curriculum_lesson_types and not allowed_lesson_types:
+            allowed_lesson_types = [{'value': t, 'name': lesson_type_names_map.get(t, t.capitalize())} for t in sorted_types if t in curriculum_lesson_types]
 
     if request.method == 'POST':
         video_filename = lesson.video_file  # Eski faylni saqlash
@@ -3440,85 +3444,70 @@ def create_assignment(id):
     current_role = session.get('current_role', current_user.role)
     is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
     
-    # O'qituvchiga biriktirilgan dars turlarini topish (dars qo'shish funksiyasidagi mantiq bilan bir xil)
+    # O'qituvchiga biriktirilgan dars turlarini topish; faqat o'quv rejada soati bor turlar
     allowed_lesson_types = []
+    lesson_type_names_map = {
+        'maruza': 'Maruza',
+        'amaliyot': 'Amaliyot',
+        'laboratoriya': 'Laboratoriya',
+        'seminar': 'Seminar',
+        'kurs_ishi': 'Kurs ishi'
+    }
+    lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
+    
     if is_acting_as_teacher:
         lesson_types_set = set()
+        curriculum_lesson_types = set()
         
         if direction_id:
-            # Faqat shu yo'nalishdagi guruhlar
             direction_group_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
-            
-            # Faqat shu yo'nalishdagi guruhlarga biriktirilgan TeacherSubject'lar
             teacher_assignments = TeacherSubject.query.filter(
                 TeacherSubject.teacher_id == current_user.id,
                 TeacherSubject.subject_id == subject.id,
                 TeacherSubject.group_id.in_(direction_group_ids)
             ).all()
-            
-            # Barcha biriktirilgan dars turlarini to'plash
             for ta in teacher_assignments:
                 if ta.lesson_type:
                     lesson_types_set.add(ta.lesson_type)
             
-            # DirectionCurriculum jadvalidan "laboratoriya" va "kurs_ishi" tekshiruvi
             curriculum_item = DirectionCurriculum.query.filter_by(
                 direction_id=direction_id,
-        subject_id=subject.id
+                subject_id=subject.id
             ).first()
-            
             if curriculum_item:
-                # Laboratoriya tekshiruvi
+                if (curriculum_item.hours_maruza or 0) > 0:
+                    curriculum_lesson_types.add('maruza')
+                if (curriculum_item.hours_amaliyot or 0) > 0:
+                    curriculum_lesson_types.add('amaliyot')
+                if (curriculum_item.hours_laboratoriya or 0) > 0:
+                    curriculum_lesson_types.add('laboratoriya')
+                if (curriculum_item.hours_seminar or 0) > 0:
+                    curriculum_lesson_types.add('seminar')
+                if (curriculum_item.hours_kurs_ishi or 0) > 0:
+                    curriculum_lesson_types.add('kurs_ishi')
+                
+                if curriculum_lesson_types:
+                    lesson_types_set &= curriculum_lesson_types
+                
                 if (curriculum_item.hours_laboratoriya or 0) > 0:
                     lab_teacher_assignment = TeacherSubject.query.filter(
                         TeacherSubject.subject_id == subject.id,
                         TeacherSubject.group_id.in_(direction_group_ids),
                         TeacherSubject.teacher_id == current_user.id,
-                        TeacherSubject.lesson_type == 'laboratoriya'
+                        TeacherSubject.lesson_type.in_(['laboratoriya', 'amaliyot'])
                     ).first()
-                    
-                    if not lab_teacher_assignment:
-                        lab_teacher_assignment = TeacherSubject.query.filter(
-                            TeacherSubject.subject_id == subject.id,
-                            TeacherSubject.group_id.in_(direction_group_ids),
-                            TeacherSubject.teacher_id == current_user.id,
-                            TeacherSubject.lesson_type == 'amaliyot'
-                        ).first()
-                    
                     if lab_teacher_assignment:
                         lesson_types_set.add('laboratoriya')
-                
-                # Kurs ishi tekshiruvi
                 if (curriculum_item.hours_kurs_ishi or 0) > 0:
                     kurs_teacher_assignment = TeacherSubject.query.filter(
                         TeacherSubject.subject_id == subject.id,
                         TeacherSubject.group_id.in_(direction_group_ids),
                         TeacherSubject.teacher_id == current_user.id,
-                        TeacherSubject.lesson_type == 'kurs_ishi'
+                        TeacherSubject.lesson_type.in_(['kurs_ishi', 'amaliyot'])
                     ).first()
-                    
-                    if not kurs_teacher_assignment:
-                        kurs_teacher_assignment = TeacherSubject.query.filter(
-                            TeacherSubject.subject_id == subject.id,
-                            TeacherSubject.group_id.in_(direction_group_ids),
-                            TeacherSubject.teacher_id == current_user.id,
-                            TeacherSubject.lesson_type == 'amaliyot'
-                        ).first()
-                    
                     if kurs_teacher_assignment:
                         lesson_types_set.add('kurs_ishi')
         
-        # Dars turlari nomlari
-        lesson_type_names_map = {
-            'maruza': 'Maruza',
-            'amaliyot': 'Amaliyot',
-            'laboratoriya': 'Laboratoriya',
-            'seminar': 'Seminar',
-            'kurs_ishi': 'Kurs ishi'
-        }
-        
-        # Tartib bo'yicha dars turlarini yaratish
-        lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
         for lesson_type_key in lesson_type_order:
             if lesson_type_key in lesson_types_set:
                 allowed_lesson_types.append({
@@ -3526,8 +3515,32 @@ def create_assignment(id):
                     'name': lesson_type_names_map.get(lesson_type_key, lesson_type_key.capitalize())
                 })
     else:
-        # Faqat admin roli bo'lsa va o'qituvchi roli bo'lmasa, barcha dars turlari
-        if current_user.role == 'admin' and current_role != 'teacher':
+        # Admin/dekan: yo'nalish bo'lsa faqat o'quv rejadagi dars turlari
+        if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher' and direction_id:
+            curriculum_item = DirectionCurriculum.query.filter_by(
+                direction_id=direction_id,
+                subject_id=subject.id
+            ).first()
+            if curriculum_item:
+                if (curriculum_item.hours_maruza or 0) > 0:
+                    allowed_lesson_types.append({'value': 'maruza', 'name': 'Maruza'})
+                if (curriculum_item.hours_amaliyot or 0) > 0:
+                    allowed_lesson_types.append({'value': 'amaliyot', 'name': 'Amaliyot'})
+                if (curriculum_item.hours_laboratoriya or 0) > 0:
+                    allowed_lesson_types.append({'value': 'laboratoriya', 'name': 'Laboratoriya'})
+                if (curriculum_item.hours_seminar or 0) > 0:
+                    allowed_lesson_types.append({'value': 'seminar', 'name': 'Seminar'})
+                if (curriculum_item.hours_kurs_ishi or 0) > 0:
+                    allowed_lesson_types.append({'value': 'kurs_ishi', 'name': 'Kurs ishi'})
+            if not allowed_lesson_types:
+                allowed_lesson_types = [
+                    {'value': 'maruza', 'name': 'Maruza'},
+                    {'value': 'amaliyot', 'name': 'Amaliyot'},
+                    {'value': 'laboratoriya', 'name': 'Laboratoriya'},
+                    {'value': 'seminar', 'name': 'Seminar'},
+                    {'value': 'kurs_ishi', 'name': 'Kurs ishi'}
+                ]
+        elif current_user.role == 'admin' and current_role != 'teacher':
             allowed_lesson_types = [
                 {'value': 'maruza', 'name': 'Maruza'},
                 {'value': 'amaliyot', 'name': 'Amaliyot'},
@@ -4693,8 +4706,17 @@ def edit_assignment(id):
     current_role = session.get('current_role', current_user.role)
     is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
     
-    # O'qituvchiga biriktirilgan dars turlarini topish
+    # Dars turlari: faqat o'quv rejada soati bor turlar
     allowed_lesson_types = []
+    lesson_type_names_map = {
+        'maruza': 'Maruza',
+        'amaliyot': 'Amaliyot',
+        'laboratoriya': 'Laboratoriya',
+        'seminar': 'Seminar',
+        'kurs_ishi': 'Kurs ishi'
+    }
+    lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
+    
     if is_acting_as_teacher:
         lesson_types_set = set()
         if direction_id:
@@ -4713,6 +4735,19 @@ def edit_assignment(id):
                 subject_id=subject.id
             ).first()
             if curriculum_item:
+                curriculum_lesson_types = set()
+                if (curriculum_item.hours_maruza or 0) > 0:
+                    curriculum_lesson_types.add('maruza')
+                if (curriculum_item.hours_amaliyot or 0) > 0:
+                    curriculum_lesson_types.add('amaliyot')
+                if (curriculum_item.hours_laboratoriya or 0) > 0:
+                    curriculum_lesson_types.add('laboratoriya')
+                if (curriculum_item.hours_seminar or 0) > 0:
+                    curriculum_lesson_types.add('seminar')
+                if (curriculum_item.hours_kurs_ishi or 0) > 0:
+                    curriculum_lesson_types.add('kurs_ishi')
+                if curriculum_lesson_types:
+                    lesson_types_set &= curriculum_lesson_types
                 if (curriculum_item.hours_laboratoriya or 0) > 0:
                     lab_teacher = TeacherSubject.query.filter(
                         TeacherSubject.subject_id == subject.id,
@@ -4722,7 +4757,6 @@ def edit_assignment(id):
                     ).first()
                     if lab_teacher:
                         lesson_types_set.add('laboratoriya')
-                
                 if (curriculum_item.hours_kurs_ishi or 0) > 0:
                     kurs_teacher = TeacherSubject.query.filter(
                         TeacherSubject.subject_id == subject.id,
@@ -4732,18 +4766,33 @@ def edit_assignment(id):
                     ).first()
                     if kurs_teacher:
                         lesson_types_set.add('kurs_ishi')
-        
-        lesson_type_names_map = {
-            'maruza': 'Maruza',
-            'amaliyot': 'Amaliyot',
-            'laboratoriya': 'Laboratoriya',
-            'seminar': 'Seminar',
-            'kurs_ishi': 'Kurs ishi'
-        }
-        lesson_type_order = ['maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi']
         for lt_key in lesson_type_order:
             if lt_key in lesson_types_set:
                 allowed_lesson_types.append({'value': lt_key, 'name': lesson_type_names_map.get(lt_key, lt_key.capitalize())})
+    elif (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher' and direction_id:
+        curriculum_item = DirectionCurriculum.query.filter_by(
+            direction_id=direction_id,
+            subject_id=subject.id
+        ).first()
+        if curriculum_item:
+            if (curriculum_item.hours_maruza or 0) > 0:
+                allowed_lesson_types.append({'value': 'maruza', 'name': 'Maruza'})
+            if (curriculum_item.hours_amaliyot or 0) > 0:
+                allowed_lesson_types.append({'value': 'amaliyot', 'name': 'Amaliyot'})
+            if (curriculum_item.hours_laboratoriya or 0) > 0:
+                allowed_lesson_types.append({'value': 'laboratoriya', 'name': 'Laboratoriya'})
+            if (curriculum_item.hours_seminar or 0) > 0:
+                allowed_lesson_types.append({'value': 'seminar', 'name': 'Seminar'})
+            if (curriculum_item.hours_kurs_ishi or 0) > 0:
+                allowed_lesson_types.append({'value': 'kurs_ishi', 'name': 'Kurs ishi'})
+        if not allowed_lesson_types:
+            allowed_lesson_types = [
+                {'value': 'maruza', 'name': 'Maruza'},
+                {'value': 'amaliyot', 'name': 'Amaliyot'},
+                {'value': 'laboratoriya', 'name': 'Laboratoriya'},
+                {'value': 'seminar', 'name': 'Seminar'},
+                {'value': 'kurs_ishi', 'name': 'Kurs ishi'}
+            ]
     elif (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher':
         allowed_lesson_types = [
             {'value': 'maruza', 'name': 'Maruza'},
