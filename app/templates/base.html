@@ -5,7 +5,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{% block title %}{{ t('site_name_short') }}{% endblock %}</title>
+    <title>{% block title %}{{ site_name_short or '' }}{% endblock %}</title>
+    {% if site_logo_filename %}
+    <link rel="icon" id="favicon-link" href="{{ url_for('admin.serve_site_upload', filename=site_logo_filename) }}" sizes="64x64">
+    {% else %}
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+    {% endif %}
+    <script>
+    (function(){
+        var link = document.getElementById('favicon-link');
+        if (!link || !link.href) return;
+        var size = 64;
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function(){
+            try {
+                var c = document.createElement('canvas');
+                c.width = size;
+                c.height = size;
+                var ctx = c.getContext('2d');
+                var w = img.width, h = img.height;
+                var scale = Math.min(size/w, size/h);
+                var dw = Math.round(w*scale), dh = Math.round(h*scale);
+                var x = (size-dw)>>1, y = (size-dh)>>1;
+                ctx.fillStyle = 'transparent';
+                ctx.fillRect(0,0,size,size);
+                ctx.drawImage(img, x, y, dw, dh);
+                link.href = c.toDataURL('image/png');
+            } catch(e) {}
+        };
+        img.onerror = function(){};
+        img.src = link.href;
+    })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
@@ -432,24 +464,26 @@
         <aside id="sidebar"
             class="fixed left-0 top-0 h-screen w-64 bg-dark-900 text-white flex flex-col z-50 shadow-xl transform -translate-x-full lg:translate-x-0 transition-transform duration-300">
             <!-- Logo -->
-            <div class="p-4 lg:p-6 border-b border-dark-700">
-                <div class="flex items-center justify-between">
+            <div class="p-4 lg:p-6 border-b border-dark-700 relative">
+                <div class="flex items-center justify-center">
                     <div class="flex items-center gap-3">
-                        <img src="{{ url_for('static', filename='images/logo.png') }}"
-                            alt="Logo" class="h-20 w-auto object-contain">
-                        <div class="flex flex-col">
-                            <span class="text-white font-bold text-lg">{{ t('institution_name') }}</span>
-                            <span class="text-gray-300 text-xs">{{ t('remote_education_platform') }}</span>
+                        {% if site_logo_filename %}
+                        <img src="{{ url_for('admin.serve_site_upload', filename=site_logo_filename) }}"
+                            alt="{{ site_name_short or site_institution_name or '' }}" class="h-20 w-auto object-contain">
+                        {% endif %}
+                        <div class="flex flex-col items-center text-center">
+                            <span class="text-white font-bold text-lg">{{ site_institution_name or '' }}</span>
+                            <span class="text-gray-300 text-xs">{{ site_tagline or '' }}</span>
                         </div>
                     </div>
-                    <button onclick="toggleMobileMenu()"
-                        class="lg:hidden p-2 rounded-lg hover:bg-dark-800 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
                 </div>
+                <button onclick="toggleMobileMenu()"
+                    class="lg:hidden absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-dark-800 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
             <!-- Navigation -->
@@ -596,6 +630,7 @@
                     <div class="pt-4 mt-4 border-t border-dark-700">
                         <p class="px-4 text-xs font-semibold text-primary-400 uppercase mb-2">{{ t('administrator') }}</p>
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_admin_panel') %}
                         <a href="{{ url_for('admin.index') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.index' %}active{% endif %}">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -603,7 +638,9 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('admin_panel') }}</span>
                         </a>
+                        {% endif %}
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_staff') %}
                         <a href="{{ url_for('admin.staff') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.staff' %}active{% endif %}">
                             <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -612,7 +649,9 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('staff_database') }}</span>
                         </a>
+                        {% endif %}
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_students') %}
                         <a href="{{ url_for('admin.students') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.students' %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -621,7 +660,9 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('students_database') }}</span>
                         </a>
+                        {% endif %}
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_faculties') %}
                         <a href="{{ url_for('admin.faculties') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if 'admin.facult' in request.endpoint %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -630,6 +671,8 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('faculties') }}</span>
                         </a>
+                        {% endif %}
+                        {% if current_user.is_superadmin or current_user.has_permission('view_directions') %}
                         <a href="{{ url_for('admin.directions') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.directions' or (request.endpoint and 'admin.direction' in request.endpoint) %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -638,6 +681,8 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('directions') }}</span>
                         </a>
+                        {% endif %}
+                        {% if current_user.is_superadmin or current_user.has_permission('manage_groups') %}
                         <a href="{{ url_for('admin.groups') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.groups' or (request.endpoint and 'admin.group' in request.endpoint) %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -646,6 +691,8 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('groups') }}</span>
                         </a>
+                        {% endif %}
+                        {% if current_user.is_superadmin or current_user.has_permission('view_curriculum') %}
                         <a href="{{ url_for('admin.curriculum_subjects') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.curriculum_subjects' %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -654,7 +701,9 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('subjects_database') }}</span>
                         </a>
+                        {% endif %}
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_schedule') %}
                         <a href="{{ url_for('admin.schedule') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if 'admin.schedule' in request.endpoint %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -663,7 +712,9 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('schedule') }}</span>
                         </a>
+                        {% endif %}
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_subjects') %}
                         <a href="{{ url_for('admin.subjects') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if 'subject' in request.endpoint and 'curriculum' not in request.endpoint %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -672,6 +723,7 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('subjects') }}</span>
                         </a>
+                        {% endif %}
 
                         <a href="{{ url_for('accounting.index') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'accounting.index' %}active{% endif %}">
@@ -692,6 +744,7 @@
                             <span class="text-sm font-medium">{{ t('contract_amounts_title') }}</span>
                         </a>
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_reports') %}
                         <a href="{{ url_for('admin.reports') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.reports' %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -700,7 +753,9 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('reports') }}</span>
                         </a>
+                        {% endif %}
 
+                        {% if current_user.is_superadmin or current_user.has_permission('view_grade_scale') %}
                         <a href="{{ url_for('admin.grade_scale') }}"
                             class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if 'grade' in request.endpoint %}active{% endif %}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -709,6 +764,32 @@
                             </svg>
                             <span class="text-sm font-medium">{{ t('grading_system') }}</span>
                         </a>
+                        {% endif %}
+                        {% if current_user.is_superadmin %}
+                        <a href="{{ url_for('admin.superadmins') }}"
+                            class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.superadmins' or (request.endpoint and 'admin.superadmin' in request.endpoint) %}active{% endif %}">
+                            <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+                            </svg>
+                            <span class="text-sm font-medium">{{ t('superadmins_section') }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.role_settings') }}"
+                            class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.role_settings' %}active{% endif %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a2 2 0 00-2-2h-2a2 2 0 00-2 2v2h2z" />
+                            </svg>
+                            <span class="text-sm font-medium">{{ t('role_settings') }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.site_settings') }}"
+                            class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.site_settings' %}active{% endif %}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <span class="text-sm font-medium">{{ t('site_settings') }}</span>
+                        </a>
+                        {% endif %}
                     </div>
                     {% endif %}
 
@@ -798,8 +879,7 @@
                             <p class="text-sm font-medium text-white truncate">{{ current_user.full_name.upper() if
                                 current_user.full_name else '-' }}</p>
                             <p class="text-xs text-primary-400">
-                                {% set current_role = session.get('current_role', current_user.role) %}
-                                {% if current_role == 'admin' %}{{ t('administrator') }}{% elif current_role == 'dean' %}{{ t('dean') }}{% elif current_role == 'teacher' %}{{ t('teacher') }}{% elif current_role == 'student' %}{{ t('student') }}{% elif current_role == 'accounting' %}{{ t('accounting') }}{% else %}{{ current_role }}{% endif %}
+                                {% if current_user.is_superadmin %}{{ t('superadmin') }}{% else %}{% set current_role = session.get('current_role', current_user.role) %}{% if current_role == 'admin' %}{{ t('administrator') }}{% elif current_role == 'dean' %}{{ t('dean') }}{% elif current_role == 'teacher' %}{{ t('teacher') }}{% elif current_role == 'student' %}{{ t('student') }}{% elif current_role == 'accounting' %}{{ t('accounting') }}{% else %}{{ current_role }}{% endif %}{% endif %}
                             </p>
                         </div>
                     </div>
@@ -908,7 +988,12 @@
                                 {% set current_role = session.get('current_role', current_user.role) %}
                                 {% set role_order = ['admin', 'dean', 'teacher', 'accounting', 'student'] %}
 
-                                {% if user_roles_raw|length > 1 %}
+                                {% if current_user.is_superadmin %}
+                                <div class="p-2 border-b border-gray-100">
+                                    <p class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">{{ t('roles') }}</p>
+                                    <p class="px-3 py-2 text-sm text-gray-700">{{ t('superadmin') }}</p>
+                                </div>
+                                {% elif user_roles_raw|length > 1 %}
                                 <div class="p-2 border-b border-gray-100">
                                     <p class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">{{ t('roles') }}</p>
                                     {# Rollarni belgilangan tartibda ko'rsatish: admin, dean, teacher, accounting,

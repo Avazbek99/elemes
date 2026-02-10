@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session, current_app
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, StudentPayment, DirectionCurriculum, Message, Submission, Lesson, LessonView, Announcement, PasswordResetToken
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, RolePermission, StudentPayment, DirectionCurriculum, Message, Submission, Lesson, LessonView, Announcement, PasswordResetToken, SiteSetting
 from app import db
 from functools import wraps
 from datetime import datetime
@@ -21,32 +21,188 @@ from app.utils.translations import t
 bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 def admin_required(f):
-    """Faqat admin uchun (joriy tanlangan rol yoki asosiy rol)"""
+    """Faqat admin yoki superadmin uchun"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
             flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
-        
-        # Session'dan joriy rol ni olish
+        if getattr(current_user, 'is_superadmin', False):
+            return f(*args, **kwargs)
         current_role = session.get('current_role', current_user.role)
-        
-        # Foydalanuvchida admin roli borligini tekshirish
         if current_role == 'admin' and 'admin' in current_user.get_roles():
             return f(*args, **kwargs)
-        elif current_user.has_role('admin'):
-            # Agar joriy rol admin emas, lekin foydalanuvchida admin roli bor bo'lsa, ruxsat berish
+        if current_user.has_role('admin'):
             return f(*args, **kwargs)
-        else:
+        flash(t('no_access_permission'), 'error')
+        return redirect(url_for('main.dashboard'))
+    return decorated_function
+
+
+def superadmin_required(f):
+    """Faqat superadmin uchun (rollar sozlamalari va boshqalar)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not getattr(current_user, 'is_superadmin', False):
             flash(t('no_access_permission'), 'error')
             return redirect(url_for('main.dashboard'))
+        return f(*args, **kwargs)
     return decorated_function
+
+
+def permission_required(permission):
+    """Admin yo'lida berilgan ruxsatni tekshiradi (superadmin hammaga ruxsatli)"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if getattr(current_user, 'is_superadmin', False):
+                return f(*args, **kwargs)
+            if not current_user.has_permission(permission):
+                flash(t('no_access_permission'), 'error')
+                return redirect(url_for('main.dashboard'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+# Barcha ruxsatlar kalitlari (superadmin rollar sozlamasida ko'rsatiladi)
+ROLE_ORDER = ['admin', 'dean', 'teacher', 'accounting', 'student']
+
+# Boshlang'ich (default) rol ruxsatlari – har bir ruxsat alohida belgilanadi, "Barcha huquqlar" yo'q
+DEFAULT_ROLE_PERMISSIONS = [
+    # Admin – barcha ruxsatlar alohida
+    ('admin', 'view_admin_panel'), ('admin', 'view_users'), ('admin', 'create_user'), ('admin', 'edit_user'),
+    ('admin', 'delete_user'), ('admin', 'toggle_user'), ('admin', 'reset_user_password'),
+    ('admin', 'view_staff'), ('admin', 'create_staff'), ('admin', 'edit_staff'), ('admin', 'delete_staff'),
+    ('admin', 'view_students'), ('admin', 'create_student'), ('admin', 'edit_student'), ('admin', 'delete_student'),
+    ('admin', 'view_faculties'), ('admin', 'create_faculty'), ('admin', 'edit_faculty'), ('admin', 'delete_faculty'),
+    ('admin', 'view_directions'), ('admin', 'create_direction'), ('admin', 'edit_direction'), ('admin', 'delete_direction'),
+    ('admin', 'manage_groups'), ('admin', 'create_group'), ('admin', 'edit_group'), ('admin', 'delete_group'),
+    ('admin', 'view_subjects'), ('admin', 'create_subject'), ('admin', 'edit_subject'), ('admin', 'delete_subject'),
+    ('admin', 'view_curriculum'), ('admin', 'edit_curriculum'),
+    ('admin', 'view_schedule'), ('admin', 'create_schedule'), ('admin', 'edit_schedule'), ('admin', 'delete_schedule'),
+    ('admin', 'view_reports'), ('admin', 'view_grade_scale'), ('admin', 'manage_grade_scale'),
+    ('admin', 'view_teachers'), ('admin', 'assign_teachers'),
+    ('admin', 'export_subjects'), ('admin', 'import_subjects'), ('admin', 'import_schedule'), ('admin', 'import_students'), ('admin', 'import_staff'),
+    ('admin', 'view_announcements'), ('admin', 'send_message'), ('admin', 'view_messages'),
+    ('dean', 'view_dean_panel'), ('dean', 'view_subjects'), ('dean', 'view_students'), ('dean', 'view_teachers'),
+    ('dean', 'view_reports'), ('dean', 'create_announcement'), ('dean', 'manage_groups'), ('dean', 'assign_teachers'),
+    ('dean', 'dean_manage_students'), ('dean', 'dean_manage_directions'), ('dean', 'dean_manage_groups'),
+    ('dean', 'dean_manage_curriculum'), ('dean', 'dean_manage_teachers'), ('dean', 'dean_manage_schedule'),
+    ('dean', 'view_announcements'), ('dean', 'send_message'), ('dean', 'view_messages'),
+    ('teacher', 'view_subjects'), ('teacher', 'view_students'), ('teacher', 'create_lesson'), ('teacher', 'edit_lesson'), ('teacher', 'delete_lesson'),
+    ('teacher', 'create_assignment'), ('teacher', 'edit_assignment'), ('teacher', 'delete_assignment'),
+    ('teacher', 'grade_students'), ('teacher', 'view_submissions'), ('teacher', 'create_announcement'),
+    ('teacher', 'view_announcements'), ('teacher', 'send_message'), ('teacher', 'view_messages'),
+    ('student', 'view_subjects'), ('student', 'view_lessons'), ('student', 'submit_assignment'), ('student', 'view_grades'),
+    ('student', 'view_announcements'), ('student', 'send_message'), ('student', 'view_messages'),
+    ('accounting', 'view_accounting'), ('accounting', 'view_students'), ('accounting', 'view_reports'),
+    ('accounting', 'manage_payments'), ('accounting', 'manage_contracts'), ('accounting', 'view_contract_amounts'), ('accounting', 'import_payments'),
+    ('accounting', 'view_announcements'), ('accounting', 'send_message'), ('accounting', 'view_messages'),
+]
+
+# Barcha ruxsatlar – modul va amal bo'yicha tartiblangan (ko'rish → yaratish → tahrirlash → o'chirish → boshqa)
+ALL_PERMISSIONS = [
+    # —— Admin panel ——
+    ('view_admin_panel', 'Admin panelga kirish'),
+    # Foydalanuvchilar: ko'rish → yaratish → tahrirlash → o'chirish → faollik, parol
+    ('view_users', 'Foydalanuvchilar ro\'yxati'),
+    ('create_user', 'Foydalanuvchi qo\'shish'),
+    ('edit_user', 'Foydalanuvchini tahrirlash'),
+    ('delete_user', 'Foydalanuvchini o\'chirish'),
+    ('toggle_user', 'Foydalanuvchi faolligini o\'zgartirish'),
+    ('reset_user_password', 'Parolni tiklash'),
+    # Xodimlar
+    ('view_staff', 'Xodimlar ro\'yxati'),
+    ('create_staff', 'Xodim qo\'shish'),
+    ('edit_staff', 'Xodimni tahrirlash'),
+    ('delete_staff', 'Xodimni o\'chirish'),
+    # Talabalar
+    ('view_students', 'Talabalar ro\'yxati'),
+    ('create_student', 'Talaba qo\'shish'),
+    ('edit_student', 'Talabani tahrirlash'),
+    ('delete_student', 'Talabani o\'chirish'),
+    # Fakultetlar
+    ('view_faculties', 'Fakultetlar'),
+    ('create_faculty', 'Fakultet qo\'shish'),
+    ('edit_faculty', 'Fakultetni tahrirlash'),
+    ('delete_faculty', 'Fakultetni o\'chirish'),
+    # Yo'nalishlar
+    ('view_directions', 'Yo\'nalishlar'),
+    ('create_direction', 'Yo\'nalish qo\'shish'),
+    ('edit_direction', 'Yo\'nalishni tahrirlash'),
+    ('delete_direction', 'Yo\'nalishni o\'chirish'),
+    # Guruhlar
+    ('manage_groups', 'Guruhlarni boshqarish'),
+    ('create_group', 'Guruh qo\'shish'),
+    ('edit_group', 'Guruhni tahrirlash'),
+    ('delete_group', 'Guruhni o\'chirish'),
+    # Fanlar
+    ('view_subjects', 'Fanlar'),
+    ('create_subject', 'Fan qo\'shish'),
+    ('edit_subject', 'Fanni tahrirlash'),
+    ('delete_subject', 'Fanni o\'chirish'),
+    # O'quv reja
+    ('view_curriculum', 'O\'quv reja'),
+    ('edit_curriculum', 'O\'quv rejani tahrirlash'),
+    # Dars jadvali
+    ('view_schedule', 'Dars jadvali'),
+    ('create_schedule', 'Jadval qo\'shish'),
+    ('edit_schedule', 'Jadvalni tahrirlash'),
+    ('delete_schedule', 'Jadvalni o\'chirish'),
+    # Hisobotlar va baholash
+    ('view_reports', 'Hisobotlar'),
+    ('view_grade_scale', 'Baholash tizimi'),
+    ('manage_grade_scale', 'Baholash tizimini boshqarish'),
+    # O'qituvchilar
+    ('view_teachers', 'O\'qituvchilar ro\'yxati'),
+    ('assign_teachers', 'O\'qituvchi biriktirish'),
+    # Import / Eksport (har biri alohida)
+    ('export_subjects', 'Fanlar eksport'),
+    ('import_subjects', 'Fanlar import'),
+    ('import_schedule', 'Dars jadvali import'),
+    ('import_students', 'Talabalar import'),
+    ('import_staff', 'Xodimlar import'),
+    # —— Dekan panel ——
+    ('view_dean_panel', 'Dekan panelga kirish'),
+    ('dean_manage_students', 'Dekan: talabalarni boshqarish'),
+    ('dean_manage_directions', 'Dekan: yo\'nalishlarni boshqarish'),
+    ('dean_manage_groups', 'Dekan: guruhlarni boshqarish'),
+    ('dean_manage_curriculum', 'Dekan: o\'quv reja'),
+    ('dean_manage_teachers', 'Dekan: o\'qituvchilar'),
+    ('dean_manage_schedule', 'Dekan: dars jadvali'),
+    # —— O'qituvchi (dars va topshiriq) ——
+    ('create_lesson', 'Dars yaratish'),
+    ('edit_lesson', 'Darsni tahrirlash'),
+    ('delete_lesson', 'Darsni o\'chirish'),
+    ('create_assignment', 'Topshiriq yaratish'),
+    ('edit_assignment', 'Topshiriqni tahrirlash'),
+    ('delete_assignment', 'Topshiriqni o\'chirish'),
+    ('grade_students', 'Javoblarni baholash'),
+    ('view_submissions', 'Javoblarni ko\'rish'),
+    ('create_announcement', 'E\'lon yaratish'),
+    # —— Talaba ——
+    ('view_lessons', 'Darslarni ko\'rish'),
+    ('submit_assignment', 'Topshiriq yuborish'),
+    ('view_grades', 'Baho ko\'rish'),
+    # —— Buxgalteriya ——
+    ('view_accounting', 'Buxgalteriya bo\'limiga kirish'),
+    ('manage_payments', 'To\'lovlarni boshqarish'),
+    ('manage_contracts', 'Kontraktlarni boshqarish'),
+    ('view_contract_amounts', 'Kontrakt summalarini ko\'rish'),
+    ('import_payments', 'To\'lovlarni import qilish'),
+    # —— Umumiy (e'lon, xabar) ——
+    ('view_announcements', 'E\'lonlarni ko\'rish'),
+    ('send_message', 'Xabar yuborish'),
+    ('view_messages', 'Xabarlarni ko\'rish'),
+]
 
 
 # ==================== ASOSIY SAHIFA ====================
 @bp.route('/')
 @login_required
 @admin_required
+@permission_required('view_admin_panel')
 def index():
     stats = {
         'total_users': User.query.count(),
@@ -57,20 +213,417 @@ def index():
         'total_groups': Group.query.count(),
         'total_subjects': Subject.query.count(),
     }
-    recent_users = User.query.order_by(User.created_at.desc()).limit(10).all()
+    # Superadmin "So'nggi foydalanuvchilar" da ko'rinmasin (is_superadmin bo'yicha)
+    all_recent = User.query.order_by(User.created_at.desc()).limit(15).all()
+    recent_users = [u for u in all_recent if not getattr(u, 'is_superadmin', False)][:10]
     return render_template('admin/index.html', stats=stats, recent_users=recent_users)
+
+
+@bp.route('/role-settings', methods=['GET', 'POST'])
+@login_required
+@superadmin_required
+def role_settings():
+    """Superadmin: barcha rollar uchun ruxsatlarni check orqali boshqarish"""
+    role_labels = {
+        'admin': t('administrator'),
+        'dean': t('dean'),
+        'teacher': t('teacher'),
+        'accounting': t('accounting'),
+        'student': t('student'),
+    }
+    if request.method == 'POST':
+        if request.form.get('reset_defaults') == '1':
+            RolePermission.query.delete()
+            for role, perm in DEFAULT_ROLE_PERMISSIONS:
+                db.session.add(RolePermission(role=role, permission=perm))
+            db.session.commit()
+            flash(t('role_settings_reset_to_default'), 'success')
+            return redirect(url_for('admin.role_settings'))
+        for role in ROLE_ORDER:
+            RolePermission.query.filter_by(role=role).delete()
+            checked = request.form.getlist(f'perm_{role}')
+            for perm in checked:
+                if perm in [p[0] for p in ALL_PERMISSIONS]:
+                    db.session.add(RolePermission(role=role, permission=perm))
+            if not checked:
+                db.session.add(RolePermission(role=role, permission='__configured__'))
+        db.session.commit()
+        flash(t('role_permissions_saved'), 'success')
+        return redirect(url_for('admin.role_settings'))
+    perms_by_role = {}
+    for role in ROLE_ORDER:
+        rows = RolePermission.query.filter_by(role=role).all()
+        if not rows:
+            perms_by_role[role] = {perm for r, perm in DEFAULT_ROLE_PERMISSIONS if r == role}
+        else:
+            perms_by_role[role] = {p.permission for p in rows if getattr(p, 'permission', '') and p.permission != '__configured__'}
+    return render_template(
+        'admin/role_settings.html',
+        role_order=ROLE_ORDER,
+        role_labels=role_labels,
+        all_permissions=ALL_PERMISSIONS,
+        perms_by_role=perms_by_role,
+    )
+
+
+SITE_LANGS = ['uz', 'ru', 'en']
+
+@bp.route('/site-settings', methods=['GET', 'POST'])
+@login_required
+@superadmin_required
+def site_settings():
+    """Sayt sozlamalari – har til uchun platforma nomi, qisqacha nom, tagline va logo."""
+    from werkzeug.utils import secure_filename
+    import os
+    UPLOAD_FOLDER = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    if not os.path.isabs(UPLOAD_FOLDER):
+        UPLOAD_FOLDER = os.path.join(current_app.root_path, '..', UPLOAD_FOLDER)
+    UPLOAD_FOLDER = os.path.abspath(UPLOAD_FOLDER)
+    SITE_UPLOAD = os.path.join(UPLOAD_FOLDER, 'site')
+    ALLOWED_LOGO = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'}
+    if request.method == 'POST':
+        upload_error = False
+        removed_logo_lang = None
+        for lang in SITE_LANGS:
+            SiteSetting.set('institution_name_' + lang, (request.form.get('institution_name_' + lang) or '').strip())
+            SiteSetting.set('site_name_short_' + lang, (request.form.get('site_name_short_' + lang) or '').strip())
+            SiteSetting.set('tagline_' + lang, (request.form.get('tagline_' + lang) or '').strip())
+            if request.form.get('remove_logo_' + lang) == '1':
+                removed_logo_lang = lang
+                old_path = SiteSetting.get('logo_path_' + lang)
+                SiteSetting.set('logo_path_' + lang, '')
+                if old_path:
+                    try:
+                        old_path_norm = old_path.replace('\\', '/').strip().lstrip('/')
+                        if old_path_norm:
+                            old_file = os.path.join(UPLOAD_FOLDER, old_path_norm.replace('/', os.sep))
+                            if os.path.isfile(old_file):
+                                os.remove(old_file)
+                    except Exception:
+                        pass
+            else:
+                logo_file = request.files.get('logo_' + lang)
+                ext = ''
+                if logo_file:
+                    fn = (getattr(logo_file, 'filename', None) or '').strip()
+                    if fn:
+                        ext = (fn.rsplit('.', 1)[-1] or '').lower().strip()
+                    if not ext and getattr(logo_file, 'content_type', None):
+                        ct = (logo_file.content_type or '').lower()
+                        if 'jpeg' in ct or 'jpg' in ct:
+                            ext = 'jpg'
+                        elif 'png' in ct:
+                            ext = 'png'
+                        elif 'gif' in ct:
+                            ext = 'gif'
+                        elif 'webp' in ct:
+                            ext = 'webp'
+                        elif 'svg' in ct:
+                            ext = 'svg'
+                if ext and ext in ALLOWED_LOGO:
+                    try:
+                        os.makedirs(SITE_UPLOAD, exist_ok=True)
+                        filename = secure_filename(f'logo_{lang}.{ext}')
+                        filepath = os.path.join(SITE_UPLOAD, filename)
+                        logo_file.save(filepath)
+                        SiteSetting.set('logo_path_' + lang, 'site/' + filename)
+                    except Exception as e:
+                        current_app.logger.exception('Logo upload failed')
+                        flash(t('site_settings_logo_upload_error') or ('Logo yuklanmadi: %s' % str(e)), 'error')
+                        upload_error = True
+                elif ext and ext not in ALLOWED_LOGO:
+                    flash(t('site_settings_logo_format_error') or ('Logo formati qabul qilinmaydi. Ruxsat etilgan: PNG, JPG, GIF, WebP, SVG.'), 'error')
+                    upload_error = True
+        if not upload_error:
+            flash(t('site_settings_saved'), 'success')
+        if removed_logo_lang:
+            return redirect(url_for('admin.site_settings', _anchor='lang-' + removed_logo_lang))
+        return redirect(url_for('admin.site_settings'))
+    data = {}
+    for lang in SITE_LANGS:
+        logo_path = SiteSetting.get('logo_path_' + lang) or ''
+        parts = (logo_path or '').replace('\\', '/').strip().split('/')
+        logo_filename = parts[-1] if parts and parts[-1] else ''
+        data[lang] = {
+            'institution_name': SiteSetting.get('institution_name_' + lang),
+            'site_name_short': SiteSetting.get('site_name_short_' + lang),
+            'tagline': SiteSetting.get('tagline_' + lang),
+            'logo_path': logo_path,
+            'logo_filename': logo_filename,
+        }
+    return render_template(
+        'admin/site_settings.html',
+        site_langs=SITE_LANGS,
+        data=data,
+    )
+
+
+@bp.route('/uploads/site/<path:filename>')
+def serve_site_upload(filename):
+    """Sayt logosi va boshqa site fayllarini berish."""
+    from flask import send_from_directory
+    import os
+    filename = os.path.basename(filename)
+    if not filename or filename.startswith('.'):
+        return '', 404
+    uploads = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    if not os.path.isabs(uploads):
+        uploads = os.path.abspath(os.path.join(current_app.root_path, '..', uploads))
+    site_dir = os.path.join(uploads, 'site')
+    if not os.path.isdir(site_dir):
+        return '', 404
+    return send_from_directory(site_dir, filename)
+
+
+@bp.route('/uploads/site/favicon/<path:filename>')
+def serve_site_favicon(filename):
+    """Favicon uchun kvadrat (nisbat saqlangan) logo – brauzer tabida cho‘zilmasin."""
+    from flask import send_file, send_from_directory
+    import os
+    import io
+    filename = os.path.basename(filename)
+    if not filename or filename.startswith('.'):
+        return '', 404
+    uploads = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    if not os.path.isabs(uploads):
+        uploads = os.path.abspath(os.path.join(current_app.root_path, '..', uploads))
+    site_dir = os.path.join(uploads, 'site')
+    filepath = os.path.join(site_dir, filename)
+    if not os.path.isfile(filepath):
+        return '', 404
+    try:
+        from PIL import Image
+        img = Image.open(filepath)
+        img = img.convert('RGBA')
+        w, h = img.size
+        size = 64
+        if w >= h:
+            new_w, new_h = size, max(1, int(h * size / w))
+        else:
+            new_w, new_h = max(1, int(w * size / h)), size
+        try:
+            resample = Image.Resampling.LANCZOS
+        except AttributeError:
+            resample = Image.LANCZOS
+        img = img.resize((new_w, new_h), resample)
+        canvas = Image.new('RGBA', (size, size), (255, 255, 255, 0))
+        x = (size - new_w) // 2
+        y = (size - new_h) // 2
+        canvas.paste(img, (x, y), img if img.mode == 'RGBA' else None)
+        buf = io.BytesIO()
+        canvas.save(buf, format='PNG')
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
+    except Exception:
+        return send_from_directory(site_dir, filename)
+
+
+# ==================== SUPERADMINLAR (faqat superadmin uchun) ====================
+def _superadmin_list():
+    """Barcha superadmin foydalanuvchilar (config login yoki superadmin_flag)."""
+    super_login = (current_app.config.get('SUPERADMIN_LOGIN') or '').strip()
+    all_users = User.query.all()
+    return [u for u in all_users if getattr(u, 'is_superadmin', False)]
+
+
+def _is_config_superadmin(user):
+    """Foydalanuvchi config dagi SUPERADMIN_LOGIN bo'lsa (o'chirib bo'lmaydi)."""
+    super_login = (current_app.config.get('SUPERADMIN_LOGIN') or '').strip()
+    return bool(super_login and user.login and user.login.strip() == super_login)
+
+
+@bp.route('/superadmins')
+@login_required
+@superadmin_required
+def superadmins():
+    """Superadminlar ro'yxati – faqat superadmin ko'radi."""
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '')
+    all_super = _superadmin_list()
+    if search:
+        s = search.strip().lower()
+        all_super = [u for u in all_super if (u.full_name and s in u.full_name.lower())
+                     or (u.login and s in u.login.lower())
+                     or (u.passport_number and s in u.passport_number.lower())
+                     or (u.pinfl and s in u.pinfl)
+                     or (u.phone and s in u.phone)
+                     or (u.email and s in (u.email or '').lower())]
+    all_super = sorted(all_super, key=lambda u: (u.full_name or '').upper())
+    total = len(all_super)
+    per_page = 50
+    start = (page - 1) * per_page
+    end = start + per_page
+
+    class Pagination:
+        def __init__(self, items, page, per_page, total):
+            self.items = items
+            self.page = page
+            self.per_page = per_page
+            self.total = total
+            self.pages = max(1, (total + per_page - 1) // per_page)
+            self.has_prev = page > 1
+            self.has_next = page < self.pages
+            self.prev_num = page - 1 if self.has_prev else None
+            self.next_num = page + 1 if self.has_next else None
+
+        def iter_pages(self, left_edge=2, right_edge=2, left_current=2, right_current=2):
+            last = 0
+            for num in range(1, self.pages + 1):
+                if num <= left_edge or (self.page - left_current - 1 < num < self.page + right_current) or num > self.pages - right_edge:
+                    if last + 1 != num:
+                        yield None
+                    yield num
+                    last = num
+
+    users = Pagination(all_super[start:end], page, per_page, total)
+    config_login = (current_app.config.get('SUPERADMIN_LOGIN') or '').strip()
+    if request.args.get('partial'):
+        return render_template('admin/superadmins_partial.html', users=users, search=search, current_user=current_user, config_superadmin_login=config_login)
+    return render_template('admin/superadmins.html', users=users, search=search, config_superadmin_login=config_login)
+
+
+@bp.route('/superadmins/create', methods=['GET', 'POST'])
+@login_required
+@superadmin_required
+def create_superadmin():
+    """Yangi superadmin qo'shish."""
+    if request.method == 'POST':
+        login = (request.form.get('login') or '').strip()
+        full_name = (request.form.get('full_name') or '').strip()
+        passport_number = (request.form.get('passport_number') or '').strip()
+        if not full_name:
+            flash(t('full_name_required'), 'error')
+            return render_template('admin/create_superadmin.html', form_data=request.form)
+        if not login:
+            flash(t('login_required_for_staff'), 'error')
+            return render_template('admin/create_superadmin.html', form_data=request.form)
+        if not passport_number:
+            flash(t('passport_required'), 'error')
+            return render_template('admin/create_superadmin.html', form_data=request.form)
+        # Boshlang'ich parol – pasport seriya raqami (forma da parol kiritish shart emas)
+        if User.query.filter_by(login=login).first():
+            flash(t('login_used_by_another_user'), 'error')
+            return render_template('admin/create_superadmin.html', form_data=request.form)
+        email = (request.form.get('email') or '').strip() or None
+        if email and User.query.filter_by(email=email).first():
+            flash(t('email_already_used'), 'error')
+            return render_template('admin/create_superadmin.html', form_data=request.form)
+        user = User(
+            login=login,
+            full_name=full_name,
+            role='admin',
+            is_active=True,
+            superadmin_flag=True,
+            email=email,
+            phone=(request.form.get('phone') or '').strip() or None,
+            passport_number=passport_number,
+            pinfl=(request.form.get('pinfl') or '').strip() or None,
+            description=(request.form.get('description') or '').strip() or None,
+        )
+        birth_date_str = (request.form.get('birth_date') or '').strip()
+        if birth_date_str:
+            try:
+                from datetime import datetime
+                user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+            except Exception:
+                pass
+        user.set_password(passport_number)  # boshlang'ich parol = pasport seriya raqami
+        db.session.add(user)
+        db.session.flush()
+        if not UserRole.query.filter_by(user_id=user.id, role='admin').first():
+            db.session.add(UserRole(user_id=user.id, role='admin'))
+        db.session.commit()
+        flash(t('superadmin_created', full_name=user.full_name), 'success')
+        return redirect(url_for('admin.superadmins'))
+    return render_template('admin/create_superadmin.html')
+
+
+@bp.route('/superadmins/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+@superadmin_required
+def edit_superadmin(id):
+    """Superadminni tahrirlash."""
+    user = User.query.get_or_404(id)
+    if not getattr(user, 'is_superadmin', False):
+        flash(t('user_not_superadmin'), 'error')
+        return redirect(url_for('admin.superadmins'))
+    if request.method == 'POST':
+        full_name = (request.form.get('full_name') or '').strip()
+        login = (request.form.get('login') or '').strip()
+        if not full_name:
+            flash(t('full_name_required'), 'error')
+            return render_template('admin/edit_superadmin.html', user=user)
+        if not login:
+            flash(t('login_required_for_staff'), 'error')
+            return render_template('admin/edit_superadmin.html', user=user)
+        other = User.query.filter(User.login == login, User.id != user.id).first()
+        if other:
+            flash(t('login_used_by_another_user'), 'error')
+            return render_template('admin/edit_superadmin.html', user=user)
+        user.full_name = full_name
+        user.login = login
+        user.phone = (request.form.get('phone') or '').strip() or None
+        user.email = (request.form.get('email') or '').strip() or None
+        user.passport_number = (request.form.get('passport_number') or '').strip() or None
+        user.pinfl = (request.form.get('pinfl') or '').strip() or None
+        user.description = (request.form.get('description') or '').strip() or None
+        birth_date_str = (request.form.get('birth_date') or '').strip()
+        if birth_date_str:
+            try:
+                from datetime import datetime
+                user.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+            except Exception:
+                user.birth_date = None
+        else:
+            user.birth_date = None
+        new_pass = (request.form.get('password') or '').strip()
+        if new_pass:
+            user.set_password(new_pass)
+        db.session.commit()
+        flash(t('superadmin_updated', full_name=user.full_name), 'success')
+        return redirect(url_for('admin.superadmins'))
+    return render_template('admin/edit_superadmin.html', user=user)
+
+
+@bp.route('/superadmins/<int:id>/delete', methods=['POST'])
+@login_required
+@superadmin_required
+def delete_superadmin(id):
+    """Superadminni o'chirish – config superadmin va oxirgi superadmin o'chirilmaydi."""
+    user = User.query.get_or_404(id)
+    if not getattr(user, 'is_superadmin', False):
+        flash(t('user_not_superadmin'), 'error')
+        return redirect(url_for('admin.superadmins'))
+    if _is_config_superadmin(user):
+        flash(t('config_superadmin_cannot_delete'), 'error')
+        return redirect(url_for('admin.superadmins'))
+    super_list = _superadmin_list()
+    if len(super_list) <= 1:
+        flash(t('cannot_delete_last_superadmin'), 'error')
+        return redirect(url_for('admin.superadmins'))
+    UserRole.query.filter_by(user_id=user.id).delete()
+    db.session.delete(user)
+    db.session.commit()
+    flash(t('superadmin_deleted'), 'success')
+    return redirect(url_for('admin.superadmins'))
 
 
 # ==================== FOYDALANUVCHILAR ====================
 @bp.route('/users')
 @login_required
 @admin_required
+@permission_required('view_users')
 def users():
     page = request.args.get('page', 1, type=int)
     role = request.args.get('role', '')
     search = request.args.get('search', '')
     
     query = User.query
+    # Superadmin ro'yxatda ko'rinmasin
+    from flask import current_app
+    super_login = current_app.config.get('SUPERADMIN_LOGIN', '').strip()
+    if super_login:
+        query = query.filter(User.login != super_login)
     
     if role:
         # UserRole orqali qidirish
@@ -123,6 +676,7 @@ def users():
 @bp.route('/users/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_user')
 def create_user():
     faculties = Faculty.query.all()
     groups = Group.query.all()
@@ -221,8 +775,12 @@ def create_user():
 @bp.route('/users/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_user')
 def edit_user(id):
     user = User.query.get_or_404(id)
+    if getattr(user, 'is_superadmin', False) and not getattr(current_user, 'is_superadmin', False):
+        flash(t('only_superadmin_can_modify'), 'error')
+        return redirect(url_for('admin.users'))
     faculties = Faculty.query.all()
     groups = Group.query.all()
     
@@ -299,9 +857,19 @@ def edit_user(id):
 @bp.route('/users/<int:id>/toggle', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('toggle_user')
 def toggle_user(id):
     user = User.query.get_or_404(id)
-    
+    if getattr(user, 'is_superadmin', False) and not getattr(current_user, 'is_superadmin', False):
+        flash(t('only_superadmin_can_modify'), 'error')
+        referer = request.referrer or url_for('admin.users')
+        if 'superadmins' in referer:
+            return redirect(url_for('admin.superadmins'))
+        if 'staff' in referer:
+            return redirect(url_for('admin.staff'))
+        elif 'students' in referer:
+            return redirect(url_for('admin.students'))
+        return redirect(url_for('admin.users'))
     if user.id == current_user.id:
         flash(t('cannot_block_yourself'), 'error')
     else:
@@ -312,6 +880,8 @@ def toggle_user(id):
     
     # Qaysi sahifadan kelganini aniqlash
     referer = request.referrer or url_for('admin.users')
+    if 'superadmins' in referer:
+        return redirect(url_for('admin.superadmins'))
     if 'staff' in referer:
         return redirect(url_for('admin.staff'))
     elif 'students' in referer:
@@ -322,9 +892,19 @@ def toggle_user(id):
 @bp.route('/users/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('delete_user')
 def delete_user(id):
     user = User.query.get_or_404(id)
-    
+    if getattr(user, 'is_superadmin', False):
+        flash(t('cannot_delete_superadmin'), 'error')
+        referer = request.referrer or url_for('admin.users')
+        if 'superadmins' in referer:
+            return redirect(url_for('admin.superadmins'))
+        if 'staff' in referer:
+            return redirect(url_for('admin.staff'))
+        elif 'students' in referer:
+            return redirect(url_for('admin.students'))
+        return redirect(url_for('admin.users'))
     if user.id == current_user.id:
         flash(t('cannot_delete_yourself'), 'error')
     else:
@@ -350,6 +930,8 @@ def delete_user(id):
     
     # Qaysi sahifadan kelganini aniqlash
     referer = request.referrer or url_for('admin.users')
+    if 'superadmins' in referer:
+        return redirect(url_for('admin.superadmins'))
     if 'staff' in referer:
         return redirect(url_for('admin.staff'))
     elif 'students' in referer:
@@ -360,21 +942,41 @@ def delete_user(id):
 @bp.route('/users/<int:id>/reset_password', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('reset_user_password')
 def reset_user_password(id):
     """Parolni boshlang'ich holatga qaytarish (pasport raqami yoki default parol)"""
     user = User.query.get_or_404(id)
-    
-    # Parolni pasport seriya raqamiga qaytarish
-    if not user.passport_number:
-        flash(t('passport_not_available_for_student'), 'error')
+    if getattr(user, 'is_superadmin', False) and not getattr(current_user, 'is_superadmin', False):
+        flash(t('only_superadmin_can_modify'), 'error')
         referer = request.referrer or url_for('admin.users')
+        if 'superadmins' in referer:
+            return redirect(url_for('admin.superadmins'))
         if 'staff' in referer:
             return redirect(url_for('admin.staff'))
         elif 'students' in referer:
             return redirect(url_for('admin.students'))
         return redirect(url_for('admin.users'))
-    
-    new_password = user.passport_number
+    # Parolni pasport seriya raqamiga qaytarish (superadmin uchun pasport bo'lmasa config parolidan foydalanish)
+    if user.passport_number:
+        new_password = user.passport_number
+    elif getattr(user, 'is_superadmin', False):
+        new_password = (current_app.config.get('SUPERADMIN_PASSWORD') or '').strip() or user.login
+        if not new_password:
+            flash(t('passport_not_available_for_student'), 'error')
+            referer = request.referrer or url_for('admin.users')
+            if 'superadmins' in referer:
+                return redirect(url_for('admin.superadmins'))
+            return redirect(referer if referer else url_for('admin.users'))
+    else:
+        flash(t('passport_not_available_for_student'), 'error')
+        referer = request.referrer or url_for('admin.users')
+        if 'superadmins' in referer:
+            return redirect(url_for('admin.superadmins'))
+        if 'staff' in referer:
+            return redirect(url_for('admin.staff'))
+        elif 'students' in referer:
+            return redirect(url_for('admin.students'))
+        return redirect(url_for('admin.users'))
     
     user.set_password(new_password)
     db.session.commit()
@@ -382,6 +984,8 @@ def reset_user_password(id):
     
     # Qaysi sahifadan kelganini aniqlash
     referer = request.referrer or url_for('admin.users')
+    if 'superadmins' in referer:
+        return redirect(url_for('admin.superadmins'))
     if 'staff' in referer:
         return redirect(url_for('admin.staff'))
     elif 'students' in referer:
@@ -391,6 +995,7 @@ def reset_user_password(id):
 @bp.route('/teachers')
 @login_required
 @admin_required
+@permission_required('view_teachers')
 def teachers():
     """O'qituvchilar ro'yxati (UserRole orqali qidirish)"""
     page = request.args.get('page', 1, type=int)
@@ -429,6 +1034,7 @@ def teachers():
 @bp.route('/staff')
 @login_required
 @admin_required
+@permission_required('view_staff')
 def staff():
     """Xodimlar bazasi (talabalar bo'lmagan barcha foydalanuvchilar)"""
     page = request.args.get('page', 1, type=int)
@@ -449,8 +1055,10 @@ def staff():
     
     all_users = query.order_by(User.created_at.desc()).all()
     
-    # Faqat student roliga ega bo'lmagan userlarni filtrlash
-    staff_users = [user for user in all_users if 'student' not in user.get_roles()]
+    # Faqat student roliga ega bo'lmagan userlarni filtrlash; superadmin ro'yxatda ko'rinmasin
+    staff_users = [user for user in all_users if 'student' not in user.get_roles() and not getattr(user, 'is_superadmin', False)]
+    # Alifbo tartibida (familiya/ism bo'yicha)
+    staff_users = sorted(staff_users, key=lambda u: (u.full_name or '').upper())
     
     # Pagination uchun
     total = len(staff_users)
@@ -492,6 +1100,7 @@ def staff():
 @bp.route('/staff/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_staff')
 def create_staff():
     """Yangi xodim yaratish (bir nechta rol bilan)"""
     faculties = Faculty.query.all()
@@ -635,10 +1244,13 @@ def create_staff():
 @bp.route('/staff/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_staff')
 def edit_staff(id):
     """Xodimni tahrirlash (bir nechta rol bilan)"""
     user = User.query.get_or_404(id)
-    
+    if getattr(user, 'is_superadmin', False) and not getattr(current_user, 'is_superadmin', False):
+        flash(t('only_superadmin_can_modify'), 'error')
+        return redirect(url_for('admin.staff'))
     # Faqat xodimlar (talaba emas)
     if user.role == 'student':
         flash(t('user_not_staff'), 'error')
@@ -775,6 +1387,7 @@ def edit_staff(id):
 @bp.route('/faculties')
 @login_required
 @admin_required
+@permission_required('view_faculties')
 def faculties():
     search = request.args.get('search', '')
     faculties_query = Faculty.query
@@ -844,6 +1457,7 @@ def faculties():
 @bp.route('/faculties/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_faculty')
 def create_faculty():
     # Barcha dekanlar (bir nechta rolda bo'lishi mumkin)
     all_deans_query = User.query.join(UserRole).filter(UserRole.role == 'dean')
@@ -888,6 +1502,7 @@ def create_faculty():
 @bp.route('/faculties/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_faculty')
 def edit_faculty(id):
     faculty = Faculty.query.get_or_404(id)
     
@@ -956,6 +1571,7 @@ def edit_faculty(id):
 @bp.route('/faculties/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('delete_faculty')
 def delete_faculty(id):
     faculty = Faculty.query.get_or_404(id)
     faculty_name = faculty.name
@@ -1010,6 +1626,7 @@ def delete_faculty(id):
 @bp.route('/faculties/<int:id>')
 @login_required
 @admin_required
+@permission_required('view_faculties')
 def faculty_detail(id):
     """Fakultet detail sahifasi - kurs>yo'nalish>guruh>talabalar struktura"""
     faculty = Faculty.query.get_or_404(id)
@@ -1317,6 +1934,7 @@ def faculty_detail(id):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/groups')
 @login_required
 @admin_required
+@permission_required('manage_groups')
 def direction_groups_with_params(id, year, education_type):
     """Yo'nalish guruhlari sahifasi - qabul yili va ta'lim shakli bilan"""
     direction = Direction.query.get_or_404(id)
@@ -1349,6 +1967,7 @@ def direction_groups_with_params(id, year, education_type):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum')
 @login_required
 @admin_required
+@permission_required('view_curriculum')
 def direction_curriculum(id, year=None, education_type=None):
     """Yo'nalish o'quv rejasi"""
     direction = Direction.query.get_or_404(id)
@@ -1440,6 +2059,7 @@ def direction_curriculum(id, year=None, education_type=None):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/export')
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def export_curriculum(id, year=None, education_type=None):
     """O'quv rejani Excel formatida export qilish"""
     from app.utils.excel_export import create_curriculum_excel
@@ -1477,6 +2097,7 @@ def export_curriculum(id, year=None, education_type=None):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/import', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def import_curriculum(id, year=None, education_type=None):
     """O'quv rejani Excel fayldan import qilish"""
     from app.utils.excel_import import import_curriculum_from_excel
@@ -1536,6 +2157,7 @@ def import_curriculum(id, year=None, education_type=None):
 @bp.route('/directions/<int:id>/curriculum/import/sample')
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def download_curriculum_sample(id):
     """O'quv reja import uchun namuna fayl yuklab olish (tanlangan til bo'yicha)"""
     from app.utils.excel_import import generate_curriculum_sample_file
@@ -1555,6 +2177,7 @@ def download_curriculum_sample(id):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/subjects', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def direction_subjects(id, year=None, education_type=None):
     """Yo'nalish fanlari sahifasi - qabul yili va ta'lim shakli bilan (Context aware)"""
     direction = Direction.query.get_or_404(id)
@@ -1778,6 +2401,7 @@ def direction_subjects(id, year=None, education_type=None):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/<int:item_id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def delete_curriculum_item(id, item_id, year=None, education_type=None):
     """O'quv rejadagi fanni o'chirish"""
     direction = Direction.query.get_or_404(id)
@@ -1799,6 +2423,7 @@ def delete_curriculum_item(id, item_id, year=None, education_type=None):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/add', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def add_subject_to_curriculum(id, year=None, education_type=None):
     """O'quv rejaga fan qo'shish"""
     direction = Direction.query.get_or_404(id)
@@ -1850,6 +2475,7 @@ def add_subject_to_curriculum(id, year=None, education_type=None):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/update_semester/<int:semester>', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def update_semester_curriculum(id, semester, year=None, education_type=None):
     """Semestr o'quv rejasini yangilash"""
     direction = Direction.query.get_or_404(id)
@@ -1902,6 +2528,7 @@ def update_semester_curriculum(id, semester, year=None, education_type=None):
 @bp.route('/directions/<int:id>/<int:year>/<string:education_type>/curriculum/<int:item_id>/replace', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def replace_curriculum_item(id, item_id, year=None, education_type=None):
     """O'quv rejadagi fanni almashtirish"""
     direction = Direction.query.get_or_404(id)
@@ -1950,6 +2577,7 @@ def replace_curriculum_item(id, item_id, year=None, education_type=None):
 @bp.route('/faculties/<int:id>/change_dean', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_faculty')
 def change_faculty_dean(id):
     """Fakultet masul dekanlarini o'zgartirish (bir nechta dekan biriktirish mumkin)"""
     faculty = Faculty.query.get_or_404(id)
@@ -2016,6 +2644,7 @@ def change_faculty_dean(id):
 @bp.route('/subjects')
 @login_required
 @admin_required
+@permission_required('view_subjects')
 def subjects():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
@@ -2042,6 +2671,7 @@ def subjects():
 @bp.route('/schedule/sample')
 @login_required
 @admin_required
+@permission_required('import_schedule')
 def download_schedule_sample():
     try:
         lang = session.get('language', 'uz')
@@ -2060,6 +2690,7 @@ def download_schedule_sample():
 @bp.route('/schedule/import', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('import_schedule')
 def import_schedule():
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -2100,6 +2731,7 @@ def import_schedule():
 @bp.route('/students/import/sample')
 @login_required
 @admin_required
+@permission_required('import_students')
 def download_sample_import():
     try:
         lang = session.get('language', 'uz')
@@ -2118,6 +2750,7 @@ def download_sample_import():
 @bp.route('/subjects/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_subject')
 def create_subject():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -2146,6 +2779,7 @@ def create_subject():
 @bp.route('/subjects/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_subject')
 def edit_subject(id):
     subject = Subject.query.get_or_404(id)
     
@@ -2170,6 +2804,7 @@ def edit_subject(id):
 @bp.route('/subjects/<int:id>/delete-blocked')
 @login_required
 @admin_required
+@permission_required('delete_subject')
 def subject_delete_blocked(id):
     """Fan o'quv rejada ishlatilayotgani uchun o'chirilmayapti – batafsil ko'rsatish va barcha rejalardan olib tashlash"""
     subject = Subject.query.get_or_404(id)
@@ -2200,6 +2835,7 @@ def subject_delete_blocked(id):
 @bp.route('/subjects/<int:id>/remove-from-curriculum', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('edit_curriculum')
 def remove_subject_from_curriculum(id):
     """Fanni barcha yo'nalishlar o'quv rejasidan olib tashlash (keyin fanni o'chirish mumkin)"""
     subject = Subject.query.get_or_404(id)
@@ -2212,6 +2848,7 @@ def remove_subject_from_curriculum(id):
 @bp.route('/subjects/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('delete_subject')
 def delete_subject(id):
     subject = Subject.query.get_or_404(id)
     
@@ -2229,6 +2866,7 @@ def delete_subject(id):
 @bp.route('/subjects/export')
 @login_required
 @admin_required
+@permission_required('export_subjects')
 def export_subjects():
     """Fanlarni Excel formatida export qilish"""
     try:
@@ -2250,6 +2888,7 @@ def export_subjects():
 @bp.route('/subjects/import', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('import_subjects')
 def import_subjects():
     """Excel fayldan fanlarni import qilish"""
     if request.method == 'POST':
@@ -2298,6 +2937,7 @@ def import_subjects():
 @bp.route('/subjects/import/sample')
 @login_required
 @admin_required
+@permission_required('import_subjects')
 def download_subjects_sample():
     """Fanlarni import qilish uchun namuna Excel faylni yuklab berish"""
     try:
@@ -2318,6 +2958,7 @@ def download_subjects_sample():
 @bp.route('/reports')
 @login_required
 @admin_required
+@permission_required('view_reports')
 def reports():
     from sqlalchemy import func
     
@@ -2356,6 +2997,7 @@ def reports():
 @bp.route('/grade-scale')
 @login_required
 @admin_required
+@permission_required('view_grade_scale')
 def grade_scale():
     """Baholash tizimini ko'rish"""
     grades = GradeScale.query.order_by(GradeScale.order).all()
@@ -2365,6 +3007,7 @@ def grade_scale():
 @bp.route('/grade-scale/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('manage_grade_scale')
 def create_grade():
     """Yangi baho qo'shish"""
     if request.method == 'POST':
@@ -2406,6 +3049,7 @@ def create_grade():
 @bp.route('/grade-scale/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('manage_grade_scale')
 def edit_grade(id):
     """Bahoni tahrirlash"""
     grade = GradeScale.query.get_or_404(id)
@@ -2431,6 +3075,7 @@ def edit_grade(id):
 @bp.route('/grade-scale/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('manage_grade_scale')
 def delete_grade(id):
     """Bahoni o'chirish"""
     grade = GradeScale.query.get_or_404(id)
@@ -2443,6 +3088,7 @@ def delete_grade(id):
 @bp.route('/grade-scale/reset', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('manage_grade_scale')
 def reset_grade_scale():
     """Standart baholarni tiklash"""
     # Barcha baholarni o'chirish
@@ -2460,6 +3106,7 @@ def reset_grade_scale():
 @bp.route('/import/students', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('import_students')
 def import_students():
     """Excel fayldan talabalar import qilish"""
     if request.method == 'POST':
@@ -2570,11 +3217,12 @@ def export_all_users():
         multi_role_users = User.query.join(UserRole).filter(UserRole.role == role).all()
         staff_user_ids.update([u.id for u in multi_role_users])
     
-    # Talabalar emas, faqat xodimlar
+    # Talabalar emas, faqat xodimlar; superadmin eksportda bo'lmasin
     staff_users = User.query.filter(
         User.id.in_(list(staff_user_ids)),
         User.role != 'student'
     ).all()
+    staff_users = [u for u in staff_users if not getattr(u, 'is_superadmin', False)]
     excel_file = create_staff_excel(staff_users)
     
     filename = f"xodimlar_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
@@ -2589,6 +3237,7 @@ def export_all_users():
 @bp.route('/import/all_users', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('import_staff')
 def import_all_users():
     """Excel fayldan barcha foydalanuvchilarni import qilish (rol bo'yicha ajratish)"""
     if request.method == 'POST':
@@ -2637,6 +3286,7 @@ def import_all_users():
 @bp.route('/staff/import/sample')
 @login_required
 @admin_required
+@permission_required('import_staff')
 def download_staff_sample_import():
     """Xodimlar import uchun namuna Excel faylini yuklab olish (tanlangan til bo'yicha)"""
     try:
@@ -2765,6 +3415,7 @@ def export_schedule():
 @bp.route('/groups')
 @login_required
 @admin_required
+@permission_required('manage_groups')
 def groups():
     faculty_id = request.args.get('faculty_id', type=int)
     course_year = request.args.get('course_year', type=int)
@@ -2822,6 +3473,7 @@ def groups():
 @bp.route('/groups/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_group')
 def create_group():
     faculty_id = request.args.get('faculty_id', type=int)
     direction_id = request.args.get('direction_id', type=int)
@@ -2915,6 +3567,7 @@ def create_group():
 @bp.route('/groups/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_group')
 def edit_group(id):
     group = Group.query.get_or_404(id)
     
@@ -2980,6 +3633,7 @@ def edit_group(id):
 @bp.route('/groups/<int:id>/students')
 @login_required
 @admin_required
+@permission_required('view_students')
 def group_students(id):
     """Guruh talabalari ro'yxati (admin uchun)"""
     group = Group.query.get_or_404(id)
@@ -2995,6 +3649,7 @@ def group_students(id):
 @bp.route('/groups/<int:id>/add-students', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('manage_groups')
 def add_student_to_group(id):
     """Guruhga talaba qo'shish (admin uchun)"""
     group = Group.query.get_or_404(id)
@@ -3026,6 +3681,7 @@ def add_student_to_group(id):
 @bp.route('/groups/<int:id>/remove-students', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('manage_groups')
 def remove_students_from_group(id):
     """Bir nechta talabani bir vaqtning o'zida guruhdan chiqarish (admin uchun)"""
     group = Group.query.get_or_404(id)
@@ -3060,6 +3716,7 @@ def remove_students_from_group(id):
 @bp.route('/groups/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('delete_group')
 def delete_group(id):
     group = Group.query.get_or_404(id)
     faculty_id = group.faculty_id
@@ -3093,6 +3750,7 @@ def delete_group(id):
 @bp.route('/directions/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_direction')
 def create_direction():
     """Yangi yo'nalish yaratish (admin uchun)"""
     faculty_id = request.args.get('faculty_id', type=int)
@@ -3154,6 +3812,7 @@ def create_direction():
 @bp.route('/directions/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_direction')
 def edit_direction(id):
     """Yo'nalishni tahrirlash (admin uchun)"""
     direction = Direction.query.get_or_404(id)
@@ -3191,6 +3850,7 @@ def edit_direction(id):
 @bp.route('/directions/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('delete_direction')
 def delete_direction(id):
     """Yo'nalishni o'chirish (admin uchun)"""
     direction = Direction.query.get_or_404(id)
@@ -3246,6 +3906,7 @@ def delete_direction(id):
 @bp.route('/directions')
 @login_required
 @admin_required
+@permission_required('view_directions')
 def directions():
     """Admin yo'nalishlar – dekandagi kabi (Yil+Ta'lim → Yo'nalish → Kurs → Semestr → Guruhlar), barcha fakultetlar."""
     course_filter = request.args.get('course', type=int)
@@ -3444,6 +4105,7 @@ def directions():
 @bp.route('/curriculum-subjects')
 @login_required
 @admin_required
+@permission_required('view_curriculum')
 def curriculum_subjects():
     """O'quv rejaga biriktirilgan fanlar ro'yxati (yo'nalish, guruh, o'qituvchi, fan)"""
     search = request.args.get('search', '')
@@ -3642,6 +4304,7 @@ def curriculum_subjects():
 @bp.route('/students/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_student')
 def create_student():
     """Admin uchun yangi talaba yaratish"""
     if request.method == 'POST':
@@ -3787,6 +4450,7 @@ def create_student():
 @bp.route('/students/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_student')
 def edit_student(id):
     """Admin uchun talabani tahrirlash"""
     student = User.query.get_or_404(id)
@@ -3915,6 +4579,7 @@ def edit_student(id):
 @bp.route('/students')
 @login_required
 @admin_required
+@permission_required('view_students')
 def students():
     """Admin uchun barcha talabalar"""
     from app.models import Direction
@@ -4373,9 +5038,13 @@ def students():
 @bp.route('/students/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('delete_student')
 def delete_student(id):
     """Admin uchun talabani o'chirish"""
     student = User.query.get_or_404(id)
+    if getattr(student, 'is_superadmin', False):
+        flash(t('cannot_delete_superadmin'), 'error')
+        return redirect(url_for('admin.students'))
     if student.role != 'student':
         flash(t('user_not_staff'), 'error')
         return redirect(url_for('admin.students'))
@@ -4408,6 +5077,7 @@ def delete_student(id):
 @bp.route('/students/<int:id>/reset-password', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('reset_user_password')
 def reset_student_password(id):
     """Admin uchun talaba parolini boshlang'ich holatga qaytarish (pasport raqami)"""
     student = User.query.get_or_404(id)
@@ -4492,6 +5162,7 @@ def api_schedule_filters():
 @bp.route('/schedule')
 @login_required
 @admin_required
+@permission_required('view_schedule')
 def schedule():
     """Admin uchun dars jadvali"""
     from datetime import datetime
@@ -4687,6 +5358,7 @@ def schedule():
 @bp.route('/schedule/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('create_schedule')
 def create_schedule():
     """Admin uchun dars jadvaliga qo'shish"""
     from app.models import Direction
@@ -4845,6 +5517,7 @@ def create_schedule():
 @bp.route('/schedule/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 @admin_required
+@permission_required('edit_schedule')
 def edit_schedule(id):
     """Admin uchun dars jadvalini tahrirlash"""
     schedule = Schedule.query.get_or_404(id)
@@ -5014,6 +5687,7 @@ def edit_schedule(id):
 @bp.route('/schedule/<int:id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@permission_required('delete_schedule')
 def delete_schedule(id):
     """Admin uchun dars jadvalini o'chirish"""
     schedule = Schedule.query.get_or_404(id)

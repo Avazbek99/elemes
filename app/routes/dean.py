@@ -1604,6 +1604,9 @@ def delete_student(id):
         return redirect(url_for('main.dashboard'))
     
     student = User.query.get_or_404(id)
+    if getattr(student, 'is_superadmin', False):
+        flash(t('cannot_delete_superadmin'), 'error')
+        return redirect(url_for('dean.students'))
     if student.role != 'student':
         flash(t('user_not_student'), 'error')
         return redirect(url_for('dean.students'))

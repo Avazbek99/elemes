@@ -395,6 +395,42 @@ class UserRole(db.Model):
     role = db.Column(db.String(20), primary_key=True)  # admin, teacher, student, dean, accounting
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+
+# ==================== ROL UCHUN RUXSATLAR (superadmin boshqaradi) ====================
+class RolePermission(db.Model):
+    """Rol uchun ruxsatlar – superadmin check orqali biriktirishi/o'chirishi mumkin"""
+    __tablename__ = 'role_permissions'
+    role = db.Column(db.String(30), primary_key=True)   # admin, dean, teacher, accounting, student
+    permission = db.Column(db.String(80), primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# ==================== SAYT SOZLAMALARI (superadmin boshqaradi) ====================
+class SiteSetting(db.Model):
+    """Sayt sozlamalari – platforma nomi, logo va h.k. (key-value)"""
+    __tablename__ = 'site_settings'
+    key = db.Column(db.String(80), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @staticmethod
+    def get(key, default=''):
+        """Kalit bo'yicha qiymat olish"""
+        row = SiteSetting.query.filter_by(key=key).first()
+        return (row.value or '').strip() if row else default
+
+    @staticmethod
+    def set(key, value):
+        """Kalit qiymatini o'rnatish"""
+        row = SiteSetting.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            row = SiteSetting(key=key, value=value)
+            db.session.add(row)
+        db.session.commit()
+
+
 # ==================== FOYDALANUVCHI ====================
 class User(UserMixin, db.Model):
     """Foydalanuvchi modeli"""
@@ -427,6 +463,9 @@ class User(UserMixin, db.Model):
     position = db.Column(db.String(50))
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'))  # Dekan qaysi fakultetga tegishli
     description = db.Column(db.Text)  # Xodim haqida tavsif
+
+    # Superadminlar bo'limi – bir nechta superadmin bo'lishi mumkin (config dagi login ham doim superadmin)
+    superadmin_flag = db.Column(db.Boolean, default=False)
     
     # Relationships
     submissions = db.relationship('Submission', backref='student', lazy='dynamic', foreign_keys='Submission.student_id')
@@ -464,7 +503,20 @@ class User(UserMixin, db.Model):
     def has_role(self, role_name):
         """Foydalanuvchida bunday rol bormi?"""
         return role_name in self.get_roles()
-    
+
+    @property
+    def is_superadmin(self):
+        """Superadmin – config dagi login yoki DB dagi superadmin_flag"""
+        if not self.login:
+            return False
+        if getattr(self, 'superadmin_flag', False):
+            return True
+        try:
+            from flask import current_app
+            return current_app.config.get('SUPERADMIN_LOGIN', '').strip() == self.login.strip()
+        except RuntimeError:
+            return False
+
     def add_role(self, role_name):
         """Foydalanuvchiga rol qo'shish"""
         if not self.has_role(role_name):
@@ -488,7 +540,9 @@ class User(UserMixin, db.Model):
         db.session.commit()
     
     def get_role_display(self):
-        """Asosiy rol nomini olish (eski kodlar bilan mosligi uchun)"""
+        """Asosiy rol nomini olish (superadmin uchun Superadmin)"""
+        if getattr(self, 'is_superadmin', False):
+            return 'Superadmin'
         roles = {
             'admin': 'Administrator',
             'teacher': "O'qituvchi",
@@ -497,40 +551,74 @@ class User(UserMixin, db.Model):
             'accounting': 'Buxgalteriya'
         }
         return roles.get(self.role, self.role)
-    
+
     def get_all_roles_display(self):
-        """Barcha rollarni ko'rinishda olish (tartiblangan)"""
+        """Barcha rollarni ko'rinishda olish (superadmin birinchi)"""
         roles = {
             'admin': 'Administrator',
             'teacher': "O'qituvchi",
             'student': 'Talaba',
             'dean': 'Dekan',
-            'accounting': 'Buxgalteriya'
+            'accounting': 'Buxgalteriya',
+            'superadmin': 'Superadmin',
         }
+        if getattr(self, 'is_superadmin', False):
+            result = [roles.get('superadmin', 'Superadmin')]
+            user_roles = self.get_roles()
+            role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
+            for r in role_order:
+                if r in user_roles:
+                    result.append(roles.get(r, r))
+            for r in user_roles:
+                if r not in role_order and r != 'superadmin':
+                    result.append(roles.get(r, r))
+            return result
         user_roles = self.get_roles()
-        # Rollarni belgilangan tartibda saralash: admin, dean, teacher, accounting, student
         role_order = ['admin', 'dean', 'teacher', 'accounting', 'student']
         sorted_roles = []
         for ordered_role in role_order:
             if ordered_role in user_roles:
                 sorted_roles.append(roles.get(ordered_role, ordered_role))
-        # Agar tartibda bo'lmagan rollar bo'lsa, ularni oxiriga qo'shish
         for role in user_roles:
             if role not in role_order:
                 sorted_roles.append(roles.get(role, role))
         return sorted_roles
     
     def has_permission(self, permission):
-        permissions = {
-            'admin': ['all'],
-            'dean': ['view_subjects', 'view_students', 'view_teachers', 'view_reports', 
-                    'create_announcement', 'manage_groups', 'assign_teachers'],
-            'teacher': ['view_subjects', 'create_lesson', 'create_assignment', 
-                       'grade_students', 'view_students', 'create_announcement'],
-            'student': ['view_subjects', 'submit_assignment', 'view_grades']
+        if self.is_superadmin:
+            return True
+        defaults = {
+            'admin': ['view_admin_panel', 'view_users', 'create_user', 'edit_user', 'delete_user', 'toggle_user', 'reset_user_password',
+                      'view_staff', 'create_staff', 'edit_staff', 'delete_staff', 'view_students', 'create_student', 'edit_student', 'delete_student',
+                      'view_faculties', 'create_faculty', 'edit_faculty', 'delete_faculty', 'view_directions', 'create_direction', 'edit_direction', 'delete_direction',
+                      'manage_groups', 'create_group', 'edit_group', 'delete_group', 'view_subjects', 'create_subject', 'edit_subject', 'delete_subject',
+                      'view_curriculum', 'edit_curriculum', 'view_schedule', 'create_schedule', 'edit_schedule', 'delete_schedule',
+                      'view_reports', 'view_grade_scale', 'manage_grade_scale', 'view_teachers', 'assign_teachers',
+                      'export_subjects', 'import_subjects', 'import_schedule', 'import_students', 'import_staff',
+                      'view_announcements', 'send_message', 'view_messages'],
+            'dean': ['view_dean_panel', 'view_subjects', 'view_students', 'view_teachers', 'view_reports',
+                     'create_announcement', 'manage_groups', 'assign_teachers',
+                     'dean_manage_students', 'dean_manage_directions', 'dean_manage_groups',
+                     'dean_manage_curriculum', 'dean_manage_teachers', 'dean_manage_schedule',
+                     'view_announcements', 'send_message', 'view_messages'],
+            'teacher': ['view_subjects', 'view_students', 'create_lesson', 'edit_lesson', 'delete_lesson',
+                        'create_assignment', 'edit_assignment', 'delete_assignment',
+                        'grade_students', 'view_submissions', 'create_announcement',
+                        'view_announcements', 'send_message', 'view_messages'],
+            'student': ['view_subjects', 'view_lessons', 'submit_assignment', 'view_grades', 'view_announcements', 'send_message', 'view_messages'],
+            'accounting': ['view_accounting', 'view_students', 'view_reports', 'manage_payments', 'manage_contracts', 'view_contract_amounts', 'import_payments',
+                          'view_announcements', 'send_message', 'view_messages'],
         }
-        user_perms = permissions.get(self.role, [])
-        return 'all' in user_perms or permission in user_perms
+        for role in self.get_roles():
+            # Rol uchun DB da yozuv bo'lsa – faqat DB dagi ruxsatlar (superadmin sozlagan); bo'sh ro'yxat ham mumkin
+            perms_list = RolePermission.query.filter_by(role=role).all()
+            if perms_list:
+                user_perms = [p.permission for p in perms_list if getattr(p, 'permission', '') and p.permission != '__configured__']
+            else:
+                user_perms = defaults.get(role, [])
+            if permission in user_perms:
+                return True
+        return False
     
     def get_subjects(self):
         """Foydalanuvchi uchun fanlarni olish"""

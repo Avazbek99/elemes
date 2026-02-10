@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('superadmins_database') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('superadmins_database') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('all_superadmins_list') }}</p>
+        </div>
+        <div class="flex gap-2 ml-auto shrink-0">
+            <a href="{{ url_for('admin.create_superadmin') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                {{ t('new_superadmin') }}
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <form method="GET" id="filterForm" class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[200px] relative search-input-wrap">
+                <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_student_fields') }}"
+                    class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+                {{ t('search') }}
+            </button>
+            {% if search %}
+            <a href="{{ url_for('admin.superadmins') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+                {{ t('clear') }}
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <span id="loading-text" class="hidden">{{ t('loading') }}</span>
+    <span id="load-error-text" class="hidden">{{ t('load_error') }}</span>
+    <div id="superadminsResults">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+        {% if users.items %}
+        <table class="w-full min-w-[640px]">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('full_name_login') }}</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('passport_pinfl') }}</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('phone_email') }}</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('roles') }}</th>
+                    <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for user in users.items %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="table-name-cell pl-2 pr-6 py-4" style="text-align: left; vertical-align: middle;">
+                        <div class="flex items-center gap-3 justify-start" style="text-align: left;">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold shrink-0">
+                                {{ user.full_name[0] if user.full_name else 'S' }}
+                            </div>
+                            <div class="min-w-0" style="text-align: left;">
+                                <p class="font-medium text-gray-900" style="text-align: left;">{{ user.full_name.upper() if user.full_name else '-' }}</p>
+                                {% if user.login %}
+                                <p class="text-sm text-gray-500" style="text-align: left;">{{ user.login }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div>
+                            <p class="text-sm text-gray-900">{{ user.passport_number or '-' }}</p>
+                            {% if user.pinfl %}
+                            <p class="text-xs text-gray-500">{{ user.pinfl }}</p>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col gap-0.5 text-sm text-gray-600">
+                            <span>{{ user.phone or '-' }}</span>
+                            <span class="text-gray-500">{{ user.email or '-' }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-wrap gap-1">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{{ t('superadmin') }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="inline-flex items-center gap-1">
+                            {% if user.login != config_superadmin_login or current_user.id == user.id %}
+                            <a href="{{ url_for('admin.edit_superadmin', id=user.id) }}" class="p-2 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="{{ t('edit_info') }}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </a>
+                            <form action="{{ url_for('admin.reset_user_password', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t("confirm_reset_password") | escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="p-2 rounded-lg hover:bg-purple-50 text-purple-600 hover:text-purple-700 transition-colors" title="{{ t('reset_password') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                                </button>
+                            </form>
+                            {% if user.login != config_superadmin_login and users.total > 1 %}
+                            <form action="{{ url_for('admin.delete_superadmin', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t("confirm_delete_user") | escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="{{ t('delete') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </form>
+                            {% endif %}
+                            {% if user.id != current_user.id %}
+                            <form action="{{ url_for('admin.toggle_user', id=user.id) }}" method="POST" class="inline" id="toggle-form-sa-{{ user.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" {% if user.is_active %}checked{% endif %} onchange="document.getElementById('toggle-form-sa-{{ user.id }}').submit();">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                </label>
+                            </form>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-6 py-12 text-center text-gray-500">{{ t('users_not_found') }}</div>
+        {% endif %}
+    </div>
+
+    {% if users.pages > 1 %}
+    <div class="mt-6 flex flex-col items-center gap-4">
+        <div class="flex items-center gap-2">
+            {% if users.has_prev %}
+            <a href="{{ url_for('admin.superadmins', page=1, search=search) }}" class="superadmins-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">{{ t('first') }}</a>
+            <a href="{{ url_for('admin.superadmins', page=users.prev_num, search=search) }}" class="superadmins-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ users.prev_num }}">«</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+            {% endif %}
+            {% for page_num in users.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == users.page %}
+                    <span class="px-3 py-2 bg-primary-600 text-white rounded-lg font-medium">{{ page_num }}</span>
+                    {% else %}
+                    <a href="{{ url_for('admin.superadmins', page=page_num, search=search) }}" class="superadmins-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700" data-page="{{ page_num }}">{{ page_num }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="px-2 text-gray-400">...</span>
+                {% endif %}
+            {% endfor %}
+            {% if users.has_next %}
+            <a href="{{ url_for('admin.superadmins', page=users.next_num, search=search) }}" class="superadmins-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ users.next_num }}">»</a>
+            <a href="{{ url_for('admin.superadmins', page=users.pages, search=search) }}" class="superadmins-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ users.pages }}">{{ t('last') }}</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>
+            {% endif %}
+        </div>
+        <div class="text-sm text-gray-600">
+            {% set start = (users.page - 1) * users.per_page + 1 %}
+            {% set end = users.page * users.per_page if users.page * users.per_page <= users.total else users.total %}
+            {{ t('pagination_range', start=start, end=end, total="{:,}".format(users.total)) }}
+        </div>
+    </div>
+    {% elif users.total > 0 %}
+    <div class="mt-6 text-center text-sm text-gray-600">
+        {% set start = (users.page - 1) * users.per_page + 1 %}
+        {% set end = users.page * users.per_page if users.page * users.per_page <= users.total else users.total %}
+        {{ t('pagination_range', start=start, end=end, total="{:,}".format(users.total)) }}
+    </div>
+    {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var filterForm = document.getElementById('filterForm');
+    var searchInput = document.getElementById('searchInput');
+    var resultsDiv = document.getElementById('superadminsResults');
+    var baseUrl = '{{ url_for("admin.superadmins") }}';
+    function buildParams(search, page) {
+        var params = new URLSearchParams();
+        params.set('partial', '1');
+        if (search) params.set('search', search);
+        if (page && page > 1) params.set('page', page);
+        return params.toString();
+    }
+    function loadResults(search, page) {
+        page = page || 1;
+        var qs = buildParams(search, page);
+        var url = baseUrl + (qs ? '?' + qs : '');
+        if (resultsDiv) resultsDiv.innerHTML = '<div class="flex justify-center py-12"><span class="text-gray-500">' + (document.getElementById('loading-text') ? document.getElementById('loading-text').textContent : '') + '</span></div>';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                if (resultsDiv) resultsDiv.innerHTML = html;
+                var hasSearch = !!search;
+                history.replaceState(null, '', baseUrl + (hasSearch || page > 1 ? '?' + [hasSearch ? 'search=' + encodeURIComponent(search) : '', page > 1 ? 'page=' + page : ''].filter(Boolean).join('&') : ''));
+            })
+            .catch(function() {
+                if (resultsDiv) resultsDiv.innerHTML = '<div class="py-12 text-center text-red-500">' + (document.getElementById('load-error-text') ? document.getElementById('load-error-text').textContent : '') + '</div>';
+            });
+    }
+    if (filterForm && searchInput) {
+        filterForm.addEventListener('submit', function(e) { e.preventDefault(); loadResults(searchInput.value.trim(), 1); });
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() { loadResults(searchInput.value.trim(), 1); }, 1000);
+        });
+    }
+    if (resultsDiv) {
+        resultsDiv.addEventListener('click', function(e) {
+            var link = e.target.closest('a.superadmins-pagination-link');
+            if (!link) return;
+            e.preventDefault();
+            var page = parseInt(link.getAttribute('data-page'), 10) || 1;
+            var search = searchInput ? searchInput.value.trim() : '';
+            loadResults(search, page);
+        });
+    }
+});
+</script>
+{% endblock %}

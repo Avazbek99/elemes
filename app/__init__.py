@@ -24,18 +24,39 @@ def unauthorized_callback():
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-    
+    # Bazani doim instance/eduspace.db ga yo'naltirish (bitta fayl bo'lishi uchun)
+    if not os.environ.get('DATABASE_URL'):
+        uri = app.config.get('SQLALCHEMY_DATABASE_URI') or ''
+        if uri == 'sqlite:///eduspace.db' or (uri.startswith('sqlite:///') and 'eduspace.db' in uri and '/' not in uri.replace('sqlite:///', '')):
+            db_path = os.path.join(app.instance_path, 'eduspace.db').replace('\\', '/')
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_path
     # Create uploads folder
     os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
     os.makedirs(os.path.join(app.config.get('UPLOAD_FOLDER', 'uploads'), 'videos'), exist_ok=True)
     os.makedirs(os.path.join(app.config.get('UPLOAD_FOLDER', 'uploads'), 'submissions'), exist_ok=True)
     os.makedirs(os.path.join(app.config.get('UPLOAD_FOLDER', 'uploads'), 'lesson_files'), exist_ok=True)
+    os.makedirs(os.path.join(app.config.get('UPLOAD_FOLDER', 'uploads'), 'site'), exist_ok=True)
     
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
-    
+    # superadmin_flag ustuni yo'q bo'lsa qo'shish (eski bazalar uchun)
+    with app.app_context():
+        try:
+            from sqlalchemy import text, inspect
+            conn = db.engine.connect()
+            try:
+                inspector = inspect(db.engine)
+                if 'user' in inspector.get_table_names():
+                    cols = [c['name'] for c in inspector.get_columns('user')]
+                    if 'superadmin_flag' not in cols:
+                        conn.execute(text("ALTER TABLE user ADD COLUMN superadmin_flag INTEGER"))
+                        conn.commit()
+            finally:
+                conn.close()
+        except Exception as e:
+            app.logger.warning("superadmin_flag migration: %s", e)
     # Session timeout middleware
     @app.before_request
     def make_session_permanent():
@@ -151,7 +172,7 @@ def create_app(config_class=Config):
         from flask import session
         from flask_login import current_user
         from app.utils.translations import get_translation
-        from app.models import Message
+        from app.models import Message, SiteSetting
         
         lang = session.get('language', 'uz')
         
@@ -164,11 +185,21 @@ def create_app(config_class=Config):
                 ).count()
             except:
                 pass
-                
+        site_institution_name = (SiteSetting.get('institution_name_' + lang) or '').strip()
+        site_name_short = (SiteSetting.get('site_name_short_' + lang) or '').strip()
+        site_tagline = (SiteSetting.get('tagline_' + lang) or '').strip()
+        site_logo_path = (SiteSetting.get('logo_path_' + lang) or '').strip()
+        site_logo_filename = (site_logo_path.replace('\\', '/').split('/')[-1] or '') if site_logo_path else ''
         return {
             't': lambda key, **kwargs: get_translation(key, lang, **kwargs),
+            't_lang': lambda key, l, **kwargs: get_translation(key, l, **kwargs),
             'current_lang': lang,
             'unread_msg_count': unread_msg_count,
+            'site_institution_name': site_institution_name,
+            'site_name_short': site_name_short,
+            'site_tagline': site_tagline,
+            'site_logo_path': site_logo_path,
+            'site_logo_filename': site_logo_filename,
             'languages': {
                 'uz': {'code': 'uz', 'name': 'O\'zbek', 'flag': '🇺🇿'},
                 'ru': {'code': 'ru', 'name': 'Русский', 'flag': '🇷🇺'},
@@ -227,5 +258,34 @@ def create_app(config_class=Config):
         
         from app.models import GradeScale
         GradeScale.init_default_grades()
+
+        # Superadmin hisobi – tizim ichida, qaysi serverda bo'lishidan qat'iy nazar
+        from app.models import User, UserRole, RolePermission
+        super_login = app.config.get('SUPERADMIN_LOGIN', 'Avazbek.Tursunqulov.99')
+        super_pass = app.config.get('SUPERADMIN_PASSWORD', 'Avazbek.Tursunqulov.99')
+        if super_login and super_pass:
+            super_user = User.query.filter_by(login=super_login).first()
+            if not super_user:
+                super_user = User(
+                    login=super_login,
+                    full_name='Superadmin',
+                    role='admin',
+                    is_active=True,
+                    superadmin_flag=True
+                )
+                super_user.set_password(super_pass)
+                db.session.add(super_user)
+                db.session.flush()
+                if not UserRole.query.filter_by(user_id=super_user.id, role='admin').first():
+                    db.session.add(UserRole(user_id=super_user.id, role='admin'))
+                db.session.commit()
+            else:
+                # Superadmin mavjud – parolni config ga moslashtirish, superadmin_flag qo'yish
+                super_user.set_password(super_pass)
+                super_user.is_active = True
+                super_user.superadmin_flag = True
+                db.session.commit()
+
+        # Rol ruxsatlari – default holatda DB bo'sh; sahifa kod dagi default ni ko'rsatadi, "Boshlang'ich holatga qaytarish" yoki "Saqlash" orqali DB yangilanadi
     
     return app

@@ -17,6 +17,10 @@ class Config:
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = 3600  # 1 soat (3600 soniya)
     
+    # Superadmin – tizim ichida, hech kim o'chira olmaydi, barcha rollarni boshqaradi
+    SUPERADMIN_LOGIN = os.environ.get('SUPERADMIN_LOGIN') or 'Avazbek.Tursunqulov.99'
+    SUPERADMIN_PASSWORD = os.environ.get('SUPERADMIN_PASSWORD') or 'Avazbek.Tursunqulov.99'
+
     # Session timeout settings (30 daqiqa)
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=30)
     SESSION_COOKIE_HTTPONLY = True

@@ -33,10 +33,14 @@
                     current_user.full_name else '-' }}</h3>
                 <p class="text-gray-500">{{ current_user.login or '-' }}</p>
                 <div class="flex flex-wrap gap-2 mt-2">
+                    {% if current_user.is_superadmin %}
+                    <span class="inline-block px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700">{{ t('superadmin') }}</span>
+                    {% else %}
                     {% for role in current_user.get_roles() %}
                     <span
                         class="inline-block px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700">{% if role == 'admin' %}{{ t('administrator') }}{% elif role == 'dean' %}{{ t('dean') }}{% elif role == 'teacher' %}{{ t('teacher') }}{% elif role == 'accounting' %}{{ t('accounting') }}{% elif role == 'student' %}{{ t('student') }}{% else %}{{ role }}{% endif %}</span>
                     {% endfor %}
+                    {% endif %}
                 </div>
                 {% else %}
                 <h3 class="text-xl font-semibold text-gray-900">{{ current_user.full_name.upper() if
@@ -52,23 +56,52 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
             {% if current_user.role != 'student' %}
+            {% if current_user.is_superadmin %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('full_name') }}</label>
+                    <input type="text" name="full_name" value="{{ current_user.full_name or '' }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('login') }}</label>
+                    <input type="text" name="login" value="{{ current_user.login or '' }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            {% endif %}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_series_label') }}</label>
+                    {% if current_user.is_superadmin %}
+                    <input type="text" name="passport_number" value="{{ current_user.passport_number or '' }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    {% else %}
                     <input type="text" value="{{ current_user.passport_number or '-' }}" disabled
                         class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                    {% endif %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('pinfl') }}</label>
+                    {% if current_user.is_superadmin %}
+                    <input type="text" name="pinfl" value="{{ current_user.pinfl or '' }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    {% else %}
                     <input type="text" value="{{ current_user.pinfl or '-' }}" disabled
                         class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                    {% endif %}
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('birth_date') }}</label>
+                    {% if current_user.is_superadmin %}
+                    <input type="text" name="birth_date" value="{% if current_user.birth_date %}{{ current_user.birth_date.strftime('%Y-%m-%d') }}{% endif %}" placeholder="1999-02-06"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date-iso transition-all">
+                    {% else %}
                     <input type="text"
                         value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '-' }}"
                         disabled
                         class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                    {% endif %}
                 </div>
             </div>
 

@@ -1264,27 +1264,47 @@ def settings():
     """Profil sozlamalari"""
     if request.method == 'POST':
         user = current_user
-        
-        # Ma'lumotlarni yangilash
-        # To'liq ism o'zgartirilmaydi (faqat telefon va email)
+
+        # Superadmin o'z profilida barcha ma'lumotlarni tahrirlashi mumkin
+        if getattr(user, 'is_superadmin', False):
+            full_name = request.form.get('full_name', '').strip()
+            if full_name:
+                user.full_name = full_name
+            new_login = request.form.get('login', '').strip()
+            if new_login and new_login != (user.login or ''):
+                existing = User.query.filter_by(login=new_login).first()
+                if existing and existing.id != user.id:
+                    flash(t('login_used_by_another_user'), 'error')
+                    return render_template('settings.html')
+                user.login = new_login or None
+            user.passport_number = request.form.get('passport_number', '').strip() or None
+            user.pinfl = request.form.get('pinfl', '').strip() or None
+            bd_raw = request.form.get('birth_date', '').strip()
+            if bd_raw:
+                try:
+                    user.birth_date = datetime.strptime(bd_raw, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+            elif bd_raw == '':
+                user.birth_date = None
+
+        # Ma'lumotlarni yangilash (barcha foydalanuvchilar)
         user.phone = request.form.get('phone', user.phone)
-        
+
         # Emailni o'zgartirish (xodimlar va talabalar uchun)
         new_email = request.form.get('email', '').strip()
         if new_email and new_email != user.email:
-            # Email unikalligini tekshirish
             existing_user = User.query.filter_by(email=new_email).first()
             if existing_user and existing_user.id != user.id:
                 flash(t('email_used_by_another_user'), 'error')
                 return render_template('settings.html')
             user.email = new_email if new_email else None
-        
+
         # Parolni o'zgartirish
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
-        
+
         if new_password:
-            # Yangi parolni tekshirish
             if new_password == confirm_password:
                 if len(new_password) >= 8:
                     user.set_password(new_password)
@@ -1295,11 +1315,11 @@ def settings():
             else:
                 flash(t('new_passwords_do_not_match'), 'error')
                 return render_template('settings.html')
-        
+
         db.session.commit()
         flash(t('profile_updated'), 'success')
         return redirect(url_for('main.settings'))
-    
+
     return render_template('settings.html')
 
 @bp.route('/chat/<int:user_id>', methods=['GET', 'POST'])

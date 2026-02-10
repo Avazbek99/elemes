@@ -122,8 +122,9 @@
     </div>
 </div>
 
-<!-- Quick Actions -->
+<!-- Quick Actions (ruxsat bo'yicha) -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    {% if current_user.is_superadmin or current_user.has_permission('create_user') %}
     <a href="{{ url_for('admin.create_user') }}"
         class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -134,7 +135,8 @@
         </div>
         <span class="font-medium text-gray-700">{{ t('add_user') }}</span>
     </a>
-
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('create_faculty') %}
     <a href="{{ url_for('admin.create_faculty') }}"
         class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -144,7 +146,8 @@
         </div>
         <span class="font-medium text-gray-700">{{ t('add_faculty') }}</span>
     </a>
-
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('create_subject') %}
     <a href="{{ url_for('admin.create_subject') }}"
         class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
@@ -154,7 +157,8 @@
         </div>
         <span class="font-medium text-gray-700">{{ t('add_subject') }}</span>
     </a>
-
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('view_reports') %}
     <a href="{{ url_for('admin.reports') }}"
         class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -165,13 +169,16 @@
         </div>
         <span class="font-medium text-gray-700">{{ t('reports') }}</span>
     </a>
+    {% endif %}
 </div>
 
 <!-- Recent users -->
 <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
     <div class="p-6 border-b border-gray-100 flex justify-between items-center">
         <h2 class="text-lg font-semibold text-gray-900">{{ t('recent_users') }}</h2>
+        {% if current_user.is_superadmin or current_user.has_permission('view_users') %}
         <a href="{{ url_for('admin.users') }}" class="text-primary-600 text-sm hover:underline">{{ t('view_all') }}</a>
+        {% endif %}
     </div>
     <div class="divide-y divide-gray-100">
         {% for user in recent_users %}

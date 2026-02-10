@@ -11,10 +11,12 @@
         
         <div class="relative z-10 flex flex-col justify-between p-12 w-full">
             <div class="flex items-center gap-3">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="h-24 w-auto object-contain">
+                {% if site_logo_filename %}
+                <img src="{{ url_for('admin.serve_site_upload', filename=site_logo_filename) }}" alt="{{ site_name_short or site_institution_name or '' }}" class="h-24 w-auto object-contain">
+                {% endif %}
                 <div class="flex flex-col">
-                    <span class="text-white font-bold text-2xl">&quot;TIQXMMI&quot; MTU</span>
-                    <span class="text-dark-300 text-sm">{{ t('remote_education_platform') }}</span>
+<span class="text-white font-bold text-2xl">{{ site_institution_name or '' }}</span>
+                <span class="text-dark-300 text-sm">{{ site_tagline or '' }}</span>
                 </div>
             </div>
             
@@ -106,10 +108,12 @@
         <div class="login-form-wrap w-full" style="max-width: 400px !important; width: 100%; min-width: 0;">
             <div class="lg:hidden flex flex-col items-center gap-2 mb-6">
                 <div class="flex items-center gap-3">
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="h-20 w-auto object-contain">
+                    {% if site_logo_filename %}
+                    <img src="{{ url_for('admin.serve_site_upload', filename=site_logo_filename) }}" alt="{{ site_name_short or site_institution_name or '' }}" class="h-20 w-auto object-contain">
+                    {% endif %}
                     <div class="flex flex-col">
-                        <span class="text-gray-900 font-bold text-lg">&quot;TIQXMMI&quot; MTU</span>
-                        <span class="text-gray-600 text-xs">{{ t('site_tagline') }}</span>
+                        <span class="text-gray-900 font-bold text-lg">{{ site_institution_name or '' }}</span>
+                        <span class="text-gray-600 text-xs">{{ site_tagline or '' }}</span>
                     </div>
                 </div>
             </div>

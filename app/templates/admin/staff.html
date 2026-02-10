@@ -122,6 +122,7 @@
                                         </svg>
                                     </button>
                                 </form>
+                                {% if not user.is_superadmin %}
                                 <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t("confirm_delete_user") | escapejs }}');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="p-2 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="{{ t('delete') }}">
@@ -130,6 +131,7 @@
                                         </svg>
                                     </button>
                                 </form>
+                                {% endif %}
                                 <!-- Holat toggle switch -->
                                 {% if user.id != current_user.id %}
                                 <form action="{{ url_for('admin.toggle_user', id=user.id) }}" method="POST" class="inline" id="toggle-form-{{ user.id }}">
