@@ -14,6 +14,9 @@ venv/
 
 # Local data / logs / uploads (repo root = ELMS1.3)
 uploads/
+# uploads/site (logolar) GitHubga yuklansin
+!uploads/site/
+!uploads/site/**
 server.log
 .env
 *.db
