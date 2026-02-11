@@ -3295,6 +3295,34 @@ def create_schedule():
         found_types = sorted(list(set([types_map.get(a.lesson_type.lower() if a.lesson_type else '', a.lesson_type.capitalize() if a.lesson_type else '') for a in assignments if a.lesson_type])))
         lesson_type_display = "/".join(found_types) if found_types else 'Ma\'ruza'
 
+        link = request.form.get('link') or ''
+        # Zoom meeting avtomatik yaratish (link bo'sh bo'lsa va Zoom sozlangan bo'lsa)
+        if not link.strip():
+            try:
+                from flask import current_app
+                from app.services.zoom_service import create_schedule_meeting
+                subject = Subject.query.get(subject_id)
+                group = Group.query.get(group_id)
+                zoom_config = {
+                    'ZOOM_ACCOUNT_ID': current_app.config.get('ZOOM_ACCOUNT_ID'),
+                    'ZOOM_CLIENT_ID': current_app.config.get('ZOOM_CLIENT_ID'),
+                    'ZOOM_CLIENT_SECRET': current_app.config.get('ZOOM_CLIENT_SECRET'),
+                    'ZOOM_DURATION_MINUTES': current_app.config.get('ZOOM_DURATION_MINUTES'),
+                    'ZOOM_TIMEZONE': current_app.config.get('ZOOM_TIMEZONE'),
+                }
+                zoom_link = create_schedule_meeting(
+                    subject_name=subject.name if subject else '',
+                    group_name=group.name if group else '',
+                    lesson_type=lesson_type_display,
+                    date_code=date_code,
+                    start_time=start_time or '09:00',
+                    config=zoom_config,
+                )
+                if zoom_link:
+                    link = zoom_link
+            except Exception:
+                pass
+
         schedule = Schedule(
             subject_id=subject_id,
             group_id=group_id,
@@ -3302,7 +3330,7 @@ def create_schedule():
             day_of_week=date_code,
             start_time=start_time,
             end_time=request.form.get('end_time') or None,
-            link=request.form.get('link'),
+            link=link or None,
             lesson_type=lesson_type_display[:20]
         )
         db.session.add(schedule)

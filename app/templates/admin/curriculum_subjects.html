@@ -305,13 +305,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // ============ REAL-TIME SEARCH ============
-    if (searchInput) {
+    // Qidiruv: avtomatik submit (debounced) va submitdan keyin kursor yana qidiruv maydonida
+    if (searchInput && filterForm) {
         let searchTimeout;
         searchInput.addEventListener('input', function() {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => filterForm.submit(), 500);
+            searchTimeout = setTimeout(function() { filterForm.submit(); }, 500);
         });
+        if (window.location.search.indexOf('search=') !== -1) {
+            searchInput.focus();
+            searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+        }
     }
 });
 </script>

@@ -81,7 +81,7 @@
                             class="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
                         <label for="lesson_{{ lesson.id }}"
                             class="text-sm font-medium text-gray-700 cursor-pointer flex-1">
-                            {{ lesson.order }}. {{ lesson.title }}
+                            {{ lesson.display_order_in_type|default(lesson.order) }}. {{ lesson.title }}
                             {% if lesson.lesson_type %}
                             <span class="text-xs text-gray-500">({{ lesson.lesson_type|lesson_type_label }})</span>
                             {% endif %}

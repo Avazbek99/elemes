@@ -152,22 +152,28 @@ class Subject(db.Model):
         # Boshqa guruhlardan fallback qilmaslik - aks holda forma boshqa guruhni avtomatik to'ldiradi.
         return assignment.teacher if assignment else None
     
-    def check_curriculum_completion(self, direction_id=None, teacher_id=None, is_admin=False):
+    def check_curriculum_completion(self, direction_id=None, teacher_id=None, is_admin=False, group=None):
         """O'quv reja bo'yicha darslar to'liqligini tekshirish
         Args:
             direction_id: Yo'nalish ID
             teacher_id: O'qituvchi ID (agar berilgan bo'lsa, faqat shu o'qituvchiga biriktirilgan dars turlari tekshiriladi)
             is_admin: Admin uchun barcha dars turlarini ko'rsatish
+            group: Guruh obyekti (enrollment_year, education_type, semester bo'yicha to'g'ri o'quv rejani olish uchun)
         Returns: {'has_issue': bool, 'warnings': list, 'stats': {'lessons_count': int, 'assignments_count': int}}
         """
         if not direction_id:
             return {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}}
         
-        # Ushbu yo'nalish uchun o'quv rejani olish
-        curriculum = DirectionCurriculum.query.filter_by(
+        # Ushbu yo'nalish uchun o'quv rejani olish (guruh kontekstiga mos)
+        curr_q = DirectionCurriculum.query.filter_by(
             direction_id=direction_id,
             subject_id=self.id
-        ).first()
+        )
+        if group:
+            curr_q = DirectionCurriculum.filter_by_group_context(curr_q, group)
+            if group.semester:
+                curr_q = curr_q.filter_by(semester=group.semester)
+        curriculum = curr_q.first()
         
         if not curriculum:
             return {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}}

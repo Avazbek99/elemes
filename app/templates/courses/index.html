@@ -60,7 +60,8 @@
                 {% set teacher_id = current_user.id if (current_user.role == 'teacher' or
                 current_user.has_role('teacher')) else None %}
                 {% set is_admin = (current_user.role == 'admin' or current_user.role == 'dean') %}
-                {% set curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id, is_admin) if
+                {% set curriculum_group = (subject_data.groups[0] if subject_data.groups else None) %}
+                {% set curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id, is_admin, curriculum_group) if
                 (current_user.role in ['teacher', 'dean', 'admin']) else {'has_issue': False, 'warnings': [], 'stats':
                 {'lessons_count': 0, 'assignments_count': 0}} %}
                 {% set has_issue = curriculum_check.has_issue %}
@@ -68,7 +69,7 @@
                 'assignments_count': 0} %}
                 {# Unified Card for Teacher and Student #}
                 <div class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                    onclick="window.location.href='{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_link) if (direction_id and group_id_link) else (url_for('courses.detail', id=subject.id, dir_id=direction_id) if direction_id else url_for('courses.detail', id=subject.id)) }}'">
+                    onclick="window.location.href='{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_link, semester=subject_data.semester) if (direction_id and group_id_link) else (url_for('courses.detail', id=subject.id, dir_id=direction_id, semester=subject_data.semester) if direction_id else url_for('courses.detail', id=subject.id)) }}'">
                     <div
                         class="relative p-5 {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %}">
                         <div class="absolute top-4 right-4 flex flex-col gap-2">

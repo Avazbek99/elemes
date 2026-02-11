@@ -4154,6 +4154,45 @@ def curriculum_subjects():
         Subject.name
     ).all()
 
+    # Agar qidiruv bo'yicha hech narsa topilmasa va o'qituvchi ismi kiritilgan bo'lsa — o'qituvchi orqali qidirish
+    if search and not curriculum_items:
+        matching_teachers = User.query.filter(
+            or_(User.full_name.ilike(f'%{search}%'), User.login.ilike(f'%{search}%'))
+        ).all()
+        if matching_teachers:
+            teacher_ids = [t.id for t in matching_teachers]
+            ts_list = TeacherSubject.query.filter(TeacherSubject.teacher_id.in_(teacher_ids)).all()
+            seen_curr_ids = set()
+            for ts in ts_list:
+                gr = Group.query.get(ts.group_id) if ts.group_id else None
+                if not gr or not gr.enrollment_year or not gr.education_type:
+                    continue
+                curr_q = DirectionCurriculum.query.join(Direction).filter(
+                    DirectionCurriculum.direction_id == gr.direction_id,
+                    DirectionCurriculum.subject_id == ts.subject_id,
+                    DirectionCurriculum.semester == gr.semester,
+                    DirectionCurriculum.enrollment_year == gr.enrollment_year,
+                    DirectionCurriculum.education_type == gr.education_type
+                )
+                if faculty_filter:
+                    curr_q = curr_q.filter(Direction.faculty_id == faculty_filter)
+                if direction_filter:
+                    curr_q = curr_q.filter(DirectionCurriculum.direction_id == direction_filter)
+                if semester_filter:
+                    curr_q = curr_q.filter(DirectionCurriculum.semester == semester_filter)
+                if education_type_filter:
+                    curr_q = curr_q.filter(DirectionCurriculum.education_type == education_type_filter)
+                if course_filter:
+                    min_sem = (course_filter - 1) * 2 + 1
+                    max_sem = course_filter * 2
+                    curr_q = curr_q.filter(DirectionCurriculum.semester >= min_sem, DirectionCurriculum.semester <= max_sem)
+                curr = curr_q.first()
+                if curr and curr.id not in seen_curr_ids:
+                    seen_curr_ids.add(curr.id)
+                    curriculum_items.append(curr)
+            if curriculum_items:
+                curriculum_items = sorted(curriculum_items, key=lambda c: (c.semester, c.direction.name if c.direction else '', c.subject.name if c.subject else ''))
+
     # Ma'lumotlarni strukturizatsiya qilish
     subjects_data = []
     search_lower = search.lower() if search else ''
@@ -5486,6 +5525,33 @@ def create_schedule():
         if existing:
             flash(t('lesson_already_exists_at_time', start_time=start_time, subject_name=existing.subject.name), 'warning')
             return redirect(url_for('admin.schedule', year=parsed_date.year, month=parsed_date.month, group=group_id))
+
+        # Zoom meeting avtomatik yaratish (link bo'sh bo'lsa va Zoom sozlangan bo'lsa)
+        if not link or not link.strip():
+            try:
+                from flask import current_app
+                from app.services.zoom_service import create_schedule_meeting
+                subject = Subject.query.get(subject_id)
+                group = Group.query.get(group_id)
+                zoom_config = {
+                    'ZOOM_ACCOUNT_ID': current_app.config.get('ZOOM_ACCOUNT_ID'),
+                    'ZOOM_CLIENT_ID': current_app.config.get('ZOOM_CLIENT_ID'),
+                    'ZOOM_CLIENT_SECRET': current_app.config.get('ZOOM_CLIENT_SECRET'),
+                    'ZOOM_DURATION_MINUTES': current_app.config.get('ZOOM_DURATION_MINUTES'),
+                    'ZOOM_TIMEZONE': current_app.config.get('ZOOM_TIMEZONE'),
+                }
+                zoom_link = create_schedule_meeting(
+                    subject_name=subject.name if subject else '',
+                    group_name=group.name if group else '',
+                    lesson_type=lesson_type_display,
+                    date_code=date_code,
+                    start_time=start_time or '09:00',
+                    config=zoom_config,
+                )
+                if zoom_link:
+                    link = zoom_link
+            except Exception:
+                pass
 
         schedule_entry = Schedule(
             subject_id=subject_id,

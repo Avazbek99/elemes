@@ -655,7 +655,8 @@
                     {% set is_empty = info and info.created_count is defined and info.created_count == 0 %}
                     {% set dash_dir_id = info.direction.id if info and info.direction else None %}
                     {% set dash_group_id = info.group_id if info and info.group_id else (current_user.group_id if current_user.role == 'student' and current_user.group_id else None) %}
-                    <a href="{{ url_for('courses.detail', id=subject_id, dir_id=dash_dir_id, group_id=dash_group_id) if (dash_dir_id and dash_group_id) else (url_for('courses.detail', id=subject_id, dir_id=dash_dir_id) if dash_dir_id else url_for('courses.detail', id=subject_id)) }}"
+                    {% set dash_semester = info.semester if info and info.semester else None %}
+                    <a href="{{ url_for('courses.detail', id=subject_id, dir_id=dash_dir_id, group_id=dash_group_id, semester=dash_semester) if (dash_dir_id and dash_group_id) else (url_for('courses.detail', id=subject_id, dir_id=dash_dir_id, semester=dash_semester) if dash_dir_id else url_for('courses.detail', id=subject_id)) }}"
                         class="block p-4 {% if is_empty %}bg-red-500 border-red-600{% else %}bg-gray-50 border-gray-200{% endif %} rounded-2xl hover:bg-white hover:ring-1 hover:ring-primary-500 hover:shadow-md transition-all border shadow-sm relative z-10 group subject-item">
                         <div class="flex items-center justify-between">
                             <div class="flex-1">
@@ -1314,7 +1315,8 @@
                 {% endif %}
                 {% set dash_dir_id = direction_id or (info.direction.id if info and info.direction else None) %}
                 {% set dash_group_id = (info.group_id if info and info.group_id else None) or (current_user.group_id if current_user.role == 'student' and current_user.group_id else None) %}
-                <a href="{{ url_for('courses.detail', id=subject_id, dir_id=dash_dir_id, group_id=dash_group_id) if (dash_dir_id and dash_group_id) else (url_for('courses.detail', id=subject_id, dir_id=dash_dir_id) if dash_dir_id else url_for('courses.detail', id=subject_id)) }}"
+                {% set dash_semester = info.semester if info and info.semester else None %}
+                <a href="{{ url_for('courses.detail', id=subject_id, dir_id=dash_dir_id, group_id=dash_group_id, semester=dash_semester) if (dash_dir_id and dash_group_id) else (url_for('courses.detail', id=subject_id, dir_id=dash_dir_id, semester=dash_semester) if dash_dir_id else url_for('courses.detail', id=subject_id)) }}"
                     class="block p-4 bg-white rounded-xl hover:shadow-md transition-all border border-gray-200 shadow-sm relative z-10 group">
                     <div class="flex justify-between items-start mb-2">
                         <div class="flex-1 min-w-0 pr-4">

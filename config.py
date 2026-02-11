@@ -21,6 +21,13 @@ class Config:
     SUPERADMIN_LOGIN = os.environ.get('SUPERADMIN_LOGIN') or 'Avazbek.Tursunqulov.99'
     SUPERADMIN_PASSWORD = os.environ.get('SUPERADMIN_PASSWORD') or 'Avazbek.Tursunqulov.99'
 
+    # Zoom integratsiyasi (Server-to-Server OAuth)
+    ZOOM_ACCOUNT_ID = os.environ.get('ZOOM_ACCOUNT_ID', '')
+    ZOOM_CLIENT_ID = os.environ.get('ZOOM_CLIENT_ID', '')
+    ZOOM_CLIENT_SECRET = os.environ.get('ZOOM_CLIENT_SECRET', '')
+    ZOOM_DURATION_MINUTES = int(os.environ.get('ZOOM_DURATION_MINUTES', '90'))
+    ZOOM_TIMEZONE = os.environ.get('ZOOM_TIMEZONE', 'Asia/Tashkent')
+
     # Session timeout settings (30 daqiqa)
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=30)
     SESSION_COOKIE_HTTPONLY = True

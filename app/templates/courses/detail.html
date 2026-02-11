@@ -104,7 +104,7 @@
                     {% if direction_id and group_id and gr.id == group_id %}
                     <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/30 text-white border-2 border-white">{{ gr.name }}</span>
                     {% elif direction_id and group_id %}
-                    <a href="{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=gr.id) }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-colors">{{ gr.name }}</a>
+                    <a href="{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=gr.id, semester=request.args.get('semester') or direction_semester) }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-colors">{{ gr.name }}</a>
                     {% else %}
                     <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">{{ gr.name }}</span>
                     {% endif %}
@@ -604,7 +604,7 @@
                         <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-gray-100 text-gray-600">{{
                             assignments|length }}</span>
                     </div>
-                    {% if current_user.role in ['teacher', 'admin', 'dean'] and direction_groups %}
+                    {% if (current_user.role in ['teacher', 'admin', 'dean'] or current_user.has_role('teacher')) and direction_groups %}
                     {% if direction_groups|length == 1 %}
                     {% set group = direction_groups[0] %}
                     <a href="{{ url_for('courses.export_detailed_group_grades', subject_id=subject.id, group_id=group.id) }}"
