@@ -1548,11 +1548,11 @@ def import_curriculum_from_excel(file, direction_id, enrollment_year=None, educa
                 subject = Subject.query.filter_by(name=subject_name).first()
                 
                 if not subject:
-                    # Yangi fan yaratish
+                    # Yangi fan yaratish (tavsif bo'lmasa bo'sh qoldiriladi)
                     subject = Subject(
                         name=subject_name,
                         code='',
-                        description=f"Import qilingan fan: {subject_name}",
+                        description='',
                         credits=3,
                         semester=semester
                     )
