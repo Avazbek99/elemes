@@ -967,12 +967,27 @@ class GradeScale(db.Model):
             GradeScale.min_score <= percent,
             GradeScale.max_score >= percent
         ).first()
+        # Foiz scale_max ga yetgan yoki oshganda, eng yuqori bahoni qaytarish (60% da "–" o‘rniga A chiqishi uchun)
+        if grade is None:
+            scale_max = GradeScale.get_scale_max()
+            if percent >= scale_max:
+                top = GradeScale.query.filter(GradeScale.max_score == scale_max).order_by(GradeScale.order).first()
+                if top:
+                    return top
         return grade
     
     @staticmethod
     def get_all_ordered():
         """Barcha baholarni tartibda olish"""
         return GradeScale.query.order_by(GradeScale.order).all()
+    
+    @staticmethod
+    def get_scale_max():
+        """Baholash tizimidagi eng yuqori foiz (masalan 60 yoki 100)"""
+        grades = GradeScale.query.all()
+        if not grades:
+            return 100.0
+        return max(g.max_score for g in grades)
     
     @staticmethod
     def init_default_grades():

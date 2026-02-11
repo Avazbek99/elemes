@@ -469,9 +469,10 @@ def create_contracts_excel(payments, course_year=None):
 
 
 def create_group_grades_excel(subject, group, student_rows):
-    """Guruh bo'yicha baholarni Excel formatida yaratish"""
+    """Guruh bo'yicha baholarni Excel formatida yaratish (scale_max bo'yicha foiz)"""
     try:
         from openpyxl import Workbook
+        from app.models import GradeScale
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
         from openpyxl.utils import get_column_letter
     except ImportError:
@@ -539,22 +540,22 @@ def create_group_grades_excel(subject, group, student_rows):
             if row_num % 2 == 0:
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
         
-        # Baho ranglari (4-bosqichli tizim)
+        # Baho ranglari (scale_max bo'yicha)
+        scale_max = GradeScale.get_scale_max()
+        t_a = scale_max * 0.9
+        t_b = scale_max * 0.7
+        t_c = scale_max * 0.6
         percent_cell = ws.cell(row=row_num, column=8)
-        if percent >= 90:
-            # A - A'lo (Yashil)
+        if percent >= t_a:
             percent_cell.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
             percent_cell.font = Font(bold=True, color="006100")
-        elif percent >= 70:
-            # B - Yaxshi (Ko'k)
+        elif percent >= t_b:
             percent_cell.fill = PatternFill(start_color="BDD7EE", end_color="BDD7EE", fill_type="solid")
             percent_cell.font = Font(bold=True, color="0000FF")
-        elif percent >= 60:
-            # C - Qoniqarli (Sariq)
+        elif percent >= t_c:
             percent_cell.fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
             percent_cell.font = Font(bold=True, color="9C6500")
         else:
-            # D - O'tmadi (Pushti)
             percent_cell.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
             percent_cell.font = Font(bold=True, color="9C0006")
     
@@ -1241,6 +1242,7 @@ def create_detailed_assignment_export_excel(subject, group, assignments, matrix)
     """Guruh bo'yicha batafsil topshiriq baholarini (ustunma-ustun) Excel formatida yaratish"""
     try:
         from openpyxl import Workbook
+        from app.models import GradeScale
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
         from openpyxl.utils import get_column_letter
     except ImportError:
@@ -1287,7 +1289,8 @@ def create_detailed_assignment_export_excel(subject, group, assignments, matrix)
         headers2.append(f"{lesson_type_display} ({a.max_score})")
         total_max += (a.max_score or 0)
     headers2.append(f"Maks: {total_max}")
-    headers2.append("100%")
+    scale_max = GradeScale.get_scale_max()
+    headers2.append(f"{scale_max}%")
     
     header_row1 = 3
     header_row2 = 4
@@ -1331,17 +1334,17 @@ def create_detailed_assignment_export_excel(subject, group, assignments, matrix)
         # B: Name
         ws.cell(row=row_num, column=2, value=row_data['student_name']).border = border_thin
         
-        # C onwards: Scores
+        # C onwards: Scores (scale_max bo'yicha foiz)
         for col_idx, score in enumerate(row_data['scores'], start=3):
             cell = ws.cell(row=row_num, column=col_idx, value=score)
             cell.alignment = Alignment(horizontal='center')
             cell.border = border_thin
-            # Score ranglari
             if assignments[col_idx-3].max_score:
-                ratio = (score / assignments[col_idx-3].max_score) * 100
-                if ratio >= 90: cell.fill = fill_a
-                elif ratio >= 70: cell.fill = fill_b
-                elif ratio >= 60: cell.fill = fill_c
+                ratio = (score / assignments[col_idx-3].max_score) * scale_max
+                t_a, t_b, t_c = scale_max * 0.9, scale_max * 0.7, scale_max * 0.6
+                if ratio >= t_a: cell.fill = fill_a
+                elif ratio >= t_b: cell.fill = fill_b
+                elif ratio >= t_c: cell.fill = fill_c
                 else: cell.fill = fill_d
         
         # Next: Total
@@ -1357,14 +1360,15 @@ def create_detailed_assignment_export_excel(subject, group, assignments, matrix)
         cell_percent.font = font_bold
         cell_percent.alignment = Alignment(horizontal='center')
         cell_percent.border = border_thin
-        # Ranglar
-        if row_data['percent'] >= 90:
+        # Ranglar (scale_max bo'yicha)
+        t_a, t_b, t_c = scale_max * 0.9, scale_max * 0.7, scale_max * 0.6
+        if row_data['percent'] >= t_a:
             cell_percent.fill = fill_a
             cell_percent.font = font_a
-        elif row_data['percent'] >= 70:
+        elif row_data['percent'] >= t_b:
             cell_percent.fill = fill_b
             cell_percent.font = font_b
-        elif row_data['percent'] >= 60:
+        elif row_data['percent'] >= t_c:
             cell_percent.fill = fill_c
             cell_percent.font = font_c
         else:

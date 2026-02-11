@@ -64,8 +64,9 @@
                         {% set sub = data.submissions.get(assignment.id) %}
                         {% if sub %}
                         {% if sub.score is not none %}
+                        {% set sub_pct = (sub.score / assignment.max_score * scale_max|default(100)) if assignment.max_score else 0 %}
                         <span
-                            class="px-2 py-1 rounded-full text-sm font-medium {% if (sub.score / assignment.max_score * 100) >= 70 %}bg-green-100 text-green-700{% elif (sub.score / assignment.max_score * 100) >= 50 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
+                            class="px-2 py-1 rounded-full text-sm font-medium {% if sub_pct >= (scale_max|default(100) * 0.7) %}bg-green-100 text-green-700{% elif sub_pct >= (scale_max|default(100) * 0.5) %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
                             {{ "%.2f"|format(sub.score|float) }}
                         </span>
                         {% else %}
@@ -81,11 +82,12 @@
                     {% endfor %}
                     <td class="px-6 py-4 text-center">
                         {% if data.max_total > 0 %}
+                        {% set pct = (data.total / data.max_total * scale_max|default(100)) %}
                         <div
-                            class="font-bold {% if (data.total / data.max_total * 100) >= 70 %}text-green-600{% elif (data.total / data.max_total * 100) >= 50 %}text-amber-600{% else %}text-red-600{% endif %}">
+                            class="font-bold {% if pct >= (scale_max|default(100) * 0.7) %}text-green-600{% elif pct >= (scale_max|default(100) * 0.5) %}text-amber-600{% else %}text-red-600{% endif %}">
                             {{ "%.2f"|format(data.total|float) }}/{{ "%.2f"|format(data.max_total|float) }}
                         </div>
-                        <div class="text-xs text-gray-400">{{ "%.2f"|format(data.total / data.max_total * 100) }}%</div>
+                        <div class="text-xs text-gray-400">{{ "%.2f"|format(pct) }}%</div>
                         {% else %}
                         <span class="text-gray-300">—</span>
                         {% endif %}

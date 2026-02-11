@@ -10,6 +10,7 @@
     </div>
 
     {% if grades_by_subject %}
+    {% set sm = scale_max|default(100) %}
     <!-- Baho tizimi haqida (dinamik) -->
     <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100">
         <div class="flex items-center gap-2 mb-2">
@@ -54,7 +55,7 @@
             <div class="mt-3">
                 <div class="w-full bg-gray-200 rounded-full h-2">
                     <div class="{{ 'h-2 rounded-full transition-all ' ~ overall_bar_class }}"
-                        style="width: {{ overall_percent }}%;"></div>
+                        style="width: {{ (overall_percent / sm) * 100 }}%;"></div>
                 </div>
             </div>
         </div>
@@ -99,6 +100,10 @@
 
         {% for subject_id, data in grades_by_subject.items() %}
         {% set percent = data.percent %}
+        {% set sm = scale_max|default(100) %}
+        {% set t_a = sm * 0.9 %}
+        {% set t_b = sm * 0.7 %}
+        {% set t_c = sm * 0.6 %}
         {% set grade_bg_class = data.classes.light %}
         {% set grade_text_class = data.classes.text %}
         {% set grade_bar_class = data.classes.bar %}
@@ -137,14 +142,14 @@
                     <div class="flex justify-between text-sm mb-1">
                         <span class="text-gray-500">{{ t('mastered_label') }}</span>
                         <span class="font-medium
-                            {% if percent >= 90 %}text-green-600
-                            {% elif percent >= 70 %}text-blue-600
-                            {% elif percent >= 60 %}text-yellow-600
+                            {% if percent >= t_a %}text-green-600
+                            {% elif percent >= t_b %}text-blue-600
+                            {% elif percent >= t_c %}text-yellow-600
                             {% else %}text-red-600{% endif %}">{{ "%.2f"|format(percent|float) }}%</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-3">
                         <div class="{{ 'h-3 rounded-full transition-all ' ~ grade_bar_class }}"
-                            style="width: {{ percent }}%;"></div>
+                            style="width: {{ (percent / sm) * 100 }}%;"></div>
                     </div>
                 </div>
 
@@ -164,7 +169,7 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             {% for sub in data.submissions %}
-                            {% set sub_percent = (sub.score / sub.assignment.max_score * 100) if
+                            {% set sub_percent = (sub.score / sub.assignment.max_score * sm) if
                             sub.assignment.max_score > 0 else 0.0 %}
                             <tr class="hover:bg-gray-50">
                                 <td class="py-3">
@@ -182,9 +187,9 @@
                                 <td class="py-3 text-center">
                                     {% if sub.submission %}
                                     <span class="text-lg font-bold
-                                        {% if sub_percent >= 90 %}text-green-600
-                                        {% elif sub_percent >= 70 %}text-blue-600
-                                        {% elif sub_percent >= 60 %}text-yellow-600
+                                        {% if sub_percent >= t_a %}text-green-600
+                                        {% elif sub_percent >= t_b %}text-blue-600
+                                        {% elif sub_percent >= t_c %}text-yellow-600
                                         {% else %}text-red-600{% endif %}">
                                         {{ "%.2f"|format(sub.score|float) }}
                                     </span>
@@ -204,13 +209,13 @@
                                 <td class="py-3 text-center">
                                     {% if sub.submission %}
                                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold
-                                        {% if sub_percent >= 90 %}bg-green-100 text-green-700
-                                        {% elif sub_percent >= 70 %}bg-blue-100 text-blue-700
-                                        {% elif sub_percent >= 60 %}bg-yellow-100 text-yellow-700
+                                        {% if sub_percent >= t_a %}bg-green-100 text-green-700
+                                        {% elif sub_percent >= t_b %}bg-blue-100 text-blue-700
+                                        {% elif sub_percent >= t_c %}bg-yellow-100 text-yellow-700
                                         {% else %}bg-red-100 text-red-700{% endif %}">
-                                        {% if sub_percent >= 90 %}A
-                                        {% elif sub_percent >= 70 %}B
-                                        {% elif sub_percent >= 60 %}C
+                                        {% if sub_percent >= t_a %}A
+                                        {% elif sub_percent >= t_b %}B
+                                        {% elif sub_percent >= t_c %}C
                                         {% else %}D{% endif %}
                                     </span>
                                     {% else %}
@@ -228,30 +233,30 @@
                                 <td class="py-3 text-gray-900">{{ t('total') }}</td>
                                 <td></td>
                                 <td class="py-3 text-center text-lg
-                                    {% if percent >= 90 %}text-green-600
-                                    {% elif percent >= 70 %}text-blue-600
-                                    {% elif percent >= 60 %}text-yellow-600
+                                    {% if percent >= t_a %}text-green-600
+                                    {% elif percent >= t_b %}text-blue-600
+                                    {% elif percent >= t_c %}text-yellow-600
                                     {% else %}text-red-600{% endif %}">
                                     {{ "%.2f"|format(data.total_score|float) }}
                                 </td>
                                 <td class="py-3 text-center text-gray-500">{{ "%.2f"|format(data.max_score|float) }}
                                 </td>
                                 <td class="py-3 text-center
-                                    {% if percent >= 90 %}text-green-600
-                                    {% elif percent >= 70 %}text-blue-600
-                                    {% elif percent >= 60 %}text-yellow-600
+                                    {% if percent >= t_a %}text-green-600
+                                    {% elif percent >= t_b %}text-blue-600
+                                    {% elif percent >= t_c %}text-yellow-600
                                     {% else %}text-red-600{% endif %}">
                                     {{ "%.2f"|format(percent|float) }}%
                                 </td>
                                 <td class="py-3 text-center">
                                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold
-                                        {% if percent >= 90 %}bg-green-100 text-green-700
-                                        {% elif percent >= 70 %}bg-blue-100 text-blue-700
-                                        {% elif percent >= 60 %}bg-yellow-100 text-yellow-700
+                                        {% if percent >= t_a %}bg-green-100 text-green-700
+                                        {% elif percent >= t_b %}bg-blue-100 text-blue-700
+                                        {% elif percent >= t_c %}bg-yellow-100 text-yellow-700
                                         {% else %}bg-red-100 text-red-700{% endif %}">
-                                        {% if percent >= 90 %}A
-                                        {% elif percent >= 70 %}B
-                                        {% elif percent >= 60 %}C
+                                        {% if percent >= t_a %}A
+                                        {% elif percent >= t_b %}B
+                                        {% elif percent >= t_c %}C
                                         {% else %}D{% endif %}
                                     </span>
                                 </td>

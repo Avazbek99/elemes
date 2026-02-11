@@ -1707,11 +1707,11 @@ def detail(id, dir_id=None, group_id=None, semester=None):
                     'hours': curriculum_item.hours_seminar
                 })
             
-            # Kurs ishi
+            # Kurs ishi - bor bo'lsa "bor" ko'rsatiladi, soat emas
             if curriculum_item.hours_kurs_ishi and curriculum_item.hours_kurs_ishi > 0:
                 direction_lesson_types.append({
                     'type': 'Kurs ishi',
-                    'hours': curriculum_item.hours_kurs_ishi
+                    'hours': 0
                 })
     
     # Talaba uchun ham dars turlarini ko'rsatish (guruh kontekstiga mos)
@@ -1757,11 +1757,11 @@ def detail(id, dir_id=None, group_id=None, semester=None):
                     'hours': curriculum_item.hours_seminar
                 })
 
-            # Kurs ishi
+            # Kurs ishi - bor bo'lsa "bor" ko'rsatiladi, soat emas
             if curriculum_item.hours_kurs_ishi and curriculum_item.hours_kurs_ishi > 0:
                 direction_lesson_types.append({
                     'type': 'Kurs ishi',
-                    'hours': curriculum_item.hours_kurs_ishi
+                    'hours': 0
                 })
     
     if current_user.role == 'student' and current_user.group_id:
@@ -2277,14 +2277,13 @@ def create_lesson(id):
                 if curriculum_lesson_types:
                     lesson_types_set &= curriculum_lesson_types
                 has_lab_hours = (curriculum_item.hours_laboratoriya or 0) > 0
-                has_amal_hours = (curriculum_item.hours_amaliyot or 0) > 0
                 lab_teacher_assignment = TeacherSubject.query.filter(
                     TeacherSubject.subject_id == subject.id,
                     TeacherSubject.group_id.in_(allowed_group_ids),
                     TeacherSubject.teacher_id == current_user.id,
                     db.func.lower(TeacherSubject.lesson_type).in_(['laboratoriya', 'amaliyot', 'lab', 'amal'])
                 ).first()
-                if lab_teacher_assignment and (has_lab_hours or has_amal_hours):
+                if lab_teacher_assignment and has_lab_hours:
                     lesson_types_set.add('laboratoriya')
                 if (curriculum_item.hours_kurs_ishi or 0) > 0:
                     kurs_teacher_assignment = TeacherSubject.query.filter(
@@ -3773,14 +3772,14 @@ def create_assignment(id):
         selected_lesson_type = request.form.get('lesson_type', '').strip()
         if not selected_lesson_type:
             flash(t('all_required_fields'), 'error')
-            return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
+            return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons, scale_max=GradeScale.get_scale_max())
         
         # O'qituvchi uchun tanlangan dars turini tekshirish
         if is_acting_as_teacher:
             allowed_values = [lt['value'] for lt in allowed_lesson_types]
             if selected_lesson_type not in allowed_values:
                 flash(t('teacher_not_assigned_to_assignment_lesson_type'), 'error')
-                return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
+                return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons, scale_max=GradeScale.get_scale_max())
         
         # Tanlangan mavzular (lesson_ids)
         selected_lesson_ids = request.form.getlist('lesson_ids')
@@ -3801,15 +3800,16 @@ def create_assignment(id):
             selected_group_ids = [str(g.id) for g in groups]
         else:
             flash(t('invalid_request'), 'error')
-            return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
+            return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons, scale_max=GradeScale.get_scale_max())
         
         # Yo'nalish bo'yicha birlashtirish (One Assignment per Direction)
         if direction_id:
             # Agar direction_id bo'lsa, faqat bitta topshiriq yaratiladi (group_id = None)
+            scale_max = GradeScale.get_scale_max()
             assignment = Assignment(
                 title=request.form.get('title'),
                 description=request.form.get('description'),
-                max_score=float(request.form.get('max_score', 100)),
+                max_score=scale_max,
                 due_date=due_date,
                 subject_id=id,
                 group_id=None,  # Yo'nalish darajasidagi topshiriq
@@ -3822,6 +3822,7 @@ def create_assignment(id):
             db.session.add(assignment)
             created_count = 1
         else:
+            scale_max = GradeScale.get_scale_max()
             # direction_id bo'lmasa, guruhlar uchun alohida yaratish
             for group_id_str in selected_group_ids:
                 group_id = int(group_id_str) if group_id_str and group_id_str != 'None' else None
@@ -3836,7 +3837,7 @@ def create_assignment(id):
                 assignment = Assignment(
                     title=request.form.get('title'),
                     description=request.form.get('description'),
-                    max_score=float(request.form.get('max_score', 100)),
+                    max_score=scale_max,
                     due_date=due_date,
                     subject_id=id,
                     group_id=group_id,
@@ -3860,7 +3861,7 @@ def create_assignment(id):
             return redirect(url_for('courses.detail', id=id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=id, dir_id=direction_id))
     
-    return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons)
+    return render_template('courses/create_assignment.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lessons=lessons, scale_max=GradeScale.get_scale_max())
 
 
 @bp.route('/assignments/<int:id>')
@@ -4533,9 +4534,10 @@ def grades():
                 grades_by_subject[subject.id]['total_score'] += score
         
         # Baholarni foiz va harfga o'girish (admindagi baholash tizimi asosida)
+        scale_max = GradeScale.get_scale_max()
         for data in grades_by_subject.values():
-            data['percent'] = (data['total_score'] / data['max_score']) * 100 if data['max_score'] > 0 else 0
-            data['grade'] = GradeScale.get_grade(data['percent'])
+            data['percent'] = (data['total_score'] / data['max_score']) * scale_max if data['max_score'] > 0 else 0
+            data['grade'] = GradeScale.get_grade(data['percent'], 100)
         
         def grade_classes(color: str):
             return {
@@ -4566,8 +4568,8 @@ def grades():
         # Umumiy natija
         total_score = sum(d['total_score'] for d in grades_by_subject.values())
         max_score = sum(d['max_score'] for d in grades_by_subject.values())
-        overall_percent = (total_score / max_score) * 100 if max_score > 0 else 0
-        overall_grade = GradeScale.get_grade(overall_percent)
+        overall_percent = (total_score / max_score) * scale_max if max_score > 0 else 0
+        overall_grade = GradeScale.get_grade(overall_percent, 100)
         overall_classes = grade_classes(overall_grade.color if overall_grade else None)
         
         grade_scales = GradeScale.get_all_ordered()
@@ -4580,7 +4582,8 @@ def grades():
             overall_classes=overall_classes,
             grade_scales=grade_scales,
             total_score=total_score,
-            max_score=max_score
+            max_score=max_score,
+            scale_max=scale_max
         )
     
     elif current_user.role == 'teacher':
@@ -4658,12 +4661,14 @@ def group_grades(subject_id, group_id):
                 student_grades[student.id]['total'] += best_sub.score
             student_grades[student.id]['max_total'] += assignment.max_score
     
+    scale_max = GradeScale.get_scale_max()
     return render_template('courses/group_grades.html',
                          subject=subject,
                          group=group,
                          students=students,
                          assignments=assignments,
-                         student_grades=student_grades)
+                         student_grades=student_grades,
+                         scale_max=scale_max)
 
 
 @bp.route('/grades/<int:subject_id>/<int:group_id>/export')
@@ -4715,8 +4720,9 @@ def export_group_grades(subject_id, group_id):
                 
             total += best_score
             max_total += assignment.max_score
-        percent = (total / max_total) * 100 if max_total > 0 else 0
-        grade = GradeScale.get_grade(percent)
+        scale_max = GradeScale.get_scale_max()
+        percent = (total / max_total) * scale_max if max_total > 0 else 0
+        grade = GradeScale.get_grade(percent, 100)
         student_rows.append({
             'student': student,
             'total': total,
@@ -4811,7 +4817,8 @@ def export_detailed_group_grades(subject_id, group_id):
             row['total_score'] += score
             row['max_total'] += (assignment.max_score or 0)
         
-        row['percent'] = (row['total_score'] / row['max_total']) * 100 if row['max_total'] > 0 else 0
+        scale_max = GradeScale.get_scale_max()
+        row['percent'] = (row['total_score'] / row['max_total']) * scale_max if row['max_total'] > 0 else 0
         matrix.append(row)
     
     try:
@@ -5022,10 +5029,7 @@ def edit_assignment(id):
         assignment.title = request.form.get('title')
         assignment.description = request.form.get('description')
         assignment.lesson_type = request.form.get('lesson_type')
-        try:
-            assignment.max_score = float(request.form.get('max_score', 100))
-        except ValueError:
-            assignment.max_score = 100.0
+        assignment.max_score = GradeScale.get_scale_max()
         
         due_date_str = request.form.get('due_date')
         if due_date_str:
@@ -5057,7 +5061,8 @@ def edit_assignment(id):
                          selected_lesson_ids=lesson_ids,
                          allowed_lesson_types=allowed_lesson_types,
                          direction_id=direction_id,
-                         group_id=group_id_param)
+                         group_id=group_id_param,
+                         scale_max=GradeScale.get_scale_max())
 
 
 @bp.route('/assignments/<int:id>/delete', methods=['POST'])
