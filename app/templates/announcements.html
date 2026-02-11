@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('announcements') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('announcements') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('announcements_subtitle') }}</p>
+        </div>
+        <div class="flex gap-2">
+            {% set current_role = session.get('current_role', current_user.role) %}
+            {% set is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin' %}
+            {% if is_admin_with_admin_role %}
+            <form action="{{ url_for('main.delete_all_announcements') }}" method="POST"
+                class="inline delete-all-announcements-form" data-confirm="{{ t('confirm_delete_all_announcements') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit"
+                    class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    {{ t('delete_all_announcements') }}
+                </button>
+            </form>
+            {% endif %}
+            {% if current_user.has_permission('create_announcement') %}
+            <a href="{{ url_for('main.create_announcement') }}"
+                class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {{ t('new_announcement') }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="space-y-4">
+        {% for announcement in announcements.items %}
+        <div
+            class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 {% if announcement.is_important %}border-l-4 border-l-red-500{% endif %}">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-2">
+                        {% if announcement.is_important %}
+                        <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">{{ t('important_label') }}</span>
+                        {% endif %}
+                        <h3 class="text-lg font-semibold text-gray-900">{{ announcement.title }}</h3>
+                    </div>
+                    <p class="text-gray-600 mb-4">{{ announcement.content }}</p>
+                    <div class="flex items-center gap-4 text-sm text-gray-500">
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            {{ announcement.author.full_name }}
+                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
+                                {{ t(announcement.author_role or announcement.author.role) }}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {{ (announcement.created_at | to_tashkent_time).strftime('%d.%m.%Y') }}
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% set current_role = session.get('current_role', current_user.role) %}
+                    {% set is_admin_with_admin_role = current_user.has_role('admin') and current_role == 'admin' %}
+                    {% set is_own_in_role = announcement.author_id == current_user.id and (announcement.author_role == current_role or not announcement.author_role) %}
+                    {% set can_edit = is_admin_with_admin_role or is_own_in_role %}
+                    {% if can_edit %}
+                    <a href="{{ url_for('main.edit_announcement', id=announcement.id) }}"
+                        class="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-primary-600 transition-colors"
+                        title="{{ t('edit_info') }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </a>
+                    <form action="{{ url_for('main.delete_announcement', id=announcement.id) }}" method="POST"
+                        class="inline delete-announcement-form" data-confirm="{{ t('confirm_delete_announcement') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit"
+                            class="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-red-600 transition-colors"
+                            title="{{ t('delete') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <h3 class="text-lg font-medium text-gray-600">{{ t('no_announcements') }}</h3>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if announcements.pages > 1 %}
+    <div class="mt-6 flex flex-col items-center gap-4">
+        <!-- Pagination buttons -->
+        <div class="flex items-center gap-2">
+            {% if announcements.has_prev %}
+            <a href="{{ url_for('main.announcements', page=1) }}"
+                class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">{{ t('first') }}</a>
+            <a href="{{ url_for('main.announcements', page=announcements.prev_num) }}"
+                class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">«</a>
+            {% else %}
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+            {% endif %}
+
+            {% for page_num in announcements.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+            {% if page_num == announcements.page %}
+            <span class="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium">{{ page_num }}</span>
+            {% else %}
+            <a href="{{ url_for('main.announcements', page=page_num) }}"
+                class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">{{ page_num
+                }}</a>
+            {% endif %}
+            {% else %}
+            <span class="px-2 text-gray-400">...</span>
+            {% endif %}
+            {% endfor %}
+
+            {% if announcements.has_next %}
+            <a href="{{ url_for('main.announcements', page=announcements.next_num) }}"
+                class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">»</a>
+            <a href="{{ url_for('main.announcements', page=announcements.pages) }}"
+                class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">{{ t('last') }}</a>
+            {% else %}
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>
+            {% endif %}
+        </div>
+
+        <!-- Item count -->
+        <div class="text-sm text-gray-600">
+            {% set start = (announcements.page - 1) * announcements.per_page + 1 %}
+            {% set end = announcements.page * announcements.per_page if announcements.page * announcements.per_page <=
+                announcements.total else announcements.total %} {{ t('pagination_range', start=start, end=end, total="{:,}".format(announcements.total)) }}</div>
+        </div>
+        {% else %}
+        {% if announcements.total > 0 %}
+        <div class="mt-6 text-center text-sm text-gray-600">
+            {% set start = (announcements.page - 1) * announcements.per_page + 1 %}
+            {% set end = announcements.page * announcements.per_page if announcements.page * announcements.per_page <=
+                announcements.total else announcements.total %} {{ t('pagination_range', start=start, end=end, total="{:,}".format(announcements.total)) }}</div>
+                {% endif %}
+                {% endif %}
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                // Bitta e'lonni o'chirish
+                document.querySelectorAll('.delete-announcement-form').forEach(function (form) {
+                    form.addEventListener('submit', function (e) {
+                        var msg = form.getAttribute('data-confirm');
+                        if (!confirm(msg || "E'lonni o'chirishni tasdiqlaysizmi?")) {
+                            e.preventDefault();
+                            return false;
+                        }
+                    });
+                });
+
+                const deleteAllForm = document.querySelector('.delete-all-announcements-form');
+                if (deleteAllForm) {
+                    deleteAllForm.addEventListener('submit', function (e) {
+                        var msg = deleteAllForm.getAttribute('data-confirm');
+                        if (!confirm(msg || "Barcha e'lonlarni o'chirishni tasdiqlaysizmi?")) {
+                            e.preventDefault();
+                            return false;
+                        }
+                    });
+                }
+            });
+        </script>
+        {% endblock %}

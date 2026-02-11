@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('edit_announcement_title') }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('main.announcements') }}" class="text-sm text-gray-500 hover:text-primary-600">← {{ t('back_to_announcements') }}</a>
+        <h1 class="text-2xl font-bold text-gray-900 mt-2">{{ t('edit_announcement_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('edit_announcement_subtitle') }}</p>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('title_label') }}</label>
+                <input type="text" name="title" required value="{{ announcement.title }}" placeholder="{{ t('announcement_title_placeholder') }}" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('content_label') }}</label>
+                <textarea name="content" rows="6" required placeholder="{{ t('announcement_content_placeholder') }}" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ announcement.content }}</textarea>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('who_should_see') }}</label>
+                <div class="flex flex-wrap gap-2">
+                    <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+                        <input type="checkbox" name="target_roles" value="student" {% if 'student' in (announcement.target_roles or '').split(',') %}checked{% endif %} class="w-4 h-4 rounded text-primary-600">
+                        <span class="text-sm text-gray-700">{{ t('students') }}</span>
+                    </label>
+                    <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+                        <input type="checkbox" name="target_roles" value="teacher" {% if 'teacher' in (announcement.target_roles or '').split(',') %}checked{% endif %} class="w-4 h-4 rounded text-primary-600">
+                        <span class="text-sm text-gray-700">{{ t('teachers') }}</span>
+                    </label>
+                    <label class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+                        <input type="checkbox" name="target_roles" value="dean" {% if 'dean' in (announcement.target_roles or '').split(',') %}checked{% endif %} class="w-4 h-4 rounded text-primary-600">
+                        <span class="text-sm text-gray-700">{{ t('dean_office') }}</span>
+                    </label>
+                </div>
+            </div>
+            
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="is_important" {% if announcement.is_important %}checked{% endif %} class="w-4 h-4 rounded text-red-600">
+                <span class="text-sm text-gray-700">{{ t('mark_as_important_announcement') }}</span>
+            </label>
+            
+            <div class="flex justify-end gap-3 pt-4">
+                <a href="{{ url_for('main.announcements') }}" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">{{ t('cancel') }}</a>
+                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">{{ t('save') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>
+    .ts-wrapper { width: 100% !important; }
+    .ts-control { border-radius: 0.5rem !important; padding: 0.5rem 0.75rem !important; border: 1px solid #d1d5db !important; font-size: 0.875rem !important; }
+    .ts-control:focus-within { border-color: #0ea5e9 !important; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important; }
+    .ts-dropdown { border-radius: 0.75rem !important; margin-top: 4px; }
+    .filter-select-wrap { position: relative; }
+    .filter-select-wrap .filter-clear-btn { position: absolute; right: 28px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #9ca3af; z-index: 5; }
+    .search-input-wrap { position: relative; }
+    .search-input-wrap .search-clear-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #9ca3af; }
+    .search-input-wrap input.pr-clear { padding-right: 36px; }
+</style>
+{% endblock %}
+
+{% block title %}{{ t('contract_amounts_title') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <a href="{{ url_for('accounting.index') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                {{ t('back') }}
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('contract_amounts_title') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('contract_amounts_subtitle') }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{{ url_for('accounting.export_contract_amounts', faculty_id=current_faculty, direction_id=current_direction, education_type=current_education_type, enrollment_year=current_year) }}"
+                class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                {{ t('export') }}
+            </a>
+            <a href="{{ url_for('accounting.import_contract_amounts') }}"
+                class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                {{ t('import') }}
+            </a>
+            <a href="{{ url_for('accounting.create_contract_amount') }}"
+                class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                {{ t('add_contract_amount_btn') }}
+            </a>
+        </div>
+    </div>
+
+    <form method="GET" id="filterForm" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            {% if faculties %}
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('faculty') }}</label>
+                <div class="filter-select-wrap relative">
+                    <select name="faculty_id" id="faculty_id" class="w-full px-4 py-2 pr-8 border border-gray-300 rounded-xl text-sm">
+                        <option value="">{{ t('all_faculties') }}</option>
+                        {% for f in faculties %}
+                        <option value="{{ f.id }}" {% if current_faculty == f.id %}selected{% endif %}>{{ f.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="filter-clear-btn">×</button>
+                </div>
+            </div>
+            {% endif %}
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
+                <div class="filter-select-wrap relative">
+                    <select name="direction_id" id="direction_id" class="w-full px-4 py-2 pr-8 border border-gray-300 rounded-xl text-sm">
+                        <option value="">{{ t('all_directions') }}</option>
+                        {% for d in directions or [] %}
+                        <option value="{{ d.id }}" {% if current_direction == d.id %}selected{% endif %}>{{ (d.code or '') }} - {{ (d.name or '') }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="filter-clear-btn">×</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('education_type') }}</label>
+                <div class="filter-select-wrap relative">
+                    <select name="education_type" id="education_type" class="w-full px-4 py-2 pr-8 border border-gray-300 rounded-xl text-sm">
+                        <option value="">{{ t('all_education_types') }}</option>
+                        {% for et in education_types or [] %}
+                        <option value="{{ et }}" {% if current_education_type == et %}selected{% endif %}>{{ et|education_type_label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="filter-clear-btn">×</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('academic_year_label') }}</label>
+                <div class="filter-select-wrap relative">
+                    <select name="enrollment_year" id="enrollment_year" class="w-full px-4 py-2 pr-8 border border-gray-300 rounded-xl text-sm">
+                        <option value="">{{ t('all_academic_years') }}</option>
+                        {% for y in enrollment_years or [] %}
+                        <option value="{{ y }}" {% if current_year == y %}selected{% endif %}>{{ y|academic_year_display }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="filter-clear-btn">×</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('search') }}</label>
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex-1 min-w-[180px] relative search-input-wrap">
+                        <input type="text" name="search" id="searchInput" value="{{ search or '' }}" placeholder="{{ t('search_direction_placeholder') }}"
+                            class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-primary-500">
+                        <button type="button" class="search-clear-btn">×</button>
+                    </div>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700">{{ t('search') }}</button>
+                    {% if search or current_faculty or current_direction or current_education_type or current_year %}
+                    <a href="{{ url_for('accounting.contract_amounts') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200">{{ t('clear') }}</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {% if items %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('faculty') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('direction') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('education_type') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('academic_year_label') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('period_range') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('contract_amount_total') }}</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for rec in items %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 text-gray-700">{{ rec.direction.faculty.name if rec.direction.faculty else '-' }}</td>
+                        <td class="px-6 py-4">
+                            <span class="font-medium text-gray-900">{{ rec.direction.code }} - {{ rec.direction.name }}</span>
+                        </td>
+                        <td class="px-6 py-4">{{ rec.education_type|education_type_label if rec.education_type else '-' }}</td>
+                        <td class="px-6 py-4 text-gray-700">{{ rec.enrollment_year|academic_year_display }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{% if rec.period_start and rec.period_end %}{{ rec.period_start.strftime('%d.%m.%Y') }} – {{ rec.period_end.strftime('%d.%m.%Y') }}{% else %}—{% endif %}</td>
+                        <td class="px-6 py-4 font-semibold text-gray-900">{{ "{:,.0f}".format(rec.contract_amount).replace(',', ' ') }} {{ t('sum_currency') }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{{ url_for('accounting.edit_contract_amount', id=rec.id) }}"
+                                    class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="{{ t('edit') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </a>
+                                <form action="{{ url_for('accounting.delete_contract_amount', id=rec.id) }}" method="POST" class="inline"
+                                    onsubmit="return confirm('{{ t('confirm_delete')|escapejs }}');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="{{ t('delete') }}">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="py-16 text-center text-gray-500">
+            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ t('no_data_found') }}</h3>
+            <p class="mb-4">{{ t('no_payment_data_hint') }}</p>
+            <a href="{{ url_for('accounting.create_contract_amount') }}"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                {{ t('add_contract_amount_btn') }}
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('filterForm');
+    ['faculty_id', 'direction_id', 'education_type', 'enrollment_year'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            new TomSelect(el, {
+                create: false,
+                allowEmptyOption: true,
+                plugins: ['dropdown_input'],
+                onChange: function() { if (form) form.submit(); }
+            });
+        }
+    });
+    var si = document.getElementById('searchInput');
+    if (si) {
+        var t;
+        si.addEventListener('input', function() { clearTimeout(t); t = setTimeout(function() { form && form.submit(); }, 500); });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}O'quv rejani import qilish{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+        <a href="{% if enrollment_year and education_type %}{{ url_for('dean.direction_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.direction_curriculum', id=direction.id) }}{% endif %}"
+            class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Orqaga
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">O'quv rejani import qilish</h1>
+        <p class="text-gray-500 mt-1">
+            {% if enrollment_year and education_type %}
+            {{ enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ education_type|education_type_label }})
+            {% else %}
+            {{ direction.formatted_direction }}
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Import qilish</h2>
+        <p class="text-sm text-gray-600 mb-4">
+            Excel fayldan o'quv rejani import qilish uchun quyidagi formatga rioya qiling:
+        </p>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+            <h3 class="font-semibold text-blue-900 mb-2">Namuna fayl yuklab olish</h3>
+            <p class="text-sm text-blue-700 mb-3">
+                To'g'ri formatni ko'rish uchun namuna faylni yuklab oling va uni to'ldiring.
+            </p>
+            <a href="{% if enrollment_year and education_type %}{{ url_for('dean.download_curriculum_sample', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.download_curriculum_sample', id=direction.id) }}{% endif %}"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Namuna fayl yuklab olish
+            </a>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4">
+            <h3 class="font-semibold text-yellow-900 mb-2">Eslatma va talablar</h3>
+            <ul class="text-sm text-yellow-800 space-y-1 list-disc list-inside">
+                <li>Semestr - fan o'qitiladigan semestr (masalan: 1-semestr yoki 1)</li>
+                <li>Fan nomi - fanning to'liq nomi (majburiy). Agar fan topilmasa, yangi fan avtomatik yaratiladi.</li>
+                <li>Maruza (M) - maruza soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh qoldiriladi)</li>
+                <li>Amaliyot (A) - amaliyot soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh qoldiriladi)
+                </li>
+                <li>Laboratoriya (L) - laboratoriya soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh
+                    qoldiriladi)</li>
+                <li>Seminar (S) - seminar soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa bo'sh qoldiriladi)
+                </li>
+                <li>Kurs ishi (K) - "Bor" yoki bo'sh (majburiy emas). Agar "Bor" bo'lsa, kurs ishi mavjud deb
+                    hisoblanadi. Bo'sh qoldirilsa, kurs ishi yo'q deb hisoblanadi. Kurs ishi soatlari jami soatga
+                    qo'shilmaydi.</li>
+                <li>Mustaqil ta'lim (MT) - mustaqil ta'lim soatlari (butun son, mavjud bo'lsa yoziladi, yo'q bo'lsa
+                    bo'sh qoldiriladi)</li>
+                <li>Jami soat - avtomatik hisoblanadi (Maruza + Amaliyot + Laboratoriya + Seminar + Mustaqil ta'lim).
+                    Kurs ishi qo'shilmaydi.</li>
+                <li>Bir xil semestr va fan nomi bo'lgan qatorlar yangilanadi.</li>
+            </ul>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            <div>
+                <label for="file" class="block text-sm font-medium text-gray-700 mb-2">
+                    Excel fayl tanlash (.xlsx yoki .xls)
+                </label>
+                <input type="file" name="file" id="file" accept=".xlsx,.xls" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit"
+                    class="px-6 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    Import qilish
+                </button>
+                <a href="{% if enrollment_year and education_type %}{{ url_for('dean.direction_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('dean.direction_curriculum', id=direction.id) }}{% endif %}"
+                    class="px-6 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
