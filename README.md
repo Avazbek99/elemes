@@ -42,34 +42,6 @@ python run.py
 
 Brauzerda oching: **http://localhost:5000**
 
-## 🔑 Demo hisoblar
-
-### Asosiy hisoblar:
-| Rol | Email | Parol |
-|-----|-------|-------|
-| **Administrator** | `admin@university.uz` | `admin123` |
-| **Buxgalteriya** | `accounting@university.uz` | `accounting123` |
-| **Dekan (IT)** | `dean.it@university.uz` | `dean123` |
-| **Dekan (IQ)** | `dean.iq@university.uz` | `dean123` |
-
-### O'qituvchilar:
-| Email | Parol |
-|-------|-------|
-| `a.karimov@university.uz` | `teacher123` |
-| `b.aliyev@university.uz` | `teacher123` |
-| `d.toshmatov@university.uz` | `teacher123` |
-| `n.rahimova@university.uz` | `teacher123` |
-
-### Talabalar:
-| Email | Parol | Guruh |
-|-------|-------|-------|
-| `student1@university.uz` | `student123` | DI-21 |
-| `student2@university.uz` | `student123` | DI-21 |
-| `student3@university.uz` | `student123` | DI-22 |
-| `student4@university.uz` | `student123` | DI-22 |
-| `student5@university.uz` | `student123` | DI-23 |
-| `student6@university.uz` | `student123` | IQ-21 |
-
 ## 🛠️ Texnologiyalar
 
 - **Python 3.10+** - Asosiy dasturlash tili
