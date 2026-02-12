@@ -1,13 +1,16 @@
 import os
 import uuid
 import json
+import re
+import html
 import requests
+from urllib.parse import urlparse, parse_qs, unquote
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, jsonify, Response, session
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from app.models import Subject, Lesson, Assignment, Submission, User, TeacherSubject, Group, LessonView, GradeScale, DirectionCurriculum, Direction, UserRole
+from app.models import Subject, Lesson, Assignment, Submission, User, TeacherSubject, Group, LessonView, GradeScale, DirectionCurriculum, Direction, UserRole, Faculty
 from app import db
-from sqlalchemy import or_
+from sqlalchemy import or_, cast, String
 from datetime import datetime, timedelta
 from collections import defaultdict
 from app.utils.translations import t
@@ -26,6 +29,278 @@ def allowed_submission_file(filename):
     """Topshiriq fayl tekshirish"""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in current_app.config.get('ALLOWED_SUBMISSION_EXTENSIONS', {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png'})
+
+
+def extract_youtube_video_id(video_url):
+    """YouTube URL dan video ID ni olish"""
+    if not video_url:
+        return None
+
+    raw_url = (video_url or '').strip()
+    if not raw_url:
+        return None
+
+    if '://' not in raw_url:
+        raw_url = f'https://{raw_url}'
+
+    try:
+        parsed = urlparse(raw_url)
+    except Exception:
+        return None
+
+    host = (parsed.netloc or '').lower()
+    if host.startswith('www.'):
+        host = host[4:]
+    path = (parsed.path or '').strip('/')
+    query = parse_qs(parsed.query or '')
+
+    if host == 'youtu.be':
+        return path.split('/')[0] if path else None
+
+    if host.endswith('youtube.com'):
+        if path == 'watch':
+            values = query.get('v') or []
+            return values[0] if values else None
+
+        path_parts = path.split('/')
+        if len(path_parts) >= 2 and path_parts[0] in ('embed', 'shorts', 'live'):
+            return path_parts[1]
+
+    return None
+
+
+def check_youtube_embed_playability(video_id):
+    """YouTube videoni saytda embed qilib ko'rish mumkinligini tekshirish"""
+    if not video_id:
+        return False, 'Invalid YouTube URL'
+
+    watch_url = f'https://www.youtube.com/watch?v={video_id}'
+    try:
+        response = requests.get(
+            watch_url,
+            timeout=10,
+            allow_redirects=True,
+            headers={'User-Agent': 'Mozilla/5.0 (ELMS Video URL Checker)'}
+        )
+    except requests.exceptions.RequestException as e:
+        return False, str(e)
+
+    if response.status_code != 200 or not response.text:
+        return False, f'YouTube status: {response.status_code}'
+
+    try:
+        match = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.+?\});', response.text, re.IGNORECASE | re.DOTALL)
+        if not match:
+            # Aniqlab bo'lmasa, rad etmaymiz
+            return True, None
+
+        player_data = json.loads(match.group(1))
+        playability = player_data.get('playabilityStatus', {}) or {}
+        status = str(playability.get('status') or '').upper()
+        playable_in_embed = playability.get('playableInEmbed')
+        reason = playability.get('reason') or ''
+
+        # YouTube tomonidan bloklangan holatlar
+        if playable_in_embed is False:
+            return False, reason or 'Embedding disabled for this video'
+
+        # OK bo'lmasa ko'pincha modalda ham ochilmaydi
+        if status and status not in ('OK',):
+            return False, reason or status
+
+        return True, None
+    except Exception:
+        # Parser xatosida noto'g'ri rad qilmaslik uchun
+        return True, None
+
+
+def extract_resource_display_name(resource_url, content_disposition=''):
+    """URL yoki response header asosida ko'rsatish nomini olish"""
+    cd = (content_disposition or '').strip()
+    if cd:
+        lower_cd = cd.lower()
+        if 'filename*=' in lower_cd:
+            part = cd.split('filename*=', 1)[1].split(';', 1)[0].strip().strip('"').strip("'")
+            if "''" in part:
+                part = part.split("''", 1)[1]
+            decoded = unquote(part).strip()
+            if decoded:
+                return decoded
+        if 'filename=' in lower_cd:
+            part = cd.split('filename=', 1)[1].split(';', 1)[0].strip().strip('"').strip("'")
+            decoded = unquote(part).strip()
+            if decoded:
+                return decoded
+
+    raw_url = (resource_url or '').strip()
+    if not raw_url:
+        return 'URL fayl'
+
+    if '://' not in raw_url:
+        raw_url = f'https://{raw_url}'
+
+    try:
+        parsed = urlparse(raw_url)
+    except Exception:
+        return 'URL fayl'
+
+    host = (parsed.netloc or '').lower()
+    path = (parsed.path or '').strip('/')
+
+    if 'docs.google.com' in host:
+        if '/spreadsheets/' in parsed.path:
+            return 'Google Sheets'
+        if '/document/' in parsed.path:
+            return 'Google Docs'
+        if '/presentation/' in parsed.path:
+            return 'Google Slides'
+        if '/forms/' in parsed.path:
+            return 'Google Forms'
+        return 'Google Docs'
+
+    if 'drive.google.com' in host:
+        return 'Google Drive fayli'
+
+    if path:
+        name = unquote(path.split('/')[-1]).strip()
+        if name:
+            return name
+
+    return parsed.netloc or 'URL fayl'
+
+
+def extract_google_doc_title(resource_url):
+    """Google Docs/Sheets/Slides URL dan sarlavhani olishga urinish"""
+    raw_url = (resource_url or '').strip()
+    if not raw_url:
+        return None
+
+    if '://' not in raw_url:
+        raw_url = f'https://{raw_url}'
+
+    try:
+        response = requests.get(
+            raw_url,
+            timeout=10,
+            allow_redirects=True,
+            headers={'User-Agent': 'Mozilla/5.0 (ELMS File URL Checker)'}
+        )
+    except requests.exceptions.RequestException:
+        return None
+
+    if response.status_code != 200 or not response.text:
+        return None
+
+    match = re.search(r'<title[^>]*>(.*?)</title>', response.text, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+
+    title = html.unescape(match.group(1) or '').strip()
+    title = re.sub(r'\s+', ' ', title).strip()
+    if not title:
+        return None
+
+    for suffix in [
+        ' - Google Sheets',
+        ' - Google Docs',
+        ' - Google Slides',
+        ' - Google Forms',
+        ' - Google Drive'
+    ]:
+        if title.endswith(suffix):
+            title = title[:-len(suffix)].strip()
+            break
+
+    disallowed_titles = {
+        'google sheets',
+        'google docs',
+        'google slides',
+        'google forms',
+        'google drive',
+        'sign in - google accounts',
+        'google accounts'
+    }
+    if not title or title.lower() in disallowed_titles:
+        return None
+
+    return title
+
+
+def parse_lesson_file_data(file_url_value):
+    """lesson.file_url ni parse qilib (uploaded_files, external_urls) qaytaradi"""
+    uploaded_files = []
+    external_urls = []
+    raw = (file_url_value or '').strip()
+
+    if not raw:
+        return uploaded_files, external_urls
+
+    if raw.startswith('[') and raw.endswith(']'):
+        try:
+            parsed_items = json.loads(raw)
+        except Exception:
+            parsed_items = []
+
+        if isinstance(parsed_items, list):
+            for item in parsed_items:
+                if isinstance(item, dict):
+                    # Yangi format: {'type': 'url', 'url': '...'}
+                    if item.get('type') == 'url' and item.get('url'):
+                        url_value = str(item.get('url')).strip()
+                        if url_value and url_value not in external_urls:
+                            external_urls.append(url_value)
+                        continue
+
+                    # Moslashuvchan: {'url': '...'} ko'rinishi
+                    if item.get('url') and not item.get('filename'):
+                        url_value = str(item.get('url')).strip()
+                        if url_value and url_value not in external_urls:
+                            external_urls.append(url_value)
+                        continue
+
+                    filename = item.get('filename')
+                    if filename:
+                        uploaded_files.append({
+                            'filename': filename,
+                            'original_name': item.get('original_name') or filename
+                        })
+                elif isinstance(item, str):
+                    item_value = item.strip()
+                    if item_value.startswith('http://') or item_value.startswith('https://'):
+                        if item_value not in external_urls:
+                            external_urls.append(item_value)
+                    else:
+                        uploaded_files.append({'filename': item_value, 'original_name': item_value})
+
+        return uploaded_files, external_urls
+
+    if raw.startswith('http://') or raw.startswith('https://'):
+        external_urls = [raw]
+    else:
+        uploaded_files = [{'filename': raw, 'original_name': raw}]
+
+    return uploaded_files, external_urls
+
+
+def build_lesson_file_data(uploaded_files, external_urls):
+    """uploaded_files va external_urls asosida DB uchun lesson.file_url qiymatini yaratadi"""
+    file_items = [f for f in (uploaded_files or []) if isinstance(f, dict) and f.get('filename')]
+    urls = []
+    for url_value in (external_urls or []):
+        normalized = str(url_value).strip()
+        if normalized and normalized not in urls:
+            urls.append(normalized)
+
+    if file_items and urls:
+        mixed = [{'type': 'url', 'url': u} for u in urls] + file_items
+        return json.dumps(mixed)
+    if file_items:
+        return json.dumps(file_items)
+    if len(urls) == 1:
+        return urls[0]
+    if len(urls) > 1:
+        return json.dumps([{'type': 'url', 'url': u} for u in urls])
+    return None
 
 
 def _normalize_lesson_type_to_canonical(raw):
@@ -73,7 +348,454 @@ def index():
     
     # Tanlangan rol
     current_role = session.get('current_role', current_user.role)
-    
+
+    # Admin uchun /subjects/ da Fanlar bazasi ko'rinishi
+    if current_role == 'admin':
+        faculty_filter = request.args.get('faculty', type=int)
+        course_filter = request.args.get('course', type=int)
+        semester_filter = request.args.get('semester', type=int)
+        education_type_filter = request.args.get('education_type', '') or None
+        direction_filter = request.args.get('direction', type=int)
+        group_filter = request.args.get('group', type=int)
+
+        query = DirectionCurriculum.query.join(Direction).join(Subject)
+
+        if faculty_filter:
+            query = query.filter(Direction.faculty_id == faculty_filter)
+        if direction_filter:
+            query = query.filter(DirectionCurriculum.direction_id == direction_filter)
+        if semester_filter:
+            query = query.filter(DirectionCurriculum.semester == semester_filter)
+        if education_type_filter:
+            query = query.filter(DirectionCurriculum.education_type == education_type_filter)
+        if course_filter:
+            min_semester = (course_filter - 1) * 2 + 1
+            max_semester = course_filter * 2
+            query = query.filter(DirectionCurriculum.semester >= min_semester, DirectionCurriculum.semester <= max_semester)
+        if search:
+            query = query.filter(
+                or_(
+                    Subject.name.ilike(f'%{search}%'),
+                    Subject.description.ilike(f'%{search}%'),
+                    cast(DirectionCurriculum.enrollment_year, String).ilike(f'%{search}%'),
+                    Direction.name.ilike(f'%{search}%'),
+                    Direction.code.ilike(f'%{search}%'),
+                    DirectionCurriculum.education_type.ilike(f'%{search}%')
+                )
+            )
+
+        curriculum_items = query.order_by(
+            DirectionCurriculum.semester,
+            Subject.name,
+            Direction.name
+        ).all()
+
+        if search and not curriculum_items:
+            matching_teachers = User.query.filter(
+                or_(User.full_name.ilike(f'%{search}%'), User.login.ilike(f'%{search}%'))
+            ).all()
+            if matching_teachers:
+                teacher_ids = [t.id for t in matching_teachers]
+                ts_list = TeacherSubject.query.filter(TeacherSubject.teacher_id.in_(teacher_ids)).all()
+                seen_curr_ids = set()
+                for ts in ts_list:
+                    gr = Group.query.get(ts.group_id) if ts.group_id else None
+                    if not gr or not gr.enrollment_year or not gr.education_type:
+                        continue
+                    curr_q = DirectionCurriculum.query.join(Direction).filter(
+                        DirectionCurriculum.direction_id == gr.direction_id,
+                        DirectionCurriculum.subject_id == ts.subject_id,
+                        DirectionCurriculum.semester == gr.semester,
+                        DirectionCurriculum.enrollment_year == gr.enrollment_year,
+                        DirectionCurriculum.education_type == gr.education_type
+                    )
+                    if faculty_filter:
+                        curr_q = curr_q.filter(Direction.faculty_id == faculty_filter)
+                    if direction_filter:
+                        curr_q = curr_q.filter(DirectionCurriculum.direction_id == direction_filter)
+                    if semester_filter:
+                        curr_q = curr_q.filter(DirectionCurriculum.semester == semester_filter)
+                    if education_type_filter:
+                        curr_q = curr_q.filter(DirectionCurriculum.education_type == education_type_filter)
+                    if course_filter:
+                        min_sem = (course_filter - 1) * 2 + 1
+                        max_sem = course_filter * 2
+                        curr_q = curr_q.filter(DirectionCurriculum.semester >= min_sem, DirectionCurriculum.semester <= max_sem)
+                    curr = curr_q.first()
+                    if curr and curr.id not in seen_curr_ids:
+                        seen_curr_ids.add(curr.id)
+                        curriculum_items.append(curr)
+                if curriculum_items:
+                    curriculum_items = sorted(
+                        curriculum_items,
+                        key=lambda c: (
+                            c.semester,
+                            (c.subject.name or '').lower() if c.subject else '',
+                            (c.direction.name or '').lower() if c.direction else ''
+                        )
+                    )
+
+        subjects_data = []
+        search_lower = search.lower() if search else ''
+        for item in curriculum_items:
+            direction = item.direction
+            subject = item.subject
+            if not item.enrollment_year or not item.education_type:
+                continue
+
+            group_filters = {
+                'direction_id': direction.id,
+                'semester': item.semester,
+                'enrollment_year': item.enrollment_year,
+                'education_type': item.education_type,
+            }
+            if group_filter:
+                group_filters['id'] = group_filter
+            groups = Group.query.filter_by(**group_filters).all()
+            active_groups = [g for g in groups if g.get_students_count() > 0]
+            if not active_groups:
+                continue
+
+            group_teachers = {}
+            unique_teachers = []
+            seen_teacher_ids = set()
+            for group in active_groups:
+                teacher_subjects = TeacherSubject.query.filter_by(
+                    subject_id=subject.id,
+                    group_id=group.id
+                ).all()
+                teachers = []
+                for ts in teacher_subjects:
+                    if ts.teacher_id and ts.teacher_id not in seen_teacher_ids:
+                        teacher = User.query.get(ts.teacher_id)
+                        if teacher:
+                            teachers.append(teacher)
+                            unique_teachers.append(teacher)
+                            seen_teacher_ids.add(ts.teacher_id)
+                if teachers:
+                    group_teachers[group.id] = teachers
+
+            if search_lower:
+                matching_groups = [g for g in active_groups if search_lower in g.name.lower()]
+                matching_teachers = [t for t in unique_teachers if search_lower in (t.full_name or '').lower() or search_lower in (t.login or '').lower()]
+                if matching_groups or matching_teachers:
+                    if matching_groups:
+                        active_groups = matching_groups
+                    if matching_teachers:
+                        teacher_ids = {t.id for t in matching_teachers}
+                        filtered_groups = []
+                        for group in active_groups:
+                            group_teacher_ids = {t.id for t in (group_teachers.get(group.id, []))}
+                            if group_teacher_ids & teacher_ids:
+                                filtered_groups.append(group)
+                        if filtered_groups:
+                            active_groups = filtered_groups
+
+            subjects_data.append({
+                'curriculum_item': item,
+                'subject': subject,
+                'direction': direction,
+                'semester': item.semester,
+                'course_year': ((item.semester - 1) // 2) + 1,
+                'groups': active_groups,
+                'group_teachers': group_teachers,
+                'unique_teachers': unique_teachers,
+                'enrollment_year': item.enrollment_year,
+                'education_type': item.education_type,
+                'curriculum_check': subject.check_curriculum_completion(
+                    direction.id if direction else None,
+                    None,
+                    True,
+                    active_groups[0] if active_groups else None
+                ),
+            })
+
+        subjects_by_semester = {}
+        for data in subjects_data:
+            sem = data['semester']
+            if sem not in subjects_by_semester:
+                subjects_by_semester[sem] = []
+            subjects_by_semester[sem].append(data)
+        for sem in subjects_by_semester:
+            subjects_by_semester[sem] = sorted(
+                subjects_by_semester[sem],
+                key=lambda d: (
+                    (d['subject'].name or '').lower() if d.get('subject') else '',
+                    (d['direction'].name or '').lower() if d.get('direction') else ''
+                )
+            )
+
+        faculties = Faculty.query.order_by(Faculty.name).all()
+        all_directions = Direction.query.order_by(Direction.name).all()
+        if faculty_filter:
+            all_directions = [d for d in all_directions if d.faculty_id == faculty_filter]
+
+        all_groups = Group.query.filter(Group.students.any()).all()
+        courses = sorted(set([g.course_year for g in all_groups if g.course_year]))
+        semesters = sorted(set([g.semester for g in all_groups if g.semester]))
+        education_types = sorted(set([g.education_type for g in all_groups if g.education_type and g.education_type.strip()]))
+
+        groups = []
+        if direction_filter:
+            groups = Group.query.filter_by(direction_id=direction_filter).filter(Group.students.any()).order_by(Group.name).all()
+        elif faculty_filter:
+            direction_ids = [d.id for d in all_directions]
+            if direction_ids:
+                groups = Group.query.filter(Group.direction_id.in_(direction_ids)).filter(Group.students.any()).order_by(Group.name).all()
+        else:
+            groups = Group.query.filter(Group.students.any()).order_by(Group.name).all()
+
+        return render_template(
+            'admin/curriculum_subjects.html',
+            subjects_by_semester=subjects_by_semester,
+            search=search,
+            faculties=faculties,
+            directions=all_directions,
+            courses=courses,
+            semesters=semesters,
+            education_types=education_types,
+            groups=groups,
+            current_faculty=faculty_filter,
+            current_course=course_filter,
+            current_semester=semester_filter,
+            current_education_type=education_type_filter,
+            current_direction=direction_filter,
+            current_group=group_filter,
+            clear_url=url_for('courses.index'),
+            lock_faculty_filter=False
+        )
+
+    # Dekan uchun /subjects/ da admindagi kabi to'liq "Fanlar bazasi" ko'rinishi,
+    # lekin fakultet dekanning o'z fakultetiga avtomatik fiks bo'ladi.
+    if current_role == 'dean':
+        faculty = Faculty.query.get(current_user.faculty_id)
+        if not faculty:
+            flash(t('faculty_not_assigned'), 'error')
+            return redirect(url_for('main.dashboard'))
+
+        faculty_filter = faculty.id
+        course_filter = request.args.get('course', type=int)
+        semester_filter = request.args.get('semester', type=int)
+        education_type_filter = request.args.get('education_type', '') or None
+        direction_filter = request.args.get('direction', type=int)
+        group_filter = request.args.get('group', type=int)
+
+        allowed_directions = Direction.query.filter_by(faculty_id=faculty.id).order_by(Direction.name).all()
+        allowed_direction_ids = {d.id for d in allowed_directions}
+        if direction_filter and direction_filter not in allowed_direction_ids:
+            direction_filter = None
+
+        if group_filter:
+            selected_group = Group.query.filter_by(id=group_filter, faculty_id=faculty.id).first()
+            if not selected_group:
+                group_filter = None
+            elif direction_filter and selected_group.direction_id != direction_filter:
+                group_filter = None
+
+        query = DirectionCurriculum.query.join(Direction).join(Subject).filter(
+            Direction.faculty_id == faculty.id
+        )
+        if direction_filter:
+            query = query.filter(DirectionCurriculum.direction_id == direction_filter)
+        if semester_filter:
+            query = query.filter(DirectionCurriculum.semester == semester_filter)
+        if education_type_filter:
+            query = query.filter(DirectionCurriculum.education_type == education_type_filter)
+        if course_filter:
+            min_semester = (course_filter - 1) * 2 + 1
+            max_semester = course_filter * 2
+            query = query.filter(DirectionCurriculum.semester >= min_semester, DirectionCurriculum.semester <= max_semester)
+        if search:
+            query = query.filter(
+                or_(
+                    Subject.name.ilike(f'%{search}%'),
+                    Subject.description.ilike(f'%{search}%'),
+                    cast(DirectionCurriculum.enrollment_year, String).ilike(f'%{search}%'),
+                    Direction.name.ilike(f'%{search}%'),
+                    Direction.code.ilike(f'%{search}%'),
+                    DirectionCurriculum.education_type.ilike(f'%{search}%')
+                )
+            )
+
+        curriculum_items = query.order_by(
+            DirectionCurriculum.semester,
+            Subject.name,
+            Direction.name
+        ).all()
+
+        if search and not curriculum_items:
+            matching_teachers = User.query.filter(
+                or_(User.full_name.ilike(f'%{search}%'), User.login.ilike(f'%{search}%'))
+            ).all()
+            if matching_teachers:
+                teacher_ids = [t.id for t in matching_teachers]
+                ts_list = TeacherSubject.query.filter(TeacherSubject.teacher_id.in_(teacher_ids)).all()
+                seen_curr_ids = set()
+                for ts in ts_list:
+                    gr = Group.query.get(ts.group_id) if ts.group_id else None
+                    if not gr or gr.faculty_id != faculty.id or not gr.enrollment_year or not gr.education_type:
+                        continue
+                    curr_q = DirectionCurriculum.query.join(Direction).filter(
+                        DirectionCurriculum.direction_id == gr.direction_id,
+                        DirectionCurriculum.subject_id == ts.subject_id,
+                        DirectionCurriculum.semester == gr.semester,
+                        DirectionCurriculum.enrollment_year == gr.enrollment_year,
+                        DirectionCurriculum.education_type == gr.education_type,
+                        Direction.faculty_id == faculty.id
+                    )
+                    if direction_filter:
+                        curr_q = curr_q.filter(DirectionCurriculum.direction_id == direction_filter)
+                    if semester_filter:
+                        curr_q = curr_q.filter(DirectionCurriculum.semester == semester_filter)
+                    if education_type_filter:
+                        curr_q = curr_q.filter(DirectionCurriculum.education_type == education_type_filter)
+                    if course_filter:
+                        min_sem = (course_filter - 1) * 2 + 1
+                        max_sem = course_filter * 2
+                        curr_q = curr_q.filter(DirectionCurriculum.semester >= min_sem, DirectionCurriculum.semester <= max_sem)
+                    curr = curr_q.first()
+                    if curr and curr.id not in seen_curr_ids:
+                        seen_curr_ids.add(curr.id)
+                        curriculum_items.append(curr)
+                if curriculum_items:
+                    curriculum_items = sorted(
+                        curriculum_items,
+                        key=lambda c: (
+                            c.semester,
+                            (c.subject.name or '').lower() if c.subject else '',
+                            (c.direction.name or '').lower() if c.direction else ''
+                        )
+                    )
+
+        subjects_data = []
+        search_lower = search.lower() if search else ''
+        for item in curriculum_items:
+            direction = item.direction
+            subject = item.subject
+            if not item.enrollment_year or not item.education_type:
+                continue
+
+            group_filters = {
+                'direction_id': direction.id,
+                'semester': item.semester,
+                'faculty_id': faculty.id,
+                'enrollment_year': item.enrollment_year,
+                'education_type': item.education_type,
+            }
+            if group_filter:
+                group_filters['id'] = group_filter
+            groups = Group.query.filter_by(**group_filters).all()
+            active_groups = [g for g in groups if g.get_students_count() > 0]
+            if not active_groups:
+                continue
+
+            group_teachers = {}
+            unique_teachers = []
+            seen_teacher_ids = set()
+            for group in active_groups:
+                teacher_subjects = TeacherSubject.query.filter_by(
+                    subject_id=subject.id,
+                    group_id=group.id
+                ).all()
+                teachers = []
+                for ts in teacher_subjects:
+                    if ts.teacher_id and ts.teacher_id not in seen_teacher_ids:
+                        teacher = User.query.get(ts.teacher_id)
+                        if teacher:
+                            teachers.append(teacher)
+                            unique_teachers.append(teacher)
+                            seen_teacher_ids.add(ts.teacher_id)
+                if teachers:
+                    group_teachers[group.id] = teachers
+
+            if search_lower:
+                matching_groups = [g for g in active_groups if search_lower in g.name.lower()]
+                matching_teachers = [t for t in unique_teachers if search_lower in (t.full_name or '').lower() or search_lower in (t.login or '').lower()]
+                if matching_groups or matching_teachers:
+                    if matching_groups:
+                        active_groups = matching_groups
+                    if matching_teachers:
+                        teacher_ids = {t.id for t in matching_teachers}
+                        filtered_groups = []
+                        for group in active_groups:
+                            group_teacher_ids = {t.id for t in (group_teachers.get(group.id, []))}
+                            if group_teacher_ids & teacher_ids:
+                                filtered_groups.append(group)
+                        if filtered_groups:
+                            active_groups = filtered_groups
+
+            subjects_data.append({
+                'curriculum_item': item,
+                'subject': subject,
+                'direction': direction,
+                'semester': item.semester,
+                'course_year': ((item.semester - 1) // 2) + 1,
+                'groups': active_groups,
+                'group_teachers': group_teachers,
+                'unique_teachers': unique_teachers,
+                'enrollment_year': item.enrollment_year,
+                'education_type': item.education_type,
+                'curriculum_check': subject.check_curriculum_completion(
+                    direction.id if direction else None,
+                    None,
+                    True,
+                    active_groups[0] if active_groups else None
+                ),
+            })
+
+        subjects_by_semester = {}
+        for data in subjects_data:
+            sem = data['semester']
+            if sem not in subjects_by_semester:
+                subjects_by_semester[sem] = []
+            subjects_by_semester[sem].append(data)
+        for sem in subjects_by_semester:
+            subjects_by_semester[sem] = sorted(
+                subjects_by_semester[sem],
+                key=lambda d: (
+                    (d['subject'].name or '').lower() if d.get('subject') else '',
+                    (d['direction'].name or '').lower() if d.get('direction') else ''
+                )
+            )
+
+        all_groups = Group.query.filter(
+            Group.faculty_id == faculty.id,
+            Group.students.any()
+        ).all()
+        courses = sorted(set([g.course_year for g in all_groups if g.course_year]))
+        semesters = sorted(set([g.semester for g in all_groups if g.semester]))
+        education_types = sorted(set([g.education_type for g in all_groups if g.education_type and g.education_type.strip()]))
+
+        if direction_filter:
+            groups = Group.query.filter_by(
+                direction_id=direction_filter,
+                faculty_id=faculty.id
+            ).filter(Group.students.any()).order_by(Group.name).all()
+        else:
+            groups = Group.query.filter_by(
+                faculty_id=faculty.id
+            ).filter(Group.students.any()).order_by(Group.name).all()
+
+        return render_template(
+            'admin/curriculum_subjects.html',
+            subjects_by_semester=subjects_by_semester,
+            search=search,
+            faculties=[faculty],
+            directions=allowed_directions,
+            courses=courses,
+            semesters=semesters,
+            education_types=education_types,
+            groups=groups,
+            current_faculty=faculty_filter,
+            current_course=course_filter,
+            current_semester=semester_filter,
+            current_education_type=education_type_filter,
+            current_direction=direction_filter,
+            current_group=group_filter,
+            clear_url=url_for('courses.index'),
+            lock_faculty_filter=True
+        )
+
     if current_role == 'student':
         # Talaba faqat o'z guruhiga biriktirilgan va joriy semestrdagi fanlarni ko'radi
         if current_user.group_id:
@@ -189,7 +911,6 @@ def index():
                                 seen_teachers.add(ts.teacher_id)
                     
                     # Direction ma'lumotini olish
-                    from app.models import Direction
                     direction = Direction.query.get(group.direction_id) if group.direction_id else None
                     
                     subjects_by_semester[semester].append({
@@ -212,8 +933,6 @@ def index():
     elif current_role == 'teacher':
         # O'qituvchi uchun - yo'nalish bo'yicha guruhlash
         # Har bir yo'nalish uchun alohida fan card ko'rsatiladi
-        from app.models import Direction
-        
         teacher_subjects = TeacherSubject.query.filter_by(teacher_id=current_user.id).all()
         
         # Har bir fan+yo'nalish kombinatsiyasi uchun ma'lumotlar
@@ -312,8 +1031,6 @@ def index():
             all_subjects_list = list(subjects.items)
     elif current_role in ['admin', 'dean']:
         # Admin va dekan uchun - barcha fanlarni yo'nalish bo'yicha guruhlash
-        from app.models import Direction
-        
         # Admin uchun kurs filterini qo'llash (agar tanlangan bo'lsa)
         # Hozircha barcha guruhlar
         
@@ -725,6 +1442,10 @@ def detail(id, dir_id=None, group_id=None, semester=None):
     
     # Tanlangan rol
     current_role = session.get('current_role', current_user.role)
+    is_admin_or_dean_mode = (
+        current_role in ['admin', 'dean'] and
+        (current_user.has_role(current_role) or getattr(current_user, 'is_superadmin', False))
+    )
     
     # Yo'nalish ID - path dan (/subjects/21/1/5) yoki query dan (?direction_id=1) yoki talaba guruhidan
     direction_id_raw = request.args.get('direction_id')
@@ -2193,6 +2914,15 @@ def create_lesson(id):
     
     # Tanlangan rol
     current_role = session.get('current_role', current_user.role)
+    has_admin_or_dean_account = (
+        current_user.has_role('admin') or
+        current_user.has_role('dean') or
+        (current_user.role in ['admin', 'dean']) or
+        getattr(current_user, 'is_superadmin', False)
+    )
+    is_admin_or_dean_mode = (
+        current_role in ['admin', 'dean'] and has_admin_or_dean_account
+    )
     
     # Faqat o'qituvchi rolida va o'ziga biriktirilgan fanlar uchun
     is_teacher = TeacherSubject.query.filter_by(
@@ -2202,7 +2932,7 @@ def create_lesson(id):
     
     # Bir nechta rol belgilangan o'qituvchilar faqatgina o'qituvchi rolida o'ziga biriktirilgan fan uchun mavzu yarata olishi kerak
     if current_role != 'teacher' or not is_teacher:
-        if current_user.role != 'admin':
+        if not is_admin_or_dean_mode:
             flash(t('no_permission_for_operation'), 'error')
             return redirect(url_for('courses.detail', id=id, dir_id=direction_id))
     
@@ -2233,7 +2963,8 @@ def create_lesson(id):
     # Agar o'qituvchi roliga ega bo'lsa (admin ham o'qituvchi roliga ega bo'lishi mumkin), faqat biriktirilgan dars turlarini ko'rsatish
     allowed_lesson_types = []
     # Agar tanlangan rol o'qituvchi bo'lsa yoki asosiy rol o'qituvchi bo'lsa, biriktirilgan dars turlarini ko'rsatish
-    is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
+    # Faqat aynan teacher rolida ishlaganda o'qituvchi cheklovlarini qo'llash.
+    is_acting_as_teacher = (current_role == 'teacher')
     
     if is_acting_as_teacher:
         lesson_types_set = set()
@@ -2320,7 +3051,7 @@ def create_lesson(id):
                     'name': lesson_type_names_map.get(lesson_type_key, lesson_type_key.capitalize())
                 })
     else:
-        if current_user.role == 'admin' and current_role != 'teacher' and direction_id:
+        if is_admin_or_dean_mode and current_role != 'teacher' and direction_id:
             context_group = Group.query.get(group_id_param) if group_id_param else None
             direction_groups_for_curr = Group.query.filter_by(direction_id=direction_id).all()
             if not context_group and direction_groups_for_curr:
@@ -2351,7 +3082,7 @@ def create_lesson(id):
                     {'value': 'seminar', 'name': 'Seminar'},
                     {'value': 'kurs_ishi', 'name': 'Kurs ishi'}
                 ]
-        elif current_user.role == 'admin' and current_role != 'teacher':
+        elif is_admin_or_dean_mode and current_role != 'teacher':
             allowed_lesson_types = [
                 {'value': 'maruza', 'name': 'Maruza'},
                 {'value': 'amaliyot', 'name': 'Amaliyot'},
@@ -2424,31 +3155,36 @@ def create_lesson(id):
         # Lekin agar guruh direction_id ga ega bo'lmasa yoki boshqa yo'nalishga tegishli bo'lsa ham, 
         # agar u o'qituvchiga biriktirilgan bo'lsa, u ham tanlanadi
         if direction_id:
-            # Shu yo'nalishdagi barcha guruhlar
-            direction_groups = Group.query.filter_by(direction_id=direction_id).all()
-            direction_group_ids = [g.id for g in direction_groups]
-            # O'qituvchiga biriktirilgan guruhlar ichidan:
-            # 1. Shu yo'nalishdagi guruhlar
-            # 2. direction_id ga ega bo'lmagan guruhlar (agar o'qituvchiga biriktirilgan bo'lsa)
-            selected_group_ids = []
-            seen_selected_group_ids = set()
-            for tg in teacher_groups:
-                if tg.group_id:
-                    group = Group.query.get(tg.group_id)
-                    if group:
-                        # Agar guruh shu yo'nalishga tegishli bo'lsa yoki direction_id ga ega bo'lmasa
-                        if (group.direction_id == direction_id or group.direction_id is None) and tg.group_id not in seen_selected_group_ids:
-                            selected_group_ids.append(str(tg.group_id))
-                            seen_selected_group_ids.add(tg.group_id)
-            
-            # Agar hech qanday guruh tanlanmagan bo'lsa, xatolik
-            if not selected_group_ids:
-                flash(t('no_permission_for_operation'), 'error')
-                return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types)
+            if is_admin_or_dean_mode and current_role != 'teacher':
+                # Admin/dekan yo'nalish bo'yicha bitta umumiy dars yaratadi (group_id=None).
+                # Bu holatda teacher assignment bo'yicha guruh tekshiruvi talab qilinmaydi.
+                selected_group_ids = []
+            else:
+                # Shu yo'nalishdagi barcha guruhlar
+                direction_groups = Group.query.filter_by(direction_id=direction_id).all()
+                direction_group_ids = [g.id for g in direction_groups]
+                # O'qituvchiga biriktirilgan guruhlar ichidan:
+                # 1. Shu yo'nalishdagi guruhlar
+                # 2. direction_id ga ega bo'lmagan guruhlar (agar o'qituvchiga biriktirilgan bo'lsa)
+                selected_group_ids = []
+                seen_selected_group_ids = set()
+                for tg in teacher_groups:
+                    if tg.group_id:
+                        group = Group.query.get(tg.group_id)
+                        if group:
+                            # Agar guruh shu yo'nalishga tegishli bo'lsa yoki direction_id ga ega bo'lmasa
+                            if (group.direction_id == direction_id or group.direction_id is None) and tg.group_id not in seen_selected_group_ids:
+                                selected_group_ids.append(str(tg.group_id))
+                                seen_selected_group_ids.add(tg.group_id)
+
+                # Agar hech qanday guruh tanlanmagan bo'lsa, xatolik
+                if not selected_group_ids:
+                    flash(t('no_permission_for_operation'), 'error')
+                    return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types)
         else:
             # Admin uchun guruh tanlash ixtiyoriy (agar tanlanmagan bo'lsa, group_id None bo'ladi)
             selected_group_ids = request.form.getlist('group_ids')
-            if not selected_group_ids and current_user.role == 'admin':
+            if not selected_group_ids and is_admin_or_dean_mode:
                 selected_group_ids = [None]  # Bitta None yaratish uchun
         
         video_filename = None
@@ -2475,13 +3211,14 @@ def create_lesson(id):
                 flash(t('all_required_fields'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types)
         
-        # Video URL faqat YouTube link bo'lishi kerak
+        # Video URL faqat YouTube link bo'lishi kerak (kanonik ko'rinishda saqlanadi)
         video_url = request.form.get('video_url', '').strip()
         if video_url:
-            # YouTube link tekshiruvi
-            if 'youtube.com' not in video_url and 'youtu.be' not in video_url:
+            video_id = extract_youtube_video_id(video_url)
+            if not video_id:
                 flash(t('invalid_request'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types)
+            video_url = f'https://www.youtube.com/watch?v={video_id}'
         
         # Bir nechta fayl yuklash yoki fayl URL
         lesson_file_url = None
@@ -2511,23 +3248,26 @@ def create_lesson(id):
                         'original_name': lesson_file.filename
                     })
         
-        # Fayl URL
-                    file_url_input = request.form.get('file_url', '').strip()
+        # Fayl URL(lar)
+        file_url_inputs = []
+        for url_value in request.form.getlist('file_urls'):
+            normalized = (url_value or '').strip()
+            if normalized and normalized not in file_url_inputs:
+                file_url_inputs.append(normalized)
+        # Orqaga moslik: eski single input nomi
+        legacy_file_url = request.form.get('file_url', '').strip()
+        if legacy_file_url and legacy_file_url not in file_url_inputs:
+            file_url_inputs.append(legacy_file_url)
             
             # O'qituvchi uchun fayl majburiy
-        if current_role == 'teacher' or current_user.role == 'admin':
+        if current_role == 'teacher' or is_admin_or_dean_mode:
             # Agar hech qanday fayl yuklanmagan va URL ham bo'lmasa
-            if not uploaded_files and not file_url_input:
+            if not uploaded_files and not file_url_inputs:
                 flash(t('all_required_fields'), 'error')
                 return render_template('courses/create_lesson.html', subject=subject, groups=groups, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types)
         
-        # Fayl URL yoki yuklangan fayllarni saqlash (JSON formatida)
-        if uploaded_files:
-            # Bir nechta fayl bo'lsa, JSON formatida saqlash
-            lesson_file_url = json.dumps(uploaded_files)
-        elif file_url_input:
-            # Agar faqat URL bo'lsa
-            lesson_file_url = file_url_input
+        # Fayl URL(lar)i yoki yuklangan fayllarni saqlash
+        lesson_file_url = build_lesson_file_data(uploaded_files, file_url_inputs)
         
         # Har bir tanlangan guruh uchun alohida dars yaratish
         created_count = 0
@@ -2615,7 +3355,7 @@ def create_lesson(id):
 @login_required
 def check_file_url():
     """Fayl URL da fayl bor-yo'qligini tekshirish"""
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     file_url = data.get('url', '').strip()
     
     if not file_url:
@@ -2628,12 +3368,16 @@ def check_file_url():
         if is_google_drive:
             # Google Drive linklari uchun - ular har doim mavjud deb hisoblanadi
             # chunki ular HTML sahifani qaytaradi, lekin fayl mavjud
+            google_title = extract_google_doc_title(file_url)
+            display_name = google_title or extract_resource_display_name(file_url)
             return jsonify({
                 'success': True,
                 'has_file': True,
                 'status_code': 200,
                 'content_type': 'application/vnd.google-apps.document',
                 'is_google_drive': True,
+                'display_name': display_name,
+                'resolved_url': file_url,
                 'message': 'Google Drive/Sheets/Docs linki aniqlandi. Link mavjud deb hisoblanadi.'
             })
         
@@ -2669,7 +3413,9 @@ def check_file_url():
             'has_file': has_file,
             'status_code': response.status_code,
             'content_type': content_type,
-            'is_google_drive': False
+            'is_google_drive': False,
+            'display_name': extract_resource_display_name(response.url or file_url, response.headers.get('Content-Disposition', '')),
+            'resolved_url': response.url or file_url
         })
     except requests.exceptions.RequestException as e:
         # Xatolik bo'lsa, fayl topilmadi deb hisoblaymiz
@@ -2678,6 +3424,79 @@ def check_file_url():
             'has_file': False,
             'error': str(e)
         })
+
+
+@bp.route('/check-video-url', methods=['POST'])
+@login_required
+def check_video_url():
+    """Video URL ko'rishga yaroqliligini tekshirish"""
+    try:
+        data = request.get_json(silent=True) or {}
+        video_url = (data.get('url') or '').strip()
+
+        if not video_url:
+            return jsonify({'success': False, 'is_playable': False, 'error': 'URL kiritilmagan'})
+
+        video_id = extract_youtube_video_id(video_url)
+        if not video_id:
+            return jsonify({'success': True, 'is_playable': False, 'error': 'Invalid YouTube URL'})
+
+        watch_url = f'https://www.youtube.com/watch?v={video_id}'
+        embed_url = f'https://www.youtube.com/embed/{video_id}'
+
+        response = requests.get(
+            'https://www.youtube.com/oembed',
+            params={'url': watch_url, 'format': 'json'},
+            headers={'User-Agent': 'Mozilla/5.0 (ELMS Video URL Checker)'},
+            timeout=10
+        )
+    except requests.exceptions.RequestException as e:
+        return jsonify({'success': False, 'is_playable': False, 'error': str(e)})
+    except Exception as e:
+        return jsonify({'success': False, 'is_playable': False, 'error': str(e)})
+
+    if response.status_code == 200:
+        try:
+            payload = response.json() if response.content else {}
+        except ValueError:
+            # Ba'zi muhitlarda YouTube proxy/captcha sahifasini qaytarishi mumkin
+            return jsonify({
+                'success': True,
+                'is_playable': False,
+                'video_id': video_id,
+                'watch_url': watch_url,
+                'status_code': 200,
+                'error': 'Non-JSON response from YouTube'
+            })
+
+        can_embed, embed_reason = check_youtube_embed_playability(video_id)
+        if not can_embed:
+            return jsonify({
+                'success': True,
+                'is_playable': False,
+                'video_id': video_id,
+                'watch_url': watch_url,
+                'embed_url': embed_url,
+                'title': payload.get('title', ''),
+                'error': embed_reason or 'Video cannot be played inside embedded player'
+            })
+
+        return jsonify({
+            'success': True,
+            'is_playable': True,
+            'video_id': video_id,
+            'watch_url': watch_url,
+            'embed_url': embed_url,
+            'title': payload.get('title', '')
+        })
+
+    return jsonify({
+        'success': True,
+        'is_playable': False,
+        'video_id': video_id,
+        'watch_url': watch_url,
+        'status_code': response.status_code
+    })
 
 
 @bp.route('/lessons/<int:id>/edit', methods=['GET', 'POST'])
@@ -2845,128 +3664,119 @@ def edit_lesson(id):
         if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher' and curriculum_lesson_types and not allowed_lesson_types:
             allowed_lesson_types = [{'value': t, 'name': lesson_type_names_map.get(t, t.capitalize())} for t in sorted_types if t in curriculum_lesson_types]
 
+    # Edit sahifasida joriy mavzu fayl(lar)ni ko'rsatish uchun ro'yxat
+    lesson_files_list, current_file_urls = parse_lesson_file_data(lesson.file_url)
+
     if request.method == 'POST':
-        video_filename = lesson.video_file  # Eski faylni saqlash
-        lesson_file_url = lesson.file_url  # Eski faylni saqlash
-        
-        # Video fayl yuklash (yangi fayl yuklansa, eski o'rniga yangisini qo'yish)
+        old_video_file = lesson.video_file
+        video_filename = lesson.video_file
+        video_url = lesson.video_url
+        lesson_file_url = lesson.file_url
+
+        remove_video = request.form.get('remove_video') == '1'
+
+        # Video fayl yuklash
         if 'video_file' in request.files:
             video = request.files['video_file']
             if video and video.filename and allowed_video(video.filename):
-                # Eski video faylni o'chirish
-                if lesson.video_file:
-                    old_video_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'videos', lesson.video_file)
-                    if os.path.exists(old_video_path):
-                        try:
-                            os.remove(old_video_path)
-                        except:
-                            pass
-                
-                # Yangi video faylni saqlash
                 ext = video.filename.rsplit('.', 1)[1].lower()
                 video_filename = f"{uuid.uuid4().hex}.{ext}"
                 video_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'videos', video_filename)
                 video.save(video_path)
-        
-        # Video URL faqat YouTube link bo'lishi kerak
-        video_url = request.form.get('video_url', '').strip()
-        if video_url:
-            # YouTube link tekshiruvi
-            if 'youtube.com' not in video_url and 'youtu.be' not in video_url:
+                video_url = None
+                remove_video = False
+
+        # Video URL faqat YouTube link bo'lishi kerak (kanonik ko'rinishda saqlanadi)
+        video_url_input = request.form.get('video_url', '').strip()
+        if video_url_input:
+            video_id = extract_youtube_video_id(video_url_input)
+            if not video_id:
                 flash(t('invalid_request'), 'error')
-                return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
-            # Agar yangi URL kiritilgan bo'lsa, video_file ni None qilish va eski faylni o'chirish
-            if lesson.video_file:
-                old_video_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'videos', lesson.video_file)
-                if os.path.exists(old_video_path):
-                    try:
-                        os.remove(old_video_path)
-                    except:
-                        pass
+                return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lesson_files_list=lesson_files_list, current_file_urls=current_file_urls)
+            video_url = f'https://www.youtube.com/watch?v={video_id}'
             video_filename = None
-        elif not video_filename:
-            # Agar yangi video yuklanmagan bo'lsa va URL kiritilmagan bo'lsa, eski videoni saqlash
-            video_filename = lesson.video_file
-            video_url = lesson.video_url
-        
-        # O'qituvchi uchun fayl yuklash
-        if current_user.role == 'teacher' or current_user.role == 'admin':
-            # Bir nechta fayllarni yuklashni qo'llab-quvvatlash
-            lesson_files = request.files.getlist('lesson_files')
-            uploaded_files = []
-            
-            # Agar mavjud fayllar bo'lsa va ular JSON bo'lsa, ularni yuklash
-            existing_files = []
-            if lesson.file_url and lesson.file_url.startswith('[') and lesson.file_url.endswith(']'):
+            remove_video = False
+        elif remove_video:
+            video_filename = None
+            video_url = None
+
+        # Eski video faylni faqat almashtirilsa yoki olib tashlansa o'chirish
+        if old_video_file and old_video_file != video_filename:
+            old_video_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'videos', old_video_file)
+            if os.path.exists(old_video_path):
                 try:
-                    existing_files = json.loads(lesson.file_url)
+                    os.remove(old_video_path)
                 except:
                     pass
-            
-            # Yangi fayllarni qayta ishlash
-            has_new_files = False
-            for lesson_file in lesson_files:
-                if lesson_file and lesson_file.filename:
-                    # Fayl formatini tekshirish
-                    allowed_extensions = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'}
-                    ext = lesson_file.filename.rsplit('.', 1)[1].lower() if '.' in lesson_file.filename else ''
-                    if ext not in allowed_extensions:
-                        flash(t('invalid_file_format', filename=lesson_file.filename), 'error')
-                        return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
-                    
-                    # Faylni saqlash
-                    filename = f"{uuid.uuid4().hex}.{ext}"
-                    files_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files')
-                    os.makedirs(files_folder, exist_ok=True)
-                    file_path = os.path.join(files_folder, filename)
-                    lesson_file.save(file_path)
-                    uploaded_files.append({
-                        'filename': filename,
-                        'original_name': lesson_file.filename
-                    })
-                    has_new_files = True
-            
-            # URL orqali fayl
-            file_url_input = request.form.get('file_url', '').strip()
-            
-            if has_new_files:
-                # Yangi fayllar yuklandi, eskilarini (agar ular yuklangan fayllar bo'lsa) o'chirishni o'ylab ko'rish kerak
-                # Hozircha oddiygina yangi ro'yxatni saqlaymiz
-                lesson_file_url = json.dumps(uploaded_files)
-            elif file_url_input:
-                # URL kiritilgan bo'lsa
-                lesson_file_url = file_url_input
-            else:
-                # Hech narsa o'zgarmagan bo'lsa, eskisini qoldiramiz
-                lesson_file_url = lesson.file_url
-            
-            if not lesson_file_url:
-                flash(t('all_required_fields'), 'error')
-                return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id)
-        else:
-            # Boshqa rollar uchun ixtiyoriy
-            file_url_input = request.form.get('file_url', '').strip()
-            lesson_files = request.files.getlist('lesson_files')
-            
-            if any(f.filename for f in lesson_files):
-                # Fayl yuklash boshqa rollar uchun ham bir xil bo'lishi kerak
-                uploaded_files = []
-                for lesson_file in lesson_files:
-                    if lesson_file and lesson_file.filename:
-                        ext = lesson_file.filename.rsplit('.', 1)[1].lower() if '.' in lesson_file.filename else ''
-                        filename = f"{uuid.uuid4().hex}.{ext}"
-                        files_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files')
-                        os.makedirs(files_folder, exist_ok=True)
-                        lesson_file.save(os.path.join(files_folder, filename))
-                        uploaded_files.append({'filename': filename, 'original_name': lesson_file.filename})
-                lesson_file_url = json.dumps(uploaded_files)
-            elif file_url_input:
-                lesson_file_url = file_url_input
-            else:
-                lesson_file_url = lesson.file_url  # Eski faylni saqlash
+
+        # Mavzu fayllari: eski fayllar/URL avtomatik o'chmasin, faqat "X" orqali olib tashlansin
+        existing_uploaded_files, existing_urls = parse_lesson_file_data(lesson.file_url)
+
+        keep_existing_files = set(request.form.getlist('keep_existing_files'))
+        keep_existing_urls = set(request.form.getlist('keep_existing_urls'))
+
+        kept_existing_files = [f for f in existing_uploaded_files if f.get('filename') in keep_existing_files]
+        removed_existing_files = [f for f in existing_uploaded_files if f.get('filename') not in keep_existing_files]
+        kept_existing_urls = [u for u in existing_urls if u in keep_existing_urls]
+
+        lesson_files = request.files.getlist('lesson_files')
+        uploaded_files = []
+        allowed_extensions = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'zip', 'rar'}
+
+        for lesson_file in lesson_files:
+            if lesson_file and lesson_file.filename:
+                ext = lesson_file.filename.rsplit('.', 1)[1].lower() if '.' in lesson_file.filename else ''
+                if ext not in allowed_extensions:
+                    flash(t('invalid_file_format', filename=lesson_file.filename), 'error')
+                    return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lesson_files_list=lesson_files_list, current_file_urls=current_file_urls)
+
+                filename = f"{uuid.uuid4().hex}.{ext}"
+                files_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files')
+                os.makedirs(files_folder, exist_ok=True)
+                lesson_file.save(os.path.join(files_folder, filename))
+                uploaded_files.append({'filename': filename, 'original_name': lesson_file.filename})
+
+        file_url_inputs = []
+        for url_value in request.form.getlist('file_urls'):
+            normalized = (url_value or '').strip()
+            if normalized and normalized not in file_url_inputs:
+                file_url_inputs.append(normalized)
+        # Orqaga moslik: eski single input nomi
+        legacy_file_url = request.form.get('file_url', '').strip()
+        if legacy_file_url and legacy_file_url not in file_url_inputs:
+            file_url_inputs.append(legacy_file_url)
+
+        # Eski saqlangan URL(lar) + yangi qo'shilgan URL(lar)
+        final_external_urls = list(kept_existing_urls)
+        for url_value in file_url_inputs:
+            if url_value not in final_external_urls:
+                final_external_urls.append(url_value)
+
+        final_uploaded_files = kept_existing_files + uploaded_files
+        lesson_file_url = build_lesson_file_data(final_uploaded_files, final_external_urls)
+
+        # X orqali olib tashlangan eski fayllarni diskdan o'chirish
+        for removed_file in removed_existing_files:
+            removed_filename = removed_file.get('filename')
+            if not removed_filename:
+                continue
+            removed_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files', removed_filename)
+            if os.path.exists(removed_path):
+                try:
+                    os.remove(removed_path)
+                except:
+                    pass
+
+        if (current_user.role == 'teacher' or current_user.role == 'admin') and not lesson_file_url:
+            flash(t('all_required_fields'), 'error')
+            return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lesson_files_list=lesson_files_list, current_file_urls=current_file_urls)
         
         # Dars turini o'zgartirishdan oldin ruxsat tekshiruvi (o'qituvchi uchun)
         new_lesson_type = request.form.get('lesson_type', lesson.lesson_type)
+        if new_lesson_type == 'maruza' and not (video_filename or video_url):
+            flash(t('video_required_for_lecture'), 'error')
+            return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lesson_files_list=lesson_files_list, current_file_urls=current_file_urls)
+
         if current_role == 'teacher' and direction_id:
             # O'qituvchi uchun - faqat o'ziga biriktirilgan dars turlarini o'zgartirish mumkin
             if new_lesson_type != lesson.lesson_type:
@@ -3026,7 +3836,7 @@ def edit_lesson(id):
             return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_param))
         return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id))
     
-    return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types)
+    return render_template('courses/edit_lesson.html', lesson=lesson, subject=subject, direction_id=direction_id, group_id=group_id_param, allowed_lesson_types=allowed_lesson_types, lesson_files_list=lesson_files_list, current_file_urls=current_file_urls)
 
 
 @bp.route('/lessons/<int:id>/delete', methods=['POST'])
@@ -3136,9 +3946,13 @@ def delete_lesson(id):
             except:
                 pass
     
-    # Faylni o'chirish (agar yuklangan bo'lsa)
-    if lesson.file_url and not ('http://' in lesson.file_url or 'https://' in lesson.file_url):
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files', lesson.file_url)
+    # Yuklangan mavzu fayl(lar)ini o'chirish (external URL'lar o'chirilmaydi)
+    uploaded_files, _ = parse_lesson_file_data(lesson.file_url)
+    for file_item in uploaded_files:
+        filename = file_item.get('filename')
+        if not filename:
+            continue
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'lesson_files', filename)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
@@ -3180,7 +3994,8 @@ def delete_lesson(id):
 def serve_video(filename):
     """Video faylni uzatish"""
     videos_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'videos')
-    return send_from_directory(videos_folder, filename)
+    download = request.args.get('download') == '1'
+    return send_from_directory(videos_folder, filename, as_attachment=download)
 
 @bp.route('/uploads/lesson_files/<filename>')
 @login_required
@@ -3212,11 +4027,17 @@ def serve_lesson_file(filename):
         # Qulflanganligini tekshirish
         is_locked = False
         if lesson.video_file or lesson.video_url:
-            previous_lessons = Lesson.query.filter(
+            previous_lessons_query = Lesson.query.filter(
                 Lesson.subject_id == lesson.subject_id,
+                Lesson.lesson_type == lesson.lesson_type,
                 Lesson.direction_id == lesson.direction_id,
                 Lesson.order < lesson.order
-            ).order_by(Lesson.order).all()
+            )
+            if current_user.group_id:
+                previous_lessons_query = previous_lessons_query.filter(
+                    (Lesson.group_id == current_user.group_id) | (Lesson.group_id.is_(None))
+                )
+            previous_lessons = previous_lessons_query.order_by(Lesson.order).all()
             
             for prev_lesson in previous_lessons:
                 if prev_lesson.video_file or prev_lesson.video_url:
@@ -3381,11 +4202,17 @@ def _render_lesson_detail(lesson, direction_id=None, group_id=None):
         
         # Oldingi darslar to'liq ko'rilganligini tekshirish (faqat videoga ega darslar uchun)
         if lesson.video_file or lesson.video_url:
-            previous_lessons = Lesson.query.filter(
+            previous_lessons_query = Lesson.query.filter(
                 Lesson.subject_id == subject.id,
+                Lesson.lesson_type == lesson.lesson_type,
                 Lesson.direction_id == lesson.direction_id,
                 Lesson.order < lesson.order
-            ).order_by(Lesson.order).all()
+            )
+            if current_user.group_id:
+                previous_lessons_query = previous_lessons_query.filter(
+                    (Lesson.group_id == current_user.group_id) | (Lesson.group_id.is_(None))
+                )
+            previous_lessons = previous_lessons_query.order_by(Lesson.order).all()
             
             for prev_lesson in previous_lessons:
                 if prev_lesson.video_file or prev_lesson.video_url:
@@ -3446,15 +4273,8 @@ def _render_lesson_detail(lesson, direction_id=None, group_id=None):
                             can_edit_lesson = True
 
     # Mavzu fayllari (ko'p fayllarni qo'llab-quvvatlash uchun)
-    lesson_files_list = []
-    if lesson.file_url:
-        if lesson.file_url.startswith('[') and lesson.file_url.endswith(']'):
-            try:
-                lesson_files_list = json.loads(lesson.file_url)
-            except:
-                lesson_files_list = [{'filename': lesson.file_url, 'original_name': 'Faylni yuklab olish'}]
-        elif not ('http://' in lesson.file_url or 'https://' in lesson.file_url):
-            lesson_files_list = [{'filename': lesson.file_url, 'original_name': 'Faylni yuklab olish'}]
+    lesson_files_list, current_file_urls = parse_lesson_file_data(lesson.file_url)
+    lesson_video_id = extract_youtube_video_id(lesson.video_url) if lesson.video_url else None
     
     return render_template('courses/lesson_detail.html', 
                          lesson=lesson, 
@@ -3463,6 +4283,8 @@ def _render_lesson_detail(lesson, direction_id=None, group_id=None):
                          is_locked=is_locked,
                          can_edit_lesson=can_edit_lesson,
                          lesson_files_list=lesson_files_list,
+                         current_file_urls=current_file_urls,
+                         lesson_video_id=lesson_video_id,
                          direction_id=direction_id if direction_id is not None else (request.args.get('direction_id') or lesson.direction_id),
                          group_id=group_id or request.args.get('group_id', type=int))
 
