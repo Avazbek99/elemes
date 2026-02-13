@@ -2,6 +2,7 @@
 .idea/
 .vscode/
 .cursor/
+.tmp_zip_ref/
 
 # Python
 __pycache__/
@@ -22,3 +23,5 @@ server.log
 *.db
 # instance papkasidagi baza GitHubga yuklansin
 !instance/eduspace.db
+# Ildizdagi nusxani ignore
+/eduspace.db

@@ -303,6 +303,33 @@ def build_lesson_file_data(uploaded_files, external_urls):
     return None
 
 
+def _get_active_lesson_types_for_subject_group(subject_id, group):
+    """O'quv rejada soatlari > 0 bo'lgan dars turlarini qaytaradi.
+    O'quv reja o'zgarganida soatlari o'chirilgan dars turlaridagi o'qituvchilar fan kartasida ko'rsatilmasin."""
+    if not group or not group.direction_id:
+        return set()
+    curr_q = DirectionCurriculum.query.filter_by(
+        direction_id=group.direction_id,
+        subject_id=subject_id,
+        semester=group.semester or 1
+    )
+    curr_item = DirectionCurriculum.filter_by_group_context(curr_q, group).first()
+    if not curr_item:
+        return set()
+    active = set()
+    if (curr_item.hours_maruza or 0) > 0:
+        active.add('maruza')
+    if (curr_item.hours_amaliyot or 0) > 0:
+        active.add('amaliyot')
+    if (curr_item.hours_laboratoriya or 0) > 0:
+        active.add('laboratoriya')
+    if (curr_item.hours_seminar or 0) > 0:
+        active.add('seminar')
+    if (curr_item.hours_kurs_ishi or 0) > 0:
+        active.add('kurs_ishi')
+    return active
+
+
 def _normalize_lesson_type_to_canonical(raw):
     """TeacherSubject.lesson_type ni kanonik formatga o'tkazish (lab->laboratoriya, amal->amaliyot, ...)"""
     if not raw:
@@ -947,21 +974,24 @@ def index():
                                  (item.hours_mustaqil or 0)
                     credits = total_hours / 30 if total_hours > 0 else (item.subject.credits if item.subject.credits else 0)
                     
-                    # Bu fanga biriktirilgan o'qituvchilarni olish
+                    # Bu fanga biriktirilgan o'qituvchilarni olish – faqat o'quv rejada soatlari bo'lgan dars turlaridagilarni
                     teacher_subjects = TeacherSubject.query.filter_by(
                         subject_id=item.subject.id,
                         group_id=current_user.group_id
                     ).all()
-                    
-                    # O'qituvchilarni olish (takrorlanmasligi uchun)
+                    active_types = _get_active_lesson_types_for_subject_group(item.subject.id, group)
                     teachers_list = []
                     seen_teachers = set()
                     for ts in teacher_subjects:
-                        if ts.teacher_id and ts.teacher_id not in seen_teachers:
-                            teacher = User.query.get(ts.teacher_id)
-                            if teacher:
-                                teachers_list.append(teacher)
-                                seen_teachers.add(ts.teacher_id)
+                        if not ts.teacher_id or ts.teacher_id in seen_teachers:
+                            continue
+                        lt = _normalize_lesson_type_to_canonical(ts.lesson_type)
+                        if lt and lt not in active_types:
+                            continue  # O'quv rejada bu dars turi yo'q – ko'rsatmaslik
+                        teacher = User.query.get(ts.teacher_id)
+                        if teacher:
+                            teachers_list.append(teacher)
+                            seen_teachers.add(ts.teacher_id)
                     
                     # Direction ma'lumotini olish
                     direction = Direction.query.get(group.direction_id) if group.direction_id else None
@@ -1120,7 +1150,8 @@ def index():
                 
                 for curriculum_item in curriculum_items:
                     semester = curriculum_item.semester
-                    key = (curriculum_item.subject_id, group.direction_id)
+                    # Guruh kontekstini kalitga qo'shish – turli yillar/ta'lim shaklidagi guruhlar aralashmasin
+                    key = (curriculum_item.subject_id, group.direction_id, group.enrollment_year, (group.education_type or '').strip() or None)
                     
                     if key not in subject_direction_data:
                         subject = Subject.query.get(curriculum_item.subject_id)
@@ -1177,22 +1208,34 @@ def index():
                     existing_group_ids = [g.id for g in subject_direction_data[key]['groups']]
                     if group.id not in existing_group_ids:
                         subject_direction_data[key]['groups'].append(group)
-                        
-                        # Yangi guruhdan o'qituvchilarni ham qo'shish (agar avval bo'lmasa)
-                        ts_list = TeacherSubject.query.filter_by(
-                            subject_id=curriculum_item.subject_id, 
-                            group_id=group.id
-                        ).all()
-                        current_teacher_ids = [t.id for t in subject_direction_data[key].get('teachers', [])]
-                        for ts in ts_list:
-                            if ts.teacher and ts.teacher.id not in current_teacher_ids:
-                                if 'teachers' not in subject_direction_data[key]:
-                                    subject_direction_data[key]['teachers'] = []
-                                subject_direction_data[key]['teachers'].append(ts.teacher)
-                                current_teacher_ids.append(ts.teacher.id)
+                        # O'qituvchilarni faqat asosiy guruh (group_id) uchun saqlash – boshqa guruhlardan qo'shilmasin
 
         # Semestr bo'yicha guruhlash
         for key, data in subject_direction_data.items():
+            # Fan kartasida faqat asosiy guruh (group_id) uchun biriktirilgan o'qituvchilarni ko'rsatish
+            # va faqat o'quv rejada soatlari bo'lgan dars turlariga biriktirilganlarni (o'chirilgan turlar ko'rinmasin)
+            primary_group_id = data.get('group_id')
+            if primary_group_id:
+                primary_group = Group.query.get(primary_group_id)
+                active_types = _get_active_lesson_types_for_subject_group(data['subject'].id, primary_group)
+                ts_list = TeacherSubject.query.filter_by(
+                    subject_id=data['subject'].id,
+                    group_id=primary_group_id
+                ).all()
+                teachers_filtered = []
+                seen_ids = set()
+                for ts in ts_list:
+                    if not ts.teacher:
+                        continue
+                    lt = _normalize_lesson_type_to_canonical(ts.lesson_type)
+                    if lt and lt not in active_types:
+                        continue  # O'quv rejada bu dars turi yo'q – ko'rsatmaslik
+                    if ts.teacher.id not in seen_ids:
+                        teachers_filtered.append(ts.teacher)
+                        seen_ids.add(ts.teacher.id)
+                data['teachers'] = teachers_filtered
+            else:
+                data['teachers'] = []
             semester = data['semester']
             if semester not in subjects_by_semester:
                 subjects_by_semester[semester] = []
