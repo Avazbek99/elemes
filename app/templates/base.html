@@ -450,6 +450,80 @@
 </head>
 
 <body class="bg-gradient-to-br from-slate-50 via-sky-50 to-slate-100 min-h-screen">
+    {% if ticker_visible and request.endpoint not in ['auth.login', 'auth.forgot_password', 'auth.reset_password'] %}
+    <div id="flash-ticker-global" class="fixed left-0 right-0 z-[25] h-8 bg-sky-800 border-b border-sky-700/50 flex items-center overflow-hidden {% if current_user.is_authenticated %}top-14 lg:top-16 lg:left-64{% else %}top-0{% endif %}" style="padding-inline: 1rem;">
+        <div class="ticker-wrap flex-1 overflow-hidden min-w-0 relative">
+            {% if ticker_items and ticker_items|length > 0 %}
+            <div class="ticker-track flex items-center" style="width: max-content; min-width: 100%; --ticker-slot-min: 100%; backface-visibility: hidden;">
+                <div class="ticker-gap flex-shrink-0 flex-none" style="width: var(--ticker-slot-min, 400px); min-width: var(--ticker-slot-min, 400px);"></div>
+                {% for item in ticker_items %}
+                <div class="ticker-slide flex-shrink-0 flex items-center whitespace-nowrap px-4 font-bold text-sm" style="min-width: var(--ticker-slot-min, 400px);">
+                    {% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener" class="no-underline {% if item.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ item.text }}</a>{% else %}<span class="{% if item.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ item.text }}</span>{% endif %}
+                </div>
+                <div class="ticker-gap flex-shrink-0 flex-none" style="width: var(--ticker-slot-min, 400px); min-width: var(--ticker-slot-min, 400px);"></div>
+                {% endfor %}
+                <div class="ticker-slide flex-shrink-0 flex items-center whitespace-nowrap px-4 font-bold text-sm" style="min-width: var(--ticker-slot-min, 400px);">
+                    {% set first = ticker_items[0] %}
+                    {% if first.url %}<a href="{{ first.url }}" target="_blank" rel="noopener" class="no-underline {% if first.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ first.text }}</a>{% else %}<span class="{% if first.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ first.text }}</span>{% endif %}
+                </div>
+            </div>
+            {% elif ticker_text %}
+            {% if ticker_url %}
+            <a href="{{ ticker_url }}" target="_blank" rel="noopener"
+                class="ticker-item inline-block font-bold text-sm no-underline whitespace-nowrap px-2 {% if ticker_text_color == 'red' %}text-red-500{% else %}text-white{% endif %}" style="padding-left: 100%;">
+                {{ ticker_text }}
+            </a>
+            {% else %}
+            <span class="ticker-item inline-block font-bold text-sm whitespace-nowrap px-2 {% if ticker_text_color == 'red' %}text-red-500{% else %}text-white{% endif %}" style="padding-left: 100%;">{{ ticker_text }}</span>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    <style>
+        #flash-ticker-global .ticker-item { animation: ticker-scroll 60s linear infinite; }
+        #flash-ticker-global .ticker-track { animation: ticker-slides var(--ticker-duration, 60s) linear infinite; }
+        #flash-ticker-global:hover .ticker-item { animation-play-state: paused; }
+        #flash-ticker-global:hover .ticker-track { animation-play-state: paused; }
+        @keyframes ticker-scroll { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
+        @keyframes ticker-slides { 0% { transform: translate(0, 0); } 100% { transform: translate(var(--ticker-scroll-end, -100%), 0); } }
+    </style>
+    <script>
+        (function() {
+            function updateTickerSpeed() {
+                var tickerItem = document.querySelector('#flash-ticker-global .ticker-item');
+                var tickerTrack = document.querySelector('#flash-ticker-global .ticker-track');
+                var speedPerSlide = 20;
+                if (tickerItem) {
+                    var width = tickerItem.offsetWidth;
+                    var duration = Math.max(5, width / 90);
+                    tickerItem.style.animationDuration = duration + 's';
+                }
+                if (tickerTrack) {
+                    var wrap = tickerTrack.closest('.ticker-wrap');
+                    if (wrap) {
+                        var wrapW = wrap.offsetWidth;
+                        tickerTrack.style.setProperty('--ticker-slot-min', wrapW + 'px');
+                    }
+                    var slideCount = tickerTrack.querySelectorAll('.ticker-slide').length;
+                    tickerTrack.style.setProperty('--ticker-duration', (slideCount * speedPerSlide) + 's');
+                    var trackW = tickerTrack.offsetWidth;
+                    if (wrap && trackW > wrap.offsetWidth) {
+                        tickerTrack.style.setProperty('--ticker-scroll-end', '-' + (trackW - wrap.offsetWidth) + 'px');
+                    } else {
+                        tickerTrack.style.setProperty('--ticker-scroll-end', 'calc(-100% * (' + (tickerTrack.children.length - 1) + ') / ' + tickerTrack.children.length + ')');
+                    }
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', updateTickerSpeed);
+            } else {
+                updateTickerSpeed();
+            }
+            window.addEventListener('resize', updateTickerSpeed);
+        })();
+    </script>
+    {% endif %}
+
     {% if current_user.is_authenticated %}
     {% set current_role = session.get('current_role', current_user.role) %}
     {% if current_role not in current_user.get_roles() %}
@@ -624,6 +698,22 @@
                         </svg>
                         <span class="text-sm font-medium">{{ t('announcements') }}</span>
                     </a>
+
+                    {% if current_user.is_superadmin %}
+                    <a href="{{ url_for('admin.reklamalar') }}"
+                        class="sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-dark-300 hover:bg-dark-800 hover:text-white transition-all {% if request.endpoint == 'admin.reklamalar' %}active{% endif %}">
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="2" y="2" width="20" height="20" rx="2.5" stroke-width="2"/>
+                            <circle cx="5.5" cy="5.5" r="1" fill="currentColor"/>
+                            <circle cx="9.5" cy="5.5" r="1" fill="currentColor"/>
+                            <circle cx="13.5" cy="5.5" r="1" fill="currentColor"/>
+                            <text x="12" y="13.5" text-anchor="middle" font-size="3.5" font-weight="bold" fill="currentColor" font-family="system-ui, sans-serif">ADS</text>
+                            <line x1="5" y1="17" x2="15" y2="17" stroke-width="1.5" stroke-linecap="round"/>
+                            <line x1="5" y1="20" x2="10" y2="20" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        <span class="text-sm font-medium">{{ t('reklamalar') }}</span>
+                    </a>
+                    {% endif %}
 
                     <!-- ADMIN MENU -->
                     {% if current_role == 'admin' %}
@@ -1068,6 +1158,11 @@
             <!-- Header balandligi uchun bo'sh joy (fixed header ostida kontent chiqmasin) -->
             <div class="h-14 lg:h-16" aria-hidden="true"></div>
 
+            <!-- Ticker uchun joy (fixed ticker ostida kontent chiqmasin) -->
+            {% if ticker_visible %}
+            <div class="h-8" aria-hidden="true"></div>
+            {% endif %}
+
             <!-- Flash messages -->
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -1126,8 +1221,12 @@
         </div>
     </div>
     {% else %}
-    {% block full_content %}{% endblock %}
+    <div class="{% if ticker_visible and request.endpoint not in ['auth.login', 'auth.forgot_password', 'auth.reset_password'] %}pt-8{% endif %} min-h-screen w-full overflow-x-hidden">
+        {% block full_content %}{% endblock %}
+    </div>
     {% endif %}
+
+    {% block modals %}{% endblock %}
 
     {% block scripts %}{% endblock %}
     <script>

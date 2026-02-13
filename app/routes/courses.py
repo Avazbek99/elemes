@@ -337,6 +337,59 @@ def student_can_access_assignment(assignment, user):
     return True  # Umumiy topshiriq (group_id va direction_id None)
 
 
+def _compute_display_order_in_type_for_lessons(lessons, subject_id, direction_id, group=None):
+    """Har bir mavzu uchun dars turi ichidagi tartib raqamini (display_order_in_type) hisoblash.
+    group berilsa – faqat shu guruh kontekstidagi mavzular hisobga olinadi (semester, enrollment_year, education_type)."""
+    if not lessons or direction_id is None:
+        return
+    # Guruh kontekstidagi guruh ID lari (group berilsa – faqat bir xil semester/yil/ta'lim shaklidagi guruhlar)
+    direction_group_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
+    if group and direction_group_ids:
+        cohort_group_ids = [
+            g.id for g in Group.query.filter(
+                Group.direction_id == direction_id,
+                Group.semester == group.semester,
+                Group.enrollment_year == group.enrollment_year,
+                Group.education_type == group.education_type
+            ).all()
+        ]
+        if cohort_group_ids:
+            direction_group_ids = cohort_group_ids
+    # Yo'nalish bo'yicha: direction_id to'g'ridan-to'g'ri yoki guruh orqali
+    raw_by_dir = Lesson.query.filter_by(
+        subject_id=subject_id,
+        direction_id=direction_id
+    ).order_by(Lesson.order).all()
+    raw_by_group = []
+    if direction_group_ids:
+        raw_by_group = Lesson.query.filter(
+            Lesson.subject_id == subject_id,
+            Lesson.group_id.in_(direction_group_ids)
+        ).order_by(Lesson.order).all()
+    seen_ids = {l.id for l in raw_by_dir}
+    raw_lessons = list(raw_by_dir)
+    for l in raw_by_group:
+        if l.id not in seen_ids:
+            seen_ids.add(l.id)
+            raw_lessons.append(l)
+    # group berilsa – direction-level mavzularni saqlaymiz, lekin group-level faqat cohort guruhlardan
+    if group and direction_group_ids:
+        cohort_set = set(direction_group_ids)
+        raw_lessons = [
+            l for l in raw_lessons
+            if l.group_id is None or l.group_id in cohort_set
+        ]
+    raw_lessons.sort(key=lambda x: (x.order or 0, x.id))
+    type_counters = defaultdict(int)
+    display_order_map = {}
+    for lesson in raw_lessons:
+        lt = _normalize_lesson_type_to_canonical(lesson.lesson_type) or (lesson.lesson_type or '').strip().lower() or ''
+        type_counters[lt] += 1
+        display_order_map[lesson.id] = type_counters[lt]
+    for lesson in lessons:
+        lesson.display_order_in_type = display_order_map.get(lesson.id, lesson.order)
+
+
 bp = Blueprint('courses', __name__, url_prefix='/subjects')
 
 @bp.route('/')
@@ -3592,10 +3645,21 @@ def edit_lesson(id):
     check_dir_id = direction_id or lesson.direction_id
     if check_dir_id:
         direction_group_ids_calc = [g.id for g in Group.query.filter_by(direction_id=check_dir_id).all()]
-        curriculum_item_calc = DirectionCurriculum.query.filter_by(
+        groups_without_direction = [g.id for g in Group.query.filter(Group.direction_id.is_(None)).all()]
+        allowed_group_ids_calc = direction_group_ids_calc + groups_without_direction
+        # Create bilan bir xil: guruh konteksti bo'yicha o'quv rejasini olish (semester, enrollment_year, education_type)
+        context_group_calc = Group.query.get(group_id_param) if group_id_param else None
+        if not context_group_calc and lesson.group_id:
+            context_group_calc = Group.query.get(lesson.group_id)
+        if not context_group_calc and direction_group_ids_calc:
+            context_group_calc = Group.query.get(direction_group_ids_calc[0])
+        curr_query_calc = DirectionCurriculum.query.filter_by(
             direction_id=check_dir_id,
             subject_id=subject.id
-        ).first()
+        )
+        if context_group_calc and context_group_calc.semester:
+            curr_query_calc = curr_query_calc.filter_by(semester=context_group_calc.semester)
+        curriculum_item_calc = DirectionCurriculum.filter_by_group_context(curr_query_calc, context_group_calc).first() if context_group_calc else curr_query_calc.first()
         
         # O'quv rejada qaysi dars turlariga soat berilgan
         curriculum_lesson_types = set()
@@ -3615,11 +3679,12 @@ def edit_lesson(id):
         teacher_assignments_calc = TeacherSubject.query.filter(
             TeacherSubject.teacher_id == current_user.id,
             TeacherSubject.subject_id == subject.id,
-            TeacherSubject.group_id.in_(direction_group_ids_calc)
+            TeacherSubject.group_id.in_(allowed_group_ids_calc)
         ).all()
         for ta in teacher_assignments_calc:
-            if ta.lesson_type:
-                lesson_types_set.add(ta.lesson_type)
+            canonical = _normalize_lesson_type_to_canonical(ta.lesson_type)
+            if canonical:
+                lesson_types_set.add(canonical)
         
         # Faqat o'quv rejada soati bor dars turlarini qoldirish (rejadan o'chirilgan tur ko'rinmasin)
         if curriculum_lesson_types:
@@ -3628,18 +3693,18 @@ def edit_lesson(id):
             if (curriculum_item_calc.hours_laboratoriya or 0) > 0:
                 lab_teacher_calc = TeacherSubject.query.filter(
                     TeacherSubject.subject_id == subject.id,
-                    TeacherSubject.group_id.in_(direction_group_ids_calc),
+                    TeacherSubject.group_id.in_(allowed_group_ids_calc),
                     TeacherSubject.teacher_id == current_user.id,
-                    TeacherSubject.lesson_type.in_(['laboratoriya', 'amaliyot'])
+                    db.func.lower(TeacherSubject.lesson_type).in_(['laboratoriya', 'amaliyot', 'lab', 'amal'])
                 ).first()
                 if lab_teacher_calc:
                     lesson_types_set.add('laboratoriya')
             if (curriculum_item_calc.hours_kurs_ishi or 0) > 0:
                 kurs_teacher_calc = TeacherSubject.query.filter(
                     TeacherSubject.subject_id == subject.id,
-                    TeacherSubject.group_id.in_(direction_group_ids_calc),
+                    TeacherSubject.group_id.in_(allowed_group_ids_calc),
                     TeacherSubject.teacher_id == current_user.id,
-                    TeacherSubject.lesson_type.in_(['kurs_ishi', 'amaliyot'])
+                    db.func.lower(TeacherSubject.lesson_type).in_(['kurs_ishi', 'amaliyot', 'kurs'])
                 ).first()
                 if kurs_teacher_calc:
                     lesson_types_set.add('kurs_ishi')
@@ -3663,6 +3728,21 @@ def edit_lesson(id):
         # Admin uchun: yo'nalish bo'lsa faqat o'quv rejadagi turlarni ko'rsatish (o'qituvchi biriktirishisiz)
         if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher' and curriculum_lesson_types and not allowed_lesson_types:
             allowed_lesson_types = [{'value': t, 'name': lesson_type_names_map.get(t, t.capitalize())} for t in sorted_types if t in curriculum_lesson_types]
+        
+        # O'qituvchi darsni tahrirlay oladi lekin dars turi ro'yxatda yo'q bo'lsa – joriy dars turini qo'shish (yaratgan darsini ko'rsatish uchun)
+        if current_role == 'teacher' and lesson.lesson_type:
+            lt_normalized = _normalize_lesson_type_to_canonical(lesson.lesson_type)
+            if lt_normalized and lt_normalized in ('maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'):
+                if not any(a['value'] == lt_normalized for a in allowed_lesson_types):
+                    allowed_lesson_types.append({'value': lt_normalized, 'name': lesson_type_names_map.get(lt_normalized, lt_normalized.capitalize())})
+    
+    # Yo'nalish bo'lmaganda yoki allowed_lesson_types bo'sh bo'lsa – o'qituvchi o'z darsining turini ko'rsatish uchun qo'shish
+    if (not allowed_lesson_types or not check_dir_id) and current_role == 'teacher' and lesson.lesson_type:
+        lt = _normalize_lesson_type_to_canonical(lesson.lesson_type)
+        if lt and lt in ('maruza', 'amaliyot', 'laboratoriya', 'seminar', 'kurs_ishi'):
+            lesson_type_names_map = {'maruza': 'Maruza', 'amaliyot': 'Amaliyot', 'laboratoriya': 'Laboratoriya', 'seminar': 'Seminar', 'kurs_ishi': 'Kurs ishi'}
+            if not any(a['value'] == lt for a in allowed_lesson_types):
+                allowed_lesson_types.append({'value': lt, 'name': lesson_type_names_map.get(lt, lt.capitalize())})
 
     # Edit sahifasida joriy mavzu fayl(lar)ni ko'rsatish uchun ro'yxat
     lesson_files_list, current_file_urls = parse_lesson_file_data(lesson.file_url)
@@ -4836,11 +4916,15 @@ def assignment_detail(id):
             key=lambda s: (s.full_name or '').upper()
         )
         
-        # Tegishli mavzular
+        # Tegishli mavzular – dars turi bo'yicha tartib raqamini hisoblash
         lesson_ids = assignment.get_lesson_ids_list() if assignment.lesson_ids else []
         related_lessons = []
         if lesson_ids:
             related_lessons = Lesson.query.filter(Lesson.id.in_(lesson_ids)).all()
+            dir_id = assignment.direction_id or (assignment.group.direction_id if assignment.group else None)
+            if related_lessons and dir_id:
+                _compute_display_order_in_type_for_lessons(related_lessons, assignment.subject_id, dir_id, group=assignment.group)
+                related_lessons = sorted(related_lessons, key=lambda l: ((l.lesson_type or ''), getattr(l, 'display_order_in_type', l.order or 0)))
         
         # Har bir talaba uchun eng yuqori ballni hisoblash
         student_highest_scores = {}
@@ -4913,11 +4997,15 @@ def assignment_detail(id):
         else:
             is_overdue = False
         
-        # Tegishli mavzular
+        # Tegishli mavzular – dars turi bo'yicha tartib raqamini hisoblash
         lesson_ids = assignment.get_lesson_ids_list() if assignment.lesson_ids else []
         related_lessons = []
         if lesson_ids:
             related_lessons = Lesson.query.filter(Lesson.id.in_(lesson_ids)).all()
+            dir_id = assignment.direction_id or (assignment.group.direction_id if assignment.group else None) or (related_lessons[0].direction_id if related_lessons else None)
+            if related_lessons and dir_id:
+                _compute_display_order_in_type_for_lessons(related_lessons, assignment.subject_id, dir_id, group=assignment.group)
+                related_lessons = sorted(related_lessons, key=lambda l: ((l.lesson_type or ''), getattr(l, 'display_order_in_type', l.order or 0)))
         
         # O'qituvchi yoki admin uchun statistika
         is_viewer_teacher = TeacherSubject.query.filter_by(

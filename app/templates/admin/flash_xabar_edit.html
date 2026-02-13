@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('flash_xabar_settings') }}{% endblock %}
+
+{% block content %}
+<style>
+.form-check-input-radio {
+    width: 1.25em;
+    height: 1.25em;
+    margin: 0;
+    border: 1px solid #dee2e6;
+    border-radius: 50%;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.form-check-input-radio:checked {
+    background-color: #0ea5e9;
+    border-color: #0ea5e9;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+}
+.form-check-input-radio:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(14, 165, 233, 0.25);
+}
+.form-check-label-radio {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+}
+.form-switch-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+.form-switch-slider {
+    position: relative;
+    display: inline-block;
+    width: 3em;
+    height: 1.5em;
+    background-color: #dee2e6;
+    border-radius: 2em;
+    flex-shrink: 0;
+    transition: background-color 0.15s ease-in-out;
+}
+.form-switch-slider::before {
+    content: '';
+    position: absolute;
+    top: 0.125em;
+    left: 0.125em;
+    width: 1.25em;
+    height: 1.25em;
+    background-color: #fff;
+    border-radius: 2em;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease-in-out;
+}
+.form-switch-input:checked + .form-switch-slider {
+    background-color: #0ea5e9;
+}
+.form-switch-input:checked + .form-switch-slider::before {
+    transform: translateX(1.5em);
+}
+</style>
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('admin.reklamalar') }}" class="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                {{ t('back') }}
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('flash_xabar_settings') }}</h1>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <form action="{{ url_for('admin.update_flash_message', fm_id=fm.id) if fm else url_for('admin.update_flash_message') }}" method="POST" class="p-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="space-y-4">
+                {% set lang_labels = {'uz': "O'zbek", 'ru': 'Русский', 'en': 'English'} %}
+                {% for lang in site_langs %}
+                {% set txt = (fm.text_uz if lang == 'uz' else (fm.text_ru if lang == 'ru' else fm.text_en)) if fm else '' %}
+                <div>
+                    <label for="ticker_text_{{ lang }}" class="block text-sm font-medium text-gray-700 mb-1">{{ t('flash_xabar_text') }} ({{ lang_labels.get(lang, lang) }})</label>
+                    <textarea name="ticker_text_{{ lang }}" id="ticker_text_{{ lang }}" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        placeholder="{{ t('flash_xabar_text_placeholder') }}">{{ txt or '' }}</textarea>
+                </div>
+                {% endfor %}
+                <div>
+                    <label for="ticker_url" class="block text-sm font-medium text-gray-700 mb-1">{{ t('flash_xabar_url_label') }}</label>
+                    <input type="text" name="ticker_url" id="ticker_url" value="{{ (fm.url or '') if fm else '' }}"
+                        placeholder="https://..."
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="ticker_date_from" class="block text-sm font-medium text-gray-700 mb-1">{{ t('start_date') }}</label>
+                        <input type="text" name="ticker_date_from" id="ticker_date_from" value="{{ fm.date_from.strftime('%Y-%m-%d') if fm and fm.date_from else '' }}"
+                            placeholder="{{ t('date_placeholder') }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date">
+                    </div>
+                    <div>
+                        <label for="ticker_date_to" class="block text-sm font-medium text-gray-700 mb-1">{{ t('end_date') }}</label>
+                        <input type="text" name="ticker_date_to" id="ticker_date_to" value="{{ fm.date_to.strftime('%Y-%m-%d') if fm and fm.date_to else '' }}"
+                            placeholder="{{ t('date_placeholder') }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date">
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 -mt-2">{{ t('flash_xabar_date_hint') }}</p>
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('flash_xabar_color') }}</label>
+                        <div class="flex items-center gap-6">
+                            <label class="form-check-radio inline-flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="ticker_text_color" value="white" {% if not fm or not fm.text_color or fm.text_color == 'white' %}checked{% endif %} class="form-check-input-radio">
+                                <span class="form-check-label-radio">{{ t('flash_xabar_color_white') }}</span>
+                            </label>
+                            <label class="form-check-radio inline-flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="ticker_text_color" value="red" {% if fm and fm.text_color == 'red' %}checked{% endif %} class="form-check-input-radio">
+                                <span class="form-check-label-radio">{{ t('flash_xabar_color_red') }}</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <label class="form-switch-radio group inline-flex items-center gap-2.5 cursor-pointer">
+                            <input type="checkbox" name="ticker_enabled" value="1" {% if fm and fm.enabled %}checked{% endif %} class="form-switch-input">
+                            <span class="form-switch-slider"></span>
+                            <span class="form-check-label-radio">{{ t('flash_xabar_enabled') }}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <a href="{{ url_for('admin.reklamalar') }}" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">{{ t('back') }}</a>
+                <button type="submit" class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">{{ t('save') }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

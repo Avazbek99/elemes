@@ -437,6 +437,43 @@ class SiteSetting(db.Model):
         db.session.commit()
 
 
+# ==================== FLASH XABAR ====================
+class FlashMessage(db.Model):
+    """Flash xabar (banner) – bir nechta yaratilishi mumkin, sarlavxada tanlangan til bo'yicha ko'rsatiladi"""
+    __tablename__ = 'flash_message'
+    id = db.Column(db.Integer, primary_key=True)
+    text_uz = db.Column(db.Text, default='')
+    text_ru = db.Column(db.Text, default='')
+    text_en = db.Column(db.Text, default='')
+    url = db.Column(db.String(500), default='')
+    text_color = db.Column(db.String(20), default='white')  # white, red
+    enabled = db.Column(db.Boolean, default=True)
+    date_from = db.Column(db.Date, nullable=True)
+    date_to = db.Column(db.Date, nullable=True)
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def get_text(self, lang):
+        """Tanlangan til bo'yicha matn olish"""
+        if lang == 'uz':
+            return (self.text_uz or '').strip()
+        if lang == 'ru':
+            return (self.text_ru or '').strip()
+        if lang == 'en':
+            return (self.text_en or '').strip()
+        return (self.text_uz or '').strip()
+
+    def is_in_date_range(self, d=None):
+        """Berilgan sana muddat ichidami"""
+        if d is None:
+            d = date.today()
+        if self.date_from and d < self.date_from:
+            return False
+        if self.date_to and d > self.date_to:
+            return False
+        return True
+
+
 # ==================== FOYDALANUVCHI ====================
 class User(UserMixin, db.Model):
     """Foydalanuvchi modeli"""

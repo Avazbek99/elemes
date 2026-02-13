@@ -78,7 +78,7 @@
                 {% for lesson in related_lessons %}
                 <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}"
                     class="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors">
-                    {{ lesson.order }}. {{ lesson.title }}
+                    {{ lesson.display_order_in_type|default(lesson.order) }}. {{ lesson.title }}
                 </a>
                 {% endfor %}
             </div>

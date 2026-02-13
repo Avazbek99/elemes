@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session, current_app
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, RolePermission, StudentPayment, DirectionCurriculum, Message, Submission, Lesson, LessonView, Announcement, PasswordResetToken, SiteSetting
+from app.models import User, Faculty, Group, Subject, TeacherSubject, Assignment, Direction, GradeScale, Schedule, UserRole, RolePermission, StudentPayment, DirectionCurriculum, Message, Submission, Lesson, LessonView, Announcement, PasswordResetToken, SiteSetting, FlashMessage
 from app import db
 from functools import wraps
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy import func, or_, exists
 
 from app.utils.excel_export import create_all_users_excel, create_subjects_excel
@@ -267,6 +267,95 @@ def role_settings():
 
 
 SITE_LANGS = ['uz', 'ru', 'en']
+
+@bp.route('/reklamalar')
+@login_required
+@superadmin_required
+def reklamalar():
+    """Reklamalar – Flash xabarlar ro'yxati (faqat superadmin)."""
+    flash_messages = FlashMessage.query.order_by(FlashMessage.sort_order.asc(), FlashMessage.id.asc()).all()
+    return render_template(
+        'admin/reklamalar.html',
+        flash_messages=flash_messages,
+        site_langs=SITE_LANGS,
+    )
+
+
+@bp.route('/reklamalar/flash-xabar', methods=['GET'])
+@bp.route('/reklamalar/flash-xabar/<int:fm_id>', methods=['GET'])
+@login_required
+@superadmin_required
+def flash_xabar_edit(fm_id=None):
+    """Flash xabar qo'shish/tahrirlash – alohida sahifa (faqat superadmin)."""
+    fm = FlashMessage.query.get(fm_id) if fm_id else None
+    if fm_id and not fm:
+        flash(t('not_found'), 'error')
+        return redirect(url_for('admin.reklamalar'))
+    return render_template(
+        'admin/flash_xabar_edit.html',
+        fm=fm,
+        site_langs=SITE_LANGS,
+    )
+
+
+@bp.route('/flash-message/update', methods=['POST'])
+@bp.route('/flash-message/update/<int:fm_id>', methods=['POST'])
+@login_required
+@superadmin_required
+def update_flash_message(fm_id=None):
+    """Flash xabar sozlamalarini saqlash (faqat superadmin)."""
+    fm = FlashMessage.query.get(fm_id) if fm_id else None
+    if fm_id and not fm:
+        flash(t('not_found'), 'error')
+        return redirect(url_for('admin.reklamalar'))
+    if not fm:
+        fm = FlashMessage()
+        db.session.add(fm)
+    fm.text_uz = (request.form.get('ticker_text_uz') or '').strip()
+    fm.text_ru = (request.form.get('ticker_text_ru') or '').strip()
+    fm.text_en = (request.form.get('ticker_text_en') or '').strip()
+    fm.url = (request.form.get('ticker_url') or '').strip()
+    fm.text_color = (request.form.get('ticker_text_color') or 'white').strip().lower()
+    fm.enabled = request.form.get('ticker_enabled') == '1'
+    df = (request.form.get('ticker_date_from') or '').strip()
+    dt = (request.form.get('ticker_date_to') or '').strip()
+    try:
+        fm.date_from = date.fromisoformat(df) if df else None
+    except (ValueError, TypeError):
+        fm.date_from = None
+    try:
+        fm.date_to = date.fromisoformat(dt) if dt else None
+    except (ValueError, TypeError):
+        fm.date_to = None
+    fm.sort_order = fm.sort_order or 0
+    db.session.commit()
+    flash(t('flash_xabar_saved'), 'success')
+    return redirect(url_for('admin.reklamalar'))
+
+
+@bp.route('/flash-message/toggle/<int:fm_id>', methods=['POST'])
+@login_required
+@superadmin_required
+def toggle_flash_message(fm_id):
+    """Flash xabar faolligini o'zgartirish (yoqish/o'chirish)."""
+    fm = FlashMessage.query.get_or_404(fm_id)
+    fm.enabled = not fm.enabled
+    db.session.commit()
+    flash(t('flash_xabar_saved'), 'success')
+    return redirect(url_for('admin.reklamalar'))
+
+
+@bp.route('/flash-message/delete/<int:fm_id>', methods=['POST'])
+@login_required
+@superadmin_required
+def delete_flash_message(fm_id):
+    """Flash xabarni butunlay o'chirish."""
+    fm = FlashMessage.query.get_or_404(fm_id)
+    db.session.delete(fm)
+    db.session.commit()
+    flash(t('flash_xabar_deleted'), 'success')
+    return redirect(url_for('admin.reklamalar'))
+
 
 @bp.route('/site-settings', methods=['GET', 'POST'])
 @login_required

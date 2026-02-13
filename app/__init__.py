@@ -57,6 +57,38 @@ def create_app(config_class=Config):
                 conn.close()
         except Exception as e:
             app.logger.warning("superadmin_flag migration: %s", e)
+        try:
+            from app.models import FlashMessage, SiteSetting
+            from datetime import date
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            if 'flash_message' in inspector.get_table_names() and FlashMessage.query.count() == 0:
+                tuz = (SiteSetting.get('ticker_text_uz') or '').strip()
+                tru = (SiteSetting.get('ticker_text_ru') or '').strip()
+                ten = (SiteSetting.get('ticker_text_en') or '').strip()
+                tmain = (SiteSetting.get('ticker_text') or '').strip()
+                if tuz or tru or ten or tmain:
+                    fm = FlashMessage()
+                    fm.text_uz = tuz or tmain
+                    fm.text_ru = tru or tmain
+                    fm.text_en = ten or tmain
+                    fm.url = (SiteSetting.get('ticker_url') or '').strip()
+                    fm.text_color = (SiteSetting.get('ticker_text_color') or 'white').strip().lower()
+                    fm.enabled = (SiteSetting.get('ticker_enabled') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+                    df = (SiteSetting.get('ticker_date_from') or '').strip()
+                    dt = (SiteSetting.get('ticker_date_to') or '').strip()
+                    try:
+                        fm.date_from = date.fromisoformat(df) if df else None
+                    except (ValueError, TypeError):
+                        fm.date_from = None
+                    try:
+                        fm.date_to = date.fromisoformat(dt) if dt else None
+                    except (ValueError, TypeError):
+                        fm.date_to = None
+                    db.session.add(fm)
+                    db.session.commit()
+        except Exception as e:
+            app.logger.warning("flash_message data migration: %s", e)
     # Session timeout middleware
     @app.before_request
     def make_session_permanent():
@@ -172,7 +204,8 @@ def create_app(config_class=Config):
         from flask import session
         from flask_login import current_user
         from app.utils.translations import get_translation
-        from app.models import Message, SiteSetting
+        from app.models import Message, SiteSetting, FlashMessage
+        from datetime import date
         
         lang = session.get('language', 'uz')
         
@@ -190,6 +223,50 @@ def create_app(config_class=Config):
         site_tagline = (SiteSetting.get('tagline_' + lang) or '').strip()
         site_logo_path = (SiteSetting.get('logo_path_' + lang) or '').strip()
         site_logo_filename = (site_logo_path.replace('\\', '/').split('/')[-1] or '') if site_logo_path else ''
+        ticker_text = ''
+        ticker_url = ''
+        ticker_text_color = 'white'
+        ticker_visible = False
+        ticker_items = []  # Barcha faol va muddatiga mos flash xabarlar
+        try:
+            fm_list = FlashMessage.query.filter_by(enabled=True).order_by(FlashMessage.sort_order.asc(), FlashMessage.id.asc()).all()
+            for fm in fm_list:
+                if fm.is_in_date_range():
+                    txt = fm.get_text(lang)
+                    if txt:
+                        ticker_items.append({
+                            'text': txt,
+                            'url': (fm.url or '').strip(),
+                            'text_color': (fm.text_color or 'white').strip().lower()
+                        })
+                        ticker_visible = True
+            if ticker_items and not ticker_text:
+                ticker_text = ticker_items[0]['text']
+                ticker_url = ticker_items[0]['url']
+                ticker_text_color = ticker_items[0]['text_color']
+        except Exception:
+            pass
+        if not ticker_visible and not ticker_text:
+            ticker_enabled = (SiteSetting.get('ticker_enabled') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+            ticker_text = (SiteSetting.get('ticker_text_' + lang) or SiteSetting.get('ticker_text') or '').strip()
+            ticker_url = (SiteSetting.get('ticker_url') or '').strip()
+            ticker_text_color = (SiteSetting.get('ticker_text_color') or 'white').strip().lower()
+            ticker_date_from = (SiteSetting.get('ticker_date_from') or '').strip()
+            ticker_date_to = (SiteSetting.get('ticker_date_to') or '').strip()
+            ticker_in_range = True
+            if ticker_date_from or ticker_date_to:
+                try:
+                    today = date.today()
+                    if ticker_date_from:
+                        ticker_in_range = today >= date.fromisoformat(ticker_date_from)
+                    if ticker_date_to:
+                        ticker_in_range = ticker_in_range and today <= date.fromisoformat(ticker_date_to)
+                except (ValueError, TypeError):
+                    ticker_in_range = True
+                    ticker_visible = ticker_enabled and bool(ticker_text) and ticker_in_range
+        ticker_enabled = ticker_visible if 'ticker_enabled' not in dir() or not any([
+            k for k in ('ticker_enabled',) if k in dir()
+        ]) else (ticker_enabled if 'ticker_enabled' in dir() else ticker_visible)
         return {
             't': lambda key, **kwargs: get_translation(key, lang, **kwargs),
             't_lang': lambda key, l, **kwargs: get_translation(key, l, **kwargs),
@@ -200,6 +277,12 @@ def create_app(config_class=Config):
             'site_tagline': site_tagline,
             'site_logo_path': site_logo_path,
             'site_logo_filename': site_logo_filename,
+            'ticker_enabled': ticker_enabled,
+            'ticker_text': ticker_text,
+            'ticker_url': ticker_url,
+            'ticker_text_color': ticker_text_color,
+            'ticker_visible': ticker_visible,
+            'ticker_items': ticker_items,
             'languages': {
                 'uz': {'code': 'uz', 'name': 'O\'zbek', 'flag': '🇺🇿'},
                 'ru': {'code': 'ru', 'name': 'Русский', 'flag': '🇷🇺'},
