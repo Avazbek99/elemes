@@ -2603,6 +2603,9 @@ def update_semester_curriculum(id, semester, year=None, education_type=None):
         # Kurs ishi 1 soat (agar belgilangan bo'lsa)
         item.hours_kurs_ishi = 1 if has_kurs_ishi else 0
         
+        # Soatlari 0 qilingan dars turlariga biriktirilgan o'qituvchilarni bekor qilish
+        DirectionCurriculum.remove_teacher_assignments_for_zeroed_hours(item)
+        
         updated_count += 1
         
     db.session.commit()

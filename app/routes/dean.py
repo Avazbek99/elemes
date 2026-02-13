@@ -2679,6 +2679,7 @@ def update_curriculum_item(id, item_id):
     item.hours_kurs_ishi = request.form.get('hours_kurs_ishi', type=int) or 0
     item.hours_mustaqil = request.form.get('hours_mustaqil', type=int) or 0
     
+    DirectionCurriculum.remove_teacher_assignments_for_zeroed_hours(item)
     db.session.commit()
     flash(t('curriculum_updated', semester=1), 'success')  # Note: semester not available, using default
     return redirect(url_for('dean.direction_curriculum', id=id))
@@ -2719,6 +2720,9 @@ def update_semester_curriculum(id, semester, year=None, education_type=None):
         # Kurs ishi checkbox - agar belgilangan bo'lsa 1, aks holda 0
         kurs_ishi_values = request.form.getlist('hours_kurs_ishi')
         item.hours_kurs_ishi = 1 if item_id in kurs_ishi_values else 0
+        
+        # Soatlari 0 qilingan dars turlariga biriktirilgan o'qituvchilarni bekor qilish
+        DirectionCurriculum.remove_teacher_assignments_for_zeroed_hours(item)
         
         updated += 1
     

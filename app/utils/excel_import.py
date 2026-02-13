@@ -1609,6 +1609,7 @@ def import_curriculum_from_excel(file, direction_id, enrollment_year=None, educa
                     curriculum_item.hours_seminar = seminar
                     curriculum_item.hours_kurs_ishi = kurs_ishi
                     curriculum_item.hours_mustaqil = mustaqil
+                    DirectionCurriculum.remove_teacher_assignments_for_zeroed_hours(curriculum_item)
                     updated += 1
                 else:
                     # Yaratish

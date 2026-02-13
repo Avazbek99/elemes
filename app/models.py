@@ -373,6 +373,70 @@ class DirectionCurriculum(db.Model):
             or_(DirectionCurriculum.education_type.is_(None), DirectionCurriculum.education_type == (group.education_type if group else None))
         )
 
+    @staticmethod
+    def remove_teacher_assignments_for_zeroed_hours(curriculum_item):
+        """O'quv rejada soatlari 0 bo'lgan dars turlariga biriktirilgan o'qituvchilarni bekor qilish.
+        Bu dars turi soatlari o'chirilganda TeacherSubject yozuvlarini avtomatik o'chiradi."""
+        if not curriculum_item:
+            return 0
+        from app.models import TeacherSubject, Group
+        from sqlalchemy import or_, func
+        # Mos guruhlarni topish (yo'nalish, qabul yili, ta'lim shakli)
+        groups_q = Group.query.filter_by(direction_id=curriculum_item.direction_id)
+        if curriculum_item.enrollment_year is not None and curriculum_item.education_type:
+            groups_q = groups_q.filter(
+                Group.enrollment_year == curriculum_item.enrollment_year,
+                Group.education_type == curriculum_item.education_type
+            )
+        elif curriculum_item.enrollment_year is not None:
+            groups_q = groups_q.filter(Group.enrollment_year == curriculum_item.enrollment_year)
+        elif curriculum_item.education_type:
+            groups_q = groups_q.filter(Group.education_type == curriculum_item.education_type)
+        group_ids = [g.id for g in groups_q.all()]
+        if not group_ids:
+            return 0
+        # Soatlari 0 bo'lgan dars turlari
+        zeroed_types = []
+        if (curriculum_item.hours_maruza or 0) == 0:
+            zeroed_types.append('maruza')
+        if (curriculum_item.hours_amaliyot or 0) == 0:
+            zeroed_types.append('amaliyot')
+        if (curriculum_item.hours_laboratoriya or 0) == 0:
+            zeroed_types.append('laboratoriya')
+        if (curriculum_item.hours_seminar or 0) == 0:
+            zeroed_types.append('seminar')
+        if (curriculum_item.hours_kurs_ishi or 0) == 0:
+            zeroed_types.append('kurs_ishi')
+        if not zeroed_types:
+            return 0
+        # TeacherSubject.lesson_type ni kanonik formatga o'xshatish uchun variantlar
+        lt_variants = {
+            'maruza': ['maruza', 'maru', 'lect', 'лекция'],
+            'amaliyot': ['amaliyot', 'amal', 'prac', 'практика'],
+            'laboratoriya': ['laboratoriya', 'lab', 'lob', 'лаборатория'],
+            'seminar': ['seminar', 'sem', 'семинар'],
+            'kurs_ishi': ['kurs_ishi', 'kurs', 'course', 'курс'],
+        }
+        deleted_count = 0
+        for canon in zeroed_types:
+            variants = lt_variants.get(canon, [canon])
+            ts_query = TeacherSubject.query.filter(
+                TeacherSubject.subject_id == curriculum_item.subject_id,
+                TeacherSubject.group_id.in_(group_ids)
+            )
+            to_delete = []
+            for ts in ts_query.all():
+                raw = (ts.lesson_type or '').strip().lower()
+                if not raw:
+                    continue
+                matched = any(v in raw for v in variants) or raw == canon
+                if matched:
+                    to_delete.append(ts)
+            for ts in to_delete:
+                db.session.delete(ts)
+                deleted_count += 1
+        return deleted_count
+
 
 # ==================== O'QITUVCHI-FAN BOG'LANISHI ====================
 class TeacherSubject(db.Model):
