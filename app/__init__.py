@@ -1,4 +1,5 @@
 import os
+import random
 from flask import Flask, redirect, url_for, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -240,6 +241,8 @@ def create_app(config_class=Config):
                             'text_color': (fm.text_color or 'white').strip().lower()
                         })
                         ticker_visible = True
+            if ticker_items:
+                random.shuffle(ticker_items)
             if ticker_items and not ticker_text:
                 ticker_text = ticker_items[0]['text']
                 ticker_url = ticker_items[0]['url']

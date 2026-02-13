@@ -460,12 +460,9 @@
                 <div class="ticker-slide flex-shrink-0 flex items-center whitespace-nowrap px-4 font-bold text-sm" style="min-width: var(--ticker-slot-min, 400px);">
                     {% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener" class="no-underline {% if item.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ item.text }}</a>{% else %}<span class="{% if item.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ item.text }}</span>{% endif %}
                 </div>
-                <div class="ticker-gap flex-shrink-0 flex-none" style="width: var(--ticker-slot-min, 400px); min-width: var(--ticker-slot-min, 400px);"></div>
+                <div class="ticker-gap ticker-gap-short flex-shrink-0 flex-none" style="width: calc(var(--ticker-slot-min, 400px) * 0.35); min-width: calc(var(--ticker-slot-min, 400px) * 0.35);"></div>
                 {% endfor %}
-                <div class="ticker-slide flex-shrink-0 flex items-center whitespace-nowrap px-4 font-bold text-sm" style="min-width: var(--ticker-slot-min, 400px);">
-                    {% set first = ticker_items[0] %}
-                    {% if first.url %}<a href="{{ first.url }}" target="_blank" rel="noopener" class="no-underline {% if first.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ first.text }}</a>{% else %}<span class="{% if first.text_color == 'red' %}text-red-500{% else %}text-white{% endif %}">{{ first.text }}</span>{% endif %}
-                </div>
+                <div class="ticker-gap flex-shrink-0 flex-none" style="width: var(--ticker-slot-min, 400px); min-width: var(--ticker-slot-min, 400px);"></div>
             </div>
             {% elif ticker_text %}
             {% if ticker_url %}
