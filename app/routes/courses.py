@@ -986,8 +986,8 @@ def index():
                         if not ts.teacher_id or ts.teacher_id in seen_teachers:
                             continue
                         lt = _normalize_lesson_type_to_canonical(ts.lesson_type)
-                        if lt and lt not in active_types:
-                            continue  # O'quv rejada bu dars turi yo'q – ko'rsatmaslik
+                        if not lt or lt not in active_types:
+                            continue  # O'quv rejada bu dars turi yo'q yoki soatlari o'chirilgan – ko'rsatmaslik
                         teacher = User.query.get(ts.teacher_id)
                         if teacher:
                             teachers_list.append(teacher)
@@ -1181,16 +1181,8 @@ def index():
                             direction_id=direction.id
                         ).count()
                         
-                        # Bu fanga biriktirilgan o'qituvchilarni topish
-                        teachers = []
-                        ts_list = TeacherSubject.query.filter_by(
-                            subject_id=subject.id, 
-                            group_id=group.id
-                        ).all()
-                        for ts in ts_list:
-                            if ts.teacher:
-                                teachers.append(ts.teacher)
-                        
+                        # O'qituvchilar post-processing da filtr bilan qo'shiladi (o'quv rejaga mos)
+                        # curriculum_item saqlanadi – post-processing da xuddi shu o'quv rejadan foydalaniladi
                         subject_direction_data[key] = {
                             'subject': subject,
                             'direction': direction,
@@ -1200,7 +1192,8 @@ def index():
                             'credits': credits,
                             'lessons_count': lessons_count,
                             'assignments_count': assignments_count,
-                            'teachers': teachers 
+                            'teachers': [],
+                            '_curriculum_item': curriculum_item
                         }
                     
                     # Guruhni qo'shish
@@ -1215,9 +1208,24 @@ def index():
             # Fan kartasida faqat asosiy guruh (group_id) uchun biriktirilgan o'qituvchilarni ko'rsatish
             # va faqat o'quv rejada soatlari bo'lgan dars turlariga biriktirilganlarni (o'chirilgan turlar ko'rinmasin)
             primary_group_id = data.get('group_id')
+            curr_item = data.pop('_curriculum_item', None)  # O'quv reja (loop da saqlangan)
             if primary_group_id:
-                primary_group = Group.query.get(primary_group_id)
-                active_types = _get_active_lesson_types_for_subject_group(data['subject'].id, primary_group)
+                # Active types: saqlangan curriculum_item dan yoki qayta so'rovdan
+                if curr_item:
+                    active_types = set()
+                    if (curr_item.hours_maruza or 0) > 0:
+                        active_types.add('maruza')
+                    if (curr_item.hours_amaliyot or 0) > 0:
+                        active_types.add('amaliyot')
+                    if (curr_item.hours_laboratoriya or 0) > 0:
+                        active_types.add('laboratoriya')
+                    if (curr_item.hours_seminar or 0) > 0:
+                        active_types.add('seminar')
+                    if (curr_item.hours_kurs_ishi or 0) > 0:
+                        active_types.add('kurs_ishi')
+                else:
+                    primary_group = Group.query.get(primary_group_id)
+                    active_types = _get_active_lesson_types_for_subject_group(data['subject'].id, primary_group)
                 ts_list = TeacherSubject.query.filter_by(
                     subject_id=data['subject'].id,
                     group_id=primary_group_id
@@ -1228,8 +1236,8 @@ def index():
                     if not ts.teacher:
                         continue
                     lt = _normalize_lesson_type_to_canonical(ts.lesson_type)
-                    if lt and lt not in active_types:
-                        continue  # O'quv rejada bu dars turi yo'q – ko'rsatmaslik
+                    if not lt or lt not in active_types:
+                        continue  # O'quv rejada bu dars turi yo'q yoki soatlari o'chirilgan – ko'rsatmaslik
                     if ts.teacher.id not in seen_ids:
                         teachers_filtered.append(ts.teacher)
                         seen_ids.add(ts.teacher.id)

@@ -23,5 +23,3 @@ server.log
 *.db
 # instance papkasidagi baza GitHubga yuklansin
 !instance/eduspace.db
-# Ildizdagi nusxani ignore
-/eduspace.db
