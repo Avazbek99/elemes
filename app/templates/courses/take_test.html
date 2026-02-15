@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}{{ test.title }}{% endblock %}
+
+{% block content %}
+{% set back_url = url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id) if (direction_id and group_id) else (url_for('courses.detail', id=subject.id, dir_id=direction_id) if direction_id else url_for('courses.detail', id=subject.id)) %}
+<div class="w-full max-w-none -mx-3 lg:-mx-6 px-3 lg:px-6 pb-6 bg-gray-100/80 min-h-screen">
+    <div class="flex items-center justify-between bg-primary-600 text-white px-6 py-4 rounded-t-2xl">
+        <div>
+            <h1 class="text-xl font-bold">{{ test.title }}</h1>
+            <p class="text-sm text-white/90 mt-0.5">{{ subject.name }} • {{ questions|length }} {{ t('questions') }}</p>
+        </div>
+        <a href="{{ back_url }}" id="test-back-link" data-back-url="{{ back_url }}" class="p-2 rounded-lg hover:bg-white/20 transition-colors" title="{{ t('back') }}">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </a>
+    </div>
+
+    <div class="flex flex-col lg:flex-row gap-6 -mt-2 items-start">
+        <div class="flex-1 min-w-0 w-full">
+            <form method="POST" id="test-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="space-y-6 min-h-[400px]">
+                    {% for q in questions %}
+                    <div id="q-{{ loop.index }}" class="question-block bg-white rounded-2xl shadow-xl border border-gray-200 p-6 scroll-mt-4">
+                        <p class="font-semibold text-gray-900 mb-4">{{ loop.index }}. {{ q.text }}</p>
+                        <div class="space-y-2 pl-1">
+                            {% set correct_count = q.display_options|selectattr('is_correct')|list|length %}
+                            {% for opt in q.display_options %}
+                            <label class="flex items-start gap-3 p-3 rounded-xl bg-gray-50/50 hover:bg-primary-200 cursor-pointer border border-gray-100 hover:border-primary-400 hover:shadow-sm transition-all duration-200">
+                                {% if correct_count > 1 %}
+                                <input type="checkbox" name="q_{{ q.id }}" value="{{ opt.id }}"
+                                    class="mt-1 w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 question-input">
+                                {% else %}
+                                <input type="radio" name="q_{{ q.id }}" value="{{ opt.id }}"
+                                    class="mt-1 w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500 question-input">
+                                {% endif %}
+                                <span class="text-gray-700">{{ opt.text }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% if not questions %}
+                    <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+                        <p class="text-gray-500 py-8">{{ t('no_tests') }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <div class="w-full lg:w-auto lg:ml-auto shrink-0 lg:self-start mb-6 flex flex-col gap-4">
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sticky top-4 flex flex-col w-[28.35rem] max-h-[calc(100vh-10rem)] overflow-x-hidden shrink-0">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex-shrink-0">{{ t('answers_sidebar') }}</h3>
+                <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-4"
+                    style="scrollbar-gutter: stable;">
+                    <div class="grid gap-3 min-w-0 w-fit"
+                        style="grid-template-columns: repeat(8, 2.5rem); grid-auto-rows: 2.5rem;">
+                    {% for q in questions %}
+                    <button type="button" class="q-nav-btn w-10 h-10 rounded-full border-2 border-gray-200 text-gray-600 font-semibold hover:border-primary-500 hover:bg-primary-50 hover:text-primary-600 transition-colors flex items-center justify-center flex-shrink-0 leading-none pt-0.5"
+                        data-q="{{ loop.index }}">
+                        {{ loop.index }}
+                    </button>
+                    {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% if questions %}
+            <button type="submit" form="test-form"
+                class="w-full max-w-[28.35rem] px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors shrink-0">
+                {{ t('finish_test') }}
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const testId = {{ test.id }};
+    const storageKey = 'test_answers_' + testId;
+    const form = document.getElementById('test-form');
+    const backLink = document.getElementById('test-back-link');
+    const navBtns = document.querySelectorAll('.q-nav-btn');
+    const questionBlocks = document.querySelectorAll('.question-block');
+    const inputs = document.querySelectorAll('.question-input');
+    const msgLeave = {{ t('confirm_leave_test')|tojson }};
+    const msgFinish = {{ t('confirm_finish_test')|tojson }};
+
+    function clearAnswersAndGo(url) {
+        try { localStorage.removeItem(storageKey); } catch (e) {}
+        inputs.forEach(function(inp) { inp.checked = false; });
+        updateNavState();
+        window.location.href = url;
+    }
+
+    function saveAnswers() {
+        const answers = {};
+        inputs.forEach(function(inp) {
+            const m = inp.name.match(/^q_(\d+)$/);
+            if (!m) return;
+            const qId = m[1];
+            if (inp.checked) {
+                if (!answers[qId]) answers[qId] = [];
+                answers[qId].push(inp.value);
+            }
+        });
+        try { localStorage.setItem(storageKey, JSON.stringify(answers)); } catch (e) {}
+    }
+
+    function restoreAnswers() {
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) return;
+            const answers = JSON.parse(raw);
+            inputs.forEach(function(inp) {
+                const m = inp.name.match(/^q_(\d+)$/);
+                if (!m) return;
+                const vals = answers[m[1]];
+                if (Array.isArray(vals)) {
+                    inp.checked = vals.some(function(v) { return String(v) === inp.value; });
+                } else if (vals != null) {
+                    inp.checked = inp.value === String(vals);
+                }
+            });
+        } catch (e) {}
+    }
+
+    restoreAnswers();
+
+    navBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const q = parseInt(this.getAttribute('data-q'), 10);
+            const block = document.getElementById('q-' + q);
+            if (block) block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    function updateNavState() {
+        questionBlocks.forEach(function(block, i) {
+            const qNum = i + 1;
+            const btn = document.querySelector('.q-nav-btn[data-q="' + qNum + '"]');
+            if (!btn) return;
+            const qInputs = block.querySelectorAll('input[name^="q_"]');
+            const hasAnswer = Array.from(qInputs).some(function(inp) { return inp.checked; });
+            btn.classList.toggle('bg-primary-600', hasAnswer);
+            btn.classList.toggle('text-white', hasAnswer);
+            btn.classList.toggle('border-primary-600', hasAnswer);
+            btn.classList.toggle('border-gray-200', !hasAnswer);
+            btn.classList.toggle('text-gray-600', !hasAnswer);
+        });
+    }
+
+    form?.addEventListener('change', function() {
+        saveAnswers();
+        updateNavState();
+    });
+    form?.addEventListener('input', function() {
+        saveAnswers();
+        updateNavState();
+    });
+
+    backLink?.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (confirm(msgLeave)) {
+            clearAnswersAndGo(this.getAttribute('data-back-url') || this.href);
+        }
+    });
+
+    form?.addEventListener('submit', function(e) {
+        if (this.dataset.confirmed === '1') return;
+        e.preventDefault();
+        if (!confirm(msgFinish)) return;
+        this.dataset.confirmed = '1';
+        window.__testSubmitting = true;
+        var f = this;
+        fetch(f.action, { method: 'POST', body: new FormData(f), redirect: 'follow' })
+            .then(function(r) {
+                if (r.ok || r.redirected) {
+                    try { localStorage.removeItem(storageKey); } catch (err) {}
+                    if (r.redirected && r.url) window.location.href = r.url;
+                    else window.location.reload();
+                } else {
+                    f.dataset.confirmed = '';
+                    window.location.reload();
+                }
+            })
+            .catch(function() {
+                f.dataset.confirmed = '';
+                alert('Xatolik yuz berdi. Qayta urinib ko\'ring.');
+            });
+    });
+
+    window.addEventListener('beforeunload', function(e) {
+        if (window.__testSubmitting) return;
+        var hasAnswers = false;
+        inputs.forEach(function(inp) { if (inp.checked) hasAnswers = true; });
+        if (hasAnswers) {
+            e.preventDefault();
+            e.returnValue = msgLeave;
+            return msgLeave;
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        var a = e.target.closest('a');
+        if (!a || !a.href || a.id === 'test-back-link') return;
+        if (a.target === '_blank' || a.href.startsWith('javascript:') || a.getAttribute('href')?.startsWith('#')) return;
+        if (a.hostname !== window.location.hostname || a.pathname === window.location.pathname) return;
+        var hasAnswers = false;
+        inputs.forEach(function(inp) { if (inp.checked) hasAnswers = true; });
+        if (!hasAnswers) return;
+        e.preventDefault();
+        if (confirm(msgLeave)) {
+            clearAnswersAndGo(a.href);
+        }
+    }, true);
+
+    updateNavState();
+})();
+</script>
+{% endblock %}

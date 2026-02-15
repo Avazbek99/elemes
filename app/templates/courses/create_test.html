@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('create_test_title') }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    #test-content { overflow: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+    #test-content::-webkit-scrollbar { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-none pb-6 bg-gray-100/80 min-h-screen -mx-3 lg:-mx-6 px-3 lg:px-6 py-6">
+    <div class="mb-6">
+        <a href="{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id) if (direction_id and group_id) else (url_for('courses.detail', id=subject.id, dir_id=direction_id) if direction_id else url_for('courses.detail', id=subject.id)) }}"
+            class="text-sm text-gray-500 hover:text-primary-600">← {{ t('back') }}</a>
+        <h1 class="text-2xl font-bold text-gray-900 mt-2">{{ t('create_test_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('add_test_to_subject', subject=subject.name) }}</p>
+    </div>
+
+    <form method="POST" id="create-test-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        {% if direction_id %}<input type="hidden" name="direction_id" value="{{ direction_id }}" />{% endif %}
+        {% if group_id %}<input type="hidden" name="group_id" value="{{ group_id }}" />{% endif %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Chap panel: matn editor (textarea o'sgani sari card ham o'sadi) -->
+            <div id="left-card" class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 lg:sticky lg:top-4 lg:self-start">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('title') }} *</label>
+                <input type="text" name="title" id="test-title" value="{{ title or '' }}"
+                    placeholder="{{ subject.name }}{{ t('title_placeholder_suffix') }}" required spellcheck="false"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
+
+                <div id="preview-btn-top-wrap" class="flex items-center justify-between gap-4 mb-3">
+                    <label class="text-sm font-medium text-gray-700">{{ t('test_create_content') }}</label>
+                    <button type="button" class="btn-preview px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                        {{ t('view_preview') }} →
+                    </button>
+                </div>
+                <textarea name="content" id="test-content" rows="8"
+                    placeholder="{{ t('test_content_placeholder') }}" spellcheck="false"
+                    class="test-content-auto-resize w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none font-mono text-sm min-h-[120px]">{{ content or '' }}</textarea>
+                <div id="preview-btn-bottom-wrap" class="mt-4 flex justify-end hidden">
+                    <button type="button" class="btn-preview px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                        {{ t('view_preview') }} →
+                    </button>
+                </div>
+            </div>
+
+            <!-- O'ng panel: preview -->
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">{{ t('test_questions') }}</h3>
+                <div id="preview-area" class="min-h-[300px] p-5 bg-gray-50 rounded-xl border border-gray-200">
+                    <p class="text-gray-500 text-sm text-center py-8">{{ t('preview_placeholder') }}</p>
+                </div>
+                <div class="pt-4 mt-4 border-t border-gray-200 flex justify-end">
+                    <button type="submit" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors">
+                        {{ t('save') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+(function() {
+    const contentEl = document.getElementById('test-content');
+    const previewEl = document.getElementById('preview-area');
+    const btnPreview = document.querySelectorAll('.btn-preview');
+    const previewTitle = "{{ t('test_questions') }}";
+
+    function cleanOptionText(raw) {
+        let s = raw.trim();
+        while (s && (s[0] === '=' || s[0] === ' ' || s.startsWith('=====') || s.startsWith('===') || s.startsWith('='))) {
+            if (s.startsWith('=====')) s = s.slice(5).replace(/^\s+/, '');
+            else if (s.startsWith('===')) s = s.slice(3).replace(/^\s+/, '');
+            else if (s.startsWith('=')) s = s.slice(1).replace(/^\s+/, '');
+            else s = s.replace(/^\s+/, '');
+        }
+        const correct = s.startsWith('#');
+        if (correct) s = s.slice(1).trim();
+        return { text: s, correct };
+    }
+
+    function parseTestContent(text) {
+        if (!text || !text.trim()) return [];
+        const blocks = text.trim().split('+++++');
+        const questions = [];
+        for (const block of blocks) {
+            const b = block.trim();
+            if (!b) continue;
+            const parts = b.split('=====').map(p => p.trim()).filter(p => p);
+            if (parts.length < 2) continue;
+            const questionText = parts[0];
+            const options = [];
+            for (let i = 1; i < parts.length; i++) {
+                const { text, correct } = cleanOptionText(parts[i]);
+                if (text) options.push({ text, correct });
+            }
+            if (options.length) questions.push({ question: questionText, options });
+        }
+        return questions;
+    }
+
+    function renderPreview() {
+        const text = contentEl.value;
+        const questions = parseTestContent(text);
+        if (questions.length === 0) {
+            previewEl.innerHTML = '<p class="text-gray-500 text-sm text-center py-8">{{ t("preview_placeholder") }}</p>';
+            return;
+        }
+        let html = '';
+        questions.forEach((q, i) => {
+            html += '<div class="mb-8 p-5 bg-white rounded-xl border border-gray-200 shadow-sm">';
+            html += '<p class="font-semibold text-gray-900 text-base mb-4">' + (i + 1) + '. ' + escapeHtml(q.question) + '</p>';
+            const labels = ['a)', 'b)', 'c)', 'd)', 'e)', 'f)'];
+            q.options.forEach((opt, j) => {
+                const cls = opt.correct ? 'bg-gray-200' : 'bg-gray-50 hover:bg-gray-100';
+                html += '<div class="text-gray-800 text-base py-3 px-4 rounded-lg mb-1.5 ' + cls + '">' + labels[j] + ' ' + escapeHtml(opt.text) + '</div>';
+            });
+            html += '</div>';
+        });
+        previewEl.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    btnPreview.forEach(function(btn) { btn.addEventListener('click', renderPreview); });
+
+    // Pastdagi Ko'rish – faqat yuqoridagi scroll orqali yopilganda ko'rinsin
+    const btnTopWrap = document.getElementById('preview-btn-top-wrap');
+    const btnBottomWrap = document.getElementById('preview-btn-bottom-wrap');
+    if (btnTopWrap && btnBottomWrap && 'IntersectionObserver' in window) {
+        const io = new IntersectionObserver(function(entries) {
+            entries.forEach(function(e) {
+                btnBottomWrap.classList.toggle('hidden', e.isIntersecting);
+            });
+        }, { threshold: 0, rootMargin: '0px' });
+        io.observe(btnTopWrap);
+    }
+
+    // Textarea balandligini mazmunga qarab avtomatik oshirish
+    function autoResizeTextarea() {
+        contentEl.style.height = 'auto';
+        contentEl.style.height = Math.max(120, contentEl.scrollHeight) + 'px';
+    }
+    contentEl.addEventListener('input', autoResizeTextarea);
+    contentEl.addEventListener('paste', function() { setTimeout(autoResizeTextarea, 0); });
+    autoResizeTextarea();
+
+    // Birinchi yuklanganda agar content bo'lsa, preview ko'rsatish
+    if (contentEl.value.trim()) {
+        renderPreview();
+    }
+})();
+</script>
+{% endblock %}

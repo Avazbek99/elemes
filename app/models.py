@@ -847,6 +847,59 @@ class Submission(db.Model):
         return self.resubmission_count < max_resubmissions
 
 
+# ==================== TEST ====================
+class Test(db.Model):
+    """Test (savol-javob) modeli"""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    direction_id = db.Column(db.Integer, db.ForeignKey('direction.id'), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
+    max_score = db.Column(db.Float, default=100.0)
+    time_limit_minutes = db.Column(db.Integer, default=0)  # 0 = cheklovsiz
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    subject = db.relationship('Subject', backref='tests')
+    direction = db.relationship('Direction', backref='tests')
+    group = db.relationship('Group', backref='tests')
+    questions = db.relationship('TestQuestion', backref='test', lazy='dynamic', order_by='TestQuestion.order', cascade='all, delete-orphan')
+    submissions = db.relationship('TestSubmission', backref='test', lazy='dynamic', cascade='all, delete-orphan')
+
+
+class TestQuestion(db.Model):
+    """Test savoli"""
+    id = db.Column(db.Integer, primary_key=True)
+    test_id = db.Column(db.Integer, db.ForeignKey('test.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    order = db.Column(db.Integer, default=0)
+    points = db.Column(db.Float, default=1.0)
+    
+    options = db.relationship('TestOption', backref='question', lazy='dynamic', order_by='TestOption.order', cascade='all, delete-orphan')
+
+
+class TestOption(db.Model):
+    """Test javob variantlari"""
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer, db.ForeignKey('test_question.id'), nullable=False)
+    text = db.Column(db.String(500), nullable=False)
+    is_correct = db.Column(db.Boolean, default=False)
+    order = db.Column(db.Integer, default=0)
+
+
+class TestSubmission(db.Model):
+    """Talaba test topshirig'i"""
+    id = db.Column(db.Integer, primary_key=True)
+    test_id = db.Column(db.Integer, db.ForeignKey('test.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    score = db.Column(db.Float)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    answers_json = db.Column(db.Text)  # {"question_id": "option_id", ...}
+    
+    student = db.relationship('User', backref='test_submissions')
+
+
 # ==================== E'LON ====================
 class Announcement(db.Model):
     """E'lon modeli"""

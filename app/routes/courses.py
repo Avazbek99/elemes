@@ -1,6 +1,7 @@
 import os
 import uuid
 import json
+import random
 import re
 import html
 import requests
@@ -8,7 +9,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, send_from_directory, jsonify, Response, session
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from app.models import Subject, Lesson, Assignment, Submission, User, TeacherSubject, Group, LessonView, GradeScale, DirectionCurriculum, Direction, UserRole, Faculty
+from app.models import Subject, Lesson, Assignment, Submission, User, TeacherSubject, Group, LessonView, GradeScale, DirectionCurriculum, Direction, UserRole, Faculty, Test, TestQuestion, TestOption, TestSubmission
 from app import db
 from sqlalchemy import or_, cast, String
 from datetime import datetime, timedelta
@@ -2132,6 +2133,57 @@ def detail(id, dir_id=None, group_id=None, semester=None):
                         (Group.semester == requested_semester) | (Assignment.group_id.is_(None))
                     )
             assignments = assignments_query.all()
+
+    # Testlar ro'yxati (assignments logikasiga o'xshash)
+    tests = []
+    if (current_user.role == 'admin' or current_user.role == 'dean') and current_role != 'teacher':
+        tests_query = Test.query.filter_by(subject_id=subject.id)
+        if direction_id:
+            tests_query = tests_query.filter(
+                (Test.direction_id == direction_id) | (Test.direction_id.is_(None))
+            )
+        if requested_semester:
+            tests_query = tests_query.outerjoin(Group, Test.group_id == Group.id).filter(
+                (Group.semester == requested_semester) | (Test.group_id.is_(None))
+            )
+        tests = tests_query.order_by(Test.created_at.desc()).all()
+    elif current_role == 'student' and current_user.group_id:
+        tests_query = Test.query.filter_by(subject_id=subject.id).filter(
+            (Test.group_id == current_user.group_id) | (Test.group_id.is_(None))
+        )
+        if direction_id:
+            tests_query = tests_query.filter(
+                (Test.direction_id == direction_id) | (Test.direction_id.is_(None))
+            )
+        if requested_semester:
+            tests_query = tests_query.outerjoin(Group, Test.group_id == Group.id).filter(
+                (Group.semester == requested_semester) | (Test.group_id.is_(None))
+            )
+        tests = tests_query.order_by(Test.created_at.desc()).all()
+    elif current_role == 'teacher':
+        teacher_groups_ts = TeacherSubject.query.filter_by(
+            teacher_id=current_user.id,
+            subject_id=subject.id
+        ).all()
+        group_ids_ts = [tg.group_id for tg in teacher_groups_ts if tg.group_id]
+        if group_ids_ts:
+            if direction_id:
+                dir_gr_ids = [g.id for g in Group.query.filter_by(direction_id=direction_id).all()]
+                target_gr = [g for g in group_ids_ts if g in dir_gr_ids]
+            else:
+                target_gr = group_ids_ts
+            tests_query = Test.query.filter_by(subject_id=subject.id).filter(
+                (Test.group_id.in_(target_gr)) | (Test.group_id.is_(None))
+            )
+            if direction_id:
+                tests_query = tests_query.filter(
+                    (Test.direction_id == direction_id) | (Test.direction_id.is_(None))
+                )
+            if requested_semester:
+                tests_query = tests_query.outerjoin(Group, Test.group_id == Group.id).filter(
+                    (Group.semester == requested_semester) | (Test.group_id.is_(None))
+                )
+            tests = tests_query.order_by(Test.created_at.desc()).all()
     
     # Talaba uchun topshiriqlar holati va ballar
     assignment_status = {}
@@ -2971,6 +3023,7 @@ def detail(id, dir_id=None, group_id=None, semester=None):
                          seminar_lessons=seminar_lessons,
                          kurs_ishi_lessons=kurs_ishi_lessons,
                          assignments=assignments,
+                         tests=tests,
                          assignment_status=assignment_status,
                          assignment_hours_left=assignment_hours_left,
                          maruza_teachers=maruza_teachers,
@@ -4510,6 +4563,114 @@ def update_watch_time(id):
         })
     
     return jsonify({'success': True, 'watch_duration': 0})
+
+
+@bp.route('/<int:id>/tests/create', methods=['GET', 'POST'])
+@login_required
+def create_test(id):
+    """Test yaratish – matn formatida savollar (=====, #, +++++)"""
+    subject = Subject.query.get_or_404(id)
+    direction_id = request.args.get('direction_id', type=int) or request.form.get('direction_id', type=int)
+    group_id = request.args.get('group_id', type=int) or request.form.get('group_id', type=int)
+    current_role = session.get('current_role', current_user.role)
+    is_teacher = TeacherSubject.query.filter_by(teacher_id=current_user.id, subject_id=subject.id).first() is not None
+    has_admin_dean = current_role in ['admin', 'dean'] and (current_user.has_role('admin') or current_user.has_role('dean') or getattr(current_user, 'is_superadmin', False))
+    if not is_teacher and not has_admin_dean:
+        flash(t('no_permission_for_operation'), 'error')
+        return redirect(url_for('courses.detail', id=id, dir_id=direction_id, group_id=group_id))
+
+    if request.method == 'POST':
+        from app.utils.test_parser import parse_test_content
+        title = request.form.get('title', '').strip()
+        content = request.form.get('content', '').strip()
+        if not title:
+            flash(t('enter_title_please'), 'error')
+            return render_template('courses/create_test.html', subject=subject, direction_id=direction_id, group_id=group_id, content=content, title=title)
+        questions_data = parse_test_content(content)
+        if not questions_data:
+            flash(t('enter_test_questions_please'), 'error')
+            return render_template('courses/create_test.html', subject=subject, direction_id=direction_id, group_id=group_id, content=content, title=title)
+
+        test = Test(
+            title=title,
+            subject_id=subject.id,
+            direction_id=direction_id,
+            group_id=group_id,
+            created_by=current_user.id
+        )
+        db.session.add(test)
+        db.session.flush()
+        for i, qd in enumerate(questions_data):
+            q = TestQuestion(test_id=test.id, text=qd['question'], order=i + 1)
+            db.session.add(q)
+            db.session.flush()
+            for j, opt in enumerate(qd['options']):
+                o = TestOption(question_id=q.id, text=opt['text'], is_correct=opt['correct'], order=j + 1)
+                db.session.add(o)
+        db.session.commit()
+        flash(t('test_created_success'), 'success')
+        return redirect(url_for('courses.detail', id=id, dir_id=direction_id, group_id=group_id))
+
+    return render_template('courses/create_test.html', subject=subject, direction_id=direction_id, group_id=group_id)
+
+
+@bp.route('/tests/<int:id>', methods=['GET', 'POST'])
+@login_required
+def take_test(id):
+    """Test yechish – talabalar uchun"""
+    test = Test.query.get_or_404(id)
+    subject = test.subject
+    direction_id = test.direction_id
+    group_id = test.group_id
+
+    # Ruxsat: talaba, o'qituvchi yoki admin
+    current_role = session.get('current_role', current_user.role)
+    is_student = current_user.role == 'student'
+    is_teacher = TeacherSubject.query.filter_by(teacher_id=current_user.id, subject_id=subject.id).first() is not None
+    has_admin_dean = current_role in ['admin', 'dean'] and (current_user.has_role('admin') or current_user.has_role('dean') or getattr(current_user, 'is_superadmin', False))
+
+    if not (is_student or is_teacher or has_admin_dean):
+        flash(t('no_permission_for_operation'), 'error')
+        return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id))
+
+    if request.method == 'POST' and is_student:
+        answers = {}
+        for key in request.form:
+            if key.startswith('q_') and key[2:].isdigit():
+                qid = int(key[2:])
+                vals = request.form.getlist(key)
+                try:
+                    answers[qid] = [int(v) for v in vals if v]
+                except (ValueError, TypeError):
+                    answers[qid] = []
+        answers_json = json.dumps(answers)
+
+        # Ball hisoblash (birnechta to'g'ri javob – tanlangan va to'g'ri variantlar to'plami mos bo'lishi kerak)
+        correct_count = 0
+        total_questions = 0
+        for q in test.questions.order_by(TestQuestion.order).all():
+            total_questions += 1
+            correct_ids = set(o.id for o in q.options if o.is_correct)
+            selected_ids = set(answers.get(q.id, []))
+            if correct_ids == selected_ids:
+                correct_count += 1
+        max_score = test.max_score or 100.0
+        score = (correct_count / total_questions * max_score) if total_questions else 0
+
+        sub = TestSubmission(test_id=test.id, student_id=current_user.id, score=score, answers_json=answers_json)
+        db.session.add(sub)
+        db.session.commit()
+        flash(t('test_submitted_success'), 'success')
+        return redirect(url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id))
+
+    questions = list(test.questions.order_by(TestQuestion.order).all())
+    random.shuffle(questions)
+    for q in questions:
+        opts = list(q.options)
+        random.shuffle(opts)
+        q.display_options = opts
+    return render_template('courses/take_test.html', test=test, subject=subject, questions=questions,
+                          direction_id=direction_id, group_id=group_id)
 
 
 @bp.route('/<int:id>/assignments/create', methods=['GET', 'POST'])

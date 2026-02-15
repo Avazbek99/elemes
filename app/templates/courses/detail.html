@@ -50,7 +50,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-6 pb-6 bg-gray-100/80 min-h-screen">
     <div class="mb-4">
         <a href="{{ url_for('courses.index') }}"
             class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition-colors">
@@ -61,7 +61,7 @@
         </a>
     </div>
     <!-- Header -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
         {% if direction and direction_id %}
         {# O'qituvchi uchun - yo'nalish va guruhlar bilan #}
         <div class="relative p-5 bg-gradient-to-br from-primary-500 to-primary-600">
@@ -234,14 +234,16 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">
+            {% if subject.description and subject.description.strip() %}
             <!-- Description -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('about_subject') }}</h2>
-                <p class="text-gray-600">{{ subject.description or t('no_description') }}</p>
+                <p class="text-gray-600">{{ subject.description }}</p>
             </div>
+            {% endif %}
 
             <!-- Lessons -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-6">{{ t('lessons') }}</h2>
 
                 <!-- Tabs - Barcha dars turlari uchun -->
@@ -536,7 +538,7 @@
             {% endif %}
 
             <!-- Teachers -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
                 <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('teachers') }}</h2>
                 <div class="space-y-3">
                     {% if all_teachers_list %}
@@ -597,7 +599,7 @@
             </div>
 
             <!-- Assignments -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-2">
                         <h2 class="text-lg font-semibold text-gray-900">{{ t('assignments') }}</h2>
