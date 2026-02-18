@@ -308,7 +308,7 @@
         "gradeUrl": "{{ url_for('courses.grade_submission', id=submission.id) }}",
         "score": {{ submission.score if submission.score is not none else 'null' }},
         "feedback": {{ (submission.feedback if submission.feedback else '')|tojson }},
-        "canGrade": {{ 'true' if (can_grade_submissions.get(submission.id, False) or current_user.role == 'admin') else 'false' }},
+        "canGrade": {{ 'true' if can_grade_submissions.get(submission.id, False) else 'false' }},
         "resubmissionCount": {{ submission.resubmission_count }},
         "allowResubmission": {{ 'true' if submission.allow_resubmission else 'false' }},
         "history": [

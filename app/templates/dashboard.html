@@ -186,17 +186,6 @@
     <!-- O'quv bo'limi: o'ziga tegishli statistika va o'qituvchilar jadvali -->
     {% if dashboard_current_role == 'edu_dept' %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <div class="bg-gradient-to-br from-violet-500 to-violet-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300">
-            <div class="absolute lg:w-32 lg:h-32 w-24 h-24 bg-white opacity-10 rounded-full -top-6 -right-6 transform rotate-12 group-hover:scale-110 transition-transform duration-500"></div>
-            <div class="relative z-10 flex justify-between items-start">
-                <div>
-                    <p class="text-violet-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('subjects') }}</p>
-                    <h3 class="text-4xl font-extrabold">{{ stats.total_subjects }}</h3>
-                </div>
-                <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>
-            </div>
-            <div class="mt-4 flex items-center text-xs text-violet-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('available') }}</span><span>{{ t('taught_subjects') }}</span></div>
-        </div>
         <div class="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div class="absolute lg:w-32 lg:h-32 w-24 h-24 bg-white opacity-10 rounded-full -top-6 -right-6 transform rotate-12 group-hover:scale-110 transition-transform duration-500"></div>
             <div class="relative z-10 flex justify-between items-start">
@@ -219,6 +208,17 @@
             </div>
             <div class="mt-4 flex items-center text-xs text-blue-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('active') }}</span><span>{{ t('with_assignments') }}</span></div>
         </div>
+        <div class="bg-gradient-to-br from-violet-500 to-violet-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300">
+            <div class="absolute lg:w-32 lg:h-32 w-24 h-24 bg-white opacity-10 rounded-full -top-6 -right-6 transform rotate-12 group-hover:scale-110 transition-transform duration-500"></div>
+            <div class="relative z-10 flex justify-between items-start">
+                <div>
+                    <p class="text-violet-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('subjects') }}</p>
+                    <h3 class="text-4xl font-extrabold">{{ stats.total_subjects }}</h3>
+                </div>
+                <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>
+            </div>
+            <div class="mt-4 flex items-center text-xs text-violet-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('available') }}</span><span>{{ t('taught_subjects') }}</span></div>
+        </div>
         <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div class="absolute lg:w-32 lg:h-32 w-24 h-24 bg-white opacity-10 rounded-full -top-6 -right-6 transform rotate-12 group-hover:scale-110 transition-transform duration-500"></div>
             <div class="relative z-10 flex justify-between items-start">
@@ -231,7 +231,7 @@
             <div class="mt-4 flex items-center text-xs text-emerald-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('total') }}</span><span>{{ t('directions') }}</span></div>
         </div>
     </div>
-    <!-- O'quv bo'limi: tezkor amallar (admin uslubida, ro'yxat yuqorisida) -->
+    <!-- O'quv bo'limi: tezkor amallar (ro'yxat yuqorisida) -->
     <div class="mt-8">
         <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
             <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,10 +280,12 @@
                 </h2>
                 <p class="text-xs text-gray-500 mt-1">{{ t('dashboard_zero_percent_only') }}</p>
             </div>
+            {% if dashboard_current_role != 'edu_dept' %}
             <div class="flex items-center gap-3">
                 <a href="{{ url_for('main.fan_resurslari') }}" class="text-sm text-primary-600 hover:text-primary-700 font-medium">{{ t('subject_resources') }} →</a>
                 <a href="{{ url_for('courses.index') }}" class="text-sm text-gray-600 hover:text-gray-700 font-medium">{{ t('subjects_database') }} →</a>
             </div>
+            {% endif %}
         </div>
         <div class="overflow-x-auto">
             <table class="w-full min-w-[700px] border-collapse">

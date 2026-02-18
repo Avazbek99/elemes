@@ -1899,6 +1899,18 @@ def detail(id, dir_id=None, group_id=None, semester=None):
         flash(t('no_permission_to_view_course'), 'error')
         return redirect(url_for('courses.index'))
 
+    # O'qituvchi /subjects/<id> ga kirganda yo'nalish/guruh tanlanmagan bo'ladi – dars va topshiriqlar ko'rinmaydi. Birinchi biriktirilgan guruhga yo'naltirish (TeacherSubject orqali).
+    if current_role == 'teacher' and direction_id is None:
+        first_ts = TeacherSubject.query.filter_by(
+            teacher_id=current_user.id,
+            subject_id=subject.id
+        ).filter(TeacherSubject.group_id.isnot(None)).first()
+        if first_ts and first_ts.group_id:
+            first_gr = Group.query.get(first_ts.group_id)
+            if first_gr and first_gr.direction_id:
+                sem = requested_semester or (first_gr.semester if first_gr.semester else 1)
+                return redirect(url_for('courses.detail', id=id, dir_id=first_gr.direction_id, group_id=first_gr.id, semester=sem))
+
     # Acting role check for permissions
     is_teacher = False
     if current_role == 'teacher':
@@ -1984,37 +1996,50 @@ def detail(id, dir_id=None, group_id=None, semester=None):
         group_ids = [tg.group_id for tg in teacher_groups if tg.group_id]
         
         if direction_id:
-            # Faqat shu yo'nalishdagi darslar; group_id bo'lsa shu guruhga bog'langanlar
-            if group_id and group_id in group_ids:
-                lessons_query = subject.lessons.filter(
-                    (Lesson.direction_id == direction_id) | (Lesson.direction_id.is_(None)),
-                    (Lesson.group_id == group_id) | (Lesson.group_id.is_(None))
-                )
-            else:
-                lessons_query = subject.lessons.filter(
-                    (Lesson.direction_id == direction_id) | (Lesson.direction_id.is_(None)),
-                    (Lesson.group_id.in_(group_ids)) | (Lesson.group_id.is_(None))
-                )
+            # Shu yo'nalishdagi darslar va o'qituvchiga biriktirilgan barcha guruhlar (tanlangan bitta guruh emas)
+            # – bitta guruhda ko'rilsa ham boshqa guruh uchun kiritilgan darslar chiqadi
+            lessons_query = subject.lessons.filter(
+                (Lesson.direction_id == direction_id) | (Lesson.direction_id.is_(None)),
+                (Lesson.group_id.in_(group_ids)) | (Lesson.group_id.is_(None)) if group_ids else Lesson.group_id.is_(None)
+            )
             if requested_semester:
                 lessons_query = lessons_query.outerjoin(Group, Lesson.group_id == Group.id).filter(
                     (Group.semester == requested_semester) | (Lesson.group_id.is_(None))
                 )
             all_lessons = lessons_query.order_by(Lesson.order).all()
         else:
-            # direction_id berilmagan bo'lsa, o'qituvchiga biriktirilgan guruhlar bo'yicha
+            # direction_id berilmagan bo'lsa: o'ziga biriktirilgan guruhlar va shu yo'nalishlardagi barcha dars turlari
             if group_ids:
-                all_lessons = subject.lessons.filter(
-                    (Lesson.group_id.in_(group_ids)) | (Lesson.group_id.is_(None))
-                ).order_by(Lesson.order).all()
+                teacher_groups_objs = Group.query.filter(Group.id.in_(group_ids)).all()
+                teacher_direction_ids = list({g.direction_id for g in teacher_groups_objs if g.direction_id})
+                # Biriktirilgan guruhlar + yo'nalish darajasi (group_id=None) + shu yo'nalishlardagi barcha darslar
+                if teacher_direction_ids:
+                    all_lessons = subject.lessons.filter(
+                        (Lesson.group_id.in_(group_ids)) | (Lesson.group_id.is_(None)) |
+                        (Lesson.direction_id.in_(teacher_direction_ids))
+                    ).order_by(Lesson.order).all()
+                else:
+                    all_lessons = subject.lessons.filter(
+                        (Lesson.group_id.in_(group_ids)) | (Lesson.group_id.is_(None))
+                    ).order_by(Lesson.order).all()
             else:
-                all_lessons = subject.lessons.filter(Lesson.group_id.is_(None)).order_by(Lesson.order).all()
+                # Guruh biriktirilmagan: fanda bor barcha yo'nalishlardagi darslar (barcha dars turlari)
+                curriculum_direction_ids = list({dc.direction_id for dc in DirectionCurriculum.query.filter_by(subject_id=subject.id).all() if dc.direction_id})
+                if curriculum_direction_ids:
+                    all_lessons = subject.lessons.filter(
+                        (Lesson.direction_id.in_(curriculum_direction_ids)) | (Lesson.direction_id.is_(None))
+                    ).order_by(Lesson.order).all()
+                else:
+                    all_lessons = subject.lessons.order_by(Lesson.order).all()
     
-    # Barcha dars turlari bo'yicha ajratish
-    maruza_lessons = [l for l in all_lessons if l.lesson_type == 'maruza']
-    amaliyot_lessons = [l for l in all_lessons if l.lesson_type == 'amaliyot']
-    laboratoriya_lessons = [l for l in all_lessons if l.lesson_type == 'laboratoriya']
-    seminar_lessons = [l for l in all_lessons if l.lesson_type == 'seminar']
-    kurs_ishi_lessons = [l for l in all_lessons if l.lesson_type == 'kurs_ishi']
+    # Barcha dars turlari bo'yicha ajratish (registrdan mustaqil: Amaliyot / amaliyot)
+    def _lesson_type_eq(lesson, name):
+        return (lesson.lesson_type or '').strip().lower() == (name or '').strip().lower()
+    maruza_lessons = [l for l in all_lessons if _lesson_type_eq(l, 'maruza')]
+    amaliyot_lessons = [l for l in all_lessons if _lesson_type_eq(l, 'amaliyot')]
+    laboratoriya_lessons = [l for l in all_lessons if _lesson_type_eq(l, 'laboratoriya')]
+    seminar_lessons = [l for l in all_lessons if _lesson_type_eq(l, 'seminar')]
+    kurs_ishi_lessons = [l for l in all_lessons if _lesson_type_eq(l, 'kurs_ishi')]
     
     # Talaba uchun: qaysi darslar qulflanganligini aniqlash
     lesson_locked_status = {}
@@ -2124,36 +2149,42 @@ def detail(id, dir_id=None, group_id=None, semester=None):
         
         group_ids = [ts.group_id for ts in teacher_groups if ts.group_id]
         if group_ids:
-            # group_id bo'lsa faqat shu guruhga bog'langan topshiriqlar
+            # O'ziga biriktirilgan guruhlar + yo'nalish darajasi + shu yo'nalishlardagi barcha topshiriqlar
             if group_id and group_id in group_ids:
                 assignments_query = subject.assignments.filter(
                     (Assignment.group_id == group_id) | (Assignment.group_id.is_(None))
                 )
             else:
-                assignments_query = subject.assignments.filter(
-                    (Assignment.group_id.in_(group_ids)) | (Assignment.group_id.is_(None))
-                )
+                teacher_groups_objs = Group.query.filter(Group.id.in_(group_ids)).all()
+                teacher_direction_ids = list({g.direction_id for g in teacher_groups_objs if g.direction_id})
+                if teacher_direction_ids:
+                    assignments_query = subject.assignments.filter(
+                        (Assignment.group_id.in_(group_ids)) | (Assignment.group_id.is_(None)) |
+                        (Assignment.direction_id.in_(teacher_direction_ids))
+                    )
+                else:
+                    assignments_query = subject.assignments.filter(
+                        (Assignment.group_id.in_(group_ids)) | (Assignment.group_id.is_(None))
+                    )
             if direction_id:
                 assignments_query = assignments_query.filter(
                     (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
                 )
                 if requested_semester:
-                    # Clear any existing join with Group if necessary (though usually fine)
                     assignments_query = assignments_query.outerjoin(Group, Assignment.group_id == Group.id).filter(
                         (Group.semester == requested_semester) | (Assignment.group_id.is_(None))
                     )
-            assignments = assignments_query.all()
+            assignments = assignments_query.order_by(Assignment.created_at.desc()).all()
         else:
-            assignments_query = subject.assignments.filter(Assignment.group_id.is_(None))
-            if direction_id:
-                assignments_query = assignments_query.filter(
-                    (Assignment.direction_id == direction_id) | (Assignment.direction_id.is_(None))
+            # Guruh biriktirilmagan: fanda bor barcha yo'nalishlardagi topshiriqlar (barcha dars turlari)
+            curriculum_direction_ids = list({dc.direction_id for dc in DirectionCurriculum.query.filter_by(subject_id=subject.id).all() if dc.direction_id})
+            if curriculum_direction_ids:
+                assignments_query = subject.assignments.filter(
+                    (Assignment.direction_id.in_(curriculum_direction_ids)) | (Assignment.direction_id.is_(None))
                 )
-                if requested_semester:
-                    assignments_query = assignments_query.outerjoin(Group, Assignment.group_id == Group.id).filter(
-                        (Group.semester == requested_semester) | (Assignment.group_id.is_(None))
-                    )
-            assignments = assignments_query.all()
+            else:
+                assignments_query = subject.assignments
+            assignments = assignments_query.order_by(Assignment.created_at.desc()).all()
 
     # Testlar ro'yxati (assignments logikasiga o'xshash)
     tests = []
@@ -2819,9 +2850,9 @@ def detail(id, dir_id=None, group_id=None, semester=None):
                     'is_admin': True
                 })
     
-    # O'qituvchi uchun har bir topshiriq uchun submission statistika
+    # Javoblar va baholanmaganlar soni: o'qituvchi, admin, dekan, o'quv bo'limi uchun
     assignment_submission_stats = {}
-    if (current_user.role == 'teacher' or current_user.has_role('teacher')) or current_user.role == 'admin':
+    if (current_user.role == 'teacher' or current_user.has_role('teacher')) or current_user.role == 'admin' or current_role in ['dean', 'edu_dept']:
         for assignment in assignments:
             # Faol submissions (oxirgi yuborilgan)
             active_submissions = assignment.submissions.filter_by(is_active=True).all()
@@ -2833,8 +2864,8 @@ def detail(id, dir_id=None, group_id=None, semester=None):
             }
     
     lesson_edit_permissions = {}
-    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher':
-        # Admin barcha darslarni edit qila oladi (agar o'qituvchi rolida bo'lmasa)
+    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher' and current_role != 'edu_dept':
+        # Admin/Dekan barcha darslarni edit qila oladi; o'quv bo'limi faqat ko'rish
         for lesson in all_lessons:
             lesson_edit_permissions[lesson.id] = True
     elif is_teacher:
@@ -2919,9 +2950,7 @@ def detail(id, dir_id=None, group_id=None, semester=None):
     
     # Topshiriqlar uchun ruxsatlar
     assignment_manage_permissions = {}
-    # Topshiriqlar uchun ruxsatlar
-    assignment_manage_permissions = {}
-    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher':
+    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher' and current_role != 'edu_dept':
         for assignment in assignments:
             assignment_manage_permissions[assignment.id] = True
     elif is_teacher:
@@ -3107,7 +3136,7 @@ def create_lesson(id):
         getattr(current_user, 'is_superadmin', False)
     )
     is_admin_or_dean_mode = (
-        current_role in ['admin', 'dean', 'edu_dept'] and has_admin_or_dean_account
+        current_role in ['admin', 'dean'] and has_admin_or_dean_account
     )
     
     # Faqat o'qituvchi rolida va o'ziga biriktirilgan fanlar uchun
@@ -3708,7 +3737,7 @@ def edit_lesson(id):
     # Bir nechta rol belgilangan o'qituvchilar faqatgina o'qituvchi rolida o'ziga biriktirilgan fan uchun mavzuni tahrirlay olishi kerak
     # O'qituvchi faqat o'zi yaratgan darslarni tahrirlay oladi
     can_edit = False
-    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher':
+    if (current_user.role in ['admin', 'dean']) and current_role != 'teacher' and current_role != 'edu_dept':
         can_edit = True
     elif current_role == 'teacher' and is_teacher:
         # Check if teacher is assigned to this lesson type and direction
@@ -4083,7 +4112,7 @@ def delete_lesson(id):
     # Bir nechta rol belgilangan o'qituvchilar faqatgina o'qituvchi rolida o'ziga biriktirilgan fan uchun mavzuni o'chira olishi kerak
     # O'qituvchi faqat o'zi yaratgan darslarni o'chira oladi
     can_delete = False
-    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher':
+    if (current_user.role in ['admin', 'dean']) and current_role != 'teacher' and current_role != 'edu_dept':
         can_delete = True
     elif current_role == 'teacher' and is_teacher:
         # O'qituvchining fanga biriktirilganligini (guruh va dars turi bo'yicha) tekshirish
@@ -4756,6 +4785,9 @@ def create_assignment(id):
     
     # Tanlangan rol
     current_role = session.get('current_role', current_user.role)
+    if current_role == 'edu_dept':
+        flash(t('no_permission_for_operation'), 'error')
+        return redirect(url_for('courses.detail', id=id, dir_id=direction_id, group_id=group_id_param))
     is_acting_as_teacher = (current_role == 'teacher') or (current_user.role == 'teacher')
     
     # O'qituvchiga biriktirilgan dars turlarini topish; faqat o'quv rejada soati bor turlar
@@ -5074,7 +5106,14 @@ def assignment_detail(id):
                 TeacherSubject.group_id.in_(direction_group_ids)
             ).first() is not None
     
-    if is_teacher or current_user.role == 'admin':
+    current_role = session.get('current_role', current_user.role)
+    is_edu_dept_or_dean_view = current_role in ['edu_dept', 'dean'] and (
+        current_user.role in ['admin', 'dean', 'edu_dept'] or
+        current_user.has_role('admin') or current_user.has_role('dean') or current_user.has_role('edu_dept') or
+        getattr(current_user, 'is_superadmin', False)
+    )
+    
+    if is_teacher or current_user.role == 'admin' or is_edu_dept_or_dean_view:
         # Barcha submissions (history uchun)
         all_assignment_submissions = assignment.submissions.order_by(Submission.submitted_at.asc()).all()
         
@@ -5097,7 +5136,12 @@ def assignment_detail(id):
         
         # Har bir submission uchun baholash ruxsati
         can_grade_submissions = {}
-        if current_user.role == 'admin':
+        if current_role == 'edu_dept':
+            # O'quv bo'limi javoblarni ko'ra oladi, baholash mumkin emas
+            can_manage_assignment = False
+            for sub in submissions:
+                can_grade_submissions[sub.id] = False
+        elif current_user.role == 'admin':
             # Admin barcha javoblarni baholay oladi
             can_manage_assignment = True
             for sub in submissions:
@@ -5137,7 +5181,9 @@ def assignment_detail(id):
         
         # Guruh talabalari – faqat o'qituvchi biriktirilgan va faol (talabasi bor) guruhlar
         teacher_group_ids = None
-        if current_user.role != 'admin':
+        if current_role == 'edu_dept':
+            pass  # O'quv bo'limi barcha guruhlarni ko'radi (admin kabi)
+        elif current_user.role != 'admin':
             ts_list = TeacherSubject.query.filter_by(
                 teacher_id=current_user.id,
                 subject_id=subject.id
@@ -5558,6 +5604,11 @@ def grade_submission(id):
     assignment = submission.assignment
     subject = assignment.subject
     
+    current_role = session.get('current_role', current_user.role)
+    if current_role == 'edu_dept':
+        flash(t('no_permission_for_operation'), 'error')
+        return redirect(url_for('courses.assignment_detail', id=assignment.id))
+    
     # Admin uchun ruxsat tekshiruvi
     if current_user.role == 'admin':
         # Baholash
@@ -5973,7 +6024,7 @@ def export_detailed_group_grades(subject_id, group_id):
     ).first() is not None
     if not is_teacher and current_user.role not in ['admin', 'dean', 'edu_dept']:
         flash(t('no_permission_for_operation'), 'error')
-        return redirect(url_for('courses.detail', id=subject_id))
+        return redirect(url_for('courses.detail', id=subject_id, dir_id=group.direction_id, group_id=group_id, semester=group.semester or 1))
     
     # Ma'lumotlarni tayyorlash
     students = User.query.filter_by(role='student', group_id=group_id).order_by(User.full_name).all()
@@ -5992,7 +6043,7 @@ def export_detailed_group_grades(subject_id, group_id):
         ).limit(1).first()
         if ungraded:
             flash(t('export_ungraded_blocked'), 'error')
-            return redirect(url_for('courses.detail', id=subject_id))
+            return redirect(url_for('courses.detail', id=subject_id, dir_id=group.direction_id, group_id=group_id, semester=group.semester or 1))
     
     matrix = []
     for student in students:
@@ -6034,7 +6085,7 @@ def export_detailed_group_grades(subject_id, group_id):
         from app.utils.excel_export import create_detailed_assignment_export_excel
     except ImportError:
         flash(t('openpyxl_not_installed'), 'error')
-        return redirect(url_for('courses.detail', id=subject_id))
+        return redirect(url_for('courses.detail', id=subject_id, dir_id=group.direction_id, group_id=group_id, semester=group.semester or 1))
     
     try:
         excel_file = create_detailed_assignment_export_excel(subject, group, assignments, matrix)
@@ -6049,7 +6100,7 @@ def export_detailed_group_grades(subject_id, group_id):
         )
     except Exception as e:
         flash(t('export_grades_error', error=str(e)), 'error')
-        return redirect(url_for('courses.detail', id=subject_id))
+        return redirect(url_for('courses.detail', id=subject_id, dir_id=group.direction_id, group_id=group_id, semester=group.semester or 1))
 
 
 @bp.route('/assignments/<int:id>/edit', methods=['GET', 'POST'])
@@ -6066,7 +6117,7 @@ def edit_assignment(id):
     
     # Ruxsat tekshiruvi: Admin yoki biriktirilgan dars turi bo'yicha o'qituvchi
     can_edit = False
-    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher':
+    if (current_user.role in ['admin', 'dean']) and current_role != 'teacher' and current_role != 'edu_dept':
         can_edit = True
     else:
         # Ruxsat: Agar o'qituvchi o'zi yaratgan bo'lsa
@@ -6286,7 +6337,7 @@ def delete_assignment(id):
     # Tanlangan rol
     current_role = session.get('current_role', current_user.role)
     
-    if (current_user.role in ['admin', 'dean', 'edu_dept']) and current_role != 'teacher':
+    if (current_user.role in ['admin', 'dean']) and current_role != 'teacher' and current_role != 'edu_dept':
         can_delete = True
     else:
         # Ruxsat: Agar o'qituvchi o'zi yaratgan bo'lsa

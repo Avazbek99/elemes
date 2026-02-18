@@ -216,8 +216,8 @@
             {% set current_role = session.get('current_role', current_user.role) %}
             {% set has_teacher_role = current_user.role == 'teacher' or current_user.has_role('teacher') %}
             {% set is_teacher_role = current_role == 'teacher' %}
-            {% if is_teacher or (has_teacher_role and is_teacher_role) or (current_user.role in ['admin', 'dean'] and
-            direction_id) %}
+            {% set can_manage_content = current_role != 'edu_dept' and (is_teacher or (has_teacher_role and is_teacher_role) or (current_user.role in ['admin', 'dean'] and direction_id)) %}
+            {% if can_manage_content %}
             <div class="flex gap-2">
                 <a href="{{ url_for('courses.create_lesson', id=subject.id, direction_id=direction_id, group_id=group_id) if (direction_id and group_id) else url_for('courses.create_lesson', id=subject.id, direction_id=direction_id) }}"
                     class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
@@ -343,7 +343,7 @@
                                     </div>
                                 </a>
                                 <div class="flex items-center gap-2">
-                                    {% set can_edit_lesson = lesson_edit_permissions.get(lesson.id, False) %}
+                                    {% set can_edit_lesson = lesson_edit_permissions.get(lesson.id, False) and current_role != 'edu_dept' %}
                                     {% if can_edit_lesson %}
                                     <a href="{{ url_for('courses.edit_lesson', id=lesson.id) }}{% if direction_id or group_id %}?{% endif %}{% if direction_id %}direction_id={{ direction_id }}{% endif %}{% if direction_id and group_id %}&{% endif %}{% if group_id %}group_id={{ group_id }}{% endif %}"
                                         class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -607,7 +607,7 @@
                         <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-gray-100 text-gray-600">{{
                             assignments|length }}</span>
                     </div>
-                    {% if (current_user.role in ['teacher', 'admin', 'dean'] or current_user.has_role('teacher')) and direction_groups %}
+                    {% if (current_user.role in ['teacher', 'admin', 'dean', 'edu_dept'] or current_user.has_role('teacher')) and direction_groups %}
                     {% if direction_groups|length == 1 %}
                     {% set group = direction_groups[0] %}
                     <a href="{{ url_for('courses.export_detailed_group_grades', subject_id=subject.id, group_id=group.id) }}"
@@ -699,7 +699,7 @@
                                 {% endif %}
                             </a>
                             <div class="flex items-center gap-2 flex-shrink-0">
-                                {% if assignment_manage_permissions.get(assignment.id) %}
+                                {% if assignment_manage_permissions.get(assignment.id) and current_role != 'edu_dept' %}
                                 <div class="flex items-center gap-1">
                                     <a href="{{ url_for('courses.edit_assignment', id=assignment.id, direction_id=direction_id, group_id=group_id) if (direction_id and group_id) else (url_for('courses.edit_assignment', id=assignment.id, direction_id=direction_id) if direction_id else url_for('courses.edit_assignment', id=assignment.id)) }}"
                                         class="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-white rounded-lg transition-colors border border-gray-100 shadow-sm"
