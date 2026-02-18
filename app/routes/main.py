@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, jsonify
 from flask_login import login_required, current_user
 from app.models import User, Subject, Assignment, Announcement, Schedule, Submission, Message, Group, Faculty, TeacherSubject, StudentPayment, UserRole
 from app import db
@@ -1716,6 +1716,32 @@ def chat(user_id):
     db.session.commit()
     
     return render_template('chat.html', other_user=other_user, messages=messages)
+
+
+@bp.route('/api/chat/<int:user_id>/messages')
+@login_required
+def chat_messages_api(user_id):
+    """Chat uchun yangi xabarlarni JSON qilib qaytaradi (polling). ?after_id=123 – shu id dan keyingi xabarlar."""
+    after_id = request.args.get('after_id', type=int)
+    if not after_id:
+        return jsonify({'messages': []})
+    messages = Message.query.filter(
+        ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
+        ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id)),
+        Message.id > after_id
+    ).order_by(Message.created_at.asc()).all()
+    # O'qilgan deb belgilash
+    Message.query.filter_by(sender_id=user_id, receiver_id=current_user.id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    out = [{
+        'id': m.id,
+        'sender_id': m.sender_id,
+        'content': m.content,
+        'created_at': m.created_at.strftime('%H:%M'),
+        'is_mine': m.sender_id == current_user.id
+    } for m in messages]
+    return jsonify({'messages': out})
+
 
 @bp.route('/schedule')
 @login_required
