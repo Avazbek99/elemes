@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Fan o'chirish – {{ subject.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
+        <h1 class="text-xl font-bold text-amber-800 mb-2">Fanni o'chirib bo'lmayapti</h1>
+        <p class="text-amber-700 mb-4">
+            <strong>«{{ subject.name }}»</strong> quyidagi yo'nalishlar o'quv rejasida ishlatilmoqda (o'quv yili va ta'lim shakli bo'yicha). 
+            Har bir qatorda ko'rsatilgan variantlardan fanni olib tashlashingiz yoki pastdagi tugma orqali barcha o'quv rejalardan bir vaqtning o'zida olib tashlashingiz mumkin.
+        </p>
+        <div class="bg-white rounded-xl border border-amber-100 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-amber-100/50 text-amber-900">
+                        <th class="text-left py-3 px-4 font-semibold">Yo'nalish</th>
+                        <th class="text-left py-3 px-4 font-semibold">O'quv yili / Ta'lim shakli</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for name, variants in details %}
+                    <tr class="border-t border-amber-100">
+                        <td class="py-3 px-4">{{ name }}</td>
+                        <td class="py-3 px-4">{{ variants }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="flex flex-wrap gap-3">
+        <form action="{{ url_for('admin.remove_subject_from_curriculum', id=subject.id) }}" method="POST" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors" onclick="return confirm('Bu fan barcha yo\'nalishlar o\'quv rejasidan olib tashlanadi. Davom etasizmi?');">
+                Barcha o'quv rejalardan olib tashlash
+            </button>
+        </form>
+        <a href="{{ url_for('admin.subjects') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+            {{ t('back_to_subjects_list') }}
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('edit_schedule_title') }}{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.schedule', year=year, month=month, group=schedule.group_id) }}"
+            class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('edit_schedule_title') }}</h1>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6" id="scheduleForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_label') }}</label>
+                <select id="faculty_id" name="faculty_id" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <option value="">{{ t('select_faculty_placeholder') }}</option>
+                    {% for faculty in faculties %}
+                    <option value="{{ faculty.id }}" {% if faculty.id==current_faculty_id %}selected{% endif %}>{{
+                        faculty.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('course') }} *</label>
+                    <select id="course_year" name="course_year" required disabled
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
+                        <option value="">{{ t('select_course_placeholder') }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('semester') }} *</label>
+                    <select id="semester" name="semester" required disabled
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
+                        <option value="">{{ t('select_semester_placeholder') }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction') }} *</label>
+                <select id="direction_id" name="direction_id" required disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
+                    <option value="">{{ t('select_direction_placeholder') }}</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('group') }} *</label>
+                <select id="group_id" name="group_id" required disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
+                    <option value="">{{ t('select_group_placeholder') }}</option>
+                </select>
+            </div>
+
+            <div class="h-px bg-gray-100 my-2"></div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject') }} *</label>
+                <select id="subject_id" name="subject_id" required disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
+                    <option value="">{{ t('select_subject_placeholder') }}</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('teacher') }} *</label>
+                <select id="teacher_id" name="teacher_id" required disabled
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all disabled:bg-gray-50 disabled:text-gray-400">
+                    <option value="">{{ t('select_teacher_placeholder') }}</option>
+                </select>
+            </div>
+
+            <div class="h-px bg-gray-100 my-2"></div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('schedule_date_label') }}</label>
+                    <input type="text" name="schedule_date" required value="{{ schedule_date }}"
+                        placeholder="{{ t('date_placeholder') }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all flatpickr-date">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('start_time_label') }}</label>
+                    <input type="text" name="start_time" required pattern="^([0-1][0-9]|2[0-3]):[0-5][0-9]$"
+                        placeholder="13:31" maxlength="5" value="{{ schedule.start_time or '' }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all time-input-24">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('online_consultation_link_label') }}</label>
+                <input type="url" name="link" placeholder="{{ t('online_consultation_link_placeholder') }}"
+                    value="{{ schedule.link or '' }}"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <a href="javascript:history.back()"
+                    class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium flex items-center justify-center">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const data = {};
+    data.faculty_courses = {{ faculty_courses | tojson | safe }};
+    data.faculty_course_semesters = {{ faculty_course_semesters | tojson | safe }};
+    data.faculty_course_semester_education_directions = {{ faculty_course_semester_education_directions | tojson | safe }};
+    data.direction_groups = {{ direction_groups | tojson | safe }};
+
+    const placeholders = {
+        course: {{ t('select_course_placeholder') | tojson }},
+        semester: {{ t('select_semester_placeholder') | tojson }},
+        direction: {{ t('select_direction_placeholder') | tojson }},
+        group: {{ t('select_group_placeholder') | tojson }},
+        subject: {{ t('select_subject_placeholder') | tojson }},
+        teacher: {{ t('select_teacher_placeholder') | tojson }}
+    };
+
+    const i18nLabels = {
+        courseSuffix: {{ t('course_suffix') | tojson }},
+        semesterSuffix: {{ t('semester_suffix') | tojson }},
+        educationTypes: {
+            'kunduzgi': {{ t('education_type_kunduzgi') | tojson }},
+            'sirtqi': {{ t('education_type_sirtqi') | tojson }},
+            'kechki': {{ t('education_type_kechki') | tojson }},
+            'masofaviy': {{ t('education_type_masofaviy') | tojson }}
+        }
+    };
+
+    const initial = {
+        facultyId: "{{ current_faculty_id }}",
+        courseYear: "{{ current_course_year }}",
+        semester: "{{ current_semester }}",
+        directionId: "{{ current_direction_id }}",
+        groupId: "{{ schedule.group_id }}",
+        subjectId: "{{ schedule.subject_id }}",
+        teacherId: "{{ schedule.teacher_id }}"
+    };
+
+    const selects = {
+        faculty: document.getElementById('faculty_id'),
+        course: document.getElementById('course_year'),
+        semester: document.getElementById('semester'),
+        direction: document.getElementById('direction_id'),
+        group: document.getElementById('group_id'),
+        subject: document.getElementById('subject_id'),
+        teacher: document.getElementById('teacher_id')
+    };
+
+    function clearOptions(select, placeholder) {
+        select.innerHTML = `<option value="">${placeholder}</option>`;
+        select.disabled = true;
+    }
+
+    function updateOptions(select, options, placeholder, valueKey = 'id', textKey = 'name', type = null) {
+        select.innerHTML = `<option value="">${placeholder}</option>`;
+        options.forEach(opt => {
+            let val = typeof opt === 'object' ? opt[valueKey] : opt;
+            let text = typeof opt === 'object' ? (opt[textKey] || opt.name || opt.full_name || opt.code) : opt;
+
+            if (type === 'course') {
+                text = `${val}${i18nLabels.courseSuffix}`;
+            } else if (type === 'semester') {
+                text = `${val}${i18nLabels.semesterSuffix}`;
+            } else if (type === 'direction' && typeof opt === 'object') {
+                const year = opt.enrollment_year || '';
+                const code = opt.code || '';
+                const name = opt.name || '';
+                const eduTypeRaw = opt.education_type ? opt.education_type.toLowerCase() : '';
+                const eduTypeTranslated = eduTypeRaw && i18nLabels.educationTypes[eduTypeRaw] ? i18nLabels.educationTypes[eduTypeRaw] : opt.education_type;
+                const eduType = eduTypeTranslated ? ` (${eduTypeTranslated})` : '';
+                text = `${year ? year + ' - ' : ''}${code ? code + ' - ' : ''}${name}${eduType}`;
+            }
+
+            select.innerHTML += `<option value="${val}">${text}</option>`;
+        });
+        select.disabled = false;
+
+        // Auto-select if single option (optional, but keep for consistency)
+        if (options.length === 1) {
+            select.selectedIndex = 1;
+            select.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // Dependent Select Logic
+    selects.faculty.addEventListener('change', () => {
+        const fId = selects.faculty.value;
+        ['course', 'semester', 'direction', 'group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
+        if (fId && data.faculty_courses[fId]) {
+            updateOptions(selects.course, data.faculty_courses[fId], placeholders.course, 'id', 'name', 'course');
+        }
+    });
+
+    selects.course.addEventListener('change', () => {
+        const fId = selects.faculty.value;
+        const cId = selects.course.value;
+        ['semester', 'direction', 'group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
+        if (fId && cId && data.faculty_course_semesters[fId] && data.faculty_course_semesters[fId][cId]) {
+            updateOptions(selects.semester, data.faculty_course_semesters[fId][cId], placeholders.semester, 'id', 'name', 'semester');
+        }
+    });
+
+    selects.semester.addEventListener('change', () => {
+        const fId = selects.faculty.value;
+        const cId = selects.course.value;
+        const sId = selects.semester.value;
+        ['direction', 'group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
+        if (fId && cId && sId && data.faculty_course_semester_education_directions[fId] && data.faculty_course_semester_education_directions[fId][sId] && data.faculty_course_semester_education_directions[fId][sId][cId]) {
+            const eduDirections = data.faculty_course_semester_education_directions[fId][sId][cId];
+            let allDirections = [];
+            Object.values(eduDirections).forEach(directions => {
+                allDirections = allDirections.concat(directions);
+            });
+            updateOptions(selects.direction, allDirections, placeholders.direction, 'id', 'name', 'direction');
+        }
+    });
+
+    selects.direction.addEventListener('change', () => {
+        const dId = selects.direction.value;
+        ['group', 'subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
+        if (dId && data.direction_groups[dId]) {
+            updateOptions(selects.group, data.direction_groups[dId], placeholders.group);
+        }
+    });
+
+    selects.group.addEventListener('change', async () => {
+        const gId = selects.group.value;
+        ['subject', 'teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
+        if (gId) {
+            const res = await fetch(`/admin/api/schedule/filters?group_id=${gId}`);
+            const subjects = await res.json();
+            updateOptions(selects.subject, subjects, placeholders.subject);
+        }
+    });
+
+    selects.subject.addEventListener('change', async () => {
+        const gId = selects.group.value;
+        const sId = selects.subject.value;
+        ['teacher'].forEach(k => clearOptions(selects[k], selects[k].options[0].text));
+        if (gId && sId) {
+            const res = await fetch(`/admin/api/schedule/filters?group_id=${gId}&subject_id=${sId}`);
+            const teachers = await res.json();
+            updateOptions(selects.teacher, teachers, placeholders.teacher, 'id', 'full_name');
+        }
+    });
+
+    // Time input formatting
+    document.querySelectorAll('.time-input-24').forEach(input => {
+        input.addEventListener('input', function (e) {
+            let value = this.value.replace(/[^0-9:]/g, '');
+            if (value.length > 2 && !value.includes(':')) {
+                value = value.substring(0, 2) + ':' + value.substring(2, 4);
+            }
+            if (value.length > 5) value = value.substring(0, 5);
+            this.value = value;
+        });
+        input.addEventListener('blur', function () {
+            if (this.value) {
+                let [hours, minutes] = this.value.split(':');
+                hours = (parseInt(hours) || 0).toString().padStart(2, '0');
+                minutes = (parseInt(minutes) || 0).toString().padStart(2, '0');
+                if (parseInt(hours) > 23) hours = '23';
+                if (parseInt(minutes) > 59) minutes = '59';
+                this.value = `${hours}:${minutes}`;
+            }
+        });
+    });
+
+    // Initial Pre-population logic - Refactored for better reliability
+    async function initForm() {
+        if (!initial.facultyId) return;
+
+        // Trigger Faculty change
+        selects.faculty.dispatchEvent(new Event('change'));
+
+        if (initial.courseYear) {
+            selects.course.value = initial.courseYear;
+            selects.course.dispatchEvent(new Event('change'));
+
+            if (initial.semester) {
+                selects.semester.value = initial.semester;
+                selects.semester.dispatchEvent(new Event('change'));
+
+                if (initial.directionId) {
+                    selects.direction.value = initial.directionId;
+                    selects.direction.dispatchEvent(new Event('change'));
+
+                    if (initial.groupId) {
+                        selects.group.value = initial.groupId;
+
+                        // Group change triggers ASYNC fetch for subjects
+                        const gId = initial.groupId;
+                        const sRes = await fetch(`/admin/api/schedule/filters?group_id=${gId}`);
+                        const subjects = await sRes.json();
+                        updateOptions(selects.subject, subjects, placeholders.subject);
+
+                        if (initial.subjectId) {
+                            selects.subject.value = initial.subjectId;
+
+                            // Subject change triggers ASYNC fetch for teachers
+                            const sId = initial.subjectId;
+                            const tRes = await fetch(`/admin/api/schedule/filters?group_id=${gId}&subject_id=${sId}`);
+                            const teachers = await tRes.json();
+                            updateOptions(selects.teacher, teachers, placeholders.teacher, 'id', 'full_name');
+
+                            if (initial.teacherId) {
+                                selects.teacher.value = initial.teacherId;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', initForm);
+</script>
+
+{% endblock %}

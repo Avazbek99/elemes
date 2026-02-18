@@ -1,0 +1,504 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<!-- Tom Select CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>
+    /* Tom Select Custom Styling */
+    .ts-control {
+        border-radius: 0.5rem !important;
+        padding: 0.5rem 0.75rem !important;
+        border: 1px solid #d1d5db !important;
+        font-size: 0.875rem !important;
+        box-shadow: none !important;
+        transition: all 0.2s;
+    }
+
+    .ts-control:focus-within {
+        border-color: #0ea5e9 !important;
+        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important;
+    }
+
+    .ts-dropdown {
+        border-radius: 0.75rem !important;
+        margin-top: 4px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #f3f4f6 !important;
+    }
+
+    .ts-dropdown .active {
+        background-color: #f0f9ff !important;
+        color: #0369a1 !important;
+    }
+
+    .ts-dropdown .option {
+        padding: 8px 12px !important;
+        font-size: 0.875rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block title %}{{ t('schedule') }}{% endblock %}
+
+{% block content %}
+<div class="schedule-page space-y-6">
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('schedule') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('all_lessons_list') }}</p>
+    </div>
+    <div class="flex gap-2">
+        <button type="submit" form="filterForm" formaction="{{ url_for('admin.export_schedule') }}"
+            class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                </path>
+            </svg>
+            {{ t('export') }}
+        </button>
+        <a href="{{ url_for('admin.import_schedule') }}"
+            class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            {{ t('import') }}
+        </a>
+        <a href="{{ url_for('admin.create_schedule') }}"
+            class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6">
+                </path>
+            </svg>
+            {{ t('new_lesson') }}
+        </a>
+    </div>
+</div>
+
+<!-- Advanced Filters -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <form method="GET" id="filterForm" class="space-y-4">
+        <input type="hidden" name="year" value="{{ year }}" />
+        <input type="hidden" name="month" value="{{ month }}" />
+
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('faculty') }}</label>
+                <select id="faculty_id" name="faculty_id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm tom-select-init">
+                    <option value="">{{ t('all_faculties') }}</option>
+                    {% for faculty in faculties %}
+                    <option value="{{ faculty.id }}" {% if current_faculty_id==faculty.id %}selected{% endif %}>{{
+                        faculty.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('course') }}</label>
+                <select id="course_year" name="course_year"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">{{ t('all_courses') }}</option>
+                    {% for c in all_courses %}
+                    <option value="{{ c }}" {% if current_course_year==c %}selected{% endif %}>{{ c }}{{ t('course_suffix') }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('semester') }}</label>
+                <select id="semester" name="semester"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">{{ t('all_semesters') }}</option>
+                    {% for s in all_semesters %}
+                    <option value="{{ s }}" {% if current_semester==s %}selected{% endif %}>{{ s }}{{ t('semester_suffix') }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
+                <select id="direction_id" name="direction_id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">{{ t('all_directions') }}</option>
+                    {% for d in all_directions %}
+                    <option value="{{ d.id }}" {% if current_direction_id==d.id %}selected{% endif %}>
+                        {{ d.code }} - {{ d.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('group') }}</label>
+                <select id="group_id" name="group_id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">{{ t('all_groups') }}</option>
+                    {% for g in all_groups %}
+                    <option value="{{ g.id }}" {% if current_group_id==g.id %}selected{% endif %}>{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('teacher') }}</label>
+                <select id="teacher_id" name="teacher_id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">{{ t('all_teachers') }}</option>
+                    {% for teacher in all_teachers %}
+                    <option value="{{ teacher.id }}" {% if current_teacher_id==teacher.id %}selected{% endif %}>{{ teacher.full_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Date Range and Action Buttons in One Row -->
+        <div class="flex items-end gap-3 pt-6">
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('start_date') }}</label>
+                <input type="text" name="start_date" value="{{ request.args.get('start_date', '') }}"
+                    placeholder="{{ t('date_placeholder') }}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flatpickr-date">
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('end_date') }}</label>
+                <input type="text" name="end_date" value="{{ request.args.get('end_date', '') }}"
+                    placeholder="{{ t('date_placeholder') }}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flatpickr-date">
+            </div>
+            <button type="submit"
+                class="px-8 py-2.5 bg-[#0091ea] text-white rounded-lg font-semibold shadow-sm hover:bg-[#0081d1] transition-colors whitespace-nowrap">
+                {{ t('search') }}
+            </button>
+            <a href="{{ url_for('admin.schedule', year=year, month=month) }}"
+                class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors whitespace-nowrap">
+                {{ t('clear') }}
+            </a>
+
+        </div>
+    </form>
+</div>
+
+<!-- Calendar Header -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-4 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+        <!-- Navigation (Left) -->
+        <div class="flex items-center gap-4">
+            <a href="{{ url_for('admin.schedule', year=prev_year, month=prev_month, faculty_id=current_faculty_id, course_year=current_course_year, semester=current_semester, direction_id=current_direction_id, group_id=current_group_id) }}"
+                class="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+
+            <h2 class="text-xl font-bold text-gray-900 tracking-tight min-w-[140px] text-center">
+                {% set month_names = [t('month_1'), t('month_2'), t('month_3'), t('month_4'), t('month_5'), t('month_6'), t('month_7'), t('month_8'), t('month_9'), t('month_10'), t('month_11'), t('month_12')] %}
+                {{ month_names[month-1] }} {{ year }}
+            </h2>
+
+            <a href="{{ url_for('admin.schedule', year=next_year, month=next_month, faculty_id=current_faculty_id, course_year=current_course_year, semester=current_semester, direction_id=current_direction_id, group_id=current_group_id) }}"
+                class="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Filter/Jump (Right) -->
+        <form method="GET" class="flex items-center gap-2">
+            <!-- Hidden inputs to preserve filters -->
+            {% if current_faculty_id %}<input type="hidden" name="faculty_id" value="{{ current_faculty_id }}" />{%
+            endif %} {% if current_course_year %}<input type="hidden" name="course_year"
+                value="{{ current_course_year }}" />{% endif %} {% if current_semester %}<input type="hidden"
+                name="semester" value="{{ current_semester }}" />{% endif %} {% if current_direction_id %}<input
+                type="hidden" name="direction_id" value="{{ current_direction_id }}" />{% endif %} {% if
+            current_group_id %}<input type="hidden" name="group_id" value="{{ current_group_id }}" />{% endif %} {% if
+            current_teacher_id %}<input type="hidden" name="teacher_id" value="{{ current_teacher_id }}" />{% endif %}
+
+            <div class="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-200">
+                <select name="month"
+                    class="bg-transparent pl-3 pr-8 py-1.5 text-sm font-semibold text-gray-700 border-none focus:ring-0 cursor-pointer">
+                    {% for m in range(1,13) %}
+                    <option value="{{ m }}" {% if m==month %}selected{% endif %}>{{ month_names[m-1] }}</option>
+                    {% endfor %}
+                </select>
+                <div class="w-px h-4 bg-gray-300 mx-1"></div>
+                <select name="year"
+                    class="bg-transparent pl-3 pr-8 py-1.5 text-sm font-semibold text-gray-700 border-none focus:ring-0 cursor-pointer">
+                    {% for y in range(2020,2031) %}
+                    <option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit"
+                class="px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-bold hover:bg-primary-700 transition-all shadow-sm active:scale-95 leading-none">
+                {{ t('ok') }}
+            </button>
+        </form>
+    </div>
+
+    <div
+        class="grid grid-cols-7 text-center text-xs font-semibold text-gray-1000 border-b border-gray-200 bg-gray-200">
+        <div class="py-3">{{ t('day_monday') }}</div>
+        <div class="py-3">{{ t('day_tuesday') }}</div>
+        <div class="py-3">{{ t('day_wednesday') }}</div>
+        <div class="py-3">{{ t('day_thursday') }}</div>
+        <div class="py-3">{{ t('day_friday') }}</div>
+        <div class="py-3">{{ t('day_saturday') }}</div>
+        <div class="py-3">{{ t('day_sunday') }}</div>
+    </div>
+
+    <div class="grid grid-cols-7 gap-3 bg-gray-200 p-4 border-t border-gray-100">
+        {% for week in calendar_weeks %}
+        {% for d in week %}
+        {% if d.month == month and d.year == year %}
+        {% set day = d.day %}
+        {% set is_today = (year == today_year and month == today_month and day == today_day) %}
+        {% set date_str = '%04d-%02d-%02d' % (d.year, d.month, d.day) %}
+        <div
+            class="min-h-[160px] p-4 flex flex-col gap-3 transition-all relative group border rounded-2xl {% if is_today %}bg-primary-50 border-primary-500 shadow-md ring-1 ring-primary-500{% else %}border-gray-100 hover:border-gray-200 hover:shadow-lg{% endif %}{% if not schedule_by_day.get(day, []) %} schedule-day-empty{% endif %}" style="{% if not is_today %}background-color:rgb(224, 249, 250); border-color:rgb(187, 232, 234);{% endif %}">
+            <div class="flex items-center justify-between mb-1">
+                <span
+                    class="text-sm font-bold {% if is_today %}w-7 h-7 flex items-center justify-center rounded-full bg-primary-600 text-white{% else %}text-gray-900{% endif %}">
+                    {{ day }}
+                </span>
+                <a href="{{ url_for('admin.create_schedule', date=date_str, group=current_group_id) }}"
+                    class="w-6 h-6 flex items-center justify-center rounded-full bg-primary-50 text-primary-600 text-lg leading-none hover:bg-primary-100 transition-opacity">
+                    +
+                </a>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                {% for schedule in schedule_by_day.get(day, []) %}
+                <div
+                    class="p-2 rounded-xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow relative">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-[10px] font-bold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{{
+                            schedule.start_time }}</span>
+                        <!-- Actions -->
+                        <div class="flex gap-1.5">
+                            <a href="{{ url_for('admin.edit_schedule', id=schedule.id) }}"
+                                class="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-primary-600 shadow-sm hover:shadow hover:bg-gray-50 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                        stroke-width="2.5"></path>
+                                </svg>
+                            </a>
+                            <form action="{{ url_for('admin.delete_schedule', id=schedule.id) }}" method="POST"
+                                onsubmit="return confirm('{{ t('confirm_delete_lesson')|escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit"
+                                    class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-600 shadow-sm hover:shadow hover:bg-red-100 transition-all">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                            stroke-width="2.5"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <p class="text-[11px] font-bold text-gray-900 leading-tight mb-1 line-clamp-2">
+                        {{ schedule.subject.name }}
+                    </p>
+
+                    <div class="space-y-0.5 mb-2">
+                        <p class="text-[9px] text-gray-500 flex items-center gap-1">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                                    stroke-width="2"></path>
+                            </svg>
+                            {% if schedule.group and schedule.group.direction %}
+                            {{ schedule.group.enrollment_year or '____' }} - {{ schedule.group.direction.code }} - {{ schedule.group.direction.name }} ({{ schedule.group.education_type|education_type_label }})
+                            {% elif schedule.group %}
+                            {{ schedule.group.name }}
+                            {% else %}
+                            {{ t('unknown') }}
+                            {% endif %}
+                        </p>
+                        <p class="text-[9px] text-gray-500 font-medium">
+                            {{ t('group_label') }}: {{ schedule.group.name }}
+                        </p>
+                        <p class="text-[9px] text-gray-500 font-medium">
+                            {{ t('type_label') }}:
+                            {% set lesson_types = schedule.get_teacher_lesson_types() %}
+                            {% if lesson_types %}
+                            {% set translated_types = [] %}
+                            {% for lt in lesson_types %}
+                            {% set _ = translated_types.append(lt|lesson_type_label) %}
+                            {% endfor %}
+                            {{ translated_types|unique|join('/') }}
+                            {% else %}
+                            {{ schedule.lesson_type|lesson_type_label }}
+                            {% endif %}
+                        </p>
+                        {% if schedule.teacher %}
+                        <p class="text-[9px] text-primary-700 bg-primary-50/50 px-1 rounded inline-block">
+                            {{ schedule.teacher.full_name }}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    {% if schedule.link %}
+                    <a href="{{ schedule.link }}" target="_blank"
+                        class="w-full py-1 bg-primary-600 text-white text-[9px] font-bold rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-1">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        {{ t('join_lesson') }}
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        {# Oldingi yoki keyingi oy kunlari #}
+        {% set other_date_str = '%04d-%02d-%02d' % (d.year, d.month, d.day) %}
+        {% set other_schedules = schedule_by_date.get(other_date_str, []) %}
+        <div class="min-h-[160px] p-4 flex flex-col gap-3 transition-all relative group border rounded-2xl bg-gray-50 border-gray-200 hover:border-gray-300 hover:shadow-sm{% if not other_schedules %} schedule-day-empty{% endif %}">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-sm font-bold text-gray-400">{{ d.day }}</span>
+                <a href="{{ url_for('admin.create_schedule', date=other_date_str, group=current_group_id) }}"
+                    class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 text-gray-500 text-lg leading-none hover:bg-gray-300 hover:text-gray-700 transition-colors">+</a>
+            </div>
+            
+            {% if other_schedules %}
+            <div class="flex flex-col gap-2">
+                {% for schedule in other_schedules %}
+                <div class="p-2 rounded-xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow relative">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-[10px] font-bold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{{ schedule.start_time }}</span>
+                        <div class="flex gap-1.5">
+                            <a href="{{ url_for('admin.edit_schedule', id=schedule.id) }}"
+                                class="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-gray-200 text-primary-600 shadow-sm hover:shadow hover:bg-gray-50 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-width="2.5"></path>
+                                </svg>
+                            </a>
+                            <form action="{{ url_for('admin.delete_schedule', id=schedule.id) }}" method="POST"
+                                onsubmit="return confirm('{{ t('confirm_delete_lesson')|escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit"
+                                    class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-50 text-red-600 shadow-sm hover:shadow hover:bg-red-100 transition-all">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2.5"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <p class="text-[11px] font-bold text-gray-900 leading-tight mb-1 line-clamp-2">{{ schedule.subject.name }}</p>
+                    <div class="space-y-0.5 mb-2">
+                        <p class="text-[9px] text-gray-500 flex items-center gap-1">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-width="2"></path>
+                            </svg>
+                            {% if schedule.group and schedule.group.direction %}
+                            {{ schedule.group.enrollment_year or '____' }} - {{ schedule.group.direction.code }} - {{ schedule.group.direction.name }} ({{ schedule.group.education_type|education_type_label }})
+                            {% elif schedule.group %}
+                            {{ schedule.group.name }}
+                            {% else %}
+                            {{ t('unknown') }}
+                            {% endif %}
+                        </p>
+                        <p class="text-[9px] text-gray-500 font-medium">{{ t('group_label') }}: {{ schedule.group.name }}</p>
+                        <p class="text-[9px] text-gray-500 font-medium">
+                            {{ t('type_label') }}:
+                            {% set lesson_types = schedule.get_teacher_lesson_types() %}
+                            {% if lesson_types %}
+                            {% set translated_types = [] %}
+                            {% for lt in lesson_types %}
+                            {% set _ = translated_types.append(lt|lesson_type_label) %}
+                            {% endfor %}
+                            {{ translated_types|unique|join('/') }}
+                            {% else %}
+                            {{ schedule.lesson_type|lesson_type_label }}
+                            {% endif %}
+                        </p>
+                        {% if schedule.teacher %}
+                        <p class="text-[9px] text-primary-700 bg-primary-50/50 px-1 rounded inline-block">{{ schedule.teacher.full_name }}</p>
+                        {% endif %}
+                    </div>
+                    {% if schedule.link %}
+                    <a href="{{ schedule.link }}" target="_blank"
+                        class="w-full py-1 bg-primary-600 text-white text-[9px] font-bold rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-1">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        {{ t('join_lesson') }}
+                    </a>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+</div>
+</div>
+</div>
+
+<style>
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    /* Bo'sh kunlar uchun kichik balandlik */
+    .schedule-day-empty {
+        min-height: 80px !important;
+    }
+</style>
+
+{% endblock %}
+{% block scripts %}
+<!-- Tom Select JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const data = {
+            faculty_courses: {{ faculty_courses | tojson | safe
+    }},
+        faculty_course_semesters: {{ faculty_course_semesters | tojson | safe }},
+        faculty_course_semester_education_directions: {{ faculty_course_semester_education_directions | tojson | safe }},
+        direction_groups: {{ direction_groups | tojson | safe }}
+        };
+
+    const filters = ['faculty_id', 'course_year', 'semester', 'direction_id', 'group_id', 'teacher_id'];
+    const filterForm = document.getElementById('filterForm');
+    
+    filters.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const tomSelectInstance = new TomSelect(el, {
+                create: false,
+                allowEmptyOption: true,
+                maxOptions: 10000,
+                plugins: ['dropdown_input'],
+                onChange: function() {
+                    // Filtr o'zgarganda avtomatik qidirish
+                    filterForm.submit();
+                }
+            });
+        }
+    });
+    });
+</script>
+
+
+{% endblock %}

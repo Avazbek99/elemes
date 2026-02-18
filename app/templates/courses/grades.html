@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('grades') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('grades') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('grades_subtitle') }}</p>
+    </div>
+
+    {% if grades_by_subject %}
+    {% set sm = scale_max|default(100) %}
+    <!-- Baho tizimi haqida (dinamik) -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100">
+        <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="font-medium text-blue-900">{{ t('grading_system') }}</span>
+        </div>
+        <div class="flex flex-wrap gap-3 text-sm">
+            {% for g in grade_scales %}
+            <span class="px-3 py-1 rounded-full font-medium border border-blue-100 bg-white/60">
+                {{ g.letter }} ({{ g.min_score }}%-{{ g.max_score }}%) - {{ g.name }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Overall stats -->
+    {% set submission_count = namespace(value=0) %}
+    {% for subject_id, data in grades_by_subject.items() %}
+    {% for item in data.submissions %}
+    {% if item.submission and item.score is not none %}
+    {% set submission_count.value = submission_count.value + 1 %}
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Umumiy ball -->
+        {% set overall_bg_class = overall_classes.light %}
+        {% set overall_text_class = overall_classes.text %}
+        {% set overall_bar_class = overall_classes.bar %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-sm text-gray-500 mb-2">{{ t('assimilation') }}</p>
+            <div class="flex items-end gap-3">
+                <p class="text-4xl font-bold text-gray-900">
+                    {{ overall_grade and overall_grade.letter or '–' }}
+                </p>
+                <p class="text-lg text-gray-400 mb-1">{{ "%.2f"|format(overall_percent|default(0)|float) }}%</p>
+            </div>
+            <div class="mt-3">
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="{{ 'h-2 rounded-full transition-all ' ~ overall_bar_class }}"
+                        style="width: {{ (overall_percent / sm) * 100 }}%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Umumiy baho -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-sm text-gray-500 mb-2">{{ t('overall_score') }}</p>
+            <div class="flex items-center gap-3">
+                <div class="w-16 h-16 rounded-2xl flex items-center justify-center {{ overall_bg_class }}">
+                    <span class="text-3xl font-bold {{ overall_text_class }}">
+                        {{ overall_grade and overall_grade.letter or '–' }}
+                    </span>
+                </div>
+                <div>
+                    <p class="font-semibold text-gray-900">
+                        {{ "%.2f"|format(total_score|default(0)|float) }} / {{ "%.2f"|format(max_score|default(0)|float)
+                        }}
+                    </p>
+                    <p class="text-sm text-gray-500">{{ "%.2f"|format(overall_percent|default(0)|float) }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fanlar soni -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-sm text-gray-500 mb-2">{{ t('subjects') }}</p>
+            <p class="text-4xl font-bold text-gray-900">{{ grades_by_subject|length }}</p>
+            <p class="text-sm text-gray-500 mt-2">{{ t('subject_count_grades') }}</p>
+        </div>
+
+        <!-- Baholangan topshiriqlar -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-sm text-gray-500 mb-2">{{ t('graded') }}</p>
+            <p class="text-4xl font-bold text-gray-900">{{ submission_count.value }}</p>
+            <p class="text-sm text-gray-500 mt-2">{{ t('assignment_count_grades') }}</p>
+        </div>
+    </div>
+
+    <!-- Grades by subject -->
+    <div class="space-y-4">
+        <h2 class="text-lg font-semibold text-gray-900">{{ t('subjects_by_grades') }}</h2>
+
+        {% for subject_id, data in grades_by_subject.items() %}
+        {% set percent = data.percent %}
+        {% set sm = scale_max|default(100) %}
+        {% set t_a = sm * 0.9 %}
+        {% set t_b = sm * 0.7 %}
+        {% set t_c = sm * 0.6 %}
+        {% set grade_bg_class = data.classes.light %}
+        {% set grade_text_class = data.classes.text %}
+        {% set grade_bar_class = data.classes.bar %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <button class="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                onclick="this.nextElementSibling.classList.toggle('hidden')">
+                <div class="flex items-center gap-4">
+                    <!-- Baho belgisi -->
+                    <div class="w-14 h-14 rounded-xl flex items-center justify-center {{ grade_bg_class }}">
+                        <span class="text-2xl font-bold {{ grade_text_class }}">
+                            {{ data.grade and data.grade.letter or '–' }}
+                        </span>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="text-lg font-semibold text-gray-900">{{ data.subject.name }}</h3>
+                        <p class="text-sm text-gray-500">{{ data.subject.description or t('no_description') }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="text-right">
+                        <p class="text-xl font-bold text-gray-900">
+                            {{ "%.2f"|format(data.total_score|float) }} / {{ "%.2f"|format(data.max_score|float) }}
+                        </p>
+                        <p class="text-sm text-gray-500">{{ "%.2f"|format(percent|float) }}% • {{
+                            data.submissions|length }} {{ t('assignment') }}</p>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </button>
+
+            <div class="border-t border-gray-100 p-4 space-y-3 hidden">
+                <!-- Progress bar -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-gray-500">{{ t('mastered_label') }}</span>
+                        <span class="font-medium
+                            {% if percent >= t_a %}text-green-600
+                            {% elif percent >= t_b %}text-blue-600
+                            {% elif percent >= t_c %}text-yellow-600
+                            {% else %}text-red-600{% endif %}">{{ "%.2f"|format(percent|float) }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="{{ 'h-3 rounded-full transition-all ' ~ grade_bar_class }}"
+                            style="width: {{ (percent / sm) * 100 }}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Topshiriqlar ro'yxati -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-xs font-medium text-gray-500 uppercase">
+                                <th class="pb-3">{{ t('assignment') }}</th>
+                                <th class="pb-3 text-center">{{ t('lesson_type') }}</th>
+                                <th class="pb-3 text-center">{{ t('score') }}</th>
+                                <th class="pb-3 text-center">{{ t('max_short') }}</th>
+                                <th class="pb-3 text-center">%</th>
+                                <th class="pb-3 text-center">{{ t('grade') }}</th>
+                                <th class="pb-3 text-right">{{ t('date') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for sub in data.submissions %}
+                            {% set sub_percent = (sub.score / sub.assignment.max_score * sm) if
+                            sub.assignment.max_score > 0 else 0.0 %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-3">
+                                    <a href="{{ url_for('courses.assignment_detail', id=sub.assignment.id) }}"
+                                        class="font-medium text-gray-900 hover:text-primary-600 transition-colors">
+                                        {{ sub.assignment.title }}
+                                    </a>
+                                    {% if sub.feedback %}
+                                    <p class="text-xs text-primary-600 mt-1">💬 {{ sub.feedback }}</p>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 text-center text-sm text-gray-500">
+                                    {{ sub.assignment.lesson_type|lesson_type_label if sub.assignment.lesson_type else '-' }}
+                                </td>
+                                <td class="py-3 text-center">
+                                    {% if sub.submission %}
+                                    <span class="text-lg font-bold
+                                        {% if sub_percent >= t_a %}text-green-600
+                                        {% elif sub_percent >= t_b %}text-blue-600
+                                        {% elif sub_percent >= t_c %}text-yellow-600
+                                        {% else %}text-red-600{% endif %}">
+                                        {{ "%.2f"|format(sub.score|float) }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-xs font-medium text-gray-400">{{ t('not_submitted') }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 text-center text-gray-500">{{
+                                    "%.2f"|format(sub.assignment.max_score|float) }}</td>
+                                <td class="py-3 text-center text-gray-500">
+                                    {% if sub.submission %}
+                                    {{ "%.2f"|format(sub_percent|float) }}%
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 text-center">
+                                    {% if sub.submission %}
+                                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold
+                                        {% if sub_percent >= t_a %}bg-green-100 text-green-700
+                                        {% elif sub_percent >= t_b %}bg-blue-100 text-blue-700
+                                        {% elif sub_percent >= t_c %}bg-yellow-100 text-yellow-700
+                                        {% else %}bg-red-100 text-red-700{% endif %}">
+                                        {% if sub_percent >= t_a %}A
+                                        {% elif sub_percent >= t_b %}B
+                                        {% elif sub_percent >= t_c %}C
+                                        {% else %}D{% endif %}
+                                    </span>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 text-right text-sm text-gray-500">
+                                    {{ sub.graded_at.strftime('%d.%m.%Y') if sub.graded_at else '-' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="border-t-2 border-gray-200">
+                            <tr class="font-semibold">
+                                <td class="py-3 text-gray-900">{{ t('total') }}</td>
+                                <td></td>
+                                <td class="py-3 text-center text-lg
+                                    {% if percent >= t_a %}text-green-600
+                                    {% elif percent >= t_b %}text-blue-600
+                                    {% elif percent >= t_c %}text-yellow-600
+                                    {% else %}text-red-600{% endif %}">
+                                    {{ "%.2f"|format(data.total_score|float) }}
+                                </td>
+                                <td class="py-3 text-center text-gray-500">{{ "%.2f"|format(data.max_score|float) }}
+                                </td>
+                                <td class="py-3 text-center
+                                    {% if percent >= t_a %}text-green-600
+                                    {% elif percent >= t_b %}text-blue-600
+                                    {% elif percent >= t_c %}text-yellow-600
+                                    {% else %}text-red-600{% endif %}">
+                                    {{ "%.2f"|format(percent|float) }}%
+                                </td>
+                                <td class="py-3 text-center">
+                                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold
+                                        {% if percent >= t_a %}bg-green-100 text-green-700
+                                        {% elif percent >= t_b %}bg-blue-100 text-blue-700
+                                        {% elif percent >= t_c %}bg-yellow-100 text-yellow-700
+                                        {% else %}bg-red-100 text-red-700{% endif %}">
+                                        {% if percent >= t_a %}A
+                                        {% elif percent >= t_b %}B
+                                        {% elif percent >= t_c %}C
+                                        {% else %}D{% endif %}
+                                    </span>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        <h3 class="text-lg font-medium text-gray-600">{{ t('no_grades') }}</h3>
+        <p class="text-gray-400">{{ t('no_graded_assignments') }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('role_settings') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('role_settings') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('role_settings_description') }}</p>
+            <p class="text-gray-500 text-sm mt-0.5">{{ t('role_settings_all_permissions_note') }}</p>
+        </div>
+        <form method="POST" action="{{ url_for('admin.role_settings') }}" class="inline shrink-0" onsubmit="return confirm({{ t('role_settings_reset_confirm') | tojson }});">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="reset_defaults" value="1"/>
+            <button type="submit" class="px-4 py-2 border border-gray-300 rounded-xl text-gray-700 font-medium transition-all duration-200 hover:bg-gray-200 hover:border-gray-400 hover:shadow-md active:bg-gray-300">
+                {{ t('reset_to_default') }}
+            </button>
+        </form>
+    </div>
+
+    <form method="POST" action="{{ url_for('admin.role_settings') }}" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">{{ t('permission') }}</th>
+                        {% for role in role_order %}
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">{{ role_labels.get(role, role) }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for perm_key, perm_label in all_permissions %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ t('perm_' ~ perm_key) }}</td>
+                        {% for role in role_order %}
+                        <td class="px-4 py-3 text-center">
+                            <input type="checkbox" name="perm_{{ role }}" value="{{ perm_key }}"
+                                {% if perm_key in (perms_by_role.get(role) or []) %}checked{% endif %}
+                                class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100">
+            <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                {{ t('save') }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

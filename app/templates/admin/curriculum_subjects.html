@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<!-- Tom Select CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>
+    /* Tom Select Custom Styling */
+    .ts-wrapper {
+        width: 100% !important;
+    }
+    
+    .ts-control {
+        border-radius: 0.5rem !important;
+        padding: 0.5rem 0.75rem !important;
+        border: 1px solid #d1d5db !important;
+        font-size: 0.875rem !important;
+        box-shadow: none !important;
+        transition: all 0.2s;
+    }
+
+    .ts-control:focus-within {
+        border-color: #0ea5e9 !important;
+        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important;
+    }
+
+    .ts-dropdown {
+        border-radius: 0.75rem !important;
+        margin-top: 4px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #f3f4f6 !important;
+    }
+
+    .ts-dropdown .active {
+        background-color: #f0f9ff !important;
+        color: #0369a1 !important;
+    }
+
+    .ts-dropdown .option {
+        padding: 8px 12px !important;
+        font-size: 0.875rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block title %}{{ t('subjects_database') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 curriculum-subjects-page">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('subjects_database') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('subjects_database_subtitle') }}</p>
+        </div>
+    </div>
+
+    <!-- Filtrlar va Qidiruv -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="GET" id="filterForm" class="space-y-4">
+            <!-- Filtrlar -->
+            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('faculty') }}</label>
+                    {% if lock_faculty_filter %}
+                    <div class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100 text-gray-700">
+                        {{ faculties[0].name if faculties else t('faculty') }}
+                    </div>
+                    {% else %}
+                    <div class="filter-select-wrap relative">
+                        <select name="faculty" id="faculty"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_faculties') }}</option>
+                            {% for faculty in faculties %}
+                            <option value="{{ faculty.id }}" {% if current_faculty == faculty.id %}selected{% endif %}>{{ faculty.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                    {% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('course') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="course" id="course"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_courses') }}</option>
+                            {% for course in courses %}
+                            <option value="{{ course }}" {% if current_course == course %}selected{% endif %}>{{ course }}{{ t('course_suffix') }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('semester') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="semester" id="semester"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_semesters') }}</option>
+                            {% for sem in semesters %}
+                            <option value="{{ sem }}" {% if current_semester == sem %}selected{% endif %}>{{ sem }}{{ t('semester_suffix') }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('education_type') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="education_type" id="education_type"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_education_types') }}</option>
+                            {% for et in education_types %}
+                            <option value="{{ et }}" {% if current_education_type == et %}selected{% endif %}>{{ et|education_type_label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="direction" id="direction"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_directions') }}</option>
+                            {% for direction in directions %}
+                            <option value="{{ direction.id }}" {% if current_direction == direction.id %}selected{% endif %}>{{ direction.formatted_direction.rsplit(' (', 1)[0] if ' (' in direction.formatted_direction else direction.formatted_direction }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('group') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="group" id="group"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_groups') }}</option>
+                            {% for group in groups %}
+                            <option value="{{ group.id }}" {% if current_group == group.id %}selected{% endif %}>{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Qidiruv va Tugmalar -->
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1 min-w-[200px] relative search-input-wrap">
+                    <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_placeholder_curriculum') }}"
+                        class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+                    {{ t('search') }}
+                </button>
+                {% if search or current_faculty or current_course or current_semester or current_education_type or current_direction or current_group %}
+                <a href="{{ clear_url or url_for('courses.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+                    {{ t('clear') }}
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Subjects by semester -->
+    {% if subjects_by_semester %}
+    <div class="space-y-8">
+        {% for semester in subjects_by_semester.keys()|sort %}
+        {% set course_year = ((semester - 1) // 2) + 1 %}
+        <div>
+            <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-1 h-8 bg-primary-600 rounded"></span>
+                {{ course_year }}{{ t('course_suffix') }}, {{ semester }}{{ t('semester_suffix') }}
+                <span class="text-base font-normal text-gray-500 ml-2">
+                    ({{ subjects_by_semester[semester]|length }} {{ t('subject_count') }})
+                </span>
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 curriculum-subjects-cards">
+                {% for data in subjects_by_semester[semester] %}
+                {% set subject = data.subject %}
+                {% set direction = data.direction %}
+                {% set direction_id = direction.id %}
+                {% set curriculum_check = data.curriculum_check if data.curriculum_check else {'has_issue': False, 'warnings': [], 'stats': {'lessons_count': 0, 'assignments_count': 0}} %}
+                {% set has_issue = curriculum_check.has_issue %}
+                {% set stats = curriculum_check.stats if curriculum_check.stats else {'lessons_count': 0, 'assignments_count': 0} %}
+                <div class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer curriculum-subject-card"
+                    onclick="window.location.href='{{ url_for('courses.detail', id=subject.id, dir_id=direction_id) if direction_id else url_for('courses.detail', id=subject.id) }}'">
+                    <div class="relative p-5 {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %}">
+                        <div class="absolute top-4 right-4 flex flex-col gap-2">
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">
+                                {{ data.course_year }}{{ t('course_suffix') }}, {{ data.semester }}{{ t('semester_suffix') }}
+                            </span>
+                            {% set total_hours = (data.curriculum_item.hours_maruza or 0) + (data.curriculum_item.hours_amaliyot or 0) + (data.curriculum_item.hours_laboratoriya or 0) + (data.curriculum_item.hours_seminar or 0) + (data.curriculum_item.hours_mustaqil or 0) %}
+                            {% set credits = total_hours / 30 if total_hours > 0 else (subject.credits or 0) %}
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">
+                                {{ "%.2f"|format(credits) }} {{ t('credit') }}
+                            </span>
+                        </div>
+                        <div class="pr-24">
+                            <h3 class="text-2xl font-bold text-white mb-3">{{ subject.name }}</h3>
+                            <p class="text-lg font-medium text-white/95 mb-3">
+                                {{ data.enrollment_year }} - {{ direction.code }} - {{ direction.name }} ({{ data.education_type|education_type_label }})
+                            </p>
+                            {% if data.groups %}
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                {% for group in data.groups|sort(attribute='name') %}
+                                <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">
+                                    {{ group.name }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if data.unique_teachers %}
+                            <div class="flex flex-wrap gap-2">
+                                {% for teacher in data.unique_teachers %}
+                                <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">
+                                    {{ teacher.full_name or teacher.login }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        {% if has_issue and curriculum_check.warnings %}
+                        <div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-xs text-red-700 font-bold mb-2">⚠️ {{ t('curriculum_not_completed') }}</p>
+                            {% for warning in curriculum_check.warnings %}
+                            <p class="text-xs text-red-600 ml-3 mb-1">•
+                                {% if warning is string %}
+                                {{ warning }}
+                                {% else %}
+                                {% set name = warning.lesson_type|lesson_type_label if warning.lesson_type else warning.get('name','') %}
+                                {% if warning.get('no_topics') %}
+                                {{ t('curriculum_warning_no_topics', name=name) }}
+                                {% else %}
+                                {{ t('curriculum_warning_missing', name=name, hours=warning.get('hours',0)|int, required=warning.get('required',0)|round(1), actual=warning.get('actual',0)|int, missing=warning.get('missing',0)|round(1)) }}
+                                {% endif %}
+                                {% endif %}
+                            </p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ subject.description or t('no_description') }}</p>
+                        <div class="flex items-center gap-4 text-sm text-gray-500">
+                            <div class="flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                {{ stats.lessons_count }} {{ t('lessons_unit') }}
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                {{ stats.assignments_count }} {{ t('assignments_unit') }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16 bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div class="bg-gray-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
+            <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">{{ t('subjects_not_found') }}</h3>
+        <p class="text-gray-500 mb-6 max-w-sm mx-auto">{{ t('change_search') }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Tom Select JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ============ ELEMENTLAR ============
+    const filterForm = document.getElementById('filterForm');
+    const searchInput = document.getElementById('searchInput');
+
+    // ============ URL PARAMETRLARINI O'QISH ============
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlValues = {
+        faculty: urlParams.get('faculty') || '',
+        course: urlParams.get('course') || '',
+        semester: urlParams.get('semester') || '',
+        education_type: urlParams.get('education_type') || '',
+        direction: urlParams.get('direction') || '',
+        group: urlParams.get('group') || ''
+    };
+
+    // ============ TOM SELECT INSTANCES ============
+    const tomSelectInstances = {};
+    window.tomSelectInstances = tomSelectInstances;
+
+    // ============ TOM SELECT YARATISH ============
+    const filterIds = ['faculty', 'course', 'semester', 'education_type', 'direction', 'group'];
+    
+    filterIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            // URL'dan qiymatni olish
+            const urlValue = urlValues[id];
+            
+            // Tom Select yaratish
+            const ts = new TomSelect(el, {
+                create: false,
+                allowEmptyOption: true,
+                maxOptions: 10000,
+                plugins: ['dropdown_input'],
+                placeholder: el.querySelector('option[value=""]')?.textContent || '',
+                persist: false,  // Avtomatik tanlashni o'chirish
+                selectOnTab: false  // Tab bosilganda tanlashni o'chirish
+            });
+            
+            tomSelectInstances[id] = ts;
+            
+            // URL'da qiymat bo'lsa, uni o'rnatish
+            if (urlValue && urlValue !== '') {
+                ts.setValue(urlValue, true);
+            } else {
+                // URL'da qiymat yo'q bo'lsa, bo'sh qilish (hech narsa tanlanmasin)
+                ts.clear(true);
+            }
+            
+            // Filtr o'zgarganda submit
+            ts.on('change', function(value) {
+                filterForm.submit();
+            });
+        }
+    });
+
+    // Qidiruv: avtomatik submit (debounced) va submitdan keyin kursor yana qidiruv maydonida
+    if (searchInput && filterForm) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() { filterForm.submit(); }, 500);
+        });
+        if (window.location.search.indexOf('search=') !== -1) {
+            searchInput.focus();
+            searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+        }
+    }
+});
+</script>
+{% endblock %}

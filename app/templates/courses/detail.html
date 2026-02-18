@@ -1,0 +1,779 @@
+{% extends "base.html" %}
+
+{% block title %}{{ subject.name }}{% endblock %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function () {
+        if ($('.teacher-select').length) {
+            $('.teacher-select').select2({
+                placeholder: "{{ t('select_teacher_placeholder') }}",
+                allowClear: true,
+                width: '100%'
+            });
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        border-radius: 0.75rem;
+        height: 2.75rem;
+        border-color: #e2e8f0;
+        display: flex;
+        align-items: center;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 2.75rem;
+        padding-left: 1rem;
+        color: #1e293b;
+        font-size: 0.875rem;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 2.75rem;
+    }
+
+    .select2-dropdown {
+        border-radius: 0.75rem;
+        border-color: #e2e8f0;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6 pb-6 bg-gray-100/80 min-h-screen">
+    <div class="mb-4">
+        <a href="{{ url_for('courses.index') }}"
+            class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back_to_subjects_list') }}
+        </a>
+    </div>
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+        {% if direction and direction_id %}
+        {# O'qituvchi uchun - yo'nalish va guruhlar bilan #}
+        <div class="relative p-5 bg-gradient-to-br from-primary-500 to-primary-600">
+            <div class="absolute top-4 right-4 flex flex-col gap-2">
+                {% if direction_lesson_types %}
+                <div class="flex flex-col gap-1.5">
+                    {% for lesson in direction_lesson_types %}
+                    <span class="text-xs font-medium text-white/95">
+                        {{ lesson.type|lesson_type_label }}:
+                        {% if lesson.hours > 0 %}
+                        {{ lesson.hours }} {{ t('hour') }}
+                        {% else %}
+                        {{ t('available') }}
+                        {% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if direction_credits %}
+                <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white mt-1">{{
+                    "%.2f"|format(direction_credits) }} {{ t('credit') }}</span>
+                {% endif %}
+            </div>
+            <div class="pr-24">
+                {% if direction_semester %}
+                <div class="mb-2">
+                    {% set course_year = direction_course if direction_course else (((direction_semester - 1) // 2) + 1)
+                    %}
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ course_year
+                        }}{{ t('course_suffix') }}, {{ direction_semester }}{{ t('semester_suffix') }}</span>
+                </div>
+                {% endif %}
+                <h1 class="text-3xl font-bold text-white mb-3">{{ subject.name }}</h1>
+                <p class="text-xl font-medium text-white/95 mb-3">
+                    {{ direction.formatted_direction }}
+                </p>
+                {% if direction_groups %}
+                <div class="flex flex-wrap gap-2">
+                    {% for gr in direction_groups|sort(attribute='name') %}
+                    {% if direction_id and group_id and gr.id == group_id %}
+                    <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/30 text-white border-2 border-white">{{ gr.name }}</span>
+                    {% elif direction_id and group_id %}
+                    <a href="{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=gr.id, semester=request.args.get('semester') or direction_semester) }}" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-colors">{{ gr.name }}</a>
+                    {% else %}
+                    <span class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">{{ gr.name }}</span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% elif current_user.role == 'student' and direction %}
+        {# Talaba uchun - direction va dars turlari bilan #}
+        <div class="relative p-5 bg-gradient-to-br from-primary-500 to-primary-600">
+            <div class="absolute top-4 right-4 flex flex-col gap-2">
+                {% if direction_lesson_types %}
+                <div class="flex flex-col gap-1.5">
+                    {% for lesson in direction_lesson_types %}
+                    <span class="text-xs font-medium text-white/95">
+                        {{ lesson.type|lesson_type_label }}:
+                        {% if lesson.hours > 0 %}
+                        {{ lesson.hours }} {{ t('hour') }}
+                        {% else %}
+                        {{ t('available') }}
+                        {% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if direction_credits %}
+                <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white mt-1">{{
+                    "%.2f"|format(direction_credits) }} {{ t('credit') }}</span>
+                {% elif subject.credits %}
+                <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white mt-1">{{
+                    "%.2f"|format(subject.credits) }} {{ t('credit') }}</span>
+                {% endif %}
+            </div>
+            <div class="pr-24">
+                {% if direction_semester %}
+                <div class="mb-2">
+                    {% set course_year = direction_course if direction_course else (((direction_semester - 1) // 2) + 1)
+                    %}
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ course_year
+                        }}{{ t('course_suffix') }}, {{ direction_semester }}{{ t('semester_suffix') }}</span>
+                </div>
+                {% elif subject.semester %}
+                <div class="mb-2">
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.semester
+                        }}{{ t('semester_suffix') }}</span>
+                </div>
+                {% endif %}
+                <h1 class="text-3xl font-bold text-white mb-3">{{ subject.name }}</h1>
+                <p class="text-xl font-medium text-white/95 mb-3">
+                    {% if direction_groups and direction_groups[0].enrollment_year %}
+                    {{ direction_groups[0].enrollment_year }}
+                    {% endif %}
+                    {% if direction_groups and direction_groups[0].enrollment_year and direction.code %} - {% endif %}
+                    {% if direction.code %}
+                    {{ direction.code }}
+                    {% endif %}
+                    {% if ((direction_groups and direction_groups[0].enrollment_year) or direction.code) and direction.name %} - {% endif %}
+                    {{ direction.name }}
+                </p>
+                {% if direction_groups %}
+                <div class="flex flex-wrap gap-2">
+                    {% for group in direction_groups|sort(attribute='name') %}
+                    <span
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">{{
+                        group.name }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        {# Direction mavjud bo'lmaganda - oddiy header #}
+        <div class="relative h-48 bg-gradient-to-br from-primary-500 to-primary-600">
+            <div class="absolute bottom-0 left-0 right-0 p-6">
+                <div class="flex gap-2 mb-3">
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{
+                        "%.2f"|format(subject.credits) }} {{ t('credit') }}</span>
+                    {% if subject.semester %}
+                    <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.semester
+                        }}{{ t('semester_suffix') }}</span>
+                    {% endif %}
+                </div>
+                <h1 class="text-2xl font-bold text-white">{{ subject.name }}</h1>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="p-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex-1">
+                <div class="flex items-center gap-6 text-sm text-gray-500 mb-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        {{ lessons|length }} {{ t('lesson') }}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        {{ assignments|length }} {{ t('assignment') }}
+                    </div>
+                </div>
+            </div>
+
+            {% set current_role = session.get('current_role', current_user.role) %}
+            {% set has_teacher_role = current_user.role == 'teacher' or current_user.has_role('teacher') %}
+            {% set is_teacher_role = current_role == 'teacher' %}
+            {% if is_teacher or (has_teacher_role and is_teacher_role) or (current_user.role in ['admin', 'dean'] and
+            direction_id) %}
+            <div class="flex gap-2">
+                <a href="{{ url_for('courses.create_lesson', id=subject.id, direction_id=direction_id, group_id=group_id) if (direction_id and group_id) else url_for('courses.create_lesson', id=subject.id, direction_id=direction_id) }}"
+                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                    + {{ t('add_lesson') }}
+                </a>
+                <a href="{{ url_for('courses.create_assignment', id=subject.id, direction_id=direction_id, group_id=group_id) if (direction_id and group_id) else url_for('courses.create_assignment', id=subject.id, direction_id=direction_id) }}"
+                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors">
+                    + {{ t('add_assignment') }}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+            {% if subject.description and subject.description.strip() %}
+            <!-- Description -->
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('about_subject') }}</h2>
+                <p class="text-gray-600">{{ subject.description }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Lessons -->
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6">{{ t('lessons') }}</h2>
+
+                <!-- Tabs - Barcha dars turlari uchun -->
+                {% set lesson_types_tabs = [
+                {'key': 'maruza', 'name': 'Maruza', 'lessons': maruza_lessons, 'color': 'blue', 'icon': 'M12
+                6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477
+                4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5
+                18c-1.746 0-3.332.477-4.5 1.253'},
+                {'key': 'amaliyot', 'name': 'Amaliyot', 'lessons': amaliyot_lessons, 'color': 'green', 'icon': 'M10
+                20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'},
+                {'key': 'laboratoriya', 'name': 'Laboratoriya', 'lessons': laboratoriya_lessons, 'color': 'purple',
+                'icon': 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0
+                01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367
+                3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z'},
+                {'key': 'seminar', 'name': 'Seminar', 'lessons': seminar_lessons, 'color': 'orange', 'icon': 'M17
+                20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0
+                015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016
+                0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'},
+                {'key': 'kurs_ishi', 'name': 'Kurs ishi', 'lessons': kurs_ishi_lessons, 'color': 'indigo', 'icon': 'M9
+                12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2
+                0 01-2 2z'}
+                ] %}
+                <div class="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
+                    {% for lesson_type in lesson_types_tabs %}
+                    {% set is_allowed = (allowed_lesson_types and lesson_type.key in allowed_lesson_types) or
+                    (current_user.role in ['admin', 'dean'] and direction_id) %}
+                    {% if is_allowed and (lesson_type.lessons|length > 0 or lesson_type.key in curriculum_lesson_type_keys) %}
+                    {% set is_active = loop.first %}
+                    <button onclick="showTab('{{ lesson_type.key }}')" id="tab-{{ lesson_type.key }}"
+                        class="flex-1 px-4 py-3 text-sm font-medium text-center border-b-2 {% if is_active %}border-{{ lesson_type.color }}-600 text-{{ lesson_type.color }}-600{% else %}border-transparent text-gray-500 hover:text-{{ lesson_type.color }}-600{% endif %} transition-colors">
+                        <div class="flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="{{ lesson_type.icon }}" />
+                            </svg>
+                            <span>{{ lesson_type.key|lesson_type_label }}</span>
+                            <span
+                                class="px-2 py-0.5 text-xs font-medium rounded-full {% if is_active %}bg-{{ lesson_type.color }}-100 text-{{ lesson_type.color }}-700{% else %}bg-gray-100 text-gray-600{% endif %}">{{
+                                lesson_type.lessons|length }}</span>
+                        </div>
+                    </button>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+
+                {# Barcha dars turlari uchun kontentlar #}
+                {% for lesson_type in lesson_types_tabs %}
+                {% set is_allowed = (allowed_lesson_types and lesson_type.key in allowed_lesson_types) or
+                (current_user.role in ['admin', 'dean'] and direction_id) %}
+                {% if is_allowed and (lesson_type.lessons|length > 0 or lesson_type.key in curriculum_lesson_type_keys) %}
+                <div id="content-{{ lesson_type.key }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
+                    <div class="space-y-3">
+                        {% if lesson_type.lessons|length > 0 %}
+                        {% set type_codes = {'maruza': 'M', 'amaliyot': 'A', 'laboratoriya': 'L', 'seminar': 'S',
+                        'kurs_ishi': 'K'} %}
+                        {% for lesson in lesson_type.lessons %}
+                        {% set is_locked = lesson_locked_status.get(lesson.id, False) if lesson_locked_status else False
+                        %}
+                        {% if current_user.role == 'student' and is_locked %}
+                        <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl opacity-60 cursor-not-allowed">
+                            <span class="text-sm font-semibold text-gray-400 flex-shrink-0 w-8 text-center">{{
+                                loop.index }}.</span>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-sm font-medium text-gray-500 truncate">{{ lesson.title }}</h3>
+                                <div class="flex items-center gap-2 text-xs text-gray-400 mt-1 flex-wrap">
+                                <span
+                                    class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full flex-shrink-0">{{ t('locked') }}</span>
+                                    <span class="flex-shrink-0">{{ t('watch_previous_videos') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div
+                            class="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
+                            {% if direction_id and group_id %}
+                            {% set type_code = type_codes.get(lesson.lesson_type, 'M') %}
+                            {% set sem = (direction_semester if (direction_semester is defined and direction_semester is not none) else (requested_group.semester if (requested_group is defined and requested_group and requested_group.semester) else 1)) %}
+                            <a href="{{ url_for('courses.hierarchical_lesson_detail', subject_id=subject.id, direction_id=direction_id, group_id=group_id, semester=sem, type_code=type_code, order=loop.index) }}"
+                                class="flex items-center gap-4 flex-1 min-w-0">
+                                {% else %}
+                                <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}"
+                                    class="flex items-center gap-4 flex-1 min-w-0">
+                                    {% endif %}
+                                    <span class="text-sm font-semibold text-gray-600 flex-shrink-0 w-8 text-center">{{
+                                        loop.index }}.</span>
+                                    <div class="flex-1 min-w-0">
+                                        <h3
+                                            class="text-sm font-medium text-gray-900 group-hover:text-primary-600 truncate">
+                                            {{ lesson.title }}</h3>
+                                        <div class="flex items-center gap-2 text-xs text-gray-500 mt-1 flex-wrap">
+
+                                            {% if lesson.video_file or lesson.video_url %}
+                                            <span
+                                                class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full flex-shrink-0">{{ t('video_lesson') }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </a>
+                                <div class="flex items-center gap-2">
+                                    {% set can_edit_lesson = lesson_edit_permissions.get(lesson.id, False) %}
+                                    {% if can_edit_lesson %}
+                                    <a href="{{ url_for('courses.edit_lesson', id=lesson.id) }}{% if direction_id or group_id %}?{% endif %}{% if direction_id %}direction_id={{ direction_id }}{% endif %}{% if direction_id and group_id %}&{% endif %}{% if group_id %}group_id={{ group_id }}{% endif %}"
+                                        class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="{{ t('edit') }}">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </a>
+                                    <form method="POST"
+                                        action="{{ url_for('courses.delete_lesson', id=lesson.id) }}{% if direction_id or group_id %}?{% endif %}{% if direction_id %}direction_id={{ direction_id }}{% endif %}{% if direction_id and group_id %}&{% endif %}{% if group_id %}group_id={{ group_id }}{% endif %}"
+                                        data-confirm-message="{{ t('confirm_delete_lesson')|e }}"
+                                        onsubmit="return confirm(this.getAttribute('data-confirm-message'));"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit"
+                                            class="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="{{ t('delete') }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-gray-500 text-center py-8 text-sm">{{ lesson_type.key|lesson_type_label }} {{ t('no_lessons_added_yet') }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <script>
+                function showTab(tabName) {
+                    // Barcha tab kontentlarini yashirish
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.add('hidden');
+                    });
+
+                    // Barcha tab tugmalarini reset qilish
+                    const tabColors = {
+                        'maruza': 'blue',
+                        'amaliyot': 'green',
+                        'laboratoriya': 'purple',
+                        'seminar': 'orange',
+                        'kurs_ishi': 'indigo'
+                    };
+
+                    document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                        const tabKey = tab.id.replace('tab-', '');
+                        const color = tabColors[tabKey] || 'gray';
+                        tab.classList.remove(`border-${color}-600`, `text-${color}-600`);
+                        tab.classList.add('border-transparent', 'text-gray-500');
+                        const badge = tab.querySelector('span:last-child');
+                        if (badge) {
+                            badge.classList.remove(`bg-${color}-100`, `text-${color}-700`);
+                            badge.classList.add('bg-gray-100', 'text-gray-600');
+                        }
+                    });
+
+                    // Tanlangan tabni aktiv qilish
+                    const activeTab = document.getElementById('tab-' + tabName);
+                    if (activeTab) {
+                        const color = tabColors[tabName] || 'gray';
+                        activeTab.classList.remove('border-transparent', 'text-gray-500');
+                        activeTab.classList.add(`border-${color}-600`, `text-${color}-600`);
+                        const badge = activeTab.querySelector('span:last-child');
+                        if (badge) {
+                            badge.classList.remove('bg-gray-100', 'text-gray-600');
+                            badge.classList.add(`bg-${color}-100`, `text-${color}-700`);
+                        }
+                    }
+
+                    // Tanlangan tab kontentini ko'rsatish
+                    const content = document.getElementById('content-' + tabName);
+                    if (content) {
+                        content.classList.remove('hidden');
+                    }
+                }
+
+                // Dastlabki tabni ko'rsatish (birinchi mavjud tab)
+                const firstTab = document.querySelector('[id^="tab-"]');
+                if (firstTab) {
+                    const firstTabName = firstTab.id.replace('tab-', '');
+                    showTab(firstTabName);
+                }
+            </script>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            {% if (current_user.role == 'admin' or current_user.role == 'dean') and requested_group and
+            requested_lesson_type %}
+            <!-- Teacher Assignment Form -->
+            <div
+                class="bg-white rounded-2xl shadow-sm border border-primary-100 p-6 border-t-4 border-t-primary-500 min-h-max scale-in">
+                <h2 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    O'qituvchini biriktirish
+                </h2>
+
+                <div class="mb-5 p-4 bg-primary-50 rounded-2xl border border-primary-100 relative overflow-hidden">
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div
+                                class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-primary-600 shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126.1283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p
+                                    class="text-[10px] text-primary-500 uppercase tracking-widest font-bold leading-none mb-1">
+                                    Tanlangan Guruh</p>
+                                <p class="text-sm font-bold text-primary-900">{{ requested_group.name }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-primary-600 shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p
+                                    class="text-[10px] text-primary-500 uppercase tracking-widest font-bold leading-none mb-1">
+                                    {{ t('lesson_type') }}</p>
+                                <p class="text-sm font-bold text-primary-900">
+                                    {% if requested_lesson_type == 'maruza' %}Ma'ruza
+                                    {% elif requested_lesson_type == 'amaliyot' %}Amaliyot
+                                    {% elif requested_lesson_type == 'laboratoriya' %}Laboratoriya
+                                    {% elif requested_lesson_type == 'seminar' %}Seminar
+                                    {% elif requested_lesson_type == 'kurs_ishi' %}Kurs ishi
+                                    {% else %}{{ requested_lesson_type|capitalize }}{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="POST" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="assign_group_id" value="{{ requested_group.id }}">
+                    <input type="hidden" name="assign_lesson_type" value="{{ requested_lesson_type }}">
+
+                    <div>
+                        <label
+                            class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">O'qituvchini
+                            tanlang</label>
+                        <select name="assign_teacher_id" class="teacher-select w-full" required>
+                            <option value="">O'qituvchini tanlang...</option>
+                            {% for t in all_available_teachers %}
+                            {% set current_teacher = subject.get_teacher_for_type(requested_group.id,
+                            requested_lesson_type) %}
+                            <option value="{{ t.id }}" {% if current_teacher and current_teacher.id==t.id %}selected{%
+                                endif %}>
+                                {{ (t.full_name or t.login).upper() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center justify-center gap-2 active:scale-[0.98]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Saqlash
+                    </button>
+
+                    {% set current_teacher = subject.get_teacher_for_type(requested_group.id, requested_lesson_type) %}
+                    {% if current_teacher %}
+                    <div class="flex items-center gap-2 justify-center py-1 opacity-80">
+                        <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                        <p class="text-[10px] text-gray-500">{{ t('current_teacher') }}: <span class="font-bold text-gray-700">{{
+                                current_teacher.full_name }}</span></p>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Teachers -->
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('teachers') }}</h2>
+                <div class="space-y-3">
+                    {% if all_teachers_list %}
+                    {% for teacher in all_teachers_list %}
+                    <div
+                        class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
+                        <div
+                            class="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                            {{ teacher.full_name[0] if teacher.full_name else '-' }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-gray-900 mb-1.5">{{ teacher.full_name.upper() if
+                                teacher.full_name else '-' }}</p>
+                            {% if teacher_lesson_types and teacher_lesson_types.get(teacher.id) %}
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for lesson_type in teacher_lesson_types[teacher.id] %}
+                                {% if lesson_type == 'Maruza' or (lesson_type|lower) == 'maruza' %}
+                                <span
+                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200">
+                                    {{ lesson_type|lesson_type_label }}
+                                </span>
+                                {% elif lesson_type == 'Amaliyot' or (lesson_type|lower) == 'amaliyot' %}
+                                <span
+                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200">
+                                    {{ lesson_type|lesson_type_label }}
+                                </span>
+                                {% elif lesson_type == 'Laboratoriya' or (lesson_type|lower) == 'laboratoriya' %}
+                                <span
+                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200">
+                                    {{ lesson_type|lesson_type_label }}
+                                </span>
+                                {% elif lesson_type == 'Seminar' or (lesson_type|lower) == 'seminar' %}
+                                <span
+                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-orange-100 text-orange-700 border border-orange-200">
+                                    {{ lesson_type|lesson_type_label }}
+                                </span>
+                                {% elif lesson_type == 'Kurs ishi' or (lesson_type|lower) == 'kurs_ishi' or (lesson_type|lower) == 'kurs ishi' %}
+                                <span
+                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                    {{ lesson_type|lesson_type_label }}
+                                </span>
+                                {% else %}
+                                <span
+                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-gray-100 text-gray-700 border border-gray-200">
+                                    {{ lesson_type|lesson_type_label }}
+                                </span>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4 text-sm">{{ t('teacher_not_assigned') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Assignments -->
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ t('assignments') }}</h2>
+                        <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-gray-100 text-gray-600">{{
+                            assignments|length }}</span>
+                    </div>
+                    {% if (current_user.role in ['teacher', 'admin', 'dean'] or current_user.has_role('teacher')) and direction_groups %}
+                    {% if direction_groups|length == 1 %}
+                    {% set group = direction_groups[0] %}
+                    <a href="{{ url_for('courses.export_detailed_group_grades', subject_id=subject.id, group_id=group.id) }}"
+                        class="px-2 py-1 text-xs font-medium bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-lg transition-colors flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        {{ t('export') }}
+                    </a>
+                    {% else %}
+                    <div class="relative inline-block text-left">
+                        <button type="button" onclick="document.getElementById('exportMenu').classList.toggle('hidden')"
+                            class="px-2 py-1 text-xs font-medium bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-lg transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            {{ t('export') }}
+                        </button>
+                        <div id="exportMenu"
+                            class="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 hidden z-20">
+                            <div class="px-3 py-1 border-b border-gray-100 mb-1">
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{{ t('select_group') }}
+                                </p>
+                            </div>
+                            {% for group in direction_groups|sort(attribute='name') %}
+                            <a href="{{ url_for('courses.export_detailed_group_grades', subject_id=subject.id, group_id=group.id) }}"
+                                class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                                onclick="document.getElementById('exportMenu').classList.add('hidden')">
+                                {{ group.name }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                <div class="space-y-3">
+                    {% for assignment in assignments %}
+                    <div class="group block p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <div class="flex items-start justify-between gap-4">
+                            <a href="{{ url_for('courses.assignment_detail', id=assignment.id) }}"
+                                class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                    <h3 class="text-sm font-medium text-gray-900">{{ assignment.title }}</h3>
+                                    {% if assignment.lesson_type %}
+                                    {% if assignment.lesson_type == 'maruza' %}
+                                    <span
+                                        class="px-2 py-0.5 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">{{ assignment.lesson_type|lesson_type_label }}</span>
+                                    {% elif assignment.lesson_type == 'amaliyot' %}
+                                    <span
+                                        class="px-2 py-0.5 text-xs font-medium rounded-md bg-green-100 text-green-700 border border-green-200 flex-shrink-0">{{ assignment.lesson_type|lesson_type_label }}</span>
+                                    {% elif assignment.lesson_type == 'laboratoriya' %}
+                                    <span
+                                        class="px-2 py-0.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">{{ assignment.lesson_type|lesson_type_label }}</span>
+                                    {% elif assignment.lesson_type == 'seminar' %}
+                                    <span
+                                        class="px-2 py-0.5 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200 flex-shrink-0">{{ assignment.lesson_type|lesson_type_label }}</span>
+                                    {% elif assignment.lesson_type == 'kurs_ishi' %}
+                                    <span
+                                        class="px-2 py-0.5 text-xs font-medium rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200 flex-shrink-0">{{ assignment.lesson_type|lesson_type_label }}</span>
+                                    {% else %}
+                                    <span
+                                        class="px-2 py-0.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 border border-gray-200 flex-shrink-0">{{ assignment.lesson_type|lesson_type_label }}</span>
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
+                                {% if assignment.due_date %}
+                                {% set status = assignment_status.get(assignment.id, {}) %}
+                                <p
+                                    class="text-xs {% if assignment_is_overdue.get(assignment.id) and (not status.has_subs or (status.latest_sub and status.latest_sub.score is none)) %}text-red-600 font-medium{% else %}text-gray-500{% endif %}">
+                                    {{ t('deadline') }}: {{ (assignment.due_date | to_tashkent_time).strftime('%d.%m.%Y') }}, {{ t('until_deadline') }}
+                                </p>
+                                {% endif %}
+                                {% if current_user.role == 'student' %}
+                                {% set status = assignment_status.get(assignment.id, {}) %}
+                                <div class="mt-2 flex items-center gap-1.5">
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase">
+                                        {% if status.is_any_graded %}{{ t('graded') }}:{% else %}{{ t('not_graded') }}{% endif %}
+                                    </span>
+                                    {% if status.is_any_graded %}
+                                    <span
+                                        class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-primary-50 text-primary-600 border border-primary-100">
+                                        {{ assignment_highest_scores[assignment.id] }}/{{ assignment.max_score }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </a>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                {% if assignment_manage_permissions.get(assignment.id) %}
+                                <div class="flex items-center gap-1">
+                                    <a href="{{ url_for('courses.edit_assignment', id=assignment.id, direction_id=direction_id, group_id=group_id) if (direction_id and group_id) else (url_for('courses.edit_assignment', id=assignment.id, direction_id=direction_id) if direction_id else url_for('courses.edit_assignment', id=assignment.id)) }}"
+                                        class="p-1.5 text-gray-600 hover:text-primary-600 hover:bg-white rounded-lg transition-colors border border-gray-100 shadow-sm"
+                                        title="{{ t('edit') }}">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </a>
+                                    <form action="{{ url_for('courses.delete_assignment', id=assignment.id) }}{% if direction_id or group_id %}?{% endif %}{% if direction_id %}direction_id={{ direction_id }}{% endif %}{% if direction_id and group_id %}&{% endif %}{% if group_id %}group_id={{ group_id }}{% endif %}"
+                                        method="POST" class="inline"
+                                        data-confirm-message="{{ t('confirm_delete_assignment')|e }}"
+                                        onsubmit="return confirm(this.getAttribute('data-confirm-message'));">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit"
+                                            class="p-1.5 text-gray-600 hover:text-red-600 hover:bg-white rounded-lg transition-colors border border-gray-100 shadow-sm"
+                                            title="{{ t('delete') }}">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                                {% endif %}
+
+                                {% if current_user.role == 'student' %}
+                                {% set status = assignment_status.get(assignment.id, {}) %}
+                                {% if not status.has_subs %}
+                                <span
+                                    class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 flex-shrink-0">{{ t('not_submitted') }}</span>
+                                {% elif status.latest_sub and status.latest_sub.score is none %}
+                                <div class="flex flex-col items-end gap-1">
+                                    <span
+                                        class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 flex-shrink-0">{{ t('submitted') }}</span>
+                                    <span class="text-[9px] text-amber-600 font-medium">{{ t('awaiting_grade') }}</span>
+                                </div>
+                                {% else %}
+                                <div class="flex flex-col items-end gap-1">
+                                    <span
+                                        class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 flex-shrink-0">{{ t('submitted') }}</span>
+                                    {% if status.remaining_attempts > 0 and not assignment_is_overdue.get(assignment.id)
+                                    %}
+                                    <span class="text-[9px] text-green-600 font-medium">{{ t('resubmit_available') }}</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                {% set stats = assignment_submission_stats.get(assignment.id, {}) %}
+                                {% set total_subs = stats.get('total', 0) %}
+                                {% set ungraded_subs = stats.get('ungraded', 0) %}
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    <span class="text-xs text-gray-600 font-medium">{{ total_subs }} {{ t('answer') }}</span>
+                                    {% if ungraded_subs > 0 %}
+                                    <span class="relative inline-flex items-center">
+                                        <span
+                                            class="px-2 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white animate-pulse">{{
+                                            ungraded_subs }}</span>
+                                        <span
+                                            class="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-4 text-sm">{{ t('no_assignments') }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

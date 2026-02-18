@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Fan biriktirmalar{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">O'qituvchi-Fan biriktirmalar</h1>
+        <p class="text-gray-600">{{ faculty.name }}</p>
+    </div>
+    <div class="flex gap-3">
+        <a href="{{ url_for('dean.courses') }}"
+            class="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            O'quv reja
+        </a>
+        <a href="{{ url_for('dean.create_assignment') }}"
+            class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Yangi biriktirish
+        </a>
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+    {% if assignments %}
+    <table class="w-full min-w-[640px]">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Fan</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">O'qituvchi</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Guruh</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">O'quv yili</th>
+                <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Amallar</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for assignment in assignments %}
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                            <span class="text-purple-600 font-semibold text-xs">{{ assignment.subject.name[:3] }}</span>
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-900">{{ assignment.subject.name }}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span class="text-blue-600 font-semibold text-sm">{{ assignment.teacher.full_name[0]
+                                }}</span>
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-900">{{ assignment.teacher.full_name }}</p>
+                            <p class="text-sm text-gray-500">{{ assignment.teacher.position or "O'qituvchi" }}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">{{
+                        assignment.group.name }}</span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="text-gray-600">{{ assignment.academic_year }}</span>
+                    <span class="text-gray-400 mx-1">•</span>
+                    <span class="text-gray-600">{{ assignment.semester }}{{ t('semester_suffix') }}</span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <form action="{{ url_for('dean.delete_assignment', id=assignment.id) }}" method="POST"
+                        class="inline" onsubmit="return confirm('Bu biriktirmani o\'chirmoqchimisiz?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Biriktirmalar mavjud emas</h3>
+        <p class="text-gray-500 mb-4">O'qituvchilarni fanlarga biriktiring</p>
+        <a href="{{ url_for('dean.create_assignment') }}"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Yangi biriktirish
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

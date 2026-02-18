@@ -1,0 +1,565 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('subjects') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('subjects') }}</h1>
+            <p class="text-gray-500 mt-1">
+                {% if current_user.role == 'student' %}
+                {{ t('subjects_for_group') }}
+                {% elif current_user.role == 'teacher' %}
+                {{ t('subjects_assigned_to_you') }}
+                {% else %}
+                {{ t('all_subjects_list') }}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Qidiruv -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <form method="GET" id="filterForm" class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[200px] relative search-input-wrap">
+                <input type="text" name="search" id="searchInput" value="{{ search or '' }}" placeholder="{{ t('subject_search_placeholder') }}"
+                    class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+                {{ t('search') }}
+            </button>
+            {% if search %}
+            <a href="{{ url_for('courses.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+                {{ t('clear') }}
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Subjects by semester (o'qituvchi va talaba uchun) -->
+    {% if subjects_by_semester %}
+    <div class="space-y-8">
+        {% for semester in subjects_by_semester.keys()|sort %}
+        {% set course_year = ((semester - 1) // 2) + 1 %}
+        <div>
+            <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span class="w-1 h-8 bg-primary-600 rounded"></span>
+                {{ course_year }}{{ t('course_suffix') }}, {{ semester }}{{ t('semester_suffix') }}
+                <span class="text-base font-normal text-gray-500 ml-2">
+                    ({{ subjects_by_semester[semester]|length }} {{ t('subject_count_unit') }})
+                </span>
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for subject_data in subjects_by_semester[semester] %}
+                {% set subject = subject_data.subject %}
+                {% set direction_id = subject_data.direction.id if subject_data.direction else None %}
+                {% set group_id_link = (current_user.group_id if current_user.role == 'student' else (subject_data.groups[0].id if subject_data.groups else None)) %}
+                {% set group_id = subject_data.group_id if subject_data.group_id else None %}
+                {% set teacher_id = current_user.id if (current_user.role == 'teacher' or
+                current_user.has_role('teacher')) else None %}
+                {% set is_admin = (current_user.role in ['admin', 'dean', 'edu_dept']) %}
+                {% set curriculum_group = (subject_data.groups[0] if subject_data.groups else None) %}
+                {% set curriculum_check = subject.check_curriculum_completion(direction_id, teacher_id, is_admin, curriculum_group) if
+                (current_user.role in ['teacher', 'dean', 'admin', 'edu_dept']) else {'has_issue': False, 'warnings': [], 'stats':
+                {'lessons_count': 0, 'assignments_count': 0}} %}
+                {% set has_issue = curriculum_check.has_issue %}
+                {% set stats = curriculum_check.stats if curriculum_check.stats else {'lessons_count': 0,
+                'assignments_count': 0} %}
+                {# Unified Card for Teacher and Student #}
+                <div class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                    onclick="window.location.href='{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id_link, semester=subject_data.semester) if (direction_id and group_id_link) else (url_for('courses.detail', id=subject.id, dir_id=direction_id) + ('?semester=' ~ subject_data.semester|string if subject_data.semester else '') if direction_id else url_for('courses.detail', id=subject.id)) }}'">
+                    <div
+                        class="relative p-5 {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %}">
+                        <div class="absolute top-4 right-4 flex flex-col gap-2">
+                            {% set course_year = ((subject_data.semester - 1) // 2) + 1 %}
+                            {# Unified Badge Logic #}
+                            {% if subject_data.course_year and subject_data.semester %}
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{
+                                subject_data.course_year }}{{ t('course_suffix') }}, {{ subject_data.semester }}{{ t('semester_suffix') }}</span>
+                            {% else %}
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{
+                                course_year }}{{ t('course_suffix') }}, {{ subject_data.semester }}{{ t('semester_suffix') }}</span>
+                            {% endif %}
+
+                            <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">
+                                {% if subject_data.credits %}
+                                {{ "%.2f"|format(subject_data.credits) }}
+                                {% elif subject.credits %}
+                                {{ "%.2f"|format(subject.credits) }}
+                                {% else %}
+                                0.00
+                                {% endif %}
+                                {{ t('curriculum_credits_unit') }}</span>
+                        </div>
+                        <div class="pr-24">
+                            <h3 class="text-2xl font-bold text-white mb-3">{{ subject.name }}</h3>
+
+                            {% if subject_data.direction and current_user.role != 'student' %}
+                            <p class="text-lg font-medium text-white/95 mb-3">
+                                {{ subject_data.direction.formatted_direction }}
+                            </p>
+                            {% endif %}
+
+                            {# Conditional Header Content #}
+                            {% if current_user.role == 'teacher' or current_user.has_role('teacher') %}
+                            {% if subject_data.groups %}
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                {% for group in subject_data.groups|sort(attribute='name') %}
+                                <span
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30">{{
+                                    group.name }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            {% if subject_data.teachers %}
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                {% for teacher in subject_data.teachers %}
+                                <span
+                                    onclick="event.stopPropagation(); window.location.href='{{ url_for('main.chat', user_id=teacher.id) }}';"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-colors cursor-pointer">
+                                    {{ teacher.full_name or teacher.login }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="p-5">
+                        {% if has_issue and curriculum_check.warnings %}
+                        <div class="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p class="text-xs text-red-700 font-bold mb-2">⚠️ {{ t('curriculum_not_completed') }}</p>
+                            {% for warning in curriculum_check.warnings %}
+                            <p class="text-xs text-red-600 ml-3 mb-1">•
+                                {% if warning is string %}
+                                {{ warning }}
+                                {% else %}
+                                {% set name = warning.lesson_type|lesson_type_label if warning.lesson_type else warning.get('name','') %}
+                                {% if warning.get('no_topics') %}
+                                {{ t('curriculum_warning_no_topics', name=name) }}
+                                {% else %}
+                                {{ t('curriculum_warning_missing', name=name, hours=warning.get('hours',0)|int, required=warning.get('required',0)|round(1), actual=warning.get('actual',0)|int, missing=warning.get('missing',0)|round(1)) }}
+                                {% endif %}
+                                {% endif %}
+                            </p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ subject.description or t('no_description') }}</p>
+
+                        {# Conditional Body Content #}
+                        {% if current_user.role == 'teacher' or current_user.has_role('teacher') %}
+                        {# Teacher: Show Lesson Types Breakdown #}
+                        {% if subject_data.direction and subject_lesson_types %}
+                        {% set lesson_key = subject.id ~ '_' ~ subject_data.direction.id %}
+                        {% if lesson_key in subject_lesson_types %}
+                        <div class="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                            <div class="flex flex-wrap gap-3">
+                                {% for lesson in subject_lesson_types[lesson_key] %}
+                                <span class="text-xs font-medium text-gray-700">
+                                    {{ lesson.type|lesson_type_label }}:
+                                    {% if lesson.hours > 0 %}
+                                    <span class="font-bold text-primary-600">{{ lesson.hours }} {{ t('hours') }}</span>
+                                    {% else %}
+                                    <span class="font-bold text-primary-600">{{ t('available') }}</span>
+                                    {% endif %}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                        {% elif is_admin %}
+                        {# Admin: Show Statistics #}
+                        {% if stats %}
+                        <div class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
+                                            </path>
+                                        </svg>
+                                        <span class="text-sm font-medium text-gray-700">{{ t('lessons') }}:</span>
+                                        <span class="text-sm font-bold text-blue-600">{{ stats.lessons_count }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+                                            </path>
+                                        </svg>
+                                        <span class="text-sm font-medium text-gray-700">{{ t('assignments') }}:</span>
+                                        <span class="text-sm font-bold text-green-600">{{ stats.assignments_count
+                                            }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% else %}
+                        {# Student: Show Grades #}
+                        {% if current_user.role == 'student' and subject_grades and subject_grades[subject.id] %}
+                        <!-- Ballar ko'rsatish - faqat mavjud bo'lgan dars turlari -->
+                        {% set grades = subject_grades[subject.id] %}
+                        {% set available_types = grades.get('available_types', []) %}
+                        {% if available_types %}
+                        <div class="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                            {% set lesson_types_list = [] %}
+                            {% if 'maruza' in available_types %}{% set _ = lesson_types_list.append('maruza') %}{% endif
+                            %}
+                            {% if 'amaliyot' in available_types %}{% set _ = lesson_types_list.append('amaliyot') %}{%
+                            endif %}
+                            {% if 'laboratoriya' in available_types %}{% set _ =
+                            lesson_types_list.append('laboratoriya') %}{% endif %}
+                            {% if 'seminar' in available_types %}{% set _ = lesson_types_list.append('seminar') %}{%
+                            endif %}
+                            {% if 'kurs_ishi' in available_types %}{% set _ = lesson_types_list.append('kurs_ishi') %}{%
+                            endif %}
+
+                            {% if lesson_types_list|length <= 3 %} <div class="grid grid-cols-3 gap-2 text-center">
+                                {% for lesson_type in lesson_types_list %}
+                                {% if lesson_type == 'maruza' %}
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">{{ 'maruza'|lesson_type_label }}</p>
+                                    <p class="text-sm font-bold text-blue-600">
+                                        {% if grades.maruza.max > 0 %}{{ grades.maruza.score }}/{{ grades.maruza.max
+                                        }}{% else %}-{% endif %}
+                                    </p>
+                                </div>
+                                {% elif lesson_type == 'amaliyot' %}
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">{{ 'amaliyot'|lesson_type_label }}</p>
+                                    <p class="text-sm font-bold text-green-600">
+                                        {% if grades.amaliyot.max > 0 %}{{ grades.amaliyot.score }}/{{
+                                        grades.amaliyot.max }}{% else %}-{% endif %}
+                                    </p>
+                                </div>
+                                {% elif lesson_type == 'laboratoriya' %}
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">{{ 'laboratoriya'|lesson_type_label }}</p>
+                                    <p class="text-sm font-bold text-purple-600">
+                                        {% if grades.laboratoriya.max > 0 %}{{ grades.laboratoriya.score }}/{{
+                                        grades.laboratoriya.max }}{% else %}-{% endif %}
+                                    </p>
+                                </div>
+                                {% elif lesson_type == 'seminar' %}
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">{{ 'seminar'|lesson_type_label }}</p>
+                                    <p class="text-sm font-bold text-amber-600">
+                                        {% if grades.seminar.max > 0 %}{{ grades.seminar.score }}/{{ grades.seminar.max
+                                        }}{% else %}-{% endif %}
+                                    </p>
+                                </div>
+                                {% elif lesson_type == 'kurs_ishi' %}
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">{{ 'kurs_ishi'|lesson_type_label }}</p>
+                                    <p class="text-sm font-bold text-indigo-600">
+                                        {% if grades.kurs_ishi.max > 0 %}{{ grades.kurs_ishi.score }}/{{
+                                        grades.kurs_ishi.max }}{% else %}-{% endif %}
+                                    </p>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">{{ t('total') }}</p>
+                                    <p class="text-sm font-bold text-primary-600">
+                                        {% if grades.total.max > 0 %}{{ grades.total.score }}/{{ grades.total.max }}{%
+                                        else %}-{% endif %}
+                                    </p>
+                                </div>
+                        </div>
+                        {% else %}
+                        <div class="grid grid-cols-3 gap-2 text-center mb-2">
+                            {% for lesson_type in lesson_types_list[:3] %}
+                            {% if lesson_type == 'maruza' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">{{ 'maruza'|lesson_type_label }}</p>
+                                <p class="text-sm font-bold text-blue-600">
+                                    {% if grades.maruza.max > 0 %}{{ grades.maruza.score }}/{{ grades.maruza.max }}{%
+                                    else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'amaliyot' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">{{ 'amaliyot'|lesson_type_label }}</p>
+                                <p class="text-sm font-bold text-green-600">
+                                    {% if grades.amaliyot.max > 0 %}{{ grades.amaliyot.score }}/{{ grades.amaliyot.max
+                                    }}{% else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'laboratoriya' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Laboratoriya</p>
+                                <p class="text-sm font-bold text-purple-600">
+                                    {% if grades.laboratoriya.max > 0 %}{{ grades.laboratoriya.score }}/{{
+                                    grades.laboratoriya.max }}{% else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'seminar' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">{{ 'seminar'|lesson_type_label }}</p>
+                                <p class="text-sm font-bold text-amber-600">
+                                    {% if grades.seminar.max > 0 %}{{ grades.seminar.score }}/{{ grades.seminar.max }}{%
+                                    else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'kurs_ishi' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Kurs ishi</p>
+                                <p class="text-sm font-bold text-indigo-600">
+                                    {% if grades.kurs_ishi.max > 0 %}{{ grades.kurs_ishi.score }}/{{
+                                    grades.kurs_ishi.max }}{% else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-center border-t border-gray-200 pt-2">
+                            {% for lesson_type in lesson_types_list[3:] %}
+                            {% if lesson_type == 'maruza' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">{{ 'maruza'|lesson_type_label }}</p>
+                                <p class="text-sm font-bold text-blue-600">
+                                    {% if grades.maruza.max > 0 %}{{ grades.maruza.score }}/{{ grades.maruza.max }}{%
+                                    else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'amaliyot' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">{{ 'amaliyot'|lesson_type_label }}</p>
+                                <p class="text-sm font-bold text-green-600">
+                                    {% if grades.amaliyot.max > 0 %}{{ grades.amaliyot.score }}/{{ grades.amaliyot.max
+                                    }}{% else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'laboratoriya' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Laboratoriya</p>
+                                <p class="text-sm font-bold text-purple-600">
+                                    {% if grades.laboratoriya.max > 0 %}{{ grades.laboratoriya.score }}/{{
+                                    grades.laboratoriya.max }}{% else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'seminar' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">{{ 'seminar'|lesson_type_label }}</p>
+                                <p class="text-sm font-bold text-amber-600">
+                                    {% if grades.seminar.max > 0 %}{{ grades.seminar.score }}/{{ grades.seminar.max }}{%
+                                    else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% elif lesson_type == 'kurs_ishi' %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">Kurs ishi</p>
+                                <p class="text-sm font-bold text-indigo-600">
+                                    {% if grades.kurs_ishi.max > 0 %}{{ grades.kurs_ishi.score }}/{{
+                                    grades.kurs_ishi.max }}{% else %}-{% endif %}
+                                </p>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            <div>
+                                <p class="text-xs text-gray-500 mb-1">{{ t('total') }}</p>
+                                <p class="text-sm font-bold text-primary-600">
+                                    {% if grades.total.max > 0 %}{{ grades.total.score }}/{{ grades.total.max }}{% else
+                                    %}-{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
+
+                    <div class="flex items-center gap-4 text-sm text-gray-500">
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                            {% if current_user.role == 'teacher' or current_user.has_role('teacher') %}
+                            {{ subject_data.lessons_count|default(0) }} {{ t('lessons_unit') }}
+                            {% elif current_user.role == 'student' and subject_data.lessons_count is defined %}
+                            {{ subject_data.lessons_count|default(0) }} {{ t('lessons_unit') }}
+                            {% else %}
+                            {{ subject.lessons.count() }} {{ t('lessons_unit') }}
+                            {% endif %}
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            {% if current_user.role == 'teacher' or current_user.has_role('teacher') %}
+                            {{ subject_data.assignments_count|default(0) }} {{ t('assignments_unit') }}
+                            {% elif current_user.role == 'student' and subject_data.assignments_count is defined %}
+                            {{ subject_data.assignments_count|default(0) }} {{ t('assignments_unit') }}
+                            {% else %}
+                            {{ subject.assignments.count() }} {{ t('assignments_unit') }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<!-- Subjects grid (admin va dekan uchun) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for subject in subjects.items %}
+    {% set has_issue = False %}
+    <a href="{{ url_for('courses.detail', id=subject.id) }}"
+        class="bg-white rounded-2xl shadow-sm {% if has_issue %}border-2 border-red-500{% else %}border border-gray-100{% endif %} overflow-hidden hover:shadow-lg transition-shadow">
+        <div
+            class="relative h-36 overflow-hidden {% if has_issue %}bg-gradient-to-br from-red-500 to-red-600{% else %}bg-gradient-to-br from-primary-500 to-primary-600{% endif %} flex items-center justify-center">
+            <div class="absolute top-3 left-3">
+                {% if subject.semester %}
+                <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.semester
+                    }}{{ t('semester_suffix') }}</span>
+                {% endif %}
+            </div>
+            <div class="absolute top-3 right-3">
+                <span class="px-3 py-1 text-xs font-medium rounded-full bg-white/20 text-white">{{ subject.credits
+                    }} {{ t('curriculum_credits_unit') }}</span>
+            </div>
+            <div class="text-center px-4">
+                <h3 class="text-xl font-bold text-white">{{ subject.name }}</h3>
+            </div>
+        </div>
+        <div class="p-5">
+            <div class="flex items-start justify-between mb-2">
+                <span
+                    class="px-2 py-1 text-xs font-medium rounded-full {% if has_issue %}bg-red-100 text-red-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
+                    {{ subject.semester }}{{ t('semester_suffix') }}
+                </span>
+            </div>
+            {# O'quv reja tekshiruvi faqat yo'nalish tanlanganda ishlaydi #}
+            <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ subject.description or t('no_description') }}</p>
+
+            {% if current_user.role == 'student' and subject_grades and subject_grades[subject.id] %}
+            <!-- Ballar ko'rsatish -->
+            <div class="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">{{ 'maruza'|lesson_type_label }}</p>
+                        <p class="text-sm font-bold text-blue-600">
+                            {% if subject_grades[subject.id].maruza.max > 0 %}
+                            {{ subject_grades[subject.id].maruza.score }}/{{ subject_grades[subject.id].maruza.max
+                            }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">{{ 'amaliyot'|lesson_type_label }}</p>
+                        <p class="text-sm font-bold text-green-600">
+                            {% if subject_grades[subject.id].amaliyot.max > 0 %}
+                            {{ subject_grades[subject.id].amaliyot.score }}/{{
+                            subject_grades[subject.id].amaliyot.max }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">{{ t('total') }}</p>
+                        <p class="text-sm font-bold text-primary-600">
+                            {% if subject_grades[subject.id].total.max > 0 %}
+                            {{ subject_grades[subject.id].total.score }}/{{ subject_grades[subject.id].total.max }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex items-center gap-4 text-sm text-gray-500">
+                <div class="flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    {{ subject.lessons.count() }} {{ t('lessons_unit') }}
+                </div>
+                <div class="flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    {{ subject.assignments.count() }} topshiriq
+                </div>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+    {% if not subjects.items %}
+    <div class="col-span-full text-center py-12">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+        <h3 class="text-lg font-medium text-gray-600">{{ t('subjects_not_found') }}</h3>
+        {% if current_user.role == 'student' and not current_user.group_id %}
+        <p class="text-gray-400">{{ t('no_group_assigned') }}</p>
+        {% else %}
+        <p class="text-gray-400">{{ t('change_search_query') }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Pagination -->
+{% if subjects.pages > 1 %}
+<div class="flex justify-center gap-2">
+    {% if subjects.has_prev %}
+    <a href="{{ url_for('courses.index', page=subjects.prev_num, search=search) }}"
+        class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">{{ t('prev_page') }}</a>
+    {% endif %}
+
+    <span class="px-4 py-2 bg-primary-600 text-white rounded-xl">{{ subjects.page }} / {{ subjects.pages }}</span>
+
+    {% if subjects.has_next %}
+    <a href="{{ url_for('courses.index', page=subjects.next_num, search=search) }}"
+        class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">{{ t('next_page') }}</a>
+    {% endif %}
+</div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const searchInput = document.getElementById('searchInput');
+    if (filterForm && searchInput) {
+        var searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() { filterForm.submit(); }, 500);
+        });
+        if (window.location.search.indexOf('search=') !== -1) {
+            searchInput.focus();
+            searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+        }
+    }
+});
+</script>
+{% endblock %}

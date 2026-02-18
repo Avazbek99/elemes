@@ -1,0 +1,549 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('create_student_title') }}{% endblock %}
+
+{% block content %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Select2 customizations to match project theme */
+    .select2-container .select2-selection--single {
+        height: 50px !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 0.75rem !important;
+        /* rounded-xl */
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        padding-left: 1rem !important;
+        padding-right: 3rem !important;
+        /* Space for clear button */
+        color: #111827 !important;
+        font-size: 1rem !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 48px !important;
+        right: 10px !important;
+    }
+
+    /* Custom clear button styling */
+    .select2-container--default .select2-selection--single .select2-selection__clear {
+        position: absolute !important;
+        right: 40px !important;
+        /* Position to the right, before arrow */
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        font-size: 24px !important;
+        /* Larger */
+        font-weight: bold !important;
+        color: #ef4444 !important;
+        /* Red color */
+        background: transparent !important;
+        border: none !important;
+        cursor: pointer !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        line-height: 1 !important;
+        width: 24px !important;
+        height: 24px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__clear:hover {
+        color: #dc2626 !important;
+        /* Darker red on hover */
+    }
+
+    .select2-dropdown {
+        border-color: #d1d5db !important;
+        border-radius: 0.75rem !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    }
+
+    .select2-search__field {
+        border-radius: 0.5rem !important;
+    }
+</style>
+
+<div class="w-full mx-auto pb-12">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.students') }}"
+            class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('create_student_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('create_student_subtitle') }}</p>
+    </div>
+
+    <form method="POST" class="space-y-6">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {{ t('basic_info') }}
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('full_name') }} *</label>
+                    <input type="text" name="full_name" required placeholder="{{ t('name_placeholder') }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <!-- Talaba ID -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('student_id') }} *</label>
+                    <input type="text" name="student_id" required placeholder="376123456789"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_label') }} *</label>
+                    <input type="text" name="passport_number" required placeholder="AD1234567"
+                        style="text-transform: uppercase;"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <!-- JSHSHIR -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('pinfl') }}</label>
+                    <input type="text" name="pinfl" placeholder="30202020200021" maxlength="14"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('birth_date') }}</label>
+                    <input type="text" name="birth_date" placeholder="1999-02-06"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date-iso transition-all">
+                </div>
+
+                <!-- Telefon -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('phone') }}</label>
+                    <input type="text" name="phone" placeholder="+998 90 123 45 67"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('email') }}</label>
+                    <input type="email" name="email" placeholder="email@university.uz"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <div class="lg:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('description') }}</label>
+                    <textarea name="description" rows="1" placeholder="{{ t('description_short_placeholder') }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none transition-all"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Information / Group Assignment -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-10V4a1 1 0 011-1h2a1 1 0 011 1v3M12 7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                {{ t('academic_info') }}
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty') }}</label>
+                    <select id="faculty_id" name="faculty_id"
+                        class="w-full px-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all h-[50px]">
+                        <option value="">{{ t('select_faculty_placeholder') }}</option>
+                        {% for faculty in faculties %}
+                        <option value="{{ faculty.id }}">{{ faculty.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Kurs -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('course') }}</label>
+                    <select id="course_year" name="course_year"
+                        class="w-full px-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all h-[50px]">
+                        <option value="">{{ t('select_option_choose') }}</option>
+                        {% for i in range(1, 8) %}
+                        <option value="{{ i }}">{{ t('course_year_option', n=i) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('semester') }}</label>
+                    <select id="semester" name="semester"
+                        class="w-full px-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all h-[50px]">
+                        <option value="">{{ t('select_semester_placeholder') }}</option>
+                        {% for i in range(1, 15) %}
+                        <option value="{{ i }}">{{ i }}{{ t('semester_suffix') }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('education_type') }}</label>
+                    <select id="education_type" name="education_type"
+                        class="w-full px-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all h-[50px]">
+                        <option value="">{{ t('select_education_type_placeholder') }}</option>
+                        <option value="kunduzgi">{{ t('education_type_kunduzgi') }}</option>
+                        <option value="sirtqi">{{ t('education_type_sirtqi') }}</option>
+                        <option value="kechki">{{ t('education_type_kechki') }}</option>
+                        <option value="masofaviy">{{ t('education_type_masofaviy') }}</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <!-- Qabul yili, Yo'nalish, Guruh -->
+            <div class="grid grid-cols-4 gap-6 mt-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('enrollment_year') }}</label>
+                    <div class="relative">
+                        <input type="number" id="enrollment_year" name="enrollment_year" placeholder="2026" min="2000"
+                            max="2100"
+                            class="w-full px-4 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all h-[50px]">
+                        <button type="button" id="clear_enrollment_year"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 hover:text-red-600 font-bold text-2xl hidden"
+                            onclick="document.getElementById('enrollment_year').value = ''; this.classList.add('hidden'); document.getElementById('enrollment_year').dispatchEvent(new Event('input'));">
+                            ×
+                        </button>
+                    </div>
+                </div>
+
+                <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction') }}</label>
+                    <select id="direction_id" name="direction_id"
+                        class="w-full px-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 transition-all h-[50px]">
+                        <option value="">{{ t('select_direction_placeholder') }}</option>
+                    </select>
+                </div>
+
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700 mb-2 font-bold text-primary-700"
+                        id="group_label">{{ t('group') }}</label>
+                    <div class="flex gap-2">
+                        <div class="flex-1 w-full" id="group_select_container">
+                            <select name="group_id" id="group_id" class="w-full">
+                                <option value="">{{ t('select_group_placeholder') }}</option>
+                            </select>
+                        </div>
+
+                        <div class="flex-1 w-full hidden" id="group_input_container">
+                            <input type="text" name="manual_group_name" id="manual_group_name" placeholder="{{ t('group_name_placeholder') }}"
+                                class="w-full px-4 border-2 border-green-100 rounded-xl focus:ring-2 focus:ring-green-500 transition-all bg-green-50/30 h-[50px]">
+                        </div>
+
+                        <button type="button" id="toggle_manual_group"
+                            class="flex-shrink-0 px-3 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors h-[50px] w-[50px] flex items-center justify-center border border-blue-600"
+                            title="{{ t('create_group_title') }}">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-gray-100 flex gap-3">
+            <button type="submit"
+                class="flex-1 px-6 py-4 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-all font-semibold shadow-sm hover:shadow-md">
+                {{ t('save') }}
+            </button>
+            <a href="{{ url_for('admin.students') }}"
+                class="px-6 py-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-semibold text-center">
+                {{ t('cancel') }}
+            </a>
+        </div>
+</div>
+</form>
+</div>
+
+<!-- jQuery (Required for Select2) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    var i18nCreateStudent = {
+        createGroupMode: {{ t('create_group_mode')|tojson }},
+        switchBackToSelect: {{ t('switch_back_to_select')|tojson }},
+        group: {{ t('group')|tojson }},
+        createGroupTitle: {{ t('create_group_title')|tojson }},
+        selectGroupPlaceholder: {{ t('select_group_placeholder')|tojson }},
+        selectDirectionPlaceholder: {{ t('select_direction_placeholder')|tojson }},
+        pleaseEnterGroupName: {{ t('please_enter_group_name')|tojson }}
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+
+        /* =======================
+           SELECT2 INIT
+        ======================= */
+        const selects = [
+            ['#faculty_id', "{{ t('select_faculty_placeholder')|e }}"],
+            ['#course_year', "{{ t('select_course_placeholder')|e }}"],
+            ['#semester', "{{ t('select_semester_placeholder')|e }}"],
+            ['#education_type', "{{ t('select_education_type_placeholder')|e }}"],
+            ['#direction_id', "{{ t('select_direction_placeholder')|e }}"],
+            ['#group_id', "{{ t('select_group_placeholder')|e }}"]
+        ];
+
+        selects.forEach(([id, placeholder]) => {
+            $(id).select2({
+                placeholder,
+                allowClear: true,
+                width: '100%',
+                minimumResultsForSearch: Infinity
+            });
+        });
+
+        /* =======================
+           SELECT2 CLEAR ("x") – TO‘LIQ BLOKLASH
+        ======================= */
+        document.addEventListener('mousedown', e => {
+            const clearBtn = e.target.closest('.select2-selection__clear');
+            if (!clearBtn) return;
+
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            const $select = $(clearBtn).closest('.select2-container').prev('select');
+            if ($select.length) {
+                $select.data('clearing', true);
+                $select.val(null).trigger('change.select2').trigger('change');
+                setTimeout(() => $select.removeData('clearing'), 0);
+            }
+        }, true);
+
+        $(document).on('select2:opening', e => {
+            if ($(e.target).data('clearing')) e.preventDefault();
+        });
+
+        /* =======================
+           ELEMENTLAR
+        ======================= */
+        const groupSelectContainer = document.getElementById('group_select_container');
+        const groupInputContainer = document.getElementById('group_input_container');
+        const manualGroupInput = document.getElementById('manual_group_name');
+        const groupLabel = document.getElementById('group_label');
+        const toggleGroupBtn = document.getElementById('toggle_manual_group');
+        const enrollmentYearInput = document.getElementById('enrollment_year');
+        const clearEnrollmentYearBtn = document.getElementById('clear_enrollment_year');
+
+        let isManualGroup = false;
+        let isAutoFilling = false;
+        let selectedGroupName = '';
+
+        /* =======================
+           FILTERLARNI O‘QISH
+        ======================= */
+        function getFilters() {
+            return {
+                faculty_id: $('#faculty_id').val() || '',
+                course_year: $('#course_year').val() || '',
+                semester: $('#semester').val() || '',
+                education_type: $('#education_type').val() || '',
+                direction_id: $('#direction_id').val() || '',
+                enrollment_year: enrollmentYearInput.value || ''
+            };
+        }
+
+        /* =======================
+           GURUH REJIMLARI
+        ======================= */
+        function switchToManual(name = '') {
+            isManualGroup = true;
+            groupSelectContainer.classList.add('hidden');
+            groupInputContainer.classList.remove('hidden');
+            manualGroupInput.value = name;
+            groupLabel.innerText = i18nCreateStudent.createGroupMode;
+            groupLabel.classList.add('text-orange-600');
+            $('#group_id').val(null).trigger('change.select2');
+
+            toggleGroupBtn.innerHTML = `
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>`;
+            toggleGroupBtn.classList.replace('bg-blue-500', 'bg-red-500');
+            toggleGroupBtn.classList.replace('hover:bg-blue-600', 'hover:bg-red-600');
+            toggleGroupBtn.title = i18nCreateStudent.switchBackToSelect;
+        }
+
+        function switchToSelect(groupId, groupName) {
+            isManualGroup = false;
+            groupSelectContainer.classList.remove('hidden');
+            groupInputContainer.classList.add('hidden');
+            groupLabel.innerText = i18nCreateStudent.group;
+            groupLabel.classList.remove('text-orange-600');
+
+            if (groupId) {
+                $('#group_id').val(groupId).trigger('change.select2');
+            }
+            selectedGroupName = groupName;
+
+            toggleGroupBtn.innerHTML = `
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>`;
+            toggleGroupBtn.classList.replace('bg-red-500', 'bg-blue-500');
+            toggleGroupBtn.classList.replace('hover:bg-red-600', 'hover:bg-blue-600');
+            toggleGroupBtn.title = i18nCreateStudent.createGroupTitle;
+        }
+
+        /* =======================
+           GURUHLARNI YANGILASH
+        ======================= */
+        async function updateGroups() {
+            if (isAutoFilling) return;
+
+            const filters = getFilters();
+            const params = new URLSearchParams();
+            Object.entries(filters).forEach(([k, v]) => v && params.append(k, v));
+
+            try {
+                const res = await fetch(`/admin/api/groups?${params}`);
+                const groups = await res.json();
+
+                const found = selectedGroupName
+                    ? groups.find(g => g.name === selectedGroupName)
+                    : null;
+
+                $('#group_id').empty().append(new Option(i18nCreateStudent.selectGroupPlaceholder, "", true, true));
+                groups.forEach(g => {
+                    const isSelected = found && g.id === found.id;
+                    $('#group_id').append(new Option(g.name, g.id, isSelected, isSelected));
+                });
+
+                if (found) {
+                    switchToSelect(found.id, found.name);
+                } else if (selectedGroupName) {
+                    switchToManual(selectedGroupName);
+                } else {
+                    switchToSelect(null, '');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        /* =======================
+           EVENTLAR
+        ======================= */
+        $('#group_id').on('change', async function () {
+            const id = $(this).val();
+            if (!id || isAutoFilling) return;
+
+            isAutoFilling = true;
+            try {
+                const res = await fetch(`/admin/api/groups/${id}`);
+                const g = await res.json();
+
+                selectedGroupName = g.name;
+
+                enrollmentYearInput.value = g.enrollment_year || '';
+                clearEnrollmentYearBtn.classList.toggle('hidden', !g.enrollment_year);
+
+                $('#faculty_id').val(g.faculty_id).trigger('change');
+                $('#course_year').val(g.course_year).trigger('change');
+                $('#semester').val(g.semester).trigger('change');
+                $('#education_type').val(g.education_type).trigger('change');
+
+                if (g.faculty_id) await loadDirectionsByFaculty(g.faculty_id);
+                if (g.direction_id) $('#direction_id').val(g.direction_id).trigger('change');
+            } catch (e) {
+                console.error(e);
+            } finally {
+                isAutoFilling = false;
+            }
+        });
+
+        $('#faculty_id').on('change', function () {
+            if (!isAutoFilling) {
+                loadDirectionsByFaculty(this.value);
+                updateGroups();
+            }
+        });
+
+        $('#course_year, #semester, #education_type, #direction_id').on('change', () => {
+            if (!isAutoFilling) updateGroups();
+        });
+
+        enrollmentYearInput.addEventListener('input', () => {
+            clearEnrollmentYearBtn.classList.toggle('hidden', !enrollmentYearInput.value);
+            updateGroups();
+        });
+
+        manualGroupInput.addEventListener('input', () => {
+            selectedGroupName = manualGroupInput.value.trim();
+            updateGroups();
+        });
+
+        toggleGroupBtn.addEventListener('click', () => {
+            if (isManualGroup) {
+                switchToSelect(null, '');
+            } else {
+                switchToManual(selectedGroupName);
+            }
+        });
+
+        /* =======================
+           LOADERS
+        ======================= */
+        async function loadAllDirections() {
+            const res = await fetch('/admin/api/directions');
+            const dirs = await res.json();
+            $('#direction_id').empty().append(new Option(i18nCreateStudent.selectDirectionPlaceholder, "", true, true));
+            dirs.forEach(d => $('#direction_id').append(new Option(`${d.formatted_direction}`, d.id)));
+            $('#direction_id').trigger('change');
+        }
+
+        async function loadDirectionsByFaculty(fid) {
+            const currentDirId = $('#direction_id').val();
+            const url = fid ? `/admin/api/directions?faculty_id=${fid}` : '/admin/api/directions';
+
+            try {
+                const res = await fetch(url);
+                const dirs = await res.json();
+
+                $('#direction_id').empty().append(new Option(i18nCreateStudent.selectDirectionPlaceholder, "", true, true));
+
+                dirs.forEach(d => {
+                    const isSelected = d.id == currentDirId;
+                    $('#direction_id').append(new Option(`${d.code} - ${d.name}`, d.id, isSelected, isSelected));
+                });
+
+                $('#direction_id').trigger('change');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        /* =======================
+           INIT
+        ======================= */
+        loadAllDirections();
+        updateGroups();
+
+        document.querySelector('form').addEventListener('submit', e => {
+            if (isManualGroup && !manualGroupInput.value.trim()) {
+                e.preventDefault();
+                alert(i18nCreateStudent.pleaseEnterGroupName);
+            }
+        });
+    });
+</script>
+{% endblock %}

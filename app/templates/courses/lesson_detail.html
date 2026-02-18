@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="mb-4">
+        {% set detail_dir_id = direction_id or lesson.direction_id or request.args.get('direction_id') %}
+        {% set detail_group_id = group_id or request.args.get('group_id', type=int) or (current_user.group_id if current_user.role == 'student' and current_user.group_id else None) %}
+        <a href="{% if detail_dir_id and detail_group_id %}{{ url_for('courses.detail', id=subject.id, dir_id=detail_dir_id, group_id=detail_group_id) }}{% elif detail_dir_id %}{{ url_for('courses.detail', id=subject.id, dir_id=detail_dir_id) }}{% else %}{{ url_for('courses.detail', id=subject.id) }}{% endif %}"
+            class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <!-- Video qismi -->
+        {% if lesson.video_file or lesson.video_url %}
+        <div class="relative bg-gradient-to-br from-gray-900 to-gray-800 aspect-video flex items-center justify-center">
+            {% if current_user.role == 'student' %}
+            {% if is_locked %}
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <div class="w-20 h-20 rounded-full bg-amber-500 flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
+                    </svg>
+                </div>
+                <p class="text-xl font-semibold">{{ t('video_locked') }}</p>
+                <p class="text-gray-400 mt-2">{{ t('video_watch_previous') }}</p>
+            </div>
+            {% elif lesson_view and lesson_view.is_completed %}
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <div class="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <p class="text-xl font-semibold">{{ t('video_completed') }}</p>
+                <p class="text-gray-400 mt-2">{{ t('video_completed_desc') }}</p>
+                <button onclick="openVideoModal()"
+                    class="mt-6 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl transition-colors cursor-pointer w-full text-center">
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                        {{ t('watch_again') }}
+                    </span>
+                </button>
+            </div>
+            {% else %}
+            <button onclick="openVideoModal()"
+                class="flex flex-col items-center justify-center text-white hover:scale-105 transition-transform w-full h-full cursor-pointer">
+                <div class="w-20 h-20 rounded-full bg-primary-500/90 flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </div>
+                <p class="text-xl font-semibold">{{ t('watch_video_lesson') }}</p>
+                {% if lesson_view %}
+                <p class="text-gray-400 mt-2">{{ t('check_label') }}: {{ lesson_view.attention_checks_passed }}/3</p>
+                {% else %}
+                <p class="text-gray-400 mt-2">{{ t('watch_video_and_checks') }}</p>
+                {% endif %}
+            </button>
+            {% endif %}
+            {% else %}
+            <!-- O'qituvchi/Admin uchun -->
+            <button onclick="openVideoModal()"
+                class="flex flex-col items-center justify-center text-white hover:scale-105 transition-transform w-full h-full cursor-pointer">
+                <div class="w-20 h-20 rounded-full bg-primary-500/90 flex items-center justify-center mb-4">
+                    <svg class="w-10 h-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </div>
+                <p class="text-xl font-semibold">{{ t('watch_video_lesson') }}</p>
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="p-6">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
+                <div class="min-w-0 flex-1">
+                    <h1 class="text-lg font-bold text-gray-900 break-words leading-snug">{{ lesson.title }}</h1>
+                    <p class="text-gray-500 mt-1.5 text-sm flex flex-wrap items-center gap-x-2 gap-y-0">
+                        <span>{{ subject.name }}</span>
+                        {% if lesson.lesson_type %}
+                        <span class="text-gray-400" aria-hidden="true">·</span>
+                        <span class="text-gray-600">{{ lesson.lesson_type|lesson_type_label }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="flex items-center gap-3 shrink-0 self-end sm:self-start">
+
+                    {% if can_edit_lesson %}
+                    <a href="{{ url_for('courses.edit_lesson', id=lesson.id, direction_id=direction_id or None, group_id=group_id or None) }}"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        {{ t('edit') }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Talaba uchun progress (faqat videoga ega darslar uchun – tekshiruv mavjud) -->
+            {% if current_user.role == 'student' and lesson_view and (lesson.video_file or lesson.video_url) %}
+            <div class="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-blue-700">{{ t('lesson_progress') }}</span>
+                    <span class="text-sm text-blue-600">{{ t('check_label') }}: <span id="check-counter">{{
+                            lesson_view.attention_checks_passed }}/3</span></span>
+                </div>
+                <div class="w-full bg-blue-200 rounded-full h-2">
+                    <div id="check-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all"
+                        style="width: {{ (lesson_view.attention_checks_passed / 3 * 100)|round }}%"></div>
+                </div>
+                {% if lesson_view.is_completed %}
+                <p class="text-xs text-green-600 mt-2 flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {{ t('completed_at') }}: {{ lesson_view.completed_at.strftime('%d.%m.%Y %H:%M') }}
+                </p>
+                {% endif %}
+            </div>
+            {% elif current_user.role == 'student' and lesson_view and not (lesson.video_file or lesson.video_url) and (lesson.file_url or lesson.content) %}
+            <!-- Video yo'q – faqat fayl/material: sahifa ochilganda avtomatik tugallangan hisoblanadi -->
+            {% if lesson_view.is_completed %}
+            <div class="mb-6 p-4 bg-green-50 rounded-xl border border-green-200">
+                <p class="text-sm text-green-700 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {{ t('material_studied') }}
+                </p>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if lesson.content %}
+            <div class="prose max-w-none">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('lesson_content') }}</h3>
+                <div class="text-gray-600 whitespace-pre-wrap">{{ lesson.content }}</div>
+            </div>
+            {% endif %}
+
+            {% if not is_locked %}
+            {% if lesson_files_list %}
+            <div class="mt-6 p-4 bg-gray-50 rounded-xl">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">{{ t('topic_files') }}</h3>
+                <div class="space-y-3">
+                    {% for file in lesson_files_list %}
+                    <a href="{{ url_for('courses.serve_lesson_file', filename=file.filename) }}"
+                        class="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 text-primary-600 hover:text-primary-700 hover:border-primary-200 transition-all group">
+                        <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-primary-500" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span class="truncate text-sm font-medium">{{ t('download_file') }}</span>
+                        <svg class="ml-auto w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </a>
+                    {% endfor %}
+                    {% if current_file_urls %}
+                    {% for external_url in current_file_urls %}
+                    <a href="{{ external_url }}" target="_blank"
+                        class="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 text-primary-600 hover:text-primary-700 hover:border-primary-200 transition-all group">
+                        <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-primary-500" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        <span class="text-sm font-medium">{{ t('download_file_external') }}</span>
+                    </a>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            {% elif current_file_urls %}
+            <div class="mt-6 p-4 bg-gray-50 rounded-xl">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">{{ t('topic_file') }}</h3>
+                <a href="{{ current_file_urls[0] }}" target="_blank"
+                    class="inline-flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-100 text-primary-600 hover:text-primary-700 hover:border-primary-200 transition-all group">
+                    <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-primary-500" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    <span class="text-sm font-medium">{{ t('download_file_external') }}</span>
+                </a>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% include 'courses/components/video_player_modal.html' %}
+{% endblock %}

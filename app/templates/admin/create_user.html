@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Yangi foydalanuvchi{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.users') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Orqaga
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">Yangi foydalanuvchi yaratish</h1>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6" id="userForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <!-- Asosiy ma'lumotlar -->
+            <div class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Asosiy ma'lumotlar</h3>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
+                    <input type="text" name="full_name" required placeholder="Ism Familiya"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" name="email" placeholder="email@university.uz"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Ixtiyoriy</p>
+                </div>
+
+                <div id="loginField" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Login *</label>
+                    <input type="text" name="login" placeholder="a_tursunqulov"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun login (xodimlar uchun majburiy)</p>
+                </div>
+
+                <div id="studentIdField" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID *</label>
+                    <input type="text" name="student_id" placeholder="376123456789"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun talaba ID (talabalar uchun majburiy)</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pasport seriyasi va raqami *</label>
+                    <input type="text" name="passport_number" required placeholder="AB1234567"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Parol sifatida ishlatiladi</p>
+                </div>
+
+                <div id="loginField" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Login *</label>
+                    <input type="text" name="login" placeholder="a_tursunqulov"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun login (xodimlar uchun majburiy)</p>
+                </div>
+
+                <div id="studentIdField" style="display: none;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Talaba ID *</label>
+                    <input type="text" name="student_id" placeholder="376123456789"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Tizimga kirish uchun talaba ID (talabalar uchun majburiy)</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pasport seriyasi va raqami *</label>
+                    <input type="text" name="passport_number" required placeholder="AB1234567"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Parol sifatida ishlatiladi</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">JSHSHIR (PINFL)</label>
+                    <input type="text" name="pinfl" placeholder="30202020200021"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tug'ilgan sana</label>
+                    <input type="text" name="birth_date" placeholder="yyyy-mm-dd (masalan: 1999-02-06)"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all flatpickr-date-iso">
+                    <p class="text-xs text-gray-500 mt-1">Format: yyyy-mm-dd (masalan: 1999-02-06)</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Parol (ixtiyoriy)</label>
+                    <input type="password" name="password" minlength="6"
+                        placeholder="Agar kiritilmasa, pasport raqami ishlatiladi"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    <p class="text-xs text-gray-500 mt-1">Agar kiritilmasa, pasport raqami parol sifatida ishlatiladi
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rol *</label>
+                    <select name="role" id="roleSelect" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                        <option value="">Rolni tanlang...</option>
+                        <option value="admin">Administrator</option>
+                        <option value="dean">Dekan</option>
+                        <option value="teacher">O'qituvchi</option>
+                        <option value="student">Talaba</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Talaba uchun -->
+            <div id="studentFields" class="space-y-4 hidden">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Talaba ma'lumotlari</h3>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Guruh</label>
+                    <select name="group_id"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                        <option value="">Guruhni tanlang...</option>
+                        {% for group in groups %}
+                        <option value="{{ group.id }}">{{ group.name }} ({{ group.faculty.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Qabul yili</label>
+                    <input type="number" name="enrollment_year" placeholder="2024" min="2000" max="2030"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+            </div>
+
+            <!-- O'qituvchi uchun -->
+            <div id="teacherFields" class="space-y-4 hidden">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">O'qituvchi ma'lumotlari
+                </h3>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Kafedra</label>
+                    <input type="text" name="department" placeholder="Dasturiy injiniring"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lavozim</label>
+                    <input type="text" name="position" placeholder="Dotsent"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+            </div>
+
+            <!-- Dekan uchun -->
+            <div id="deanFields" class="space-y-4 hidden">
+                <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-100 pb-2">Dekan ma'lumotlari</h3>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fakultet *</label>
+                    <select name="faculty_id"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                        <option value="">Fakultetni tanlang...</option>
+                        {% for faculty in faculties %}
+                        <option value="{{ faculty.id }}">{{ faculty.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    Foydalanuvchi yaratish
+                </button>
+                <a href="{{ url_for('admin.users') }}"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    Bekor qilish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('roleSelect').addEventListener('change', function () {
+        const role = this.value;
+
+        // Barcha maxsus maydonlarni yashirish
+        document.getElementById('studentFields').classList.add('hidden');
+        document.getElementById('teacherFields').classList.add('hidden');
+        document.getElementById('deanFields').classList.add('hidden');
+        document.getElementById('loginField').style.display = 'none';
+        document.getElementById('studentIdField').style.display = 'none';
+
+        // Login va talaba ID maydonlarini majburiy qilish/yechish
+        const loginInput = document.querySelector('input[name="login"]');
+        const studentIdInput = document.querySelector('input[name="student_id"]');
+
+        if (loginInput) loginInput.required = false;
+        if (studentIdInput) studentIdInput.required = false;
+
+        // Rolga qarab kerakli maydonlarni ko'rsatish
+        if (role === 'student') {
+            document.getElementById('studentFields').classList.remove('hidden');
+            document.getElementById('studentIdField').style.display = 'block';
+            if (studentIdInput) studentIdInput.required = true;
+        } else if (role === 'teacher') {
+            document.getElementById('teacherFields').classList.remove('hidden');
+            document.getElementById('loginField').style.display = 'block';
+            if (loginInput) loginInput.required = true;
+        } else if (role === 'dean') {
+            document.getElementById('deanFields').classList.remove('hidden');
+            document.getElementById('loginField').style.display = 'block';
+            if (loginInput) loginInput.required = true;
+        } else if (role === 'admin' || role === 'accounting') {
+            document.getElementById('loginField').style.display = 'block';
+            if (loginInput) loginInput.required = true;
+        }
+    });
+
+</script>
+{% endblock %}

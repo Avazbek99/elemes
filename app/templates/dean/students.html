@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<!-- Tom Select CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>
+    /* Tom Select Custom Styling */
+    .ts-wrapper {
+        width: 100% !important;
+    }
+    
+    .ts-control {
+        border-radius: 0.5rem !important;
+        padding: 0.5rem 0.75rem !important;
+        border: 1px solid #d1d5db !important;
+        font-size: 0.875rem !important;
+        box-shadow: none !important;
+        transition: all 0.2s;
+    }
+
+    .ts-control:focus-within {
+        border-color: #0ea5e9 !important;
+        box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important;
+    }
+
+    .ts-dropdown {
+        border-radius: 0.75rem !important;
+        margin-top: 4px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #f3f4f6 !important;
+    }
+
+    .ts-dropdown .active {
+        background-color: #f0f9ff !important;
+        color: #0369a1 !important;
+    }
+
+    .ts-dropdown .option {
+        padding: 8px 12px !important;
+        font-size: 0.875rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block title %}{{ t('students_database') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('students_database') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('all_students_list') }}</p>
+        </div>
+        <div class="flex gap-2 ml-auto shrink-0">
+            <a href="{{ url_for('dean.export_students') }}"
+                class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {{ t('export') }}
+            </a>
+            <a href="{{ url_for('dean.import_students') }}"
+                class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {{ t('import') }}
+            </a>
+            <a href="{{ url_for('dean.create_student') }}"
+                class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {{ t('new_student') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="GET" id="filterForm" class="space-y-4">
+            <!-- Filtrlar -->
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('course') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="course" id="course"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_courses') }}</option>
+                            {% for course in courses %}
+                            <option value="{{ course }}">{{ course }}{{ t('course_suffix') }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('semester') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="semester" id="semester"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_semesters') }}</option>
+                            {% for sem in semesters %}
+                            <option value="{{ sem }}">{{ sem }}{{ t('semester_suffix') }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('education_type') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="education_type" id="education_type"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_types') }}</option>
+                            {% for et in education_types %}
+                            <option value="{{ et }}">{{ et|education_type_label }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('direction') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="direction" id="direction"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_directions') }}</option>
+                            {% for direction in directions %}
+                            <option value="{{ direction.id }}">{{ direction.code }} - {{ direction.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('group') }}</label>
+                    <div class="filter-select-wrap relative">
+                        <select name="group" id="group"
+                            class="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{{ t('all_groups') }}</option>
+                            {% for group in groups %}
+                            <option value="{{ group.id }}">{{ group.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Qidiruv va Tugmalar -->
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1 min-w-[200px] relative search-input-wrap">
+                    <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_student_fields') }}"
+                        class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+                    {{ t('search') }}
+                </button>
+                {% if search or current_course or current_semester or current_education_type or current_direction or current_group %}
+                <a href="{{ url_for('dean.students') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+                    {{ t('clear') }}
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <span id="loading-text" class="hidden">{{ t('loading') }}</span>
+    <span id="load-error-text" class="hidden">{{ t('load_error') }}</span>
+    <div id="studentResults">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+        {% if students.items %}
+        <table class="w-full min-w-[640px]">
+            <thead class="bg-gray-50">
+                <tr class="border-b-2 border-gray-400">
+                    <th class="px-6 py-4 text-left">
+                        <a href="{{ url_for('dean.students', page=1, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort='name', order=(sort_order == 'asc' and sort_by == 'name') and 'desc' or 'asc') }}"
+                            class="block text-xs font-semibold text-gray-500 uppercase hover:text-primary-600 transition-colors">{{ t('full_name_student_id') }}{% if sort_by == 'name' %} <span>{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}</a>
+                    </th>
+                    <th class="px-6 py-4 text-left">
+                        <a href="{{ url_for('dean.students', page=1, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort='passport', order=(sort_order == 'asc' and sort_by == 'passport') and 'desc' or 'asc') }}"
+                            class="block text-xs font-semibold text-gray-500 uppercase hover:text-primary-600 transition-colors">{{ t('passport_pinfl') }}{% if sort_by == 'passport' %} <span>{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}</a>
+                    </th>
+                    <th class="px-6 py-4 text-left">
+                        <a href="{{ url_for('dean.students', page=1, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort='phone', order=(sort_order == 'asc' and sort_by == 'phone') and 'desc' or 'asc') }}"
+                            class="block text-xs font-semibold text-gray-500 uppercase hover:text-primary-600 transition-colors">{{ t('phone_email') }}{% if sort_by == 'phone' %} <span>{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}</a>
+                    </th>
+                    <th class="px-6 py-4 text-left">
+                        <a href="{{ url_for('dean.students', page=1, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort='group', order=(sort_order == 'asc' and sort_by == 'group') and 'desc' or 'asc') }}"
+                            class="block text-xs font-semibold text-gray-500 uppercase hover:text-primary-600 transition-colors">{{ t('group_direction') }}{% if sort_by == 'group' %} <span>{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}</a>
+                    </th>
+                    <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in students.items %}
+                <tr class="border-b border-gray-200 hover:bg-primary-100 transition-colors {% if loop.index is even %}bg-gray-50/50{% endif %}">
+                    <td class="table-name-cell pl-2 pr-6 py-4" style="text-align: left; vertical-align: middle;">
+                        <div class="flex items-center gap-3 justify-start" style="text-align: left;">
+                            <div
+                                class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold shrink-0">
+                                {{ student.full_name[0] }}
+                            </div>
+                            <div class="min-w-0" style="text-align: left;">
+                                <p class="font-medium text-gray-900" style="text-align: left;">{{ student.full_name.upper() if student.full_name
+                                    else '-' }}</p>
+                                {% if student.student_id %}
+                                <p class="text-sm text-gray-500" style="text-align: left;">{{ student.student_id }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div>
+                            <p class="text-sm text-gray-900">{{ student.passport_number or '-' }}</p>
+                            {% if student.pinfl %}
+                            <p class="text-xs text-gray-500">{{ student.pinfl }}</p>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col gap-0.5 text-sm text-gray-600">
+                            <span>{{ student.phone or '-' }}</span>
+                            <span class="text-gray-500">{{ student.email or '-' }}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if student.group %}
+                        <div class="flex flex-col">
+                            <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium w-fit">{{
+                                student.group.name }}</span>
+                            <span class="text-xs text-gray-400 mt-1">{{ student.group.formatted_direction }}</span>
+                        </div>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="inline-flex items-center gap-1">
+                            <!-- Tahrirlash -->
+                            <a href="{{ url_for('dean.edit_student', id=student.id) }}"
+                                class="p-2 rounded-lg hover:bg-primary-600 hover:text-white text-blue-600 transition-colors"
+                                title="{{ t('edit_info') }}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </a>
+                            <!-- Parolni qaytarish -->
+                            <form action="{{ url_for('dean.reset_student_password', id=student.id) }}" method="POST"
+                                class="inline"
+                                onsubmit="return confirm('{{ t("confirm_reset_password") | escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit"
+                                    class="p-2 rounded-lg hover:bg-purple-600 hover:text-white text-purple-600 transition-colors"
+                                    title="{{ t('reset_password') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                </button>
+                            </form>
+                            <!-- O'chirish -->
+                            <form action="{{ url_for('dean.delete_student', id=student.id) }}" method="POST"
+                                class="inline" onsubmit="return confirm('{{ t("confirm_delete_student") | escapejs }}')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit"
+                                    class="p-2 rounded-lg hover:bg-red-600 hover:text-white text-red-600 transition-colors"
+                                    title="{{ t('delete') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </form>
+                            <!-- Holat toggle switch -->
+                            {% if student.id != current_user.id %}
+                            <form action="{{ url_for('dean.toggle_student_status', id=student.id) }}" method="POST"
+                                class="inline" id="toggle-form-{{ student.id }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" class="sr-only peer" {% if student.is_active %}checked{%
+                                        endif %}
+                                        onchange="document.getElementById('toggle-form-{{ student.id }}').submit();">
+                                    <div
+                                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600">
+                                    </div>
+                                </label>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="px-6 py-12 text-center text-gray-500">{{ t('students_not_found') }}</div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if students.pages > 1 %}
+    <div class="mt-6 flex flex-col items-center gap-4">
+        <!-- Pagination buttons -->
+        <div class="flex items-center gap-2">
+            {% if students.has_prev %}
+            <a href="{{ url_for('dean.students', page=1, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort=sort_by, order=sort_order) }}"
+                class="students-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">{{ t('first') }}</a>
+            <a href="{{ url_for('dean.students', page=students.prev_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort=sort_by, order=sort_order) }}"
+                class="students-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ students.prev_num }}">«</a>
+            {% else %}
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+            {% endif %}
+
+            {% for page_num in students.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+            {% if page_num == students.page %}
+            <span class="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium">{{ page_num }}</span>
+            {% else %}
+            <a href="{{ url_for('dean.students', page=page_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort=sort_by, order=sort_order) }}"
+                class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">{{ page_num
+                }}</a>
+            {% endif %}
+            {% else %}
+            <span class="px-2 text-gray-400">...</span>
+            {% endif %}
+            {% endfor %}
+
+            {% if students.has_next %}
+            <a href="{{ url_for('dean.students', page=students.next_num, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort=sort_by, order=sort_order) }}"
+                class="students-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ students.next_num }}">»</a>
+            <a href="{{ url_for('dean.students', page=students.pages, group=current_group, course=current_course, semester=current_semester, education_type=current_education_type, direction=current_direction, search=search, sort=sort_by, order=sort_order) }}"
+                class="students-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ students.pages }}">{{ t('last') }}</a>
+            {% else %}
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+            <span
+                class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>
+            {% endif %}
+        </div>
+
+        <!-- Item count -->
+        <div class="text-sm text-gray-600">
+            {% set start = (students.page - 1) * students.per_page + 1 %}
+            {% set end = students.page * students.per_page if students.page * students.per_page <= students.total else students.total %}
+            {{ t('pagination_range', start=start, end=end, total=students.total) }}
+        </div>
+        </div>
+        {% else %}
+        {% if students.total > 0 %}
+        <div class="mt-6 text-center text-sm text-gray-600">
+            {% set start = (students.page - 1) * students.per_page + 1 %}
+            {% set end = students.page * students.per_page if students.page * students.per_page <= students.total else students.total %}
+            {{ t('pagination_range', start=start, end=end, total=students.total) }}
+        </div>
+                {% endif %}
+                {% endif %}
+    </div>
+        </div>
+
+<!-- Tom Select JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const searchInput = document.getElementById('searchInput');
+    const studentResults = document.getElementById('studentResults');
+    const baseUrl = '{{ url_for("dean.students") }}';
+
+    function getFilterParams() {
+        const getVal = function(id) {
+            if (window.tomSelectInstances && window.tomSelectInstances[id]) {
+                const v = window.tomSelectInstances[id].getValue();
+                return (typeof v === 'string' ? v : (Array.isArray(v) ? v[0] : v)) || '';
+            }
+            const el = document.getElementById(id);
+            return el ? (el.value || '') : '';
+        };
+        const up = new URLSearchParams(window.location.search);
+        return {
+            course: getVal('course'),
+            semester: getVal('semester'),
+            education_type: getVal('education_type'),
+            direction: getVal('direction'),
+            group: getVal('group'),
+            search: searchInput ? searchInput.value.trim() : '',
+            sort: up.get('sort') || 'name',
+            order: up.get('order') || 'asc'
+        };
+    }
+
+    function buildParams(params, page) {
+        const p = new URLSearchParams();
+        p.set('partial', '1');
+        if (params.search) p.set('search', params.search);
+        if (params.course) p.set('course', params.course);
+        if (params.semester) p.set('semester', params.semester);
+        if (params.education_type) p.set('education_type', params.education_type);
+        if (params.direction) p.set('direction', params.direction);
+        if (params.group) p.set('group', params.group);
+        if (params.sort) p.set('sort', params.sort);
+        if (params.order) p.set('order', params.order);
+        if (page && page > 1) p.set('page', page);
+        return p.toString();
+    }
+
+    function buildHistoryParams(params, page) {
+        const parts = [];
+        if (params.search) parts.push('search=' + encodeURIComponent(params.search));
+        if (params.course) parts.push('course=' + params.course);
+        if (params.semester) parts.push('semester=' + params.semester);
+        if (params.education_type) parts.push('education_type=' + encodeURIComponent(params.education_type));
+        if (params.direction) parts.push('direction=' + params.direction);
+        if (params.group) parts.push('group=' + params.group);
+        if (params.sort) parts.push('sort=' + encodeURIComponent(params.sort));
+        if (params.order) parts.push('order=' + encodeURIComponent(params.order));
+        if (page && page > 1) parts.push('page=' + page);
+        return parts.length ? '?' + parts.join('&') : '';
+    }
+
+    function loadResults(page) {
+        page = page || 1;
+        const params = getFilterParams();
+        const qs = buildParams(params, page);
+        const url = baseUrl + (qs ? '?' + qs : '');
+        studentResults.innerHTML = '<div class="flex justify-center py-12"><span class="text-gray-500">' + (document.getElementById('loading-text') ? document.getElementById('loading-text').textContent : 'Yuklanmoqda…') + '</span></div>';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                studentResults.innerHTML = html;
+                history.replaceState(null, '', baseUrl + buildHistoryParams(params, page));
+            })
+            .catch(function() {
+                var errEl = document.getElementById('load-error-text');
+                studentResults.innerHTML = '<div class="py-12 text-center text-red-500">' + (errEl ? errEl.textContent : 'Yuklashda xatolik. Sahifani yangilab ko\'ring.') + '</div>';
+            });
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlValues = {
+        course: urlParams.get('course') || '',
+        semester: urlParams.get('semester') || '',
+        education_type: urlParams.get('education_type') || '',
+        direction: urlParams.get('direction') || '',
+        group: urlParams.get('group') || ''
+    };
+
+    const tomSelectInstances = {};
+    window.tomSelectInstances = tomSelectInstances;
+    const filterIds = ['course', 'semester', 'education_type', 'direction', 'group'];
+
+    filterIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const urlValue = urlValues[id];
+            const ts = new TomSelect(el, {
+                create: false,
+                allowEmptyOption: true,
+                maxOptions: 10000,
+                plugins: ['dropdown_input'],
+                placeholder: el.querySelector('option[value=""]')?.textContent || '',
+                persist: false,
+                selectOnTab: false
+            });
+            tomSelectInstances[id] = ts;
+            if (urlValue && urlValue !== '') ts.setValue(urlValue, true);
+            else ts.clear(true);
+            ts.on('change', function() { loadResults(1); });
+        }
+    });
+
+    if (filterForm) filterForm.addEventListener('submit', function(e) { e.preventDefault(); loadResults(1); });
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() { loadResults(1); }, 1000);
+        });
+        if (window.location.search.indexOf('search=') !== -1) {
+            searchInput.focus();
+            searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+        }
+    }
+
+    if (studentResults) {
+        studentResults.addEventListener('click', function(e) {
+            const link = e.target.closest('a.students-pagination-link');
+            if (!link) return;
+            e.preventDefault();
+            const page = parseInt(link.getAttribute('data-page'), 10) || 1;
+            loadResults(page);
+        });
+    }
+});
+</script>
+{% endblock %}
