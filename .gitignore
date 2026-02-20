@@ -1,0 +1,25 @@
+# IDE / editor
+.idea/
+.vscode/
+.cursor/
+.tmp_zip_ref/
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# Virtual env
+.venv/
+venv/
+
+# Local data / logs / uploads (repo root = ELMS1.3)
+uploads/
+# uploads/site (logolar) GitHubga yuklansin
+!uploads/site/
+!uploads/site/**
+server.log
+.env
+*.db
+# instance papkasidagi baza GitHubga yuklansin
+!instance/eduspace.db

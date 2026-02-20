@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('edit_group_title') }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>.ts-control { border-radius: 0.75rem !important; padding: 0.5rem 0.75rem !important; } .ts-dropdown { border-radius: 0.75rem !important; }</style>
+{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.faculty_detail', id=group.faculty_id) }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('edit_group_title') }}</h1>
+        <p class="text-gray-500">{{ group.name }}</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Fakultet (avtomatik) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty') }}</label>
+                    <input type="text" value="{{ faculty.get_display_name(current_lang) or faculty.name }}" disabled
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                    <p class="text-xs text-gray-500 mt-1">{{ t('faculty_auto_selected') }}</p>
+                </div>
+
+                <!-- Qabul yili -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('enrollment_year') }} *</label>
+                    <input type="number" name="enrollment_year" id="enrollmentYearInput"
+                        value="{{ group.enrollment_year or '' }}" placeholder="{{ t('enrollment_year_placeholder') }}" min="1900" max="2100" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                </div>
+
+                <!-- Kurs -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('course') }} *</label>
+                    <select name="course_year" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                        <option value="">{{ t('select_course_placeholder') }}</option>
+                        {% for i in range(1, 8) %}
+                        <option value="{{ i }}" {% if group.course_year==i %}selected{% endif %}>{{ t('course_year_option', n=i) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Semestr -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('semester') }} *</label>
+                    <select name="semester" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                        <option value="">{{ t('select_semester_placeholder') }}</option>
+                        {% for i in range(1, 15) %}
+                        <option value="{{ i }}" {% if group.semester==i %}selected{% endif %}>{{ i }}{{ t('semester_suffix') }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Ta'lim shakli -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('education_type') }} *</label>
+                    <select name="education_type" id="educationTypeSelect" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                        <option value="">{{ t('select_education_type_placeholder') }}</option>
+                        <option value="kunduzgi" {% if group.education_type=='kunduzgi' %}selected{% endif %}>{{ t('education_type_kunduzgi') }}</option>
+                        <option value="sirtqi" {% if group.education_type=='sirtqi' %}selected{% endif %}>{{ t('education_type_sirtqi') }}</option>
+                        <option value="masofaviy" {% if group.education_type=='masofaviy' %}selected{% endif %}>{{ t('education_type_masofaviy') }}</option>
+                        <option value="kechki" {% if group.education_type=='kechki' %}selected{% endif %}>{{ t('education_type_kechki') }}</option>
+                    </select>
+                </div>
+
+                <!-- Guruh nomi -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('group_name_label') }}</label>
+                    <input type="text" name="name" value="{{ group.name }}" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all uppercase">
+                </div>
+
+                <!-- Yo'nalish -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction') }} *</label>
+                    <select name="direction_id" id="directionSelect" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all tom-select-init">
+                        <option value="">{{ t('select_direction_placeholder') }}</option>
+                        {% for direction in all_directions %}
+                        <option value="{{ direction.id }}" data-code="{{ direction.code }}"
+                            data-name="{{ (direction.get_display_name(current_lang) or direction.name)|lower }}" {% if group.direction_id==direction.id %}selected{% endif
+                            %}>
+                            {{ direction.formatted_direction }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-6 border-t border-gray-100 flex gap-3">
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('update') }}
+                </button>
+                <a href="{{ url_for('admin.faculty_detail', id=group.faculty_id) }}"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+    var directionTomSelect = null;
+    function updateDirectionLabels() {
+        const year = document.getElementById('enrollmentYearInput').value || '____';
+        const eduTypeSelect = document.getElementById('educationTypeSelect');
+        const eduType = eduTypeSelect.options[eduTypeSelect.selectedIndex]?.text || '____';
+        const directionSelectEl = document.getElementById('directionSelect');
+        if (!directionSelectEl) return;
+        if (directionTomSelect) {
+            directionTomSelect.destroy();
+            directionTomSelect = null;
+        }
+        Array.from(directionSelectEl.options).forEach(option => {
+            if (!option.value) return;
+            const code = option.getAttribute('data-code');
+            const name = option.getAttribute('data-name');
+            const nameDisplay = name ? (name.charAt(0).toUpperCase() + name.slice(1)) : name;
+            if (code && name) {
+                option.textContent = year + ' - ' + code + ' - ' + nameDisplay + ' (' + eduType + ')';
+            }
+        });
+        if (typeof TomSelect !== 'undefined') {
+            directionTomSelect = new TomSelect(directionSelectEl, {
+                create: false,
+                allowEmptyOption: true,
+                maxOptions: 10000,
+                plugins: ['dropdown_input'],
+                placeholder: {{ t('select_direction_placeholder') | tojson }},
+                persist: false
+            });
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        var yearInput = document.getElementById('enrollmentYearInput');
+        var eduSelect = document.getElementById('educationTypeSelect');
+        if (yearInput) yearInput.addEventListener('input', updateDirectionLabels);
+        if (eduSelect) eduSelect.addEventListener('change', updateDirectionLabels);
+        updateDirectionLabels();
+    });
+</script>
+{% endblock %}

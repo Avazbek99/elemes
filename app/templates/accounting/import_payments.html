@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('import_payments_title') }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('accounting.index') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('import_payments_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('import_payments_subtitle') }}</p>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('excel_file_format') }}</h2>
+        <p class="text-gray-600 mb-4">{{ t('excel_columns_required') }}</p>
+        
+        <div class="bg-gray-50 rounded-xl p-4 mb-4 overflow-x-auto">
+            <table class="w-full text-sm min-w-[480px]">
+                <thead>
+                    <tr class="border-b border-gray-200">
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">{{ t('column_name') }}</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">{{ t('description') }}</th>
+                        <th class="text-left py-2 px-3 font-semibold text-gray-700">{{ t('required_field') }}/{{ t('optional_field') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('col_header_payment_talaba_id') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('col_desc_payment_talaba_id') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">{{ t('required_field') }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('col_header_payment_ismi') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('col_desc_payment_ismi') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('col_header_payment_tolov') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('col_desc_payment_tolov') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('col_header_payment_eslatmalar') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('col_desc_payment_eslatmalar') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div>
+                    <p class="text-sm font-medium text-blue-900 mb-1">{{ t('import_note_title') }}</p>
+                    <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                        <li>{{ t('import_note_file_format') }}</li>
+                        <li>{{ t('import_note_student_lookup') }}</li>
+                        <li>{{ t('import_note_contract_from_direction') }}</li>
+                        <li>{{ t('import_note_each_row_new_payment') }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('excel_upload_title') }}</h2>
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('excel_file_label') }}</label>
+                <div class="relative">
+                    <input type="file" name="excel_file" accept=".xlsx,.xls" required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-sm text-gray-600 mb-0">{{ t('file_format_note') }}</p>
+                    <a href="{{ url_for('accounting.download_sample_contracts') }}"
+                        class="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        {{ t('download_sample') }}
+                    </a>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('import_button') }}
+                </button>
+                <a href="{{ url_for('accounting.index') }}"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

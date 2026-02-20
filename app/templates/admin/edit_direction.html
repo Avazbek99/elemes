@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('edit_direction_title') }}{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.faculty_detail', id=direction.faculty_id) }}"
+            class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('edit_direction_title') }}</h1>
+        <p class="text-gray-600">{{ direction.get_display_name(current_lang) or direction.name }}</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            <!-- Fakultet -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_label') }}</label>
+                <select name="faculty_id" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    {% for faculty in faculties %}
+                    <option value="{{ faculty.id }}" {% if (faculty_id is defined and faculty_id == faculty.id) or (direction.faculty_id == faculty.id and faculty_id is not defined) %}selected{% endif %}>{{ faculty.get_display_name(current_lang) or faculty.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Shifr (kod) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction_code_label') }}</label>
+                <input type="text" name="code" required value="{{ code if code is defined else direction.code }}" placeholder="{{ t('direction_code_placeholder') }}" maxlength="15" inputmode="numeric" pattern="[0-9]*" title="{{ t('direction_code_max_hint') }}"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+
+            <!-- O'zbek tili -->
+            <div class="space-y-6 border-b border-gray-200 pb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction_name_uz') }} *</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="name_uz" id="name_uz" required
+                            placeholder="Masalan: Dasturiy injiniring"
+                            value="{{ name_uz if name_uz is defined else (direction.name_uz or '') }}"
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" class="direction-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="uz" title="{{ t('direction_sync_translate') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction_description_uz') }}</label>
+                    <div class="flex gap-2">
+                        <textarea name="description_uz" id="description_uz" rows="3"
+                            placeholder="Yo'nalish haqida qisqacha..."
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ description_uz if description_uz is defined else (direction.description_uz or '') }}</textarea>
+                        <button type="button" class="direction-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="uz" title="{{ t('direction_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rus tili -->
+            <div class="space-y-6 border-b border-gray-200 pb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction_name_ru') }} *</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="name_ru" id="name_ru" required
+                            placeholder="Например: Программная инженерия"
+                            value="{{ name_ru if name_ru is defined else (direction.name_ru or '') }}"
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" class="direction-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="ru" title="{{ t('direction_sync_translate') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction_description_ru') }}</label>
+                    <div class="flex gap-2">
+                        <textarea name="description_ru" id="description_ru" rows="3"
+                            placeholder="Кратко о направлении..."
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ description_ru if description_ru is defined else (direction.description_ru or '') }}</textarea>
+                        <button type="button" class="direction-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="ru" title="{{ t('direction_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ingliz tili -->
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction_name_en') }} *</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="name_en" id="name_en" required
+                            placeholder="e.g. Software Engineering"
+                            value="{{ name_en if name_en is defined else (direction.name_en or '') }}"
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" class="direction-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="en" title="{{ t('direction_sync_translate') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('direction_description_en') }}</label>
+                    <div class="flex gap-2">
+                        <textarea name="description_en" id="description_en" rows="3"
+                            placeholder="Brief description of the direction..."
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ description_en if description_en is defined else (direction.description_en or '') }}</textarea>
+                        <button type="button" class="direction-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="en" title="{{ t('direction_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <a href="{{ url_for('admin.faculty_detail', id=direction.faculty_id) }}"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form');
+    var csrfInput = form ? form.querySelector('input[name="csrf_token"]') : null;
+    var metaCsrf = document.querySelector('meta[name="csrf-token"]');
+    var token = (csrfInput && csrfInput.value) ? csrfInput.value : (metaCsrf ? metaCsrf.getAttribute('content') : '');
+    var syncEmptyMsg = "{{ t('direction_sync_empty') | e }}";
+    if (form) {
+        form.querySelectorAll('.direction-sync-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var lang = this.getAttribute('data-lang');
+                var input = document.getElementById('name_' + lang);
+                var text = (input && input.value || '').trim();
+                if (!text) { alert(syncEmptyMsg); if (input) input.focus(); return; }
+                btn.disabled = true;
+                fetch('{{ url_for("admin.api_translate_department_name") }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify({ text: text, source_lang: lang }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.ok && data.translations) {
+                        var tr = data.translations;
+                        if (tr.uz !== undefined) { var u = document.getElementById('name_uz'); if (u) u.value = tr.uz; }
+                        if (tr.ru !== undefined) { var r = document.getElementById('name_ru'); if (r) r.value = tr.ru; }
+                        if (tr.en !== undefined) { var e = document.getElementById('name_en'); if (e) e.value = tr.en; }
+                    } else { alert(data.error || 'Tarjima amalga oshmadi.'); }
+                }).catch(function(err) { alert('Xatolik yuz berdi.'); }).finally(function() { btn.disabled = false; });
+            });
+        });
+        form.querySelectorAll('.direction-desc-sync-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var lang = this.getAttribute('data-lang');
+                var input = document.getElementById('description_' + lang);
+                var text = (input && input.value || '').trim();
+                if (!text) { alert(syncEmptyMsg); if (input) input.focus(); return; }
+                btn.disabled = true;
+                fetch('{{ url_for("admin.api_translate_department_name") }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify({ text: text, source_lang: lang }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.ok && data.translations) {
+                        var tr = data.translations;
+                        if (tr.uz !== undefined) { var u = document.getElementById('description_uz'); if (u) u.value = tr.uz; }
+                        if (tr.ru !== undefined) { var r = document.getElementById('description_ru'); if (r) r.value = tr.ru; }
+                        if (tr.en !== undefined) { var e = document.getElementById('description_en'); if (e) e.value = tr.en; }
+                    } else { alert(data.error || 'Tarjima amalga oshmadi.'); }
+                }).catch(function(err) { alert('Xatolik yuz berdi.'); }).finally(function() { btn.disabled = false; });
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('departments') }}{% endblock %}
+
+{% block content %}
+<div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('departments') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('all_departments_list') }}</p>
+    </div>
+    <div class="flex gap-2 ml-auto shrink-0">
+        {% if current_user.is_superadmin or current_user.has_permission('view_departments') %}
+        <a href="{{ url_for('admin.export_departments') }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            {{ t('export') }}
+        </a>
+        {% endif %}
+        {% if current_user.is_superadmin or current_user.has_permission('edit_department') %}
+        <a href="{{ url_for('admin.import_departments') }}" class="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            {{ t('import') }}
+        </a>
+        {% endif %}
+        {% if current_user.is_superadmin or current_user.has_permission('create_department') %}
+        <a href="{{ url_for('admin.create_department') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            {{ t('new_department') }}
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Qidiruv -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" class="flex flex-wrap gap-4">
+        <div class="flex-1 min-w-[200px] relative search-input-wrap">
+            <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_department_name_or_head_placeholder') }}"
+                class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+            {{ t('search') }}
+        </button>
+        {% if search %}
+        <a href="{{ url_for('admin.departments') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+            {{ t('clear') }}
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden overflow-x-auto">
+    {% if departments %}
+    <table class="w-full min-w-[700px]">
+        <thead class="bg-gray-50">
+            <tr class="border-b-2 border-gray-400">
+                <th class="text-left">
+                    <a href="{{ url_for('admin.departments', search=search, sort='name', order=(sort_order == 'asc' and sort_by == 'name') and 'desc' or 'asc') }}"
+                        class="block px-6 py-4 text-sm font-semibold text-gray-700 hover:text-primary-600 transition-colors">
+                        {{ t('name') }}
+                        {% if sort_by == 'name' %}<span class="ml-1">{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}
+                    </a>
+                </th>
+                <th class="text-left">
+                    <a href="{{ url_for('admin.departments', search=search, sort='head', order=(sort_order == 'asc' and sort_by == 'head') and 'desc' or 'asc') }}"
+                        class="block px-6 py-4 text-sm font-semibold text-gray-700 hover:text-primary-600 transition-colors">
+                        {{ t('department_head') }}
+                        {% if sort_by == 'head' %}<span class="ml-1">{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}
+                    </a>
+                </th>
+                <th class="text-center">
+                    <a href="{{ url_for('admin.departments', search=search, sort='teachers', order=(sort_order == 'asc' and sort_by == 'teachers') and 'desc' or 'asc') }}"
+                        class="block px-6 py-4 text-sm font-semibold text-gray-700 hover:text-primary-600 transition-colors">
+                        {{ t('teachers_count') }}
+                        {% if sort_by == 'teachers' %}<span class="ml-1">{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}
+                    </a>
+                </th>
+                <th class="text-center">
+                    <a href="{{ url_for('admin.departments', search=search, sort='subjects', order=(sort_order == 'asc' and sort_by == 'subjects') and 'desc' or 'asc') }}"
+                        class="block px-6 py-4 text-sm font-semibold text-gray-700 hover:text-primary-600 transition-colors">
+                        {{ t('subjects_count') }}
+                        {% if sort_by == 'subjects' %}<span class="ml-1">{{ sort_order == 'asc' and '↑' or '↓' }}</span>{% endif %}
+                    </a>
+                </th>
+                <th class="px-6 py-4 text-sm font-semibold text-gray-700 text-right">{{ t('actions') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dept in departments %}
+            <tr class="border-b border-gray-200 hover:bg-primary-100 transition-colors {% if loop.index is even %}bg-gray-50/50{% endif %}">
+                    <td class="px-6 py-4">
+                        <a href="{{ url_for('admin.department_detail', id=dept.id) }}" class="font-medium text-gray-900 hover:text-primary-600">{{ dept.get_display_name(current_lang) }}</a>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        <div class="flex flex-col gap-0.5">
+                            {% for name in dept_stats[dept.id].head_names %}
+                            <span class="block">{{ name }}</span>
+                            {% endfor %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600 text-center">{{ dept_stats[dept.id].teachers }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600 text-center">{{ dept_stats[dept.id].subjects }}</td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center gap-2 justify-end">
+                            {% set can_edit_this = current_user.is_superadmin or current_user.has_role('admin') or (current_user.has_permission('edit_department') and (not current_user.has_role('department_head') or current_user.managed_department_id == dept.id)) %}
+                            {% set can_delete_this = current_user.is_superadmin or current_user.has_role('admin') or (current_user.has_permission('delete_department') and (not current_user.has_role('department_head') or current_user.managed_department_id == dept.id)) %}
+                            {% if can_edit_this %}
+                            <button type="button" onclick="openAssignModal({{ dept.id }}, '{{ dept.get_display_name(current_lang) | replace("'", "\\'") }}')"
+                               class="p-2 rounded-lg hover:bg-green-600 hover:text-white text-green-600 transition-colors" title="{{ t('add_subjects_teachers') or 'Fan/O\'qituvchi qo\'shish' }}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                            </button>
+                            <a href="{{ url_for('admin.edit_department', id=dept.id) }}"
+                               class="p-2 rounded-lg hover:bg-primary-600 hover:text-white text-blue-600 transition-colors" title="{{ t('edit') }}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                            {% if can_delete_this %}
+                            <form action="{{ url_for('admin.delete_department', id=dept.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t('confirm_delete_department') | escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="p-2 rounded-lg hover:bg-red-600 hover:text-white text-red-600 transition-colors" title="{{ t('delete') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+    <div class="p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('no_departments') }}</h3>
+        <p class="text-gray-500 mb-4">{{ t('start_creating_department') }}</p>
+        {% if current_user.is_superadmin or current_user.has_permission('create_department') %}
+        <a href="{{ url_for('admin.create_department') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            {{ t('new_department') }}
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Fan/O'qituvchi qo'shish modali -->
+<div id="assign-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div class="fixed inset-0 bg-gray-500/75 transition-opacity" onclick="closeAssignModal()"></div>
+        <div class="relative inline-block w-full bg-white rounded-2xl shadow-xl text-left overflow-hidden transform transition-all" style="width: 840px; max-width: 95vw;">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-lg font-semibold text-gray-900 truncate" id="assign-modal-title">{{ t('subjects') }} / {{ t('teachers') }} – <span id="assign-dept-name"></span></h3>
+            </div>
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between gap-4 mb-4">
+                    <div class="flex gap-2">
+                        <button type="button" id="tab-fanlar" class="tab-btn px-4 py-2 rounded-lg font-medium bg-primary-600 text-white" data-tab="fanlar">{{ t('subjects') }}</button>
+                        <button type="button" id="tab-oqituvchilar" class="tab-btn px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-700 hover:bg-gray-300" data-tab="oqituvchilar">{{ t('teachers') }}</button>
+                    </div>
+                    <span id="assign-selected-count" class="text-sm font-medium text-primary-600 bg-primary-50 px-3 py-1 rounded-full whitespace-nowrap">0 tanlangan</span>
+                </div>
+                <form id="assign-form" method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div id="panel-fanlar" class="tab-panel">
+                        <div class="mb-4">
+                            <input type="text" id="subject-search" placeholder="{{ t('curriculum_subject_search_placeholder') or 'Fanni qidirish' }}"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                        <div class="space-y-2 max-h-[60vh] min-h-[320px] overflow-y-auto border border-gray-200 rounded-lg p-2" id="subjects-list">
+                            {% for s in all_subjects %}
+                            <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer subject-item" data-name="{{ s.get_display_name(current_lang)|lower }}">
+                                <input type="checkbox" name="subject_ids" value="{{ s.id }}" class="dept-subject-cb w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                                <span class="text-sm font-medium text-gray-900">{{ s.get_display_name(current_lang) or s.name }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div id="panel-oqituvchilar" class="tab-panel hidden">
+                        <div class="mb-4">
+                            <input type="text" id="teacher-search" placeholder="{{ t('search_teacher_placeholder') or 'O\'qituvchini qidirish' }}"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                        <div class="space-y-2 max-h-[60vh] min-h-[320px] overflow-y-auto border border-gray-200 rounded-lg p-2" id="teachers-list">
+                            {% for u in all_teachers %}
+                            <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer teacher-item" data-name="{{ u.full_name|lower }}">
+                                <input type="checkbox" name="teacher_ids" value="{{ u.id }}" class="dept-teacher-cb w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                                <span class="text-sm font-medium text-gray-900">{{ (u.full_name or '-')|upper }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button type="button" onclick="closeAssignModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300">{{ t('cancel') }}</button>
+                        <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700">{{ t('save') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const departmentLinks = {{ department_links | tojson }};
+    let currentAssignDeptId = null;
+
+    function openAssignModal(deptId, deptName) {
+        currentAssignDeptId = deptId;
+        document.getElementById('assign-dept-name').textContent = deptName;
+        document.getElementById('assign-form').action = "{{ url_for('admin.assign_department', id=0) }}".replace(/\/0\/assign$/, '/' + deptId + '/assign');
+        const links = departmentLinks[String(deptId)] || departmentLinks[deptId] || { subject_ids: [], teacher_ids: [] };
+        // Uncheck all
+        document.querySelectorAll('.dept-subject-cb').forEach(cb => { cb.checked = false; });
+        document.querySelectorAll('.dept-teacher-cb').forEach(cb => { cb.checked = false; });
+        // Pre-check
+        (links.subject_ids || []).forEach(id => {
+            const cb = document.querySelector('.dept-subject-cb[value="' + id + '"]');
+            if (cb) cb.checked = true;
+        });
+        (links.teacher_ids || []).forEach(id => {
+            const cb = document.querySelector('.dept-teacher-cb[value="' + id + '"]');
+            if (cb) cb.checked = true;
+        });
+        document.getElementById('subject-search').value = '';
+        document.getElementById('teacher-search').value = '';
+        document.querySelectorAll('.subject-item').forEach(el => el.style.display = 'flex');
+        document.querySelectorAll('.teacher-item').forEach(el => el.style.display = 'flex');
+        updateAssignCounts();
+        document.getElementById('tab-fanlar').classList.remove('bg-gray-200', 'text-gray-700');
+        document.getElementById('tab-fanlar').classList.add('bg-primary-600', 'text-white');
+        document.getElementById('tab-oqituvchilar').classList.remove('bg-primary-600', 'text-white');
+        document.getElementById('tab-oqituvchilar').classList.add('bg-gray-200', 'text-gray-700');
+        document.getElementById('panel-oqituvchilar').classList.add('hidden');
+        document.getElementById('panel-fanlar').classList.remove('hidden');
+        document.getElementById('assign-modal').classList.remove('hidden');
+    }
+
+    function closeAssignModal() {
+        document.getElementById('assign-modal').classList.add('hidden');
+        currentAssignDeptId = null;
+    }
+
+    function updateAssignCounts() {
+        const subCount = document.querySelectorAll('.dept-subject-cb:checked').length;
+        const teachCount = document.querySelectorAll('.dept-teacher-cb:checked').length;
+        const headerEl = document.getElementById('assign-selected-count');
+        if (!headerEl) return;
+        const activeTab = document.querySelector('.tab-btn.bg-primary-600');
+        const isFanlar = activeTab && activeTab.dataset.tab === 'fanlar';
+        headerEl.textContent = (isFanlar ? subCount : teachCount) + ' tanlangan';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.focus();
+            var len = searchInput.value.length;
+            searchInput.setSelectionRange(len, len);
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
+                    searchInput.closest('form').submit();
+                }, 500);
+            });
+        }
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tab = this.dataset.tab;
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('bg-primary-600', 'text-white');
+                    b.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                this.classList.remove('bg-gray-200', 'text-gray-700');
+                this.classList.add('bg-primary-600', 'text-white');
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+                const panel = document.getElementById('panel-' + tab);
+                if (panel) panel.classList.remove('hidden');
+                updateAssignCounts();
+            });
+        });
+        // Subject search
+        const subSearch = document.getElementById('subject-search');
+        if (subSearch) {
+            subSearch.addEventListener('input', function() {
+                const q = this.value.toLowerCase();
+                document.querySelectorAll('.subject-item').forEach(el => {
+                    const name = (el.dataset.name || '').toLowerCase();
+                    el.style.display = name.includes(q) ? 'flex' : 'none';
+                });
+            });
+        }
+        // Teacher search
+        const teachSearch = document.getElementById('teacher-search');
+        if (teachSearch) {
+            teachSearch.addEventListener('input', function() {
+                const q = this.value.toLowerCase();
+                document.querySelectorAll('.teacher-item').forEach(el => {
+                    const name = (el.dataset.name || '').toLowerCase();
+                    el.style.display = name.includes(q) ? 'flex' : 'none';
+                });
+            });
+        }
+        // Update counts on checkbox change
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('dept-subject-cb') || e.target.classList.contains('dept-teacher-cb')) {
+                updateAssignCounts();
+            }
+        });
+    });
+</script>
+{% endblock %}

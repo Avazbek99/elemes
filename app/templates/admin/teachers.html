@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('teachers') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('teachers') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('all_teachers_list') }}</p>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <form method="GET" class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[200px] relative search-input-wrap">
+                <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_teacher_placeholder') }}"
+                    class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+            </div>
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+                {{ t('search') }}
+            </button>
+            {% if search %}
+            <a href="{{ url_for('admin.teachers') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+                {{ t('clear') }}
+            </a>
+            {% endif %}
+        </form>
+    </div>
+    
+    <!-- Teachers grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for teacher in teachers.items %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <div class="flex items-start gap-4">
+                <div class="w-14 h-14 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-xl">
+                    {{ teacher.full_name[0] }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900 truncate">{{ teacher.full_name.upper() if teacher.full_name else '-' }}</h3>
+                        <span class="px-2 py-1 text-xs rounded-full {% if teacher.is_active %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                            {% if teacher.is_active %}{{ t('active') }}{% else %}{{ t('inactive') }}{% endif %}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-500">{{ teacher.position or t('teacher') }}</p>
+                    <p class="text-sm text-primary-600">{{ teacher.department or '-' }}</p>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                        <p class="text-xl font-bold text-gray-900">{{ teacher.courses_teaching.count() }}</p>
+                        <p class="text-xs text-gray-500">{{ t('taught_courses_label') }}</p>
+                    </div>
+                    <div>
+                        {% set student_count = namespace(value=0) %}
+                        {% for course in teacher.courses_teaching %}
+                            {% set student_count.value = student_count.value + course.get_enrolled_count() %}
+                        {% endfor %}
+                        <p class="text-xl font-bold text-gray-900">{{ student_count.value }}</p>
+                        <p class="text-xs text-gray-500">{{ t('students') }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                {{ teacher.email }}
+            </div>
+            {% if teacher.phone %}
+            <div class="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                {{ teacher.phone }}
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="col-span-full text-center py-12">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <h3 class="text-lg font-medium text-gray-600">{{ t('teachers_not_found') }}</h3>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if teachers.pages > 1 %}
+    <div class="flex justify-center gap-2">
+        {% if teachers.has_prev %}
+        <a href="{{ url_for('admin.teachers', page=teachers.prev_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">{{ t('previous') }}</a>
+        {% endif %}
+        <span class="px-4 py-2 bg-primary-600 text-white rounded-xl">{{ teachers.page }} / {{ teachers.pages }}</span>
+        {% if teachers.has_next %}
+        <a href="{{ url_for('admin.teachers', page=teachers.next_num, search=search) }}" class="px-4 py-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">{{ t('next') }}</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.focus();
+        searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    }
+});
+</script>
+{% endblock %}

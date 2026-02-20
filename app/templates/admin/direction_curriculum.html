@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('curriculum_label') }} - {{ direction.formatted_direction }}{% endblock %}
+
+{% block content %}
+<script>
+    window.i18nCurriculum = {
+        selectedCountFormat: {{ t('curriculum_selected_count', count='{count}')|tojson }},
+        confirmDelete: {{ t('curriculum_confirm_delete_subject')|tojson }},
+        pleaseSelectSubject: {{ t('curriculum_please_select_subject')|tojson }},
+        pleaseSelectSemester: {{ t('curriculum_please_select_semester')|tojson }}
+    };
+</script>
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-start">
+        <div>
+            <a href="{{ url_for('admin.faculty_detail', id=direction.faculty_id) }}"
+                class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                {{ t('back') }}
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900">
+                {% if enrollment_year and education_type %}
+                {{ enrollment_year }} - {{ direction.code }} - {{ direction.get_display_name(current_lang) or direction.name }} ({{ education_type|education_type_label }})
+                {% else %}
+                {{ direction.formatted_direction }}
+                {% endif %}
+            </h1>
+            <p class="text-gray-600 mt-1">{{ t('curriculum_label') }}</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{{ url_for('admin.export_curriculum', id=direction.id) }}"
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {{ t('export') }}
+            </a>
+            <a href="{% if enrollment_year and education_type %}{{ url_for('admin.import_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('admin.import_curriculum', id=direction.id) }}{% endif %}"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {{ t('import') }}
+            </a>
+            {% if session.get('current_role', current_user.role) != 'edu_dept' %}
+            <a href="{% if enrollment_year and education_type %}{{ url_for('admin.direction_subjects', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('admin.direction_subjects', id=direction.id) }}{% endif %}"
+                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                {{ t('curriculum_subject_teachers') }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Chap tomonda: Fanlar ro'yxati -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">{{ t('subjects') }}</h2>
+                    <span id="selected-count"
+                        class="text-sm font-medium text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
+                        {{ t('curriculum_selected_count', count=0) }}
+                    </span>
+                </div>
+
+                <!-- Qidiruv -->
+                <div class="mb-4">
+                    <input type="text" id="subject-search" placeholder="{{ t('curriculum_subject_search_placeholder') }}"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+
+                <!-- Fanlar ro'yxati -->
+                <div class="space-y-2 max-h-[600px] overflow-y-auto" id="subjects-list">
+                    {% for subject in all_subjects %}
+                    <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer subject-item"
+                        data-name="{{ (subject.get_display_name(current_lang) or subject.name)|lower }}">
+                        <input type="checkbox" name="subject_ids" value="{{ subject.id }}"
+                            class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 subject-checkbox"
+                            onchange="updateSelectedCount()">
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">{{ subject.get_display_name(current_lang) or subject.name }}</div>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- O'ng tomonda: O'quv reja -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Semestr tanlash va qo'shish -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-medium text-gray-900">
+                        {% if enrollment_year and education_type %}
+                        {{ enrollment_year }} - {{ direction.code }} - {{ direction.get_display_name(current_lang) or direction.name }} ({{ education_type|education_type_label }})
+                        {% else %}
+                        {{ direction.formatted_direction }}
+                        {% endif %}
+                    </h2>
+                    <div class="text-right">
+                        <div class="text-sm text-gray-600">{{ t('curriculum_total_workload') }}</div>
+                        <div class="text-xl font-bold text-primary-600">
+                            <span class="total-workload-hours">{{ total_hours|int }}</span> {{ t('curriculum_hours_unit') }} /
+                            <span class="total-workload-credits">{{ total_credits|format_float(2) }}</span> {{ t('curriculum_credits_unit') }}
+                        </div>
+                    </div>
+                </div>
+
+                <form method="POST"
+                    action="{% if enrollment_year and education_type %}{{ url_for('admin.add_subject_to_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('admin.add_subject_to_curriculum', id=direction.id) }}{% endif %}"
+                    id="add-subject-form" class="flex gap-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('curriculum_semester_select_label') }}</label>
+                        <select name="semester" id="semester-select" required
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            <option value="">{{ t('select_option_choose') }}</option>
+                            {% for sem in range(1, 15) %}
+                            <option value="{{ sem }}">{{ t('curriculum_semester_format', n=sem) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit"
+                            class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
+                            {{ t('curriculum_add_to_semester') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Semestrlar -->
+            {% for semester in range(1, 15) %}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    {{ t('curriculum_semester_format', n=semester) }}
+                    {% if curriculum_by_semester.get(semester) %}
+                    <span class="text-base font-normal text-primary-600 ml-2">
+                        (<span class="semester-total-hours-{{ semester }}">{{ semester_totals.get(semester,
+                            {}).get('hours', 0)|int }}</span> {{ t('curriculum_hours_unit') }} /
+                        <span class="semester-total-credits-{{ semester }}">{{ semester_totals.get(semester,
+                            {}).get('credits', 0)|format_float(2) }}</span> {{ t('curriculum_credits_unit') }})
+                    </span>
+                    {% endif %}
+                </h3>
+
+                {% if curriculum_by_semester.get(semester) %}
+                <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                    <table class="w-full border-collapse bg-white">
+                        <thead>
+                            <tr class="bg-primary-600 text-white">
+                                <th class="px-4 py-3.5 text-left text-sm font-bold border-r border-primary-500">{{ t('curriculum_table_subjects') }}
+                                </th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-20" title="{{ t('lesson_type_maruza') }}">{{ t('lesson_type_short_m') }}
+                                </th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-20" title="{{ t('lesson_type_amaliyot') }}">{{ t('lesson_type_short_a') }}
+                                </th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-20" title="{{ t('lesson_type_laboratoriya') }}">{{ t('lesson_type_short_l') }}
+                                </th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-20" title="{{ t('lesson_type_seminar') }}">{{ t('lesson_type_short_s') }}
+                                </th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-20" title="{{ t('lesson_type_kurs_ishi') }}">{{ t('lesson_type_short_k') }}
+                                </th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-20" title="{{ t('lesson_type_mustaqil_talim') }}">
+                                    {{ t('lesson_type_short_mt') }}</th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-24">
+                                    {{ t('curriculum_table_total') }}</th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500 w-24">
+                                    {{ t('curriculum_table_credits') }}</th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold w-28">{{ t('curriculum_table_actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in curriculum_by_semester[semester] %}
+                            <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
+                                data-item-id="{{ item.id }}">
+                                <td class="px-4 py-3 border-r border-gray-200 bg-gray-50">
+                                    <div class="font-semibold text-gray-900 text-sm">{{ item.subject.get_display_name(current_lang) or item.subject.name }}</div>
+                                </td>
+                                <td class="px-2 py-2 border-r border-gray-200 text-center">
+                                    <input type="text" name="hours_maruza[{{ item.id }}]"
+                                        form="semester-form-{{ semester }}" value="{{ item.hours_maruza or '' }}"
+                                        pattern="[0-9]*" inputmode="numeric"
+                                        class="w-full max-w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center bg-white hover:border-primary-300 transition-colors"
+                                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); calculateTotal(this);"
+                                        onchange="calculateTotal(this)">
+                                </td>
+                                <td class="px-2 py-2 border-r border-gray-200 text-center">
+                                    <input type="text" name="hours_amaliyot[{{ item.id }}]"
+                                        form="semester-form-{{ semester }}" value="{{ item.hours_amaliyot or '' }}"
+                                        pattern="[0-9]*" inputmode="numeric"
+                                        class="w-full max-w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center bg-white hover:border-primary-300 transition-colors"
+                                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); calculateTotal(this);"
+                                        onchange="calculateTotal(this)">
+                                </td>
+                                <td class="px-2 py-2 border-r border-gray-200 text-center">
+                                    <input type="text" name="hours_laboratoriya[{{ item.id }}]"
+                                        form="semester-form-{{ semester }}" value="{{ item.hours_laboratoriya or '' }}"
+                                        pattern="[0-9]*" inputmode="numeric"
+                                        class="w-full max-w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center bg-white hover:border-primary-300 transition-colors"
+                                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); calculateTotal(this);"
+                                        onchange="calculateTotal(this)">
+                                </td>
+                                <td class="px-2 py-2 border-r border-gray-200 text-center">
+                                    <input type="text" name="hours_seminar[{{ item.id }}]"
+                                        form="semester-form-{{ semester }}" value="{{ item.hours_seminar or '' }}"
+                                        pattern="[0-9]*" inputmode="numeric"
+                                        class="w-full max-w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center bg-white hover:border-primary-300 transition-colors"
+                                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); calculateTotal(this);"
+                                        onchange="calculateTotal(this)">
+                                </td>
+                                <td class="px-2 py-2 border-r border-gray-200 text-center">
+                                    <div class="flex items-center justify-center">
+                                        <input type="checkbox" name="hours_kurs_ishi"
+                                            form="semester-form-{{ semester }}" value="{{ item.id }}" {% if
+                                            item.hours_kurs_ishi and item.hours_kurs_ishi> 0 %}checked{% endif %}
+                                        class="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500
+                                        cursor-pointer"
+                                        onchange="calculateTotal(this)">
+                                    </div>
+                                </td>
+                                <td class="px-2 py-2 border-r border-gray-200 text-center">
+                                    <input type="text" name="hours_mustaqil[{{ item.id }}]"
+                                        form="semester-form-{{ semester }}" value="{{ item.hours_mustaqil or '' }}"
+                                        pattern="[0-9]*" inputmode="numeric"
+                                        class="w-full max-w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-center bg-white hover:border-primary-300 transition-colors"
+                                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); calculateTotal(this);"
+                                        onchange="calculateTotal(this)">
+                                </td>
+                                <td
+                                    class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-gray-900 bg-gray-100">
+                                    <span class="total-hours" data-item-id="{{ item.id }}">{{ (item.hours_maruza or 0) +
+                                        (item.hours_amaliyot or 0) + (item.hours_laboratoriya or 0) +
+                                        (item.hours_seminar or 0) + (item.hours_mustaqil or 0) }}</span>
+                                </td>
+                                <td
+                                    class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-primary-700 bg-primary-50">
+                                    <span class="credit-hours" data-item-id="{{ item.id }}">{{ (((item.hours_maruza or
+                                        0) + (item.hours_amaliyot or 0) + (item.hours_laboratoriya or 0) +
+                                        (item.hours_seminar or 0) + (item.hours_mustaqil or 0)) / 30)|format_float(2)
+                                        }}</span>
+                                </td>
+                                <td class="px-2 py-2 text-center">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <button type="button"
+                                            data-item-id="{{ item.id }}" data-subject-id="{{ item.subject.id }}" data-subject-name="{{ (item.subject.get_display_name(current_lang) or item.subject.name)|tojson }}"
+                                            class="replace-btn p-1.5 rounded-md hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                                            title="{{ t('curriculum_replace_subject_tooltip') }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+                                        <button type="button"
+                                            onclick="deleteCurriculumItem({{ direction.id }}, {{ item.id }})"
+                                            class="p-1.5 rounded-md hover:bg-red-100 text-red-600 hover:text-red-700 transition-colors"
+                                            title="{{ t('delete') }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-primary-50 border-t-2 border-primary-300">
+                                <td class="px-4 py-3 border-r border-gray-200 font-bold text-gray-900 text-sm">{{ t('curriculum_table_total') }}</td>
+                                <td colspan="5"
+                                    class="px-2 py-2 border-r border-gray-200 text-center font-semibold text-gray-900">
+                                    <span class="semester-auditoriya-total-{{ semester }}">{{
+                                        (semester_auditoriya.get(semester, {}).get('m', 0) +
+                                        semester_auditoriya.get(semester, {}).get('a', 0) +
+                                        semester_auditoriya.get(semester, {}).get('l', 0) +
+                                        semester_auditoriya.get(semester, {}).get('s', 0)) }}</span>
+                                </td>
+                                <td
+                                    class="px-2 py-2 border-r border-gray-200 text-center font-semibold text-primary-700">
+                                    <span class="semester-mustaqil-{{ semester }}">{{ semester_mustaqil.get(semester, 0)
+                                        }}</span>
+                                </td>
+                                <td
+                                    class="px-3 py-2 border-r border-gray-200 text-center font-bold text-gray-900 bg-gray-200">
+                                    <span class="semester-total-hours-{{ semester }}">{{ semester_totals.get(semester,
+                                        {}).get('hours', 0)|int }}</span>
+                                </td>
+                                <td
+                                    class="px-3 py-2 border-r border-gray-200 text-center font-bold text-primary-700 bg-primary-100">
+                                    <span class="semester-total-credits-{{ semester }}">{{ semester_totals.get(semester,
+                                        {}).get('credits', 0)|format_float(2) }}</span>
+                                </td>
+                                <td class="px-2 py-2 text-center"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <form id="semester-form-{{ semester }}" method="POST"
+                    action="{% if enrollment_year and education_type %}{{ url_for('admin.update_semester_curriculum', id=direction.id, year=enrollment_year, education_type=education_type, semester=semester) }}{% else %}{{ url_for('admin.update_semester_curriculum', id=direction.id, semester=semester) }}{% endif %}"
+                    class="mt-4 flex items-center justify-end bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit"
+                        class="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold shadow-md hover:shadow-lg flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        {{ t('save') }}
+                    </button>
+                </form>
+                {% else %}
+                <div class="text-center py-8 text-gray-500 text-sm">
+                    <p>{{ t('curriculum_no_subjects_in_semester') }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Fanni almashtirish modal -->
+<div id="replace-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="replace-modal-title">
+    <div class="bg-white rounded-lg shadow-xl w-[600px]" onclick="event.stopPropagation()">
+        <div class="p-3">
+            <h3 id="replace-modal-title" class="text-sm font-semibold text-gray-900 mb-2">{{ t('curriculum_replace_modal_title') }}</h3>
+            <form method="POST" id="replace-form" class="space-y-2" action="#">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 mb-1">{{ t('curriculum_new_subject_label') }}</label>
+                    <select name="subject_id" required
+                        class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-transparent">
+                        <option value="">{{ t('select_option_choose') }}</option>
+                        {% for subject in all_subjects %}
+                        <option value="{{ subject.id }}">{{ subject.get_display_name(current_lang) or subject.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <button type="submit"
+                        class="flex-1 px-2.5 py-1.5 text-xs bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors font-medium">
+                        {{ t('curriculum_replace_btn') }}
+                    </button>
+                    <button type="button" onclick="closeReplaceModal()"
+                        class="px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors font-medium">
+                        {{ t('cancel') }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Tanlangan fanlar sonini yangilash
+    function updateSelectedCount() {
+        const checkedBoxes = document.querySelectorAll('input[name="subject_ids"]:checked');
+        const count = checkedBoxes.length;
+        const countElement = document.getElementById('selected-count');
+        if (countElement && window.i18nCurriculum && window.i18nCurriculum.selectedCountFormat) {
+            countElement.textContent = window.i18nCurriculum.selectedCountFormat.replace('{count}', count);
+        } else if (countElement) {
+            countElement.textContent = count + ' tanlangan';
+        }
+    }
+
+    // Qidiruv funksiyasi
+    document.getElementById('subject-search').addEventListener('input', function (e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const items = document.querySelectorAll('.subject-item');
+
+        items.forEach(item => {
+            const name = item.dataset.name;
+            if (name.includes(searchTerm)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+
+    // Fanni almashtirish modal
+    let currentItemId = null;
+
+    function openReplaceModal(itemId, currentSubjectId, currentSubjectName) {
+        currentItemId = itemId;
+        document.getElementById('replace-modal').classList.remove('hidden');
+        {% if enrollment_year and education_type %}
+        document.getElementById('replace-form').action = `/admin/directions/{{ direction.id }}/{{ enrollment_year }}/{{ education_type }}/curriculum/${itemId}/replace`;
+        {% else %}
+        document.getElementById('replace-form').action = `/admin/directions/{{ direction.id }}/curriculum/${itemId}/replace`;
+        {% endif %}
+        var sel = document.getElementById('replace-form').querySelector('select[name="subject_id"]');
+        if (sel) sel.value = '';
+    }
+
+    // Simple event listener - run immediately
+    (function() {
+        const replaceButtons = document.querySelectorAll('.replace-btn');
+        replaceButtons.forEach(function(button) {
+            button.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const itemId = this.getAttribute('data-item-id');
+                const subjectId = this.getAttribute('data-subject-id');
+                let subjectName = '';
+                try {
+                    const raw = this.getAttribute('data-subject-name');
+                    subjectName = raw ? JSON.parse(raw) : '';
+                } catch (err) { /* ignore */ }
+                openReplaceModal(itemId, subjectId, subjectName);
+            };
+        });
+    })();
+
+    function closeReplaceModal() {
+        document.getElementById('replace-modal').classList.add('hidden');
+        currentItemId = null;
+    }
+
+    // Modal tashqarisiga bosilganda yopish
+    document.getElementById('replace-modal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeReplaceModal();
+        }
+    });
+
+    // O'quv rejadagi fanni o'chirish
+    function deleteCurriculumItem(directionId, itemId) {
+        var msg = (window.i18nCurriculum && window.i18nCurriculum.confirmDelete) ? window.i18nCurriculum.confirmDelete : 'Bu fanni o\'chirmoqchimisiz?';
+        if (confirm(msg)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            {% if enrollment_year and education_type %}
+            form.action = `/admin/directions/${directionId}/{{ enrollment_year }}/{{ education_type }}/curriculum/${itemId}/delete`;
+            {% else %}
+            form.action = `/admin/directions/${directionId}/curriculum/${itemId}/delete`;
+            {% endif %}
+
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            const csrfToken = document.querySelector('#add-subject-form input[name="csrf_token"]');
+            if (csrfToken) {
+                csrfInput.value = csrfToken.value;
+            }
+            form.appendChild(csrfInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // JAMI soatlarni hisoblash va kredit hisoblash
+    function calculateTotal(input) {
+        const row = input.closest('tr');
+        if (!row) return;
+
+        // Barcha text inputlarni olish (mustaqil ta'lim)
+        const mustaqilInput = row.querySelector('input[name*="hours_mustaqil"]');
+        const mustaqilValue = parseInt(mustaqilInput ? mustaqilInput.value : 0) || 0;
+
+        // Auditoriya soatlari (M+A+L+S)
+        const maruzaInput = row.querySelector('input[name*="hours_maruza"]');
+        const amaliyotInput = row.querySelector('input[name*="hours_amaliyot"]');
+        const laboratoriyaInput = row.querySelector('input[name*="hours_laboratoriya"]');
+        const seminarInput = row.querySelector('input[name*="hours_seminar"]');
+
+        const maruzaValue = parseInt(maruzaInput ? maruzaInput.value : 0) || 0;
+        const amaliyotValue = parseInt(amaliyotInput ? amaliyotInput.value : 0) || 0;
+        const laboratoriyaValue = parseInt(laboratoriyaInput ? laboratoriyaInput.value : 0) || 0;
+        const seminarValue = parseInt(seminarInput ? seminarInput.value : 0) || 0;
+
+        // Kurs ishi (checkbox) - faqat auditoriya soatiga qo'shiladi, jami soatga qo'shilmaydi
+        const kursIshiCheckbox = row.querySelector('input[type="checkbox"][name="hours_kurs_ishi"]');
+        const kursIshiValue = (kursIshiCheckbox && kursIshiCheckbox.checked) ? 1 : 0;
+
+        // Jami soat = Auditoriya (M+A+L+S, K qo'shilmaydi) + Mustaqil ta'lim
+        const auditoriyaTotal = maruzaValue + amaliyotValue + laboratoriyaValue + seminarValue;
+        const total = auditoriyaTotal + mustaqilValue;
+
+        // JAMI ni yangilash
+        const totalCell = row.querySelector('.total-hours');
+        if (totalCell) {
+            totalCell.textContent = total;
+        }
+
+        // KREDIT ni yangilash (JAMI / 30)
+        const creditCell = row.querySelector('.credit-hours');
+        if (creditCell) {
+            const credit = (total / 30).toFixed(2);
+            creditCell.textContent = parseFloat(credit).toFixed(2);
+        }
+
+        // Semestr jami soat va kreditni yangilash
+        updateSemesterTotal(row);
+    }
+
+    // Semestr jami soat va kreditni yangilash
+    function updateSemesterTotal(changedRow) {
+        const table = changedRow.closest('table');
+        if (!table) return;
+
+        // Semestr raqamini topish (form id dan)
+        const form = table.closest('.bg-white').querySelector('form[id^="semester-form-"]');
+        if (!form) return;
+
+        const semesterMatch = form.id.match(/semester-form-(\d+)/);
+        if (!semesterMatch) return;
+
+        const semester = semesterMatch[1];
+
+        // Barcha qatorlardagi jami soatlarni yig'ish
+        const rows = table.querySelectorAll('tbody tr');
+        let semesterTotalHours = 0;
+        let semesterAuditoriyaM = 0;  // Maruza
+        let semesterAuditoriyaA = 0;  // Amaliyot
+        let semesterAuditoriyaL = 0;  // Laboratoriya
+        let semesterAuditoriyaS = 0;  // Seminar
+        let semesterAuditoriyaK = 0;  // Kurs ishi
+        let semesterMustaqil = 0;     // Mustaqil ta'lim
+
+        rows.forEach(function (row) {
+            // Jami soat
+            const totalCell = row.querySelector('.total-hours');
+            if (totalCell) {
+                const hours = parseInt(totalCell.textContent) || 0;
+                semesterTotalHours += hours;
+            }
+
+            // Auditoriya soatlari (M+A+L+S+K)
+            const maruzaInput = row.querySelector('input[name*="hours_maruza"]');
+            if (maruzaInput) {
+                semesterAuditoriyaM += parseInt(maruzaInput.value) || 0;
+            }
+
+            const amaliyotInput = row.querySelector('input[name*="hours_amaliyot"]');
+            if (amaliyotInput) {
+                semesterAuditoriyaA += parseInt(amaliyotInput.value) || 0;
+            }
+
+            const laboratoriyaInput = row.querySelector('input[name*="hours_laboratoriya"]');
+            if (laboratoriyaInput) {
+                semesterAuditoriyaL += parseInt(laboratoriyaInput.value) || 0;
+            }
+
+            const seminarInput = row.querySelector('input[name*="hours_seminar"]');
+            if (seminarInput) {
+                semesterAuditoriyaS += parseInt(seminarInput.value) || 0;
+            }
+
+            // Kurs ishi (checkbox)
+            const kursIshiCheckbox = row.querySelector('input[type="checkbox"][name="hours_kurs_ishi"]');
+            if (kursIshiCheckbox && kursIshiCheckbox.checked) {
+                semesterAuditoriyaK += 1; // Har bir belgilangan kurs ishi uchun 1 soat
+            }
+
+            // Mustaqil ta'lim
+            const mustaqilInput = row.querySelector('input[name*="hours_mustaqil"]');
+            if (mustaqilInput) {
+                semesterMustaqil += parseInt(mustaqilInput.value) || 0;
+            }
+        });
+
+        const semesterTotalCredits = parseFloat((semesterTotalHours / 30).toFixed(2));
+
+        // Semestr jami soat va kreditni yangilash (semestr nomi yonidagi va form ichidagi)
+        const semesterHoursCells = document.querySelectorAll(`.semester-total-hours-${semester}`);
+        const semesterCreditsCells = document.querySelectorAll(`.semester-total-credits-${semester}`);
+
+        semesterHoursCells.forEach(function (cell) {
+            cell.textContent = semesterTotalHours;
+        });
+        semesterCreditsCells.forEach(function (cell) {
+            cell.textContent = semesterTotalCredits.toFixed(2);
+        });
+
+        // Jami auditoriya va mustaqil ta'lim soatlarini yangilash (K qo'shilmaydi)
+        const auditoriyaTotal = semesterAuditoriyaM + semesterAuditoriyaA + semesterAuditoriyaL + semesterAuditoriyaS;
+        const auditoriyaTotalCell = document.querySelector(`.semester-auditoriya-total-${semester}`);
+        if (auditoriyaTotalCell) auditoriyaTotalCell.textContent = auditoriyaTotal;
+
+        const mustaqilCell = document.querySelector(`.semester-mustaqil-${semester}`);
+        if (mustaqilCell) mustaqilCell.textContent = semesterMustaqil;
+
+        // Umumiy yuklamani yangilash
+        updateTotalWorkload();
+    }
+
+    // Umumiy yuklamani yangilash
+    function updateTotalWorkload() {
+        let totalHours = 0;
+
+        // Barcha semestrlardagi jami soatlarni yig'ish
+        document.querySelectorAll('[class*="semester-total-hours-"]').forEach(function (cell) {
+            const hours = parseInt(cell.textContent) || 0;
+            totalHours += hours;
+        });
+
+        const totalCredits = parseFloat((totalHours / 30).toFixed(2));
+
+        // Umumiy yuklamani yangilash (agar mavjud bo'lsa)
+        const totalWorkloadElement = document.querySelector('.total-workload-hours');
+        if (totalWorkloadElement) {
+            totalWorkloadElement.textContent = totalHours;
+        }
+        const totalCreditsElement = document.querySelector('.total-workload-credits');
+        if (totalCreditsElement) {
+            totalCreditsElement.textContent = totalCredits.toFixed(2);
+        }
+    }
+
+    // Har bir input uchun calculateTotal funksiyasini qo'shish
+    document.addEventListener('DOMContentLoaded', function () {
+        // Barcha text inputlar
+        const allTextInputs = document.querySelectorAll('input[type="text"][name*="hours_"]');
+        allTextInputs.forEach(function (input) {
+            input.addEventListener('input', function () {
+                calculateTotal(this);
+            });
+            input.addEventListener('change', function () {
+                calculateTotal(this);
+            });
+        });
+
+        // Barcha checkbox'lar (kurs ishi)
+        const allCheckboxes = document.querySelectorAll('input[type="checkbox"][name="hours_kurs_ishi"]');
+        allCheckboxes.forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                calculateTotal(this);
+            });
+        });
+
+        // Barcha semestrlarni boshlang'ich holatda yangilash
+        const allTables = document.querySelectorAll('table');
+        allTables.forEach(function (table) {
+            const firstRow = table.querySelector('tbody tr');
+            if (firstRow) {
+                updateSemesterTotal(firstRow);
+            }
+        });
+
+        // Tanlangan fanlar sonini boshlang'ich holatda yangilash
+        updateSelectedCount();
+    });
+
+    // Har bir input uchun calculateTotal funksiyasini qo'shish
+    document.addEventListener('DOMContentLoaded', function () {
+        const allInputs = document.querySelectorAll('.curriculum-row-form input[type="number"]');
+        allInputs.forEach(function (input) {
+            input.addEventListener('input', function () {
+                calculateTotal(this);
+            });
+        });
+    });
+
+    // Fanlarni semestrga qo'shish form submit
+    document.getElementById('add-subject-form').addEventListener('submit', function (e) {
+        // Avval mavjud hidden input'larni tozalash
+        const existingInputs = e.target.querySelectorAll('input[name="subject_ids"]');
+        existingInputs.forEach(function (input) {
+            input.remove();
+        });
+
+        // Tanlangan checkbox'larni topish
+        const checkedBoxes = document.querySelectorAll('input[name="subject_ids"]:checked');
+
+        if (checkedBoxes.length === 0) {
+            e.preventDefault();
+            alert((window.i18nCurriculum && window.i18nCurriculum.pleaseSelectSubject) ? window.i18nCurriculum.pleaseSelectSubject : 'Iltimos, kamida bitta fan tanlang!');
+            return false;
+        }
+
+        // Tanlangan fanlarni form ichiga qo'shish
+        checkedBoxes.forEach(function (checkbox) {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'subject_ids';
+            hiddenInput.value = checkbox.value;
+            e.target.appendChild(hiddenInput);
+        });
+
+        // Semestr tanlanganligini tekshirish
+        const semester = document.getElementById('semester-select').value;
+        if (!semester) {
+            e.preventDefault();
+            alert((window.i18nCurriculum && window.i18nCurriculum.pleaseSelectSemester) ? window.i18nCurriculum.pleaseSelectSemester : 'Iltimos, semestrni tanlang!');
+            return false;
+        }
+
+        return true;
+    });
+
+</script>
+{% endblock %}

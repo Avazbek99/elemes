@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('subjects') }} - {{ direction.code }}{% endblock %}
+
+{% block content %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Select2 container - to'liq yachekani egallashi uchun */
+    .select2-container {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Table cell with select */
+    td:has(.teacher-select) {
+        width: 400px !important;
+        min-width: 400px !important;
+        max-width: 400px !important;
+    }
+
+    /* Select2 selection - oddiy select kabi ko'rinishi */
+    .select2-container--default .select2-selection--single {
+        height: 36px !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 0.5rem !important;
+        background-color: #ffffff !important;
+        transition: all 0.2s ease !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .select2-container--default .select2-selection--single:hover {
+        border-color: #9ca3af !important;
+    }
+
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+    }
+
+    /* Select2 rendered text */
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 34px !important;
+        padding-left: 12px !important;
+        padding-right: 30px !important;
+        color: #1f2937 !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Placeholder */
+    .select2-container--default .select2-selection--single .select2-selection__placeholder {
+        color: #9ca3af !important;
+    }
+
+    /* Arrow */
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 34px !important;
+        right: 8px !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__arrow b {
+        border-color: #6b7280 transparent transparent transparent !important;
+        border-width: 5px 4px 0 4px !important;
+        margin-top: -2px !important;
+    }
+
+    /* Clear button */
+    .select2-container--default .select2-selection--single .select2-selection__clear {
+        cursor: pointer !important;
+        float: right !important;
+        font-weight: bold !important;
+        margin-right: 25px !important;
+        color: #ef4444 !important;
+        font-size: 22px !important;
+        line-height: 1 !important;
+        width: 20px !important;
+        height: 20px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 50% !important;
+        margin-top: 0 !important;
+        vertical-align: middle !important;
+        position: relative !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+    }
+
+    .select2-container--default .select2-selection--single .select2-selection__clear:hover {
+        color: #dc2626 !important;
+    }
+
+    /* Dropdown */
+    .select2-dropdown {
+        border: 1px solid #d1d5db !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+        margin-top: 4px !important;
+    }
+
+    /* Search input */
+    .select2-search--dropdown .select2-search__field {
+        border: 1px solid #d1d5db !important;
+        border-radius: 0.5rem !important;
+        padding: 8px 12px !important;
+        font-size: 0.875rem !important;
+    }
+
+    .select2-search--dropdown .select2-search__field:focus {
+        border-color: #3b82f6 !important;
+        outline: none !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+    }
+
+    /* Results */
+    .select2-results__option {
+        padding: 10px 12px !important;
+        font-size: 0.875rem !important;
+    }
+
+    .select2-results__option--highlighted {
+        background-color: #eff6ff !important;
+        color: #1e40af !important;
+    }
+
+    .select2-results__option[aria-selected=true] {
+        background-color: #dbeafe !important;
+        color: #1e40af !important;
+    }
+
+    /* Clickable cells */
+    .clickable-cell {
+        cursor: pointer;
+    }
+
+    tr[data-href] {
+        cursor: pointer;
+    }
+
+    /* Table cell with select */
+    td:has(.teacher-select) {
+        padding: 8px !important;
+    }
+</style>
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-start">
+        <div>
+            <a href="{{ url_for('admin.faculty_detail', id=direction.faculty_id) }}"
+                class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                {{ t('back') }}
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900">
+                {% if enrollment_year and education_type %}
+                {{ enrollment_year }} - {{ direction.code }} - {{ direction.get_display_name(current_lang) or direction.name }} ({{ education_type|education_type_label }})
+                {% else %}
+                {{ direction.formatted_direction }}
+                {% endif %}
+            </h1>
+            <p class="text-gray-600 mt-1">{{ t('curriculum_subject_teachers') }}</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% if enrollment_year and education_type %}{{ url_for('admin.direction_curriculum', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('admin.direction_curriculum', id=direction.id) }}{% endif %}"
+                class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {{ t('curriculum_label') }}
+            </a>
+        </div>
+    </div>
+
+    <!-- Semestrlar -->
+    <div class="space-y-6">
+        {% for semester in range(1, 15) %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                {{ semester }}{{ t('semester_suffix') }}
+                {% if subjects_by_semester.get(semester) %}
+                <span class="text-base font-normal text-primary-600 ml-2">
+                    ({{ subjects_by_semester.get(semester)|length }} {{ t('subject_count_unit') }})
+                </span>
+                {% endif %}
+            </h3>
+
+
+            {% if subjects_by_semester.get(semester) %}
+            <!-- Jadval -->
+            <form method="POST"
+                action="{% if enrollment_year and education_type %}{{ url_for('admin.direction_subjects', id=direction.id, year=enrollment_year, education_type=education_type) }}{% else %}{{ url_for('admin.direction_subjects', id=direction.id) }}{% endif %}"
+                id="semester-form-{{ semester }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="semester" value="{{ semester }}" />
+                <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                    <table class="w-full border-collapse bg-white">
+                        <thead>
+                            <tr class="bg-primary-600 text-white">
+                                <th class="px-4 py-3.5 text-left text-sm font-bold border-r border-primary-500">{{ t('curriculum_table_subjects') }}
+                                </th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">{{ t('lesson_type') }}</th>
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">{{ t('hours') }}
+                                </th>
+                                {% set semester_groups = groups_by_semester.get(semester, []) %}
+                                {% for group in semester_groups %}
+                                <th class="px-3 py-3.5 text-center text-sm font-bold border-r border-primary-500">
+                                    {{ group.name }}
+                                </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subject_data in subjects_by_semester[semester] %}
+                            {% set subject = subject_data.subject %}
+                            {% set curriculum_item = subject_data.curriculum_item %}
+                            {% set lessons = subject_data.lessons %}
+                            {% if lessons %}
+                            {% for lesson in lessons %}
+                            <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
+                                data-subject-id="{{ subject.id }}"
+                                data-href="{{ url_for('courses.detail', id=subject.id, dir_id=direction.id, group_id=semester_groups[0].id) if semester_groups else url_for('courses.detail', id=subject.id, dir_id=direction.id) }}{% if semester %}?semester={{ semester }}{% endif %}">
+                                {% if loop.first %}
+                                <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell"
+                                    rowspan="{{ lessons|length }}">
+                                    <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
+                                </td>
+                                {% endif %}
+                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-700 clickable-cell">
+                                    {{ lesson.type|lesson_type_label }}</td>
+                                <td
+                                    class="px-3 py-2 border-r border-gray-200 text-center font-semibold text-gray-900 bg-gray-100 clickable-cell">
+                                    {{ lesson.hours }}</td>
+                                {% for group in semester_groups %}
+                                <td class="px-3 py-2 border-r border-gray-200" onclick="event.stopPropagation();">
+                                    {% set assigned_teacher = subject.get_teacher_for_type(group.id, lesson.type) %}
+                                    {% if 'Amaliyot' in lesson.type or 'Laboratoriya' in lesson.type or 'Lobaratoriya'
+                                    in lesson.type or 'Kurs ishi' in lesson.type %}
+                                    {# Amaliyot, Lobaratoriya va Kurs ishi uchun bitta o'qituvchi #}
+                                    <select name="teacher_practical_{{ curriculum_item.id }}_{{ group.id }}"
+                                        class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option value="">{{ t('select_teacher_placeholder') }}</option>
+                                        {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                            assigned_teacher.id==teacher.id %}selected{% endif %}>
+                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
+                                            teacher.email else '-' }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    {% elif lesson.type == 'Maruza' %}
+                                    <select name="teacher_maruza_{{ curriculum_item.id }}_{{ group.id }}"
+                                        class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option value="">{{ t('select_teacher_placeholder') }}</option>
+                                        {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                            assigned_teacher.id==teacher.id %}selected{% endif %}>
+                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
+                                            teacher.email else '-' }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    {% elif lesson.type == 'Seminar' %}
+                                    <select name="teacher_seminar_{{ curriculum_item.id }}_{{ group.id }}"
+                                        class="teacher-select w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option value="">{{ t('select_teacher_placeholder') }}</option>
+                                        {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}" {% if assigned_teacher and
+                                            assigned_teacher.id==teacher.id %}selected{% endif %}>
+                                            {{ (teacher.full_name or teacher.email).upper() if teacher.full_name or
+                                            teacher.email else '-' }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr class="hover:bg-primary-50 transition-colors border-b border-gray-200"
+                                data-href="{{ url_for('courses.detail', id=subject.id, dir_id=direction.id, group_id=semester_groups[0].id) if semester_groups else url_for('courses.detail', id=subject.id, dir_id=direction.id) }}">
+                                <td class="px-4 py-3 border-r border-gray-200 bg-gray-50 clickable-cell">
+                                    <div class="font-semibold text-gray-900 text-sm">{{ subject.name }}</div>
+                                </td>
+                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">
+                                    -</td>
+                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400 clickable-cell">
+                                    -</td>
+                                <td class="px-3 py-2 border-r border-gray-200 text-center text-gray-400">-</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button type="submit"
+                        class="px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium">
+                        {{ t('save') }}
+                    </button>
+                </div>
+            </form>
+            {% else %}
+            <div class="text-center py-8 text-gray-500 text-sm">
+                <p>{{ t('curriculum_no_subjects_in_semester') }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Select2 JS -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    // i18n translations
+    window.i18nSubjects = {
+        searchTeacherPlaceholder: {{ t('select_teacher_placeholder')|tojson }},
+        noResults: {{ t('no_results')|tojson }},
+        searching: {{ t('searching')|tojson }}
+    };
+    
+    // Select2 ni barcha o'qituvchi select'larga qo'llash
+    document.addEventListener('DOMContentLoaded', function () {
+        $('.teacher-select').select2({
+            placeholder: {
+                id: '',
+                text: window.i18nSubjects.searchTeacherPlaceholder
+            },
+            allowClear: true,
+            language: {
+                noResults: function () {
+                    return window.i18nSubjects.noResults;
+                },
+                searching: function () {
+                    return window.i18nSubjects.searching;
+                }
+            }
+        });
+
+        // Clear bosilganda dropdown ochilmasligi uchun
+        $(document).on('select2:unselect', '.teacher-select', function (e) {
+            // Dropdown'ni darhol yopish
+            var $select = $(this);
+            setTimeout(function () {
+                if ($select.data('select2')) {
+                    $select.select2('close');
+                }
+            }, 0);
+        });
+
+        $(document).on('select2:clear', '.teacher-select', function (e) {
+            // Dropdown'ni darhol yopish
+            var $select = $(this);
+            setTimeout(function () {
+                if ($select.data('select2')) {
+                    $select.select2('close');
+                }
+            }, 0);
+        });
+
+        // Select2 yaratilganda o'lchamni to'g'rilash
+        function fixSelect2Width() {
+            $('.teacher-select').each(function () {
+                var $select = $(this);
+                var $container = $select.next('.select2-container');
+                var $td = $select.closest('td');
+                if ($container.length && $td.length) {
+                    // 400px qotirish
+                    $container.css({
+                        'width': '400px',
+                        'min-width': '400px',
+                        'max-width': '400px'
+                    });
+                    $container.find('.select2-selection--single').css({
+                        'width': '400px',
+                        'min-width': '400px',
+                        'max-width': '400px'
+                    });
+                }
+            });
+        }
+
+        // Dastlabki o'lchamni to'g'rilash
+        setTimeout(fixSelect2Width, 100);
+
+        // Select2 yaratilgandan keyin ham o'lchamni to'g'rilash
+        $('.teacher-select').on('select2:select select2:unselect select2:clear select2:open select2:close', function () {
+            setTimeout(fixSelect2Width, 10);
+        });
+
+        // Oynani o'lchamini o'zgartirganda ham to'g'rilash
+        $(window).on('resize', function () {
+            setTimeout(fixSelect2Width, 100);
+        });
+
+        // Select2 yaratilganda ham o'lchamni to'g'rilash
+        $('.teacher-select').on('select2:selecting', function () {
+            setTimeout(fixSelect2Width, 10);
+        });
+
+        // Form submit qilganda bo'sh qiymatlarni to'g'ri yuborish
+        $('form[id^="semester-form-"]').on('submit', function () {
+            $(this).find('.teacher-select').each(function () {
+                if (!$(this).val()) {
+                    $(this).append('<option value="" selected></option>');
+                }
+            });
+        });
+
+        // Qatorga click qilganda fanga o'tish (select va boshqa interaktiv elementlardan tashqari)
+        $(document).on('click', 'tr[data-href]', function (e) {
+            // Agar select yoki uning container'iga bosilgan bo'lsa, o'tkazib yuborish
+            if ($(e.target).closest('.select2-container, .teacher-select').length) {
+                return;
+            }
+            window.location.href = $(this).data('href');
+        });
+
+        // Clickable cell'larga click qilganda ham fanga o'tish
+        $(document).on('click', '.clickable-cell', function (e) {
+            // Agar select yoki uning container'iga bosilgan bo'lsa, o'tkazib yuborish
+            if ($(e.target).closest('.select2-container, .teacher-select').length) {
+                return;
+            }
+            var $row = $(this).closest('tr[data-href]');
+            if ($row.length && $row.data('href')) {
+                window.location.href = $row.data('href');
+            }
+        });
+    });
+</script>
+{% endblock %}

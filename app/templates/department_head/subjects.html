@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('subjects_database') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('subjects_database') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('department_head_subjects_subtitle') }}</p>
+        </div>
+        <div class="flex gap-2">
+            <button type="button" onclick="openAssignTeacherModal()"
+                class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+                {{ t('assign_teacher') }}
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">{{ t('departments') }}</h3>
+            <p class="text-2xl font-bold text-gray-900">{{ departments|length }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">{{ t('subjects') }}</h3>
+            <p class="text-2xl font-bold text-gray-900">{{ subjects|length }}</p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-semibold text-gray-500 uppercase mb-2">{{ t('teachers') }}</h3>
+            <p class="text-2xl font-bold text-gray-900">{{ teachers|length }}</p>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+            <h2 class="text-lg font-semibold text-gray-900">{{ t('subjects') }}</h2>
+        </div>
+        {% if subjects %}
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[600px]">
+                <thead class="bg-gray-50">
+                    <tr class="border-b border-gray-200">
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('subject_name') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('department') }}</th>
+                        <th class="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase">{{ t('teachers') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for subject in subjects %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ subject.get_display_name(current_lang) or subject.name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">
+                            {% if subject.department %}
+                            {{ subject.department.get_display_name(current_lang) or subject.department.name }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                                {{ subject.teacher_assignments.count() }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center">
+            <p class="text-gray-500">{{ t('no_subjects_found') }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- O'qituvchi biriktirish modali -->
+<div id="assign-teacher-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg" onclick="event.stopPropagation()">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('assign_teacher') }}</h3>
+        </div>
+        <form method="POST" action="{{ url_for('main.department_head_assign_teacher') }}" class="p-6 space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('subject') }} *</label>
+                <select name="subject_id" required class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('select_subject') }}</option>
+                    {% for subject in subjects %}
+                    <option value="{{ subject.id }}">{{ subject.get_display_name(current_lang) or subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('teacher') }} *</label>
+                <select name="teacher_id" required class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('select_teacher') }}</option>
+                    {% for teacher in teachers %}
+                    <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('group') }} *</label>
+                <select name="group_id" required class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('select_group') }}</option>
+                    {% for group in groups %}
+                    <option value="{{ group.id }}">{{ group.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('lesson_type') }} *</label>
+                <select name="lesson_type" required class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('select_lesson_type') }}</option>
+                    <option value="maruza">{{ t('lecture') }}</option>
+                    <option value="amaliyot">{{ t('practice') }}</option>
+                    <option value="laboratoriya">{{ t('laboratory') }}</option>
+                    <option value="seminar">{{ t('seminar') }}</option>
+                </select>
+            </div>
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('assign') }}
+                </button>
+                <button type="button" onclick="closeAssignTeacherModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openAssignTeacherModal() {
+    document.getElementById('assign-teacher-modal').classList.remove('hidden');
+}
+function closeAssignTeacherModal() {
+    document.getElementById('assign-teacher-modal').classList.add('hidden');
+}
+document.getElementById('assign-teacher-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeAssignTeacherModal();
+});
+</script>
+{% endblock %}

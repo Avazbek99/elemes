@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+
+{% block title %}{{ assignment.title }} - {{ t('answers_title') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="mb-4">
+        {% set sub_dir_id = direction_id or assignment.direction_id or request.args.get('direction_id') %}
+        <a href="{{ url_for('courses.detail', id=assignment.subject.id, dir_id=sub_dir_id) if sub_dir_id else url_for('courses.detail', id=assignment.subject.id) }}"
+            class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-primary-600 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+    </div>
+
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-2">
+                <p class="text-gray-500 font-medium">{{ assignment.subject.name }}</p>
+                {% if assignment.lesson_type %}
+                <span class="px-2 py-1 text-xs font-medium rounded-md
+                    {% if assignment.lesson_type == 'maruza' %}bg-blue-100 text-blue-700 border border-blue-200
+                    {% elif assignment.lesson_type == 'amaliyot' %}bg-green-100 text-green-700 border border-green-200
+                    {% elif assignment.lesson_type == 'laboratoriya' %}bg-purple-100 text-purple-700 border border-purple-200
+                    {% elif assignment.lesson_type == 'seminar' %}bg-amber-100 text-amber-700 border border-amber-200
+                    {% elif assignment.lesson_type == 'kurs_ishi' %}bg-indigo-100 text-indigo-700 border border-indigo-200
+                    {% else %}bg-gray-100 text-gray-700 border border-gray-200{% endif %}">
+                    {{ assignment.lesson_type|lesson_type_label }}
+                </span>
+                {% endif %}
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 mt-1">{{ assignment.title }}</h1>
+            <p class="text-gray-500 mt-1">
+                {% if assignment_groups is defined and assignment_groups %}
+                {{ assignment_groups|map(attribute='name')|join(', ') }}
+                {% elif assignment.group %}
+                {{ assignment.group.name }}
+                {% endif %}
+                {% if assignment.group or (assignment_groups is defined and assignment_groups) %} • {% endif %}{{ t('student_answers') }}
+            </p>
+        </div>
+        <div class="flex items-center gap-4 text-sm">
+            <div class="flex items-center gap-2">
+                <span class="text-gray-500">{{ t('max_score') }}:</span>
+                <strong class="text-primary-600">{{ assignment.max_score }}</strong>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-500">{{ t('submitted_count') }}:</span>
+                <strong class="text-gray-700">{{ total_submissions or submissions|length }}</strong>
+            </div>
+            {% if ungraded_count and ungraded_count > 0 %}
+            <div class="relative">
+                <span
+                    class="px-3 py-1 text-xs font-bold rounded-full bg-red-500 text-white animate-pulse flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {{ ungraded_count }} {{ t('ungraded') }}
+                </span>
+                <span class="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full animate-ping"></span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if assignment.description %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">{{ t('assignment_description') }}</h2>
+        <p class="text-gray-600">{{ assignment.description }}</p>
+
+        {% if related_lessons %}
+        <div class="mt-4 pt-4 border-t border-gray-100">
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">{{ t('related_topics') }}</h3>
+            <div class="flex flex-wrap gap-2">
+                {% set type_codes = {'maruza': 'M', 'amaliyot': 'A', 'laboratoriya': 'L', 'seminar': 'S', 'kurs_ishi': 'K'} %}
+                {% for lesson in related_lessons %}
+                {% if direction_id and assignment_group_id is defined and assignment_group_id and assignment_semester is defined %}
+                <a href="{{ url_for('courses.hierarchical_lesson_detail', subject_id=assignment.subject.id, direction_id=direction_id, group_id=assignment_group_id, semester=assignment_semester, type_code=type_codes.get(lesson.lesson_type, 'M'), order=lesson.display_order_in_type|default(lesson.order)) }}"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors">
+                    {{ lesson.display_order_in_type|default(lesson.order) }}. {{ lesson.title }}
+                </a>
+                {% else %}
+                <a href="{{ url_for('courses.lesson_detail', id=lesson.id) }}"
+                    class="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 hover:border-gray-300 transition-colors">
+                    {{ lesson.display_order_in_type|default(lesson.order) }}. {{ lesson.title }}
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Submitted Students List -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">{{ t('submitted_students') }}</h2>
+            {% if total_submissions %}
+            <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+                {{ total_submissions }}
+            </span>
+            {% endif %}
+        </div>
+
+        {% if submissions %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {{ t('student') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {{ t('submitted_at') }}</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('grade') }}
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ t('feedback') }}
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {{ t('actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for submission in submissions %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold">
+                                    {{ submission.student.full_name[0] if submission.student.full_name else '?' }}
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-900">{{ submission.student.full_name.upper() if
+                                        submission.student.full_name else '-' }}</p>
+                                    <p class="text-xs text-blue-600">{{ t('attempts') }}: {{
+                                        submission.resubmission_count + 1 }}/3</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            {{ (submission.submitted_at | to_tashkent_time).strftime('%d.%m.%Y, %H:%M') }}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% set highest_score = student_highest_scores.get(submission.student_id, 0) %}
+                            {% if highest_score > 0 or submission.score is not none %}
+                            <div class="flex flex-col gap-1">
+                                <span
+                                    class="px-3 py-1 text-sm font-semibold rounded-full w-fit {% if highest_score < (assignment.max_score * 0.6) %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+                                    {{ "%.2f"|format(highest_score) }}/{{ "%.2f"|format(assignment.max_score) }}
+                                </span>
+                                {% if submission.score is not none and submission.score < highest_score %} <span
+                                    class="text-[10px] font-bold text-gray-400 uppercase pl-1">
+                                    {{ t('last') }}: {{ "%.2f"|format(submission.score) }}
+                                    </span>
+                                    {% endif %}
+                            </div>
+                            {% else %}
+                            <span class="px-3 py-1 text-sm font-medium rounded-full bg-amber-100 text-amber-700">
+                                {{ t('not_graded_yet') }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if submission.feedback %}
+                            <span class="text-sm text-gray-600" title="{{ submission.feedback }}">
+                                {{ submission.feedback }}
+                            </span>
+                            {% else %}
+                            <span class="text-sm text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            <button onclick="openSubmissionModal('{{ submission.id }}')" class="px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2
+                                {% if submission.resubmission_count > 0 and submission.score is none %}
+                                    animate-blink-red-blue
+                                {% else %}
+                                    bg-primary-600 hover:bg-primary-700
+                                {% endif %}">
+                                {% if submission.resubmission_count > 0 and submission.score is none %}
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                {% endif %}
+                                {{ t('view') }}
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-12 text-center">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <h3 class="text-lg font-medium text-gray-600">{{ t('no_answers') }}</h3>
+            <p class="text-gray-400">{{ t('no_submissions_yet') }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Not Submitted Students -->
+    <div class="bg-amber-50 rounded-2xl border border-amber-200 p-4">
+        <button onclick="openNotSubmittedModal()"
+            class="w-full flex items-center justify-between hover:bg-amber-100 transition-colors rounded-lg p-2">
+            <h3 class="font-medium text-amber-800">{{ t('unsubmitted_students') }}</h3>
+            <span class="px-3 py-1 bg-amber-200 text-amber-800 rounded-full text-sm font-semibold">
+                {{ (not_submitted|default([]))|length }}
+            </span>
+        </button>
+    </div>
+</div>
+
+<!-- Submission Detail Modal -->
+<div id="submissionModal"
+    class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl transform transition-all max-h-[90vh] overflow-y-auto overflow-x-hidden" style="width: 100%; max-width: 720px;">
+        <div
+            class="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center rounded-t-2xl">
+            <h3 class="text-lg font-bold text-gray-900" id="modalStudentName">{{ t('student_submission') }}</h3>
+            <button onclick="closeSubmissionModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="p-6" id="modalContent">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<style>
+#notSubmittedModal > div {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#notSubmittedModal > div::-webkit-scrollbar {
+    display: none;
+}
+</style>
+<!-- Not Submitted Students Modal -->
+<div id="notSubmittedModal"
+    class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl transform transition-all max-h-[90vh] overflow-y-auto overflow-x-hidden" style="width: 100%; max-width: 720px;">
+        <div
+            class="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center rounded-t-2xl">
+            <h3 class="text-lg font-bold text-gray-900">{{ t('unsubmitted_students') }}</h3>
+            <button onclick="closeNotSubmittedModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="p-6">
+            <div class="space-y-4">
+                {% for student in not_submitted %}
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div
+                        class="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center text-white font-semibold">
+                        {{ student.full_name[0] if student.full_name else '?' }}
+                    </div>
+                    <p class="font-medium text-gray-900">{{ student.full_name.upper() if student.full_name else '-' }}
+                    </p>
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center py-4">{{ t('all_submitted') }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Translations for JavaScript -->
+<span id="t-all-attempts-history" class="hidden">{{ t('all_attempts_history') }}</span>
+<span id="t-attempt" class="hidden">{{ t('attempt') }}</span>
+<span id="t-resubmitted" class="hidden">{{ t('resubmitted') }}</span>
+<span id="t-file" class="hidden">{{ t('file') }}</span>
+<span id="t-download" class="hidden">{{ t('download') }}</span>
+<span id="t-grade" class="hidden">{{ t('grade') }}</span>
+<span id="t-not-graded-yet" class="hidden">{{ t('not_graded_yet') }}</span>
+<span id="t-grade-for-latest" class="hidden">{{ t('grade_for_latest') }}</span>
+<span id="t-grading" class="hidden">{{ t('grading') }}</span>
+<span id="t-cancel" class="hidden">{{ t('cancel') }}</span>
+<span id="t-comment-optional" class="hidden">{{ t('comment_optional') }}</span>
+<span id="t-leave-comment" class="hidden">{{ t('leave_comment') }}</span>
+<span id="t-save" class="hidden">{{ t('save') }}</span>
+<span id="t-edit" class="hidden">{{ t('edit') }}</span>
+<span id="t-no-grade-permission" class="hidden">{{ t('no_grade_permission') }}</span>
+<span id="t-grade-threshold-comment" class="hidden">{{ t('grade_below_threshold_comment', threshold='0') }}</span>
+
+<!-- Data for JavaScript (Decoupled to avoid syntax issues) -->
+<script id="submissions-data" type="application/json">
+{
+    {% for submission in submissions %}
+    "{{ submission.id }}": {
+        "studentName": {{ (submission.student.full_name.upper() if submission.student.full_name else '-')|tojson }},
+        "submittedAt": "{{ submission.submitted_at.strftime('%d.%m.%Y, %H:%M') }}",
+        "content": {{ (submission.content if submission.content else '')|tojson }},
+        "fileUrl": {{ (submission.file_url if submission.file_url else '')|tojson }},
+        "fileDownloadUrl": "{{ url_for('courses.serve_submission_file', filename=submission.file_url) if submission.file_url else '' }}",
+        "gradeUrl": "{{ url_for('courses.grade_submission', id=submission.id) }}",
+        "score": {{ submission.score if submission.score is not none else 'null' }},
+        "feedback": {{ (submission.feedback if submission.feedback else '')|tojson }},
+        "canGrade": {{ 'true' if can_grade_submissions.get(submission.id, False) else 'false' }},
+        "resubmissionCount": {{ submission.resubmission_count }},
+        "allowResubmission": {{ 'true' if submission.allow_resubmission else 'false' }},
+        "history": [
+            {% for hist in submission_history.get(submission.student_id, []) %}
+            {
+                "id": "{{ hist.id }}",
+                "submittedAt": "{{ (hist.submitted_at | to_tashkent_time).strftime('%d.%m.%Y, %H:%M') }}",
+                "score": {{ hist.score if hist.score is not none else 'null' }},
+                "feedback": {{ (hist.feedback if hist.feedback else '')|tojson }},
+                "content": {{ (hist.content if hist.content else '')|tojson }},
+                "fileUrl": {{ (hist.file_url if hist.file_url else '')|tojson }},
+                "fileDownloadUrl": "{{ url_for('courses.serve_submission_file', filename=hist.file_url) if hist.file_url else '' }}",
+                "isActive": {{ 'true' if hist.is_active else 'false' }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+}
+</script>
+
+<style>
+    @keyframes blink-red-blue {
+
+        0%,
+        100% {
+            background-color: #fee2e2;
+            color: #dc2626;
+            border-color: #fecaca;
+            box-shadow: 0 0 5px rgba(220, 38, 38, 0.4);
+        }
+
+        50% {
+            background-color: #dbeafe;
+            color: #2563eb;
+            border-color: #bfdbfe;
+            box-shadow: 0 0 5px rgba(37, 99, 235, 0.4);
+        }
+    }
+
+    .animate-blink-red-blue {
+        animation: blink-red-blue 0.8s infinite;
+    }
+</style>
+<script>
+    let submissionsData = {};
+    try {
+        const dataElement = document.getElementById('submissions-data');
+        if (dataElement) {
+            submissionsData = JSON.parse(dataElement.textContent);
+            console.log('Submissions data loaded successfully');
+        }
+    } catch (e) {
+        console.error('Failed to parse submissions data:', e);
+    }
+
+    function openSubmissionModal(submissionId) {
+        console.log('Opening submission:', submissionId);
+        const data = submissionsData[submissionId];
+        if (!data) {
+            console.error('No data found for submission:', submissionId);
+            return;
+        }
+        data.id = submissionId;
+
+        const modal = document.getElementById('submissionModal');
+        const modalContent = document.getElementById('modalContent');
+        const modalStudentName = document.getElementById('modalStudentName');
+
+        modalStudentName.textContent = data.studentName;
+        modalContent.innerHTML = ''; // Clear previous content
+
+        const container = document.createElement('div');
+        container.className = 'space-y-4';
+
+        // Render History
+        if (data.history && data.history.length > 0) {
+            const historyTitle = document.createElement('h4');
+            historyTitle.className = 'font-bold text-gray-900 mt-6 mb-4 border-t pt-4';
+            historyTitle.textContent = (document.getElementById('t-all-attempts-history') || {}).textContent || 'Barcha urinishlar tarixi';
+            container.appendChild(historyTitle);
+
+            data.history.forEach((hist, index) => {
+                const histDiv = document.createElement('div');
+                histDiv.className = 'p-4 rounded-xl border-2 border-gray-200 bg-white shadow-sm';
+
+                let histHtml = `
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                        <div class="text-xs text-gray-500 font-medium">${hist.submittedAt}</div>
+                        <div class="flex items-center gap-2">
+                             <span class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-gray-100 text-gray-600 border border-gray-200 uppercase tracking-wider">
+                                ${(document.getElementById('t-attempt') || {}).textContent || 'Urinish'}: ${index + 1}/3
+                             </span>
+                             ${index > 0 ? `
+                             <span class="px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 animate-blink-red-blue">
+                                 <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                     <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                                 </svg>
+                                 Qayta yuborilgan
+                             </span>
+                             ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                if (hist.content) {
+                    histHtml += `<div class="text-sm text-gray-700 whitespace-pre-wrap mb-3">${hist.content}</div>`;
+                }
+
+                if (hist.fileUrl) {
+                    const ext = hist.fileUrl.split('.').pop().toUpperCase();
+                    histHtml += `
+                        <div class="p-2 bg-white rounded-lg border border-gray-100 mb-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase">${ext} ${(document.getElementById('t-file') || {}).textContent || 'fayl'}</span>
+                                </div>
+                                <a href="${hist.fileDownloadUrl}" class="text-[10px] text-primary-600 hover:text-primary-700 font-bold underline">${(document.getElementById('t-download') || {}).textContent || 'Yuklab olish'}</a>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (hist.score !== null) {
+                    histHtml += `
+                        <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+                            <div class="flex justify-between items-center text-xs font-bold text-green-700 mb-1">
+                                <span>${(document.getElementById('t-grade') || {}).textContent || 'Baho'}:</span>
+                                <span>${hist.score.toFixed(2)}/{{ "%.2f"|format(assignment.max_score) }}</span>
+                            </div>
+                            ${hist.feedback ? `<p class="text-xs text-green-600 italic">💬 ${hist.feedback}</p>` : ''}
+                        </div>
+                    `;
+                } else {
+                    histHtml += `<div class="p-2 bg-amber-50 rounded-lg border border-amber-100 text-xs text-amber-700 italic">⏳ ${(document.getElementById('t-not-graded-yet') || {}).textContent || 'Hali baholanmagan'}</div>`;
+                }
+
+                histDiv.innerHTML = histHtml;
+                container.appendChild(histDiv);
+            });
+        }
+
+        // Grading Form (only for the active/latest one if it's currently open)
+        if (data.canGrade) {
+            const gradingTitle = document.createElement('h4');
+            gradingTitle.className = 'font-bold text-gray-900 mt-8 mb-4 border-t pt-4';
+            gradingTitle.textContent = (document.getElementById('t-grade-for-latest') || {}).textContent || 'Baholash (So\'nggi urinish uchun)';
+            container.appendChild(gradingTitle);
+
+            if (data.score === null) {
+                renderGradeForm(container, data);
+            } else {
+                renderGradeDisplay(container, data, true);
+            }
+        } else if (data.score !== null) {
+            renderGradeDisplay(container, data, false);
+        } else {
+            const warnDiv = document.createElement('div');
+            warnDiv.className = 'p-4 bg-amber-50 rounded-xl border border-amber-200';
+            warnDiv.innerHTML = '<p class="text-sm text-amber-700">⚠️ ' + ((document.getElementById('t-no-grade-permission') || {}).textContent || "Sizda ushbu topshiriqni baholash uchun ruxsat yo'q.") + '</p>';
+            container.appendChild(warnDiv);
+        }
+
+        modalContent.appendChild(container);
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function renderGradeForm(container, data) {
+        const gradeFormDiv = document.createElement('div');
+        gradeFormDiv.className = 'p-4 bg-blue-50 rounded-xl border border-blue-200';
+        gradeFormDiv.innerHTML = `
+            <form method="POST" action="${data.gradeUrl}" onsubmit="return validateGrade(this)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="font-medium text-gray-900">Baholash</h4>
+                    ${data.score !== null ? `
+                    <button type="button" onclick="cancelEdit('${data.id}')" class="text-sm text-gray-500 hover:text-gray-700">
+                        ${(document.getElementById('t-cancel') || {}).textContent || 'Bekor qilish'}
+                    </button>
+                    ` : ''}
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">${(document.getElementById('t-grade') || {}).textContent || 'Baho'} (0-{{ "%.2f"|format(assignment.max_score) }})</label>
+                        <input type="number" name="score" min="0" max="{{ assignment.max_score }}" step="0.01" required 
+                            value="${data.score !== null ? data.score.toFixed(2) : ''}"
+                            class="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">${(document.getElementById('t-comment-optional') || {}).textContent || 'Izoh (ixtiyoriy)'}</label>
+                        <input type="text" name="feedback" placeholder="${(document.getElementById('t-leave-comment') || {}).textContent || 'Izoh qoldiring...'}" 
+                            value="${data.feedback || ''}"
+                            class="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    </div>
+                </div>
+                <button type="submit" class="mt-4 w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                    ${(document.getElementById('t-save') || {}).textContent || 'Saqlash'}
+                </button>
+            </form>
+        `;
+
+        // Remove existing grade display if present
+        const existingDisplay = container.querySelector('.grade-display');
+        if (existingDisplay) {
+            existingDisplay.remove();
+        }
+
+        container.appendChild(gradeFormDiv);
+    }
+
+    function renderGradeDisplay(container, data, canEdit) {
+        const gradeDiv = document.createElement('div');
+        gradeDiv.className = 'grade-display p-4 bg-green-50 rounded-xl border border-green-200';
+
+        let html = `
+            <div class="flex justify-between items-start">
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">${(document.getElementById('t-grade') || {}).textContent || 'Baho'}</h4>
+                    <p class="text-2xl font-bold text-green-700">${data.score.toFixed(2)}/{{ "%.2f"|format(assignment.max_score) }}</p>
+                    ${data.feedback ? `<p class="text-sm text-gray-700 mt-2">💬 ${data.feedback}</p>` : ''}
+                </div>
+        `;
+
+        if (canEdit) {
+            html += `
+                <button onclick="switchToEdit('${data.id}')" class="px-3 py-1.5 bg-white border border-green-200 text-green-700 text-sm font-medium rounded-lg hover:bg-green-100 transition-colors">
+                    ${(document.getElementById('t-edit') || {}).textContent || "O'zgartirish"}
+                </button>
+            `;
+        }
+
+        html += `</div>`;
+        gradeDiv.innerHTML = html;
+        container.appendChild(gradeDiv);
+    }
+
+    function switchToEdit(submissionId) {
+        // Find container from modal
+        const container = document.getElementById('modalContent').querySelector('.space-y-4');
+        const data = submissionsData[submissionId];
+        // Add ID to data for cancel
+        data.id = submissionId;
+        renderGradeForm(container, data);
+    }
+
+    function cancelEdit(submissionId) {
+        const container = document.getElementById('modalContent').querySelector('.space-y-4');
+        const data = submissionsData[submissionId];
+        // Remove form
+        container.lastElementChild.remove();
+        // Show display
+        renderGradeDisplay(container, data, true);
+    }
+
+    function createInfoBlock(title, text, isPre = false) {
+        const div = document.createElement('div');
+        div.className = 'p-4 bg-gray-50 rounded-xl';
+        const h4 = document.createElement('h4');
+        h4.className = 'font-medium text-gray-900 mb-2';
+        h4.textContent = title;
+        div.appendChild(h4);
+        const p = document.createElement('p');
+        p.className = isPre ? 'text-gray-700 whitespace-pre-wrap' : 'text-gray-600';
+        p.textContent = text;
+        div.appendChild(p);
+        return div;
+    }
+
+    function closeSubmissionModal() {
+        const modal = document.getElementById('submissionModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function openNotSubmittedModal() {
+        const modal = document.getElementById('notSubmittedModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeNotSubmittedModal() {
+        const modal = document.getElementById('notSubmittedModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function validateGrade(form) {
+        const scoreInput = form.querySelector('input[name="score"]');
+        const feedbackInput = form.querySelector('input[name="feedback"]');
+        const maxScore = parseInt(scoreInput.getAttribute('max'));
+        const score = parseInt(scoreInput.value);
+
+        // 60% dan past bo'lsa izoh majburiy
+        const threshold = maxScore * 0.6;
+
+        if (score < threshold && !feedbackInput.value.trim()) {
+            const msg = (document.getElementById('t-grade-threshold-comment') || {}).textContent || "Baho o'tish balidan past bo'lsa, izoh yozish majburiy!";
+            alert(msg.replace(/\(\d+\)/, '(' + Math.ceil(threshold) + ')'));
+            feedbackInput.focus();
+            return false;
+        }
+        return true;
+    }
+
+    // Event listeners
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeSubmissionModal();
+            closeNotSubmittedModal();
+        }
+    });
+
+    document.getElementById('submissionModal').addEventListener('click', function (e) {
+        if (e.target === this) closeSubmissionModal();
+    });
+
+    document.getElementById('notSubmittedModal').addEventListener('click', function (e) {
+        if (e.target === this) closeNotSubmittedModal();
+    });
+</script>
+{% endblock %}

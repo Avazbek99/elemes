@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('settings') }}{% endblock %}
+
+{% block content %}
+<div class="w-full space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('settings') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('settings_subtitle') }}</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                {{ t('profile_info') }}
+            </h2>
+
+        <div class="flex items-center gap-6 mb-8">
+            <div
+                class="w-20 h-20 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-2xl">
+                {% if current_user.role != 'student' %}
+                {{ (current_user.login or current_user.full_name)[0].upper() }}
+                {% else %}
+                {{ (current_user.full_name or 'U')[0].upper() }}
+                {% endif %}
+            </div>
+            <div>
+                {% if current_user.role != 'student' %}
+                <h3 class="text-xl font-semibold text-gray-900">{{ current_user.full_name.upper() if
+                    current_user.full_name else '-' }}</h3>
+                <p class="text-gray-500">{{ current_user.login or '-' }}</p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    {% if current_user.is_superadmin %}
+                    <span class="inline-block px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700">{{ t('superadmin') }}</span>
+                    {% else %}
+                    {% for role in current_user.get_roles() %}
+                    <span
+                        class="inline-block px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700">{% if role == 'admin' %}{{ t('administrator') }}{% elif role == 'dean' %}{{ t('dean') }}{% elif role == 'teacher' %}{{ t('teacher') }}{% elif role == 'accounting' %}{{ t('accounting') }}{% elif role == 'student' %}{{ t('student') }}{% else %}{{ role }}{% endif %}</span>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                {% else %}
+                <h3 class="text-xl font-semibold text-gray-900">{{ current_user.full_name.upper() if
+                    current_user.full_name else '-' }}</h3>
+                <p class="text-gray-500">{{ current_user.student_id or '-' }}</p>
+                <span
+                    class="inline-block mt-2 px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700">{% if current_user.role == 'admin' %}{{ t('administrator') }}{% elif current_user.role == 'dean' %}{{ t('dean') }}{% elif current_user.role == 'teacher' %}{{ t('teacher') }}{% elif current_user.role == 'accounting' %}{{ t('accounting') }}{% elif current_user.role == 'student' %}{{ t('student') }}{% else %}{{ current_user.role }}{% endif %}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            {% if current_user.role != 'student' %}
+            {% if current_user.is_superadmin %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('full_name') }}</label>
+                    <input type="text" name="full_name" value="{{ (current_user.full_name or '')|upper }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('login') }}</label>
+                    <input type="text" name="login" value="{{ current_user.login or '' }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            {% endif %}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_series_label') }}</label>
+                    {% if current_user.is_superadmin %}
+                    <input type="text" name="passport_number" value="{{ current_user.passport_number or '' }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    {% else %}
+                    <input type="text" value="{{ current_user.passport_number or '-' }}" disabled
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                    {% endif %}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('pinfl') }}</label>
+                    {% if current_user.is_superadmin %}
+                    <input type="text" name="pinfl" value="{{ current_user.pinfl or '' }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    {% else %}
+                    <input type="text" value="{{ current_user.pinfl or '-' }}" disabled
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                    {% endif %}
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('birth_date') }}</label>
+                    {% if current_user.is_superadmin %}
+                    <input type="text" name="birth_date" value="{% if current_user.birth_date %}{{ current_user.birth_date.strftime('%Y-%m-%d') }}{% endif %}" placeholder="1999-02-06"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date-iso transition-all">
+                    {% else %}
+                    <input type="text"
+                        value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '-' }}"
+                        disabled
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('phone') }}</label>
+                    <input type="text" name="phone" value="{{ current_user.phone or '' }}"
+                        placeholder="+998 90 123 45 67"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('email') }}</label>
+                    <input type="email" name="email" value="{{ current_user.email or '' }}"
+                        placeholder="email@example.com"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            {% else %}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_series_label') }}</label>
+                    <input type="text" value="{{ current_user.passport_number or '-' }}" disabled
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('pinfl') }}</label>
+                    <input type="text" value="{{ current_user.pinfl or '-' }}" disabled
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('birth_date') }}</label>
+                    <input type="text"
+                        value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '-' }}"
+                        disabled
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-700 cursor-not-allowed font-medium">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('phone') }}</label>
+                    <input type="text" name="phone" value="{{ current_user.phone or '' }}"
+                        placeholder="+998 90 123 45 67"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('email') }}</label>
+                    <input type="email" name="email" value="{{ current_user.email or '' }}"
+                        placeholder="email@example.com"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            {% endif %}
+
+            <hr class="border-gray-200">
+
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('change_password_section') }}</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('new_password_label') }}</label>
+                    <div class="relative">
+                        <input type="password" name="new_password" id="new_password" placeholder="••••••••"
+                            minlength="8"
+                            class="w-full px-4 py-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" onclick="togglePassword('new_password')"
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none">
+                            <svg id="eye-icon-new_password" class="w-5 h-5" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg id="eye-off-icon-new_password" class="w-5 h-5 hidden" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">{{ t('min_8_chars') }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('new_password_confirm_label') }}</label>
+                    <div class="relative">
+                        <input type="password" name="confirm_password" id="confirm_password" placeholder="••••••••"
+                            minlength="8"
+                            class="w-full px-4 py-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" onclick="togglePassword('confirm_password')"
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none">
+                            <svg id="eye-icon-confirm_password" class="w-5 h-5" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <svg id="eye-off-icon-confirm_password" class="w-5 h-5 hidden" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-4">
+                <button type="submit"
+                    class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors">
+                    {{ t('save') }}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Additional info -->
+    {% if current_user.role == 'student' %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-10V4a1 1 0 011-1h2a1 1 0 011 1v3M12 7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                {{ t('academic_info') }}
+            </h2>
+
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            {% if current_user.role == 'student' %}
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('faculty') }}</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group and current_user.group.direction and current_user.group.direction.faculty
+                    %}
+                    {{ current_user.group.direction.faculty.get_display_name(current_lang) or current_user.group.direction.faculty.name }}
+                    {% elif current_user.group and current_user.group.faculty %}
+                    {{ current_user.group.faculty.get_display_name(current_lang) or current_user.group.faculty.name }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('course') }}</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group %}
+                    {{ current_user.group.course_year or '-' }}{{ t('course_suffix') }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('semester') }}</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group %}
+                    {{ current_user.group.semester }}{{ t('semester_suffix') }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('education_type') }}</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group and current_user.group.education_type %}
+                    {{ current_user.group.education_type|education_type_label }}
+                    {% elif current_user.education_type %}
+                    {{ current_user.education_type|education_type_label }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('group') }}</p>
+                <p class="font-medium text-gray-900">{{ current_user.group.name if current_user.group else '-' }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('enrollment_year') }}</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group and current_user.group.enrollment_year %}
+                    {{ current_user.group.enrollment_year }}
+                    {% elif current_user.enrollment_year %}
+                    {{ current_user.enrollment_year }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl col-span-2">
+                <p class="text-gray-500">{{ t('direction') }}</p>
+                <p class="font-medium text-gray-900">
+                    {% if current_user.group %}
+                    {{ current_user.group.formatted_direction }}
+                    {% elif current_user.specialty_code and current_user.specialty %}
+                    {{ current_user.specialty_code }} - {{ current_user.specialty }}
+                    {% elif current_user.specialty %}
+                    {{ current_user.specialty }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </p>
+            </div>
+            
+            {% elif current_user.role != 'student' %}
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if 'dean' in (current_user.get_roles() or []) and current_user.managed_faculty %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-10V4a1 1 0 011-1h2a1 1 0 011 1v3M12 7h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                {{ t('dean_info_section') }}
+            </h2>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('faculty') }}</p>
+                <p class="font-medium text-gray-900">{{ current_user.managed_faculty.get_display_name(current_lang) or current_user.managed_faculty.name }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {{ t('additional_info') }}
+            </h2>
+
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            {% if current_user.description %}
+            <div class="p-3 bg-gray-50 rounded-xl col-span-2">
+                <p class="text-gray-500">{{ t('description') }}</p>
+                <p class="font-medium text-gray-900">{{ current_user.description }}</p>
+            </div>
+            {% endif %}
+
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('registered_at') }}</p>
+                <p class="font-medium text-gray-900">{{ current_user.created_at.strftime('%d.%m.%Y') }}</p>
+            </div>
+            <div class="p-3 bg-gray-50 rounded-xl">
+                <p class="text-gray-500">{{ t('last_login') }}</p>
+                <p class="font-medium text-gray-900">{{ current_user.last_login.strftime('%d.%m.%Y, %H:%M') if
+                    current_user.last_login else '-' }}</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function togglePassword(inputId) {
+        const input = document.getElementById(inputId);
+        const eyeIcon = document.getElementById('eye-icon-' + inputId);
+        const eyeOffIcon = document.getElementById('eye-off-icon-' + inputId);
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            eyeIcon.classList.add('hidden');
+            eyeOffIcon.classList.remove('hidden');
+        } else {
+            input.type = 'password';
+            eyeIcon.classList.remove('hidden');
+            eyeOffIcon.classList.add('hidden');
+        }
+    }
+</script>
+{% endblock %}

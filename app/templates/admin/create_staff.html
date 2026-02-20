@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('new_staff') }}{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.staff') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('create_staff_title') }}</h1>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            <!-- Basic info -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    {{ t('basic_info') }}
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('full_name') }} *</label>
+                        <input type="text" name="full_name" required placeholder="{{ t('name_placeholder') }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('login') }} *</label>
+                        <input type="text" name="login" required placeholder="a_tursunqulov"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('phone') }}</label>
+                        <input type="text" name="phone" placeholder="+998 90 123 45 67"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('email') }}</label>
+                        <input type="email" name="email" placeholder="email@university.uz"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('description') }}</label>
+                        <textarea name="description" rows="1" placeholder="{{ t('staff_description_placeholder') }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Passport info -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {{ t('passport_info') }}
+                </h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_series_number') }} *</label>
+                        <input type="text" name="passport_number" required placeholder="AD1234567"
+                            style="text-transform: uppercase;"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                        <p class="text-xs text-gray-500 mt-1">{{ t('used_as_password') }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_pinfl') }}</label>
+                        <input type="text" name="pinfl" placeholder="30202020200021" maxlength="14"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('birth_date') }}</label>
+                        <input type="text" name="birth_date" placeholder="1999-02-06"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all flatpickr-date-iso">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roles -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    {{ t('roles') }}
+                </h2>
+
+                <p class="text-xs text-gray-500 mb-4">{{ t('multiple_roles_can_select') }}</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- Administrator -->
+                    <label class="relative cursor-pointer group">
+                        <input type="checkbox" name="roles" value="admin" id="role_admin" class="peer sr-only">
+                        <div
+                            class="p-4 border-2 border-gray-200 rounded-xl transition-all peer-checked:border-primary-600 peer-checked:bg-primary-50 hover:border-primary-300 hover:shadow-md">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-8 h-8 text-gray-400 transition-colors group-has-[:checked]:text-primary-600"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                <span
+                                    class="text-sm font-medium text-gray-700 transition-colors group-has-[:checked]:text-primary-700">{{ t('admin') }}</span>
+                            </div>
+                            <div
+                                class="absolute top-2 right-2 w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center border-gray-300 bg-white group-has-[:checked]:border-blue-600 group-has-[:checked]:bg-blue-600">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity group-has-[:checked]:opacity-100"
+                                    fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- Dekan -->
+                    <label class="relative cursor-pointer group">
+                        <input type="checkbox" name="roles" value="dean" id="role_dean" class="peer sr-only">
+                        <div
+                            class="p-4 border-2 border-gray-200 rounded-xl transition-all peer-checked:border-primary-600 peer-checked:bg-primary-50 hover:border-primary-300 hover:shadow-md">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-8 h-8 text-gray-400 group-has-[:checked]:text-primary-600 transition-colors"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <span
+                                    class="text-sm font-medium text-gray-700 group-has-[:checked]:text-primary-700 transition-colors">{{ t('dean') }}</span>
+                            </div>
+                            <div
+                                class="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-gray-300 group-has-[:checked]:border-blue-600 group-has-[:checked]:bg-blue-600 transition-all flex items-center justify-center">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity group-has-[:checked]:opacity-100" fill="currentColor"
+                                    viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- O'qituvchi -->
+                    <label class="relative cursor-pointer group">
+                        <input type="checkbox" name="roles" value="teacher" id="role_teacher" class="peer sr-only">
+                        <div
+                            class="p-4 border-2 border-gray-200 rounded-xl transition-all peer-checked:border-primary-600 peer-checked:bg-primary-50 hover:border-primary-300 hover:shadow-md">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-8 h-8 text-gray-400 group-has-[:checked]:text-primary-600 transition-colors"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                <span
+                                    class="text-sm font-medium text-gray-700 group-has-[:checked]:text-primary-700 transition-colors">{{ t('teacher') }}</span>
+                            </div>
+                            <div
+                                class="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-gray-300 group-has-[:checked]:border-blue-600 group-has-[:checked]:bg-blue-600 transition-all flex items-center justify-center">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity group-has-[:checked]:opacity-100" fill="currentColor"
+                                    viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- O'quv bo'limi -->
+                    <label class="relative cursor-pointer group">
+                        <input type="checkbox" name="roles" value="edu_dept" id="role_edu_dept" class="peer sr-only">
+                        <div
+                            class="p-4 border-2 border-gray-200 rounded-xl transition-all peer-checked:border-primary-600 peer-checked:bg-primary-50 hover:border-primary-300 hover:shadow-md">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-8 h-8 text-gray-400 group-has-[:checked]:text-primary-600 transition-colors"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                <span
+                                    class="text-sm font-medium text-gray-700 transition-colors group-has-[:checked]:text-primary-700">{{ t('edu_dept') }}</span>
+                            </div>
+                            <div
+                                class="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-gray-300 group-has-[:checked]:border-blue-600 group-has-[:checked]:bg-blue-600 transition-all flex items-center justify-center">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity group-has-[:checked]:opacity-100" fill="currentColor"
+                                    viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- Kafedra mudiri -->
+                    <label class="relative cursor-pointer group">
+                        <input type="checkbox" name="roles" value="department_head" id="role_department_head" class="peer sr-only">
+                        <div
+                            class="p-4 border-2 border-gray-200 rounded-xl transition-all peer-checked:border-primary-600 peer-checked:bg-primary-50 hover:border-primary-300 hover:shadow-md">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-8 h-8 text-gray-400 group-has-[:checked]:text-primary-600 transition-colors"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <span
+                                    class="text-sm font-medium text-gray-700 transition-colors group-has-[:checked]:text-primary-700">{{ t('department_head') }}</span>
+                            </div>
+                            <div
+                                class="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-gray-300 group-has-[:checked]:border-blue-600 group-has-[:checked]:bg-blue-600 transition-all flex items-center justify-center">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity group-has-[:checked]:opacity-100" fill="currentColor"
+                                    viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- Buxgalter -->
+                    <label class="relative cursor-pointer group">
+                        <input type="checkbox" name="roles" value="accounting" id="role_accounting"
+                            class="peer sr-only">
+                        <div
+                            class="p-4 border-2 border-gray-200 rounded-xl transition-all peer-checked:border-primary-600 peer-checked:bg-primary-50 hover:border-primary-300 hover:shadow-md">
+                            <div class="flex flex-col items-center gap-2">
+                                <svg class="w-8 h-8 text-gray-400 group-has-[:checked]:text-primary-600 transition-colors"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <span
+                                    class="text-sm font-medium text-gray-700 group-has-[:checked]:text-primary-700 transition-colors">{{ t('accountant') }}</span>
+                            </div>
+                            <div
+                                class="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-gray-300 group-has-[:checked]:border-blue-600 group-has-[:checked]:bg-blue-600 transition-all flex items-center justify-center">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity group-has-[:checked]:opacity-100" fill="currentColor"
+                                    viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div id="faculty_field" class="hidden mt-4">
+                <label class="block text-sm font-medium text-primary-700 mb-2">{{ t('faculty') }} *</label>
+                <div id="staff_faculties_container" class="space-y-2">
+                    <div class="staff-faculty-row flex gap-2 items-center">
+                        <select name="faculty_ids" class="staff-faculty-select w-full px-4 py-3 border-2 border-primary-500 bg-primary-50 text-primary-900 rounded-xl focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition-all font-medium"
+                            style="color-scheme: light;">
+                            <option value="">{{ t('select_faculty_placeholder') }}</option>
+                            {% for faculty in faculties %}
+                            <option value="{{ faculty.id }}">{{ faculty.get_display_name(current_lang) or faculty.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="staff-faculty-remove shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors" title="{{ t('remove') }}">×</button>
+                    </div>
+                </div>
+                <button type="button" id="staff_faculty_add" class="mt-2 px-4 py-2 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors text-sm font-medium flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    {{ t('staff_add_faculty_btn') }}
+                </button>
+                <p class="text-xs text-primary-600 mt-1 font-medium">{{ t('dean_must_select_faculty') }}</p>
+            </div>
+
+            <div id="department_head_field" class="hidden mt-4">
+                <label class="block text-sm font-medium text-primary-700 mb-2">{{ t('departments') }} ({{ t('department_head') }}) *</label>
+                <div id="staff_departments_container" class="space-y-2">
+                    <div class="staff-dept-row flex gap-2 items-center">
+                        <select name="managed_department_ids" class="staff-dept-select w-full px-4 py-3 border-2 border-primary-500 bg-primary-50 text-primary-900 rounded-xl focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition-all font-medium"
+                            style="color-scheme: light;">
+                            <option value="">{{ t('select_department_placeholder') }}</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.get_display_name(current_lang) }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="staff-dept-remove shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors" title="{{ t('remove') }}">×</button>
+                    </div>
+                </div>
+                <button type="button" id="staff_dept_add" class="mt-2 px-4 py-2 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors text-sm font-medium flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    {{ t('staff_add_department_btn') }}
+                </button>
+                <p class="text-xs text-primary-600 mt-1 font-medium">{{ t('department_head_must_select_department') }}</p>
+            </div>
+
+
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <a href="{{ url_for('admin.staff') }}"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // Dekan roli tanlangan bo'lsa, fakultet maydonini ko'rsatish (bir nechta fakultet)
+        const roleDeanCheckbox = document.getElementById('role_dean');
+        const facultyField = document.getElementById('faculty_field');
+        const staffFacultyContainer = document.getElementById('staff_faculties_container');
+        const staffFacultyAddBtn = document.getElementById('staff_faculty_add');
+
+        const roleDeptHeadCheckbox = document.getElementById('role_department_head');
+        const deptHeadField = document.getElementById('department_head_field');
+        const staffDeptContainer = document.getElementById('staff_departments_container');
+        const staffDeptAddBtn = document.getElementById('staff_dept_add');
+
+        function firstStaffFacultySelect() {
+            return staffFacultyContainer ? staffFacultyContainer.querySelector('.staff-faculty-select') : null;
+        }
+        if (roleDeanCheckbox && facultyField) {
+            function toggleFacultyField() {
+                if (roleDeanCheckbox.checked) {
+                    facultyField.classList.remove('hidden');
+                    var first = firstStaffFacultySelect();
+                    if (first) first.setAttribute('required', 'required');
+                } else {
+                    facultyField.classList.add('hidden');
+                    if (staffFacultyContainer) staffFacultyContainer.querySelectorAll('.staff-faculty-select').forEach(function(s) { s.removeAttribute('required'); s.value = ''; });
+                }
+            }
+            roleDeanCheckbox.addEventListener('change', toggleFacultyField);
+            toggleFacultyField();
+        }
+        if (staffFacultyAddBtn && staffFacultyContainer) {
+            staffFacultyAddBtn.addEventListener('click', function() {
+                var firstRow = staffFacultyContainer.querySelector('.staff-faculty-row');
+                if (!firstRow) return;
+                var newRow = firstRow.cloneNode(true);
+                newRow.querySelector('.staff-faculty-select').value = '';
+                newRow.querySelector('.staff-faculty-select').removeAttribute('required');
+                staffFacultyContainer.appendChild(newRow);
+            });
+            staffFacultyContainer.addEventListener('click', function(e) {
+                var rm = e.target.closest('.staff-faculty-remove');
+                if (!rm) return;
+                var row = rm.closest('.staff-faculty-row');
+                var rows = staffFacultyContainer.querySelectorAll('.staff-faculty-row');
+                if (rows.length > 1) {
+                    row.remove();
+                } else {
+                    row.querySelector('.staff-faculty-select').value = '';
+                }
+            });
+        }
+
+        function firstStaffDeptSelect() {
+            return staffDeptContainer ? staffDeptContainer.querySelector('.staff-dept-select') : null;
+        }
+        function toggleDepartmentHeadField() {
+            if (roleDeptHeadCheckbox && roleDeptHeadCheckbox.checked) {
+                deptHeadField.classList.remove('hidden');
+                var first = firstStaffDeptSelect();
+                if (first) first.setAttribute('required', 'required');
+            } else {
+                deptHeadField.classList.add('hidden');
+                staffDeptContainer.querySelectorAll('.staff-dept-select').forEach(function(s) { s.removeAttribute('required'); s.value = ''; });
+            }
+        }
+        if (roleDeptHeadCheckbox && deptHeadField) {
+            roleDeptHeadCheckbox.addEventListener('change', toggleDepartmentHeadField);
+            toggleDepartmentHeadField();
+        }
+
+        if (staffDeptAddBtn && staffDeptContainer) {
+            staffDeptAddBtn.addEventListener('click', function() {
+                var firstRow = staffDeptContainer.querySelector('.staff-dept-row');
+                if (!firstRow) return;
+                var newRow = firstRow.cloneNode(true);
+                newRow.querySelector('.staff-dept-select').value = '';
+                newRow.querySelector('.staff-dept-select').removeAttribute('required');
+                staffDeptContainer.appendChild(newRow);
+            });
+            staffDeptContainer.addEventListener('click', function(e) {
+                var rm = e.target.closest('.staff-dept-remove');
+                if (!rm) return;
+                var row = rm.closest('.staff-dept-row');
+                var rows = staffDeptContainer.querySelectorAll('.staff-dept-row');
+                if (rows.length > 1) {
+                    row.remove();
+                } else {
+                    row.querySelector('.staff-dept-select').value = '';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

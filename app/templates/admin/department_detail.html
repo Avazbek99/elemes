@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ department.get_display_name(current_lang) }} – {{ t('departments') }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{{ url_for('admin.departments') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        {{ t('back') }}
+    </a>
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ department.get_display_name(current_lang) }}</h1>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Fanlar -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-gray-900">{{ t('subjects') }}</h2>
+            <span class="text-sm text-gray-500">{{ subjects|length }} {{ t('items') }}</span>
+        </div>
+        <div class="p-6">
+            <div class="mb-4">
+                <input type="text" id="dept-subject-search" placeholder="{{ t('curriculum_subject_search_placeholder') or 'Fanni qidirish' }}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm">
+            </div>
+            {% if subjects %}
+            <ul class="space-y-3" id="dept-subjects-list">
+                {% for s in subjects %}
+                <li class="dept-subject-item flex items-center p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors" data-name="{{ (s.get_display_name(current_lang) or s.name)|lower }}">
+                    <span class="font-medium text-gray-900">{{ s.get_display_name(current_lang) or s.name }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-gray-500 text-center py-8">{{ t('no_subjects_in_department') }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- O'qituvchilar -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-gray-900">{{ t('teachers') }}</h2>
+            <span class="text-sm text-gray-500">{{ teachers|length }} {{ t('items') }}</span>
+        </div>
+        <div class="p-6">
+            <div class="mb-4">
+                <input type="text" id="dept-teacher-search" placeholder="{{ t('search_teacher_placeholder') or 'O\'qituvchini qidirish' }}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm">
+            </div>
+            {% if teachers %}
+            <ul class="space-y-3" id="dept-teachers-list">
+                {% for tchr in teachers %}
+                <li class="dept-teacher-item flex items-center p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors" data-name="{{ (tchr.full_name or '')|lower }}">
+                    <span class="font-medium text-gray-900">{{ (tchr.full_name or '-')|upper }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-gray-500 text-center py-8">{{ t('no_teachers_in_department') }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var subSearch = document.getElementById('dept-subject-search');
+    if (subSearch) {
+        subSearch.addEventListener('input', function () {
+            var q = this.value.toLowerCase();
+            document.querySelectorAll('.dept-subject-item').forEach(function (el) {
+                var name = (el.getAttribute('data-name') || '').toLowerCase();
+                el.style.display = name.indexOf(q) !== -1 ? '' : 'none';
+            });
+        });
+    }
+    var teachSearch = document.getElementById('dept-teacher-search');
+    if (teachSearch) {
+        teachSearch.addEventListener('input', function () {
+            var q = this.value.toLowerCase();
+            document.querySelectorAll('.dept-teacher-item').forEach(function (el) {
+                var name = (el.getAttribute('data-name') || '').toLowerCase();
+                el.style.display = name.indexOf(q) !== -1 ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

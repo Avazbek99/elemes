@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('subject_resources') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('subject_resources') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('department_head_resources_subtitle') }}</p>
+        </div>
+    </div>
+
+    <!-- Filtrlar -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <form method="GET" class="flex flex-wrap gap-4">
+            <div class="flex-1 min-w-[200px] relative">
+                <input type="text" name="q" value="{{ search_q }}" placeholder="{{ t('search_placeholder') }}"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            <select name="lesson_type" class="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500">
+                <option value="">{{ t('all_lesson_types') }}</option>
+                {% for lt in lesson_types_choices %}
+                <option value="{{ lt }}" {% if lesson_type_q == lt|lower %}selected{% endif %}>{{ lt }}</option>
+                {% endfor %}
+            </select>
+            <select name="progress" class="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500">
+                <option value="">{{ t('all_progress') }}</option>
+                <option value="0" {% if progress_filter == '0' %}selected{% endif %}>0%</option>
+                <option value="100" {% if progress_filter == '100' %}selected{% endif %}>100%</option>
+                <option value="not100" {% if progress_filter == 'not100' %}selected{% endif %}>< 100%</option>
+            </select>
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+                {{ t('search') }}
+            </button>
+            {% if search_q or lesson_type_q or progress_filter %}
+            <a href="{{ url_for('main.department_head_resources') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+                {{ t('clear') }}
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-between">
+        <span class="text-sm text-gray-600">{{ t('total_rows') }}: <strong>{{ rows|length }}</strong></span>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1000px]">
+                <thead class="bg-gray-50">
+                    <tr class="border-b-2 border-gray-300">
+                        <th class="px-4 py-3 text-left">
+                            <a href="{{ url_for('main.department_head_resources', q=search_q, lesson_type=lesson_type_q, progress=progress_filter, sort='department', order='desc' if sort_by == 'department' and sort_order == 'asc' else 'asc') }}"
+                                class="text-xs font-semibold text-gray-600 uppercase hover:text-primary-600">
+                                {{ t('department') }} {% if sort_by == 'department' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left">
+                            <a href="{{ url_for('main.department_head_resources', q=search_q, lesson_type=lesson_type_q, progress=progress_filter, sort='direction', order='desc' if sort_by == 'direction' and sort_order == 'asc' else 'asc') }}"
+                                class="text-xs font-semibold text-gray-600 uppercase hover:text-primary-600">
+                                {{ t('direction') }} {% if sort_by == 'direction' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left">
+                            <a href="{{ url_for('main.department_head_resources', q=search_q, lesson_type=lesson_type_q, progress=progress_filter, sort='group', order='desc' if sort_by == 'group' and sort_order == 'asc' else 'asc') }}"
+                                class="text-xs font-semibold text-gray-600 uppercase hover:text-primary-600">
+                                {{ t('group') }} {% if sort_by == 'group' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left">
+                            <a href="{{ url_for('main.department_head_resources', q=search_q, lesson_type=lesson_type_q, progress=progress_filter, sort='subject', order='desc' if sort_by == 'subject' and sort_order == 'asc' else 'asc') }}"
+                                class="text-xs font-semibold text-gray-600 uppercase hover:text-primary-600">
+                                {{ t('subject') }} {% if sort_by == 'subject' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left">
+                            <a href="{{ url_for('main.department_head_resources', q=search_q, lesson_type=lesson_type_q, progress=progress_filter, sort='lesson_type', order='desc' if sort_by == 'lesson_type' and sort_order == 'asc' else 'asc') }}"
+                                class="text-xs font-semibold text-gray-600 uppercase hover:text-primary-600">
+                                {{ t('lesson_type') }} {% if sort_by == 'lesson_type' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-center">
+                            <a href="{{ url_for('main.department_head_resources', q=search_q, lesson_type=lesson_type_q, progress=progress_filter, sort='total_hours', order='desc' if sort_by == 'total_hours' and sort_order == 'asc' else 'asc') }}"
+                                class="text-xs font-semibold text-gray-600 uppercase hover:text-primary-600">
+                                {{ t('plan_hours') }} {% if sort_by == 'total_hours' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-left">
+                            <a href="{{ url_for('main.department_head_resources', q=search_q, lesson_type=lesson_type_q, progress=progress_filter, sort='teacher', order='desc' if sort_by == 'teacher' and sort_order == 'asc' else 'asc') }}"
+                                class="text-xs font-semibold text-gray-600 uppercase hover:text-primary-600">
+                                {{ t('teacher') }} {% if sort_by == 'teacher' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                            </a>
+                        </th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">{{ t('actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr class="border-b border-gray-100 hover:bg-primary-50 transition-colors {% if loop.index is even %}bg-gray-50/50{% endif %}">
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ row.department_name or '—' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ row.direction_name or '—' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ row.group_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ row.subject_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ row.lesson_type }}</td>
+                        <td class="px-4 py-3 text-sm text-center">
+                            <span class="font-medium">{{ row.total_hours }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ row.teacher_name }}</td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <button type="button" onclick="openChangeTeacherModal({{ row.teacher_subject_id }}, '{{ row.subject_name|e }}', '{{ row.group_name|e }}')"
+                                    class="p-1.5 rounded-lg hover:bg-blue-600 hover:text-white text-blue-600 transition-colors" title="{{ t('change_teacher') }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                            {{ t('no_data_found') }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- O'qituvchi almashtirish modali -->
+<div id="change-teacher-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md" onclick="event.stopPropagation()">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">{{ t('change_teacher') }}</h3>
+            <p class="text-sm text-gray-500" id="change-teacher-info"></p>
+        </div>
+        <form method="POST" action="{{ url_for('main.department_head_change_teacher') }}" class="p-6 space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="teacher_subject_id" id="change-ts-id"/>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('new_teacher') }} *</label>
+                <select name="new_teacher_id" required class="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('select_teacher') }}</option>
+                    {% for dept in departments %}
+                    {% for link in dept.teacher_links.all() %}
+                    <option value="{{ link.teacher_id }}">{{ link.teacher.full_name }}</option>
+                    {% endfor %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <button type="button" onclick="closeChangeTeacherModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openChangeTeacherModal(tsId, subjectName, groupName) {
+    document.getElementById('change-ts-id').value = tsId;
+    document.getElementById('change-teacher-info').textContent = subjectName + ' — ' + groupName;
+    document.getElementById('change-teacher-modal').classList.remove('hidden');
+}
+function closeChangeTeacherModal() {
+    document.getElementById('change-teacher-modal').classList.add('hidden');
+}
+document.getElementById('change-teacher-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeChangeTeacherModal();
+});
+</script>
+{% endblock %}

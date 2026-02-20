@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('dean_panel') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Welcome Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ current_user.full_name.upper() }}! 👋</h1>
+            {% if faculty %}
+            <p class="text-gray-500 mt-1">{{ faculty.get_display_name(current_lang) or faculty.name }} - {{ t('dean_control') }}</p>
+            {% else %}
+            <p class="text-gray-500 mt-1">{{ t('today_overview') }}</p>
+            {% endif %}
+        </div>
+        <div
+            class="flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100">
+            <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {{ now_dt.strftime('%d.%m.%Y') if now_dt else '' }}
+        </div>
+    </div>
+
+    {% if faculty %}
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+        <!-- Groups Stat -->
+        <div
+            class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg border border-blue-400/20 transform hover:scale-[1.02] transition-all duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-white/20 rounded-2xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase">{{ t('groups') }}</span>
+            </div>
+            <div>
+                <p class="text-3xl font-bold">{{ stats.total_groups }}</p>
+                <p class="text-blue-100 text-xs mt-1">{{ t('groups') }}</p>
+            </div>
+        </div>
+
+        <!-- Students Stat -->
+        <div
+            class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl p-6 text-white shadow-lg border border-emerald-400/20 transform hover:scale-[1.02] transition-all duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-white/20 rounded-2xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase">{{ t('students') }}</span>
+            </div>
+            <div>
+                <p class="text-3xl font-bold">{{ stats.total_students }}</p>
+                <p class="text-emerald-100 text-xs mt-1">{{ t('faculty_students') }}</p>
+            </div>
+        </div>
+
+        <!-- Subjects Stat -->
+        <div
+            class="bg-gradient-to-br from-violet-500 to-violet-600 rounded-3xl p-6 text-white shadow-lg border border-violet-400/20 transform hover:scale-[1.02] transition-all duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-white/20 rounded-2xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase">{{ t('subjects') }}</span>
+            </div>
+            <div>
+                <p class="text-3xl font-bold">{{ stats.total_subjects }}</p>
+                <p class="text-violet-100 text-xs mt-1">{{ t('subjects') }}</p>
+            </div>
+        </div>
+
+        <!-- Teachers Stat -->
+        <div
+            class="bg-gradient-to-br from-amber-500 to-amber-600 rounded-3xl p-6 text-white shadow-lg border border-amber-400/20 transform hover:scale-[1.02] transition-all duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-white/20 rounded-2xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase">{{ t('teachers') }}</span>
+            </div>
+            <div>
+                <p class="text-3xl font-bold">{{ stats.total_teachers }}</p>
+                <p class="text-amber-100 text-xs mt-1">{{ t('total_teachers') }}</p>
+            </div>
+        </div>
+
+        <!-- Directions Stat -->
+        <div
+            class="bg-gradient-to-br from-rose-500 to-rose-600 rounded-3xl p-6 text-white shadow-lg border border-rose-400/20 transform hover:scale-[1.02] transition-all duration-300">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-white/20 rounded-2xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full uppercase">{{ t('direction') }}</span>
+            </div>
+            <div>
+                <p class="text-3xl font-bold">{{ stats.total_directions }}</p>
+                <p class="text-rose-100 text-xs mt-1">{{ t('directions') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div>
+        <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {{ t('quick_actions') }}
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <a href="{{ url_for('dean.directions') }}"
+                class="flex flex-col items-center justify-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-300 transition-all group text-center">
+                <div
+                    class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-3 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-blue-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                </div>
+                <span class="text-sm font-bold text-gray-700">{{ t('directions') }}</span>
+            </a>
+            <a href="{{ url_for('dean.groups') }}"
+                class="flex flex-col items-center justify-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all group text-center">
+                <div
+                    class="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-3 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-emerald-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+                <span class="text-sm font-bold text-gray-700">{{ t('groups') }}</span>
+            </a>
+            <a href="{{ url_for('dean.students') }}"
+                class="flex flex-col items-center justify-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:border-violet-300 transition-all group text-center">
+                <div
+                    class="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600 mb-3 group-hover:bg-violet-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-violet-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </div>
+                <span class="text-sm font-bold text-gray-700">{{ t('students') }}</span>
+            </a>
+            <a href="{{ url_for('dean.create_schedule') }}"
+                class="flex flex-col items-center justify-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:border-amber-300 transition-all group text-center">
+                <div
+                    class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 mb-3 group-hover:bg-amber-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-amber-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <span class="text-sm font-bold text-gray-700">{{ t('schedule') }}</span>
+            </a>
+            <a href="{{ url_for('main.announcements') }}"
+                class="flex flex-col items-center justify-center p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:border-rose-300 transition-all group text-center">
+                <div
+                    class="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600 mb-3 group-hover:bg-rose-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:shadow-rose-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                </div>
+                <span class="text-sm font-bold text-gray-700">{{ t('announcements') }}</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <!-- Yo'nalishlar -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-50 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-gray-900">{{ t('directions') }}</h2>
+                <a href="{{ url_for('dean.directions') }}"
+                    class="text-primary-600 text-sm font-bold hover:underline">{{ t('view_all') }}</a>
+            </div>
+            <div class="p-6">
+                {% if directions %}
+                <div class="space-y-4">
+                    {% for direction in directions[:5] %}
+                    <a href="{{ url_for('dean.direction_subjects', id=direction.id, year=direction.groups.first().enrollment_year if direction.groups.first() else None, education_type=direction.groups.first().education_type if direction.groups.first() else None) }}"
+                        class="block p-4 bg-gray-50 rounded-2xl hover:bg-white hover:ring-1 hover:ring-primary-500 hover:shadow-md transition-all group">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-900 group-hover:text-primary-600 transition-colors mb-1">
+                                    {{ direction.get_display_name(current_lang) or direction.name }}</h3>
+                                <div class="flex items-center gap-3">
+                                    <span
+                                        class="inline-block px-2 py-0.5 bg-primary-100 text-primary-700 rounded-full text-[10px] font-bold uppercase tracking-wider">{{
+                                        direction.code }}</span>
+                                    <span class="text-xs text-gray-500 font-medium">{{ direction_stats.get(direction.id,
+                                        {}).get('groups_count', 0) }} {{ t('group_count_label') }}</span>
+                                </div>
+                            </div>
+                            <div
+                                class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-400 group-hover:text-primary-500 group-hover:translate-x-1 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 5l7 7-7 7" />
+                                </svg>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="py-12 text-center">
+                    <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                    <p class="text-gray-500 text-sm">{{ t('no_directions') }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Subjects -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-50 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-gray-900">{{ t('subjects') }}</h2>
+                <span class="text-xs font-bold text-gray-400 uppercase tracking-widest">Top 5</span>
+            </div>
+            <div class="divide-y divide-gray-50">
+                {% for subject in subjects[:5] %}
+                {% set has_issue = subject.has_lessons_without_content() %}
+                <div class="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+                    <div class="flex items-center gap-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl {% if has_issue %}bg-rose-50 text-rose-600{% else %}bg-violet-50 text-violet-600{% endif %} flex items-center justify-center font-bold text-xs shadow-sm shadow-black/5">
+                            {{ subject.name[:3] }}
+                        </div>
+                        <div>
+                            <p
+                                class="font-bold text-sm {% if has_issue %}text-rose-600{% else %}text-gray-900{% endif %}">
+                                {{ subject.name }}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span
+                                    class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">FAN</span>
+                                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{{
+                                    subject.credits }} KREDIT</span>
+                                {% if has_issue %}
+                                <span
+                                    class="text-[10px] text-rose-600 font-bold bg-rose-100 px-2 py-0.5 rounded-full uppercase tracking-wider">⚠️
+                                    To'ldirilmagan</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <span
+                        class="text-[10px] font-bold px-3 py-1 bg-gray-100 text-gray-500 rounded-full uppercase tracking-wider">{{
+                        subject.semester }}-SEM</span>
+                </div>
+                {% else %}
+                <div class="py-12 text-center text-gray-500">
+                    <p>{{ t('no_subjects') }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="bg-white rounded-3xl p-12 text-center border-2 border-dashed border-gray-200">
+        <div
+            class="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-amber-500 shadow-lg shadow-amber-100">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <h3 class="text-xl font-bold text-gray-900 mb-2">Fakultet biriktirilmagan</h3>
+        <p class="text-gray-500 max-w-sm mx-auto">Sizda hali boshqariladigan fakultet mavjud emas. Iltimos,
+            administrator bilan bog'laning.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

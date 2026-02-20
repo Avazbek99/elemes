@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('payment_info') }}{% endblock %}
+
+{% block content %}
+{% set _can_edit_contract = (session.get('current_role', current_user.role) if current_user else '') in ['admin', 'dean', 'accounting'] %}
+<div class="mb-6">
+    {% if current_user.role != 'student' %}
+    <a href="{{ url_for('accounting.index') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        {{ t('back') }}
+    </a>
+    {% endif %}
+    <h1 class="text-2xl font-bold text-gray-900">{{ t('payment_info') }}</h1>
+    <p class="text-gray-500 mt-1">{{ (student.full_name or '-')|upper }}</p>
+</div>
+
+{% if payments or (total_contract|default(0)) > 0 or (total_paid|default(0)) > 0 %}
+{% if current_academic_year and (payments or contract_by_year) %}
+<!-- Joriy o'quv yili to'lovi -->
+<div class="bg-primary-50 border border-primary-200 rounded-2xl p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('current_year_payment_title') }} ({{ current_academic_year }})</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <p class="text-sm text-gray-600 mb-1">{{ t('contract_amount_total') }}</p>
+            <p class="text-xl font-bold text-gray-900">{{ "{:,.0f}".format(current_year_contract|default(0)) }} {{ t('sum_currency') }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-1">{{ t('paid_label') }}</p>
+            <p class="text-xl font-bold text-green-600">{{ "{:,.0f}".format(current_year_paid|default(0)) }} {{ t('sum_currency') }}</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-1">{{ t('remaining_payment') }}</p>
+            {% set cy_rem = current_year_remaining|default(0) %}
+            <p class="text-xl font-bold {% if cy_rem > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ "{:,.0f}".format(cy_rem) }} {{ t('sum_currency') }}</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- O'quv yili bo'yicha kontrakt summasi jadvali -->
+{% if contract_by_year or _can_edit_contract %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+    <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">{{ t('contract_by_year_title') }}</h3>
+        {% if _can_edit_contract %}
+        <button type="button" onclick="document.getElementById('addMaxsusModal').classList.remove('hidden')"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            {{ t('add_custom_contract_btn') }}
+        </button>
+        {% endif %}
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-700">{{ t('academic_year_label') }}</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-700">{{ t('period_range') }}</th>
+                    <th class="px-6 py-3 text-right font-semibold text-gray-700">{{ t('contract_amount_total') }}</th>
+                    <th class="px-6 py-3 text-right font-semibold text-gray-700">{{ t('paid_label') }}</th>
+                    {% if _can_edit_contract %}
+                    <th class="px-6 py-3 text-right font-semibold text-gray-700">{{ t('actions') }}</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for row in contract_by_year %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-3 text-gray-900">
+                        {{ row.academic_year }}
+                        {% if row.is_custom %}<span class="text-xs text-amber-600">({{ t('custom_contract_badge') }})</span>{% endif %}
+                    </td>
+                    <td class="px-6 py-3 text-gray-600">{{ row.period_display }}</td>
+                    <td class="px-6 py-3 text-right font-medium text-gray-900">{{ "{:,.0f}".format(row.amount) }} {{ t('sum_currency') }}</td>
+                    <td class="px-6 py-3 text-right font-medium text-green-600">{{ "{:,.0f}".format(row.paid_amount|default(0)) }} {{ t('sum_currency') }}</td>
+                    {% if _can_edit_contract %}
+                    <td class="px-6 py-3 text-right">
+                        {% if row.is_custom and row.get('payment_id') %}
+                        <div class="flex items-center justify-end gap-1">
+                            <button type="button" class="btn-edit-maxsus p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="{{ t('edit') }}"
+                                data-payment-id="{{ row.payment_id }}"
+                                data-academic-year="{{ row.academic_year or '' }}"
+                                data-period-start="{{ row.period_start.strftime('%Y-%m-%d') if row.get('period_start') else '' }}"
+                                data-period-end="{{ row.period_end.strftime('%Y-%m-%d') if row.get('period_end') else '' }}"
+                                data-amount="{{ row.amount }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </button>
+                            <form action="{{ url_for('accounting.delete_payment', id=row.get('payment_id')) }}" method="POST" class="inline" onsubmit="return confirm('{{ t('confirm_delete_payment') | escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="p-1.5 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="{{ t('delete') }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <span class="text-gray-400">—</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Progress bar (100% dan oshmaydi, ortiqcha to'lov alohida) -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-semibold text-gray-900">{{ t('payment_status') }}</h3>
+        <div class="text-right">
+            <span class="text-2xl font-bold {% if (percentage|default(0)) >= 100 %}text-green-600{% elif (percentage|default(0)) >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                {{ "{:.1f}".format([percentage|default(0), 100]|min) }}%
+            </span>
+            {% if (overpayment|default(0)) > 0 %}
+            <p class="text-sm text-green-600 font-medium mt-1">{{ t('overpayment_label') }}: {{ "{:,.0f}".format(overpayment) }} {{ t('sum_currency') }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+        <div class="h-4 rounded-full min-w-0 {% if (percentage|default(0)) >= 100 %}bg-green-600{% elif (percentage|default(0)) >= 50 %}bg-yellow-500{% else %}bg-red-500{% endif %}" style="width: {{ [percentage|default(0), 100]|min }}%; max-width: 100%;"></div>
+    </div>
+</div>
+
+<!-- To'lov tarixi - jadval: to'lov miqdori, tavsif, sana -->
+{% if payments or _can_edit_contract %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+    <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">{{ t('payment_history') }}</h3>
+        {% if _can_edit_contract %}
+        <button type="button" onclick="openPaymentModal()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            {{ t('add_payment') }}
+        </button>
+        {% endif %}
+    </div>
+    {% if payments %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-700">{{ t('payment_amount_col') }}</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-700">{{ t('notes_label') }}</th>
+                    <th class="px-6 py-3 text-left font-semibold text-gray-700">{{ t('payment_date_col') }}</th>
+                    {% if _can_edit_contract %}
+                    <th class="px-6 py-3 text-right font-semibold text-gray-700">{{ t('actions') }}</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for payment in payments %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-3 font-medium text-green-600">{{ "{:,.0f}".format(payment.paid_amount) }} {{ t('sum_currency') }}</td>
+                    <td class="px-6 py-3 text-gray-600">{{ payment.notes or '—' }}</td>
+                    <td class="px-6 py-3 text-gray-600">{{ ((payment.updated_at or payment.created_at) | to_tashkent_time).strftime('%d.%m.%Y %H:%M') if (payment.updated_at or payment.created_at) else '—' }}</td>
+                    {% if _can_edit_contract %}
+                    <td class="px-6 py-3 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            <button type="button" class="btn-edit-payment p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors" title="{{ t('edit') }}"
+                                data-edit-url="{{ url_for('accounting.edit_payment', id=payment.id) }}?next=student_payments"
+                                data-paid="{{ payment.paid_amount }}"
+                                data-notes="{{ (payment.notes or '') | e }}"
+                                data-contract="{{ payment.contract_amount or 0 }}"
+                                data-year="{{ payment.academic_year or '' }}"
+                                data-semester="{{ payment.semester or 1 }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </button>
+                            <form action="{{ url_for('accounting.delete_payment', id=payment.id) }}" method="POST" class="inline" onsubmit="return confirm('{{ t('confirm_delete_payment') | escapejs }}');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="p-1.5 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors" title="{{ t('delete') }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center text-gray-500">
+        <p>{{ t('no_payment_info') }}</p>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('no_payment_info') }}</h3>
+    <p class="text-gray-500 mb-4">{{ t('accounting_must_add_payment_info') }}</p>
+    {% if _can_edit_contract %}
+    <button type="button" onclick="openPaymentModal()"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        {{ t('add_payment') }}
+    </button>
+    {% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center mb-6">
+    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('no_payment_info') }}</h3>
+    <p class="text-gray-500 mb-4">{{ t('accounting_must_add_payment_info') }}</p>
+    {% if _can_edit_contract %}
+    <div class="flex items-center justify-center gap-3">
+        <button type="button" onclick="document.getElementById('addMaxsusModal').classList.remove('hidden')"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            {{ t('add_custom_contract_btn') }}
+        </button>
+        <button type="button" onclick="openPaymentModal()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-xl transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            {{ t('add_payment') }}
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% if _can_edit_contract %}
+<!-- Maxsus kontrakt va to'lov modallari - har doim mavjud -->
+<div id="addMaxsusModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="document.getElementById('addMaxsusModal').classList.add('hidden')"></div>
+        <div class="relative inline-block align-bottom bg-white rounded-2xl shadow-xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle mx-4" style="width: 720px; max-width: calc(100vw - 2rem);">
+            <form method="POST" action="{{ url_for('accounting.add_custom_contract', student_id=student.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="bg-white px-6 py-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('add_custom_contract_btn') }}</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('academic_year_label') }} *</label>
+                            <input type="text" name="academic_year" required placeholder="2024-2025" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('period_start_label') }} *</label>
+                                <input type="text" name="period_start" required placeholder="{{ t('period_start_hint') }}" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('period_end_label') }} *</label>
+                                <input type="text" name="period_end" required placeholder="{{ t('period_end_hint') }}" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('contract_amount_total') }} *</label>
+                            <input type="number" name="contract_amount" required step="0.01" min="0" placeholder="0" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('addMaxsusModal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-medium">{{ t('cancel') }}</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium">{{ t('save') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div id="editMaxsusModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="document.getElementById('editMaxsusModal').classList.add('hidden')"></div>
+        <div class="relative inline-block align-bottom bg-white rounded-2xl shadow-xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle mx-4" style="width: 720px; max-width: calc(100vw - 2rem);">
+            <form id="editMaxsusForm" method="POST" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="bg-white px-6 py-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">{{ t('edit_custom_contract_btn') }}</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('academic_year_label') }} *</label>
+                            <input type="text" name="academic_year" id="edit_academic_year" required placeholder="2024-2025" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('period_start_label') }} *</label>
+                                <input type="text" name="period_start" id="edit_period_start" required placeholder="{{ t('period_start_hint') }}" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('period_end_label') }} *</label>
+                                <input type="text" name="period_end" id="edit_period_end" required placeholder="{{ t('period_end_hint') }}" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('contract_amount_total') }} *</label>
+                            <input type="number" name="contract_amount" id="edit_contract_amount" required step="0.01" min="0" placeholder="0" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('editMaxsusModal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-medium">{{ t('cancel') }}</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium">{{ t('save') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Bitta modal — qo'shish va tahrirlash bir xil -->
+<div id="paymentModal" class="hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" data-student-id="{{ student.id }}">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="document.getElementById('paymentModal').classList.add('hidden')"></div>
+        <div class="relative inline-block align-bottom bg-white rounded-2xl shadow-xl text-left overflow-hidden transform transition-all sm:my-8 sm:align-middle mx-4" style="width: 420px; max-width: calc(100vw - 2rem);">
+            <form id="paymentForm" method="POST" action="{{ url_for('accounting.create_payment', student_id=student.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="contract_amount" id="payment_contract_amount" value="0"/>
+                <input type="hidden" name="academic_year" id="payment_academic_year" value=""/>
+                <input type="hidden" name="semester" id="payment_semester" value="1"/>
+                <div class="bg-white px-6 py-6">
+                    <h3 id="paymentModalTitle" class="text-lg font-semibold text-gray-900 mb-4">{{ t('add_payment') }}</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('paid_label') }} *</label>
+                            <input type="number" name="paid_amount" id="payment_paid_amount" required step="0.01" min="0" placeholder="0" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t('notes_label') }}</label>
+                            <textarea name="notes" id="payment_notes" rows="3" placeholder="{{ t('notes_placeholder') }}" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('paymentModal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-medium">{{ t('cancel') }}</button>
+                    <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 font-medium">{{ t('save') }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    window.openEditMaxsusModal = function(paymentId, academicYear, periodStart, periodEnd, contractAmount) {
+        var baseUrl = "{{ url_for('accounting.edit_custom_contract', student_id=student.id, payment_id=0) }}".replace(/\/0$/, '/' + String(paymentId));
+        var form = document.getElementById('editMaxsusForm');
+        var modal = document.getElementById('editMaxsusModal');
+        if (!form || !modal) return;
+        form.action = baseUrl;
+        document.getElementById('edit_academic_year').value = academicYear || '';
+        document.getElementById('edit_contract_amount').value = contractAmount || 0;
+        var startEl = document.getElementById('edit_period_start');
+        var endEl = document.getElementById('edit_period_end');
+        if (startEl) {
+            if (startEl._flatpickr && periodStart) {
+                startEl._flatpickr.setDate(periodStart, false);
+            } else {
+                startEl.value = periodStart || '';
+            }
+        }
+        if (endEl) {
+            if (endEl._flatpickr && periodEnd) {
+                endEl._flatpickr.setDate(periodEnd, false);
+            } else {
+                endEl.value = periodEnd || '';
+            }
+        }
+        modal.classList.remove('hidden');
+    };
+    var createPaymentUrl = "{{ url_for('accounting.create_payment', student_id=student.id) }}";
+    window.openPaymentModal = function() {
+        var form = document.getElementById('paymentForm');
+        var modal = document.getElementById('paymentModal');
+        if (!form || !modal) return;
+        form.action = createPaymentUrl;
+        document.getElementById('paymentModalTitle').textContent = {{ t('add_payment') | tojson }};
+        document.getElementById('payment_paid_amount').value = '';
+        document.getElementById('payment_notes').value = '';
+        document.getElementById('payment_contract_amount').value = '0';
+        document.getElementById('payment_academic_year').value = '';
+        document.getElementById('payment_semester').value = '1';
+        modal.classList.remove('hidden');
+    };
+    window.openEditPaymentModal = function(editUrl, paidAmount, notes, contractAmount, academicYear, semester) {
+        var form = document.getElementById('paymentForm');
+        var modal = document.getElementById('paymentModal');
+        if (!form || !modal) return;
+        form.action = editUrl;
+        document.getElementById('paymentModalTitle').textContent = {{ t('edit_payment_title') | tojson }};
+        document.getElementById('payment_paid_amount').value = paidAmount || 0;
+        document.getElementById('payment_notes').value = notes || '';
+        document.getElementById('payment_contract_amount').value = contractAmount != null ? contractAmount : 0;
+        document.getElementById('payment_academic_year').value = academicYear || '';
+        document.getElementById('payment_semester').value = semester != null ? semester : 1;
+        modal.classList.remove('hidden');
+    };
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-edit-payment');
+        if (btn) {
+            e.preventDefault();
+            openEditPaymentModal(
+                btn.getAttribute('data-edit-url'),
+                parseFloat(btn.getAttribute('data-paid')) || 0,
+                btn.getAttribute('data-notes') || '',
+                parseFloat(btn.getAttribute('data-contract')) || 0,
+                btn.getAttribute('data-year') || '',
+                parseInt(btn.getAttribute('data-semester'), 10) || 1
+            );
+            return;
+        }
+        btn = e.target.closest('.btn-edit-maxsus');
+        if (btn) {
+            e.preventDefault();
+            openEditMaxsusModal(
+                parseInt(btn.getAttribute('data-payment-id'), 10),
+                btn.getAttribute('data-academic-year') || '',
+                btn.getAttribute('data-period-start') || '',
+                btn.getAttribute('data-period-end') || '',
+                parseFloat(btn.getAttribute('data-amount')) || 0
+            );
+        }
+    });
+    if (window.location.search.indexOf('open=add_payment') !== -1) {
+        document.addEventListener('DOMContentLoaded', function() {
+            openPaymentModal();
+        });
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}
+

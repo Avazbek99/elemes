@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('admin_panel') }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">{{ t('admin_control_panel') }}</h1>
+    <p class="text-gray-600">{{ t('system_management_monitoring') }}</p>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">{{ t('total_users') }}</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_users }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">{{ t('students') }}</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_students }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">{{ t('total_teachers') }}</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_teachers }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500 mb-1">{{ t('deans') }}</p>
+                <p class="text-3xl font-bold text-gray-900">{{ stats.total_deans }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center gap-4">
+            <div
+                class="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total_faculties }}</p>
+                <p class="text-gray-500">{{ t('faculties') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center gap-4">
+            <div
+                class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total_groups }}</p>
+                <p class="text-gray-500">{{ t('groups') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center gap-4">
+            <div
+                class="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total_subjects }}</p>
+                <p class="text-gray-500">{{ t('subjects') }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions (ruxsat bo'yicha) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    {% set _ar = session.get('current_role', current_user.role) %}
+    {% if current_user.is_superadmin or current_user.has_permission('create_user', _ar) %}
+    <a href="{{ url_for('admin.create_user') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('add_user') }}</span>
+    </a>
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('create_faculty', _ar) %}
+    <a href="{{ url_for('admin.create_faculty') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('add_faculty') }}</span>
+    </a>
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('create_subject', _ar) %}
+    <a href="{{ url_for('admin.create_subject') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('add_subject') }}</span>
+    </a>
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('view_reports', _ar) %}
+    <a href="{{ url_for('admin.reports') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('reports') }}</span>
+    </a>
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('create_announcement', _ar) %}
+    <a href="{{ url_for('main.create_announcement') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('create_announcement_label') }}</span>
+    </a>
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('view_directions', _ar) %}
+    <a href="{{ url_for('admin.directions') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-cyan-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('directions') }}</span>
+    </a>
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('view_departments', _ar) %}
+    <a href="{{ url_for('admin.departments') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('departments') }}</span>
+    </a>
+    {% endif %}
+    {% if current_user.is_superadmin or current_user.has_permission('view_accounting', _ar) %}
+    <a href="{{ url_for('accounting.index') }}"
+        class="bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-shadow flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <span class="font-medium text-gray-700">{{ t('accounting') }}</span>
+    </a>
+    {% endif %}
+</div>
+
+<!-- Recent users -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100">
+    <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+        <h2 class="text-lg font-semibold text-gray-900">{{ t('recent_users') }}</h2>
+        {% if current_user.is_superadmin or current_user.has_permission('view_users', _ar) %}
+        <a href="{{ url_for('admin.users') }}" class="text-primary-600 text-sm hover:underline">{{ t('view_all') }}</a>
+        {% endif %}
+    </div>
+    <div class="divide-y divide-gray-100">
+        {% for user in recent_users %}
+        <div class="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold">
+                    {{ user.full_name[0] }}
+                </div>
+                <div>
+                    <p class="font-medium text-gray-900">{{ (user.full_name or '-')|upper }}</p>
+                    <p class="text-sm text-gray-500">{{ user.email }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-2 py-1 text-xs font-medium rounded-full
+                    {% if user.role == 'admin' %}bg-red-100 text-red-700
+                    {% elif user.role == 'dean' %}bg-amber-100 text-amber-700
+                    {% elif user.role == 'teacher' %}bg-purple-100 text-purple-700
+                    {% else %}bg-blue-100 text-blue-700{% endif %}">
+                    {{ t(user.role) }}
+                </span>
+                <span class="text-xs text-gray-400">{{ user.created_at.strftime('%d.%m.%Y') }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-gray-500">
+            <p>{{ t('no_users') }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
