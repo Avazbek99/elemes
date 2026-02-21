@@ -1,9 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}{{ department.get_display_name(current_lang) }} – {{ t('departments') }}{% endblock %}
+{% block title %}{{ t('my_department') }}{% endblock %}
 
 {% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
 <style>
+    .ts-control { border-radius: 0.75rem !important; padding: 0.5rem 0.75rem !important; border: 1px solid #d1d5db !important; font-size: 0.875rem !important; box-shadow: none !important; min-width: 320px; }
+    .ts-control:focus-within { border-color: var(--color-primary-500, #0ea5e9) !important; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important; }
+    .ts-dropdown { border-radius: 0.75rem !important; border: 1px solid #e5e7eb !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important; }
+    .ts-dropdown .option { padding: 0.5rem 0.75rem !important; }
+    .ts-dropdown .option.active { background-color: var(--color-primary-50, #f0f9ff) !important; color: var(--color-primary-700, #0369a1) !important; }
+    
     /* Card shadow */
     .dept-card {
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
@@ -15,7 +22,7 @@
         position: relative;
     }
     .list-item:hover {
-        background-color: #f0f9ff !important;
+        background-color: #f0f9ff;
     }
     .list-item:hover span {
         color: #0369a1;
@@ -39,20 +46,37 @@
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Sarlavha -->
+    <!-- Sarlavha va filtr -->
     <div class="flex flex-wrap justify-between items-center gap-4">
         <div>
-            <a href="{{ url_for('admin.departments') }}" class="text-gray-500 hover:text-primary-600 flex items-center gap-1 text-sm mb-2 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                {{ t('back') }}
-            </a>
-            <h1 class="text-2xl font-bold text-gray-900">{{ department.get_display_name(current_lang) }}</h1>
+            <h1 class="text-2xl font-bold text-gray-900">
+                {% if selected_department %}
+                    {{ selected_department.get_display_name(current_lang) or selected_department.name }}
+                {% elif all_departments|length == 1 %}
+                    {{ all_departments[0].get_display_name(current_lang) or all_departments[0].name }}
+                {% else %}
+                    {{ t('my_department') }}
+                {% endif %}
+            </h1>
             <p class="text-gray-500 mt-1">{{ t('department_subjects_teachers') }}</p>
         </div>
+        
+        {% if show_department_filter %}
+        <form method="GET" action="{{ url_for('main.department_head_my_department') }}" id="deptFilterForm">
+            <select name="department_id" id="deptFilterSelect" class="dept-filter-select">
+                <option value="">{{ t('all_departments') }}</option>
+                {% for dept in all_departments %}
+                <option value="{{ dept.id }}" {% if selected_dept_id == dept.id %}selected{% endif %}>
+                    {{ dept.get_display_name(current_lang) or dept.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
     </div>
 
     <!-- Ikki ustunli layout: O'qituvchilar va Fanlar -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" style="min-height: calc(100vh - 250px);">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" style="min-height: calc(100vh - 220px);">
         <!-- O'qituvchilar (chap) -->
         <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col dept-card">
             <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
@@ -70,7 +94,7 @@
                 {% if teachers %}
                 <ul class="divide-y divide-gray-100" id="teachersList">
                     {% for teacher in teachers %}
-                    <li class="px-6 py-3 teacher-item list-item cursor-default" data-name="{{ (teacher.full_name or '')|lower }}">
+                    <li class="px-6 py-3 teacher-item list-item cursor-default">
                         <span class="text-sm font-medium text-gray-900 uppercase">{{ teacher.full_name or teacher.login }}</span>
                     </li>
                     {% endfor %}
@@ -103,7 +127,7 @@
                 {% if subjects %}
                 <ul class="divide-y divide-gray-100" id="subjectsList">
                     {% for subject in subjects %}
-                    <li class="px-6 py-3 subject-item list-item cursor-default" data-name="{{ (subject.get_display_name(current_lang) or subject.name)|lower }}">
+                    <li class="px-6 py-3 subject-item list-item cursor-default">
                         <span class="text-sm font-medium text-gray-900">{{ subject.get_display_name(current_lang) or subject.name }}</span>
                     </li>
                     {% endfor %}
@@ -120,19 +144,34 @@
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Kafedra filtri - Tom Select
+    var deptSelect = document.getElementById('deptFilterSelect');
+    if (deptSelect) {
+        var ts = new TomSelect(deptSelect, {
+            create: false,
+            allowEmptyOption: true,
+            plugins: ['dropdown_input']
+        });
+        ts.on('change', function() {
+            document.getElementById('deptFilterForm').submit();
+        });
+    }
+    
     // Fanlar qidirish
     var subjectSearch = document.getElementById('subjectSearch');
     if (subjectSearch) {
         subjectSearch.addEventListener('input', function() {
             var query = this.value.toLowerCase();
             document.querySelectorAll('.subject-item').forEach(function(item) {
-                var name = item.getAttribute('data-name') || '';
-                item.style.display = name.includes(query) ? '' : 'none';
+                var text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? '' : 'none';
             });
         });
     }
@@ -143,8 +182,8 @@ document.addEventListener('DOMContentLoaded', function() {
         teacherSearch.addEventListener('input', function() {
             var query = this.value.toLowerCase();
             document.querySelectorAll('.teacher-item').forEach(function(item) {
-                var name = item.getAttribute('data-name') || '';
-                item.style.display = name.includes(query) ? '' : 'none';
+                var text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? '' : 'none';
             });
         });
     }

@@ -3,7 +3,7 @@ import random
 from flask import Flask, redirect, url_for, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from config import Config
 
 from flask_migrate import Migrate
@@ -42,6 +42,14 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
+    
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        """CSRF token muddati tugaganda login sahifasiga yo'naltirish."""
+        from flask import flash
+        flash("Sessiya muddati tugadi. Iltimos, qaytadan kiring.", "warning")
+        return redirect(url_for('auth.login'))
+    
     # superadmin_flag ustuni yo'q bo'lsa qo'shish (eski bazalar uchun)
     with app.app_context():
         try:
@@ -303,6 +311,8 @@ def create_app(config_class=Config):
         }
     
     from app.routes import main, auth, admin, dean, courses, api, accounting
+    from app.face_api import face_api_bp
+
     app.register_blueprint(main.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(admin.bp)
@@ -310,6 +320,10 @@ def create_app(config_class=Config):
     app.register_blueprint(courses.bp)
     app.register_blueprint(api.bp)
     app.register_blueprint(accounting.bp)
+    app.register_blueprint(face_api_bp)
+
+    # Hikvision qurilmalari POST qiladi – CSRF dan ozod qilish
+    csrf.exempt(face_api_bp)
     
     with app.app_context():
         db.create_all()
@@ -347,6 +361,15 @@ def create_app(config_class=Config):
                     if 'is_active' not in submission_columns:
                         conn.execute(text("ALTER TABLE submission ADD COLUMN is_active BOOLEAN DEFAULT 1"))
                         conn.execute(text("UPDATE submission SET is_active = 1 WHERE is_active IS NULL"))
+
+            # FaceLog jadvaliga yangi ustunlar
+            if 'face_logs' in inspector.get_table_names():
+                fl_cols = [col['name'] for col in inspector.get_columns('face_logs')]
+                with db.engine.begin() as conn:
+                    if 'device_employee_id' not in fl_cols:
+                        conn.execute(text("ALTER TABLE face_logs ADD COLUMN device_employee_id VARCHAR(50)"))
+                    if 'picture_path' not in fl_cols:
+                        conn.execute(text("ALTER TABLE face_logs ADD COLUMN picture_path VARCHAR(255)"))
         except Exception as e:
             # Migration xatosi bo'lsa, xato log qilish lekin dasturni ishga tushirish
             app.logger.warning(f"Migration xatosi (bu normal bo'lishi mumkin): {e}")

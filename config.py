@@ -10,8 +10,8 @@ class Config:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
     MAX_CONTENT_LENGTH = 220 * 1024 * 1024  # 220 MB (200 MB video + 20 MB bufer: lesson_files, form ma'lumotlari)
     ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'ogg', 'mov', 'avi'}
-    ALLOWED_SUBMISSION_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'txt', 'rtf'}
-    MAX_SUBMISSION_SIZE = 2 * 1024 * 1024  # 2 MB max file size for submissions
+    ALLOWED_SUBMISSION_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'txt', 'rtf', 'zip', 'rar'}
+    MAX_SUBMISSION_SIZE = 10 * 1024 * 1024  # 10 MB max file size for submissions
     
     # CSRF Protection settings
     WTF_CSRF_ENABLED = True

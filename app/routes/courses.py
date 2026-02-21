@@ -5444,9 +5444,9 @@ def submit_assignment(id):
             file_size = file.tell()
             file.seek(0)
             
-            max_size = current_app.config.get('MAX_SUBMISSION_SIZE', 2 * 1024 * 1024)
+            max_size = current_app.config.get('MAX_SUBMISSION_SIZE', 10 * 1024 * 1024)
             if file_size > max_size:
-                flash(t('file_size_limit', max_size=int(max_size / (1024 * 1024))), 'error')
+                flash(t('file_size_limit', max=int(max_size / (1024 * 1024))), 'error')
                 return redirect(url_for('courses.assignment_detail', id=id))
             
             # Faylni saqlash
@@ -5551,6 +5551,15 @@ def edit_submission(id):
         if file and file.filename:
             if not allowed_submission_file(file.filename):
                 flash(t('invalid_file_format', filename=''), 'error')
+                return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
+
+            # Fayl hajmini tekshirish (10 MB)
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(0)
+            max_size = current_app.config.get('MAX_SUBMISSION_SIZE', 10 * 1024 * 1024)
+            if file_size > max_size:
+                flash(t('file_size_limit', max=int(max_size / (1024 * 1024))), 'error')
                 return redirect(url_for('courses.assignment_detail', id=submission.assignment_id))
             
             # Eski faylni o'chirish (ixtiyoriy, lekin yaxshi amaliyot)

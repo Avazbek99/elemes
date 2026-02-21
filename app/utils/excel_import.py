@@ -1,5 +1,5 @@
 from flask import flash
-from app.models import Subject, Faculty, Department, User, DepartmentHead, UserRole
+from app.models import Subject, Faculty, Department, User, DepartmentHead, UserRole, SubjectDepartment
 from app import db
 from datetime import datetime
 from sqlalchemy import or_, func
@@ -1319,7 +1319,7 @@ def import_all_users_from_excel(file):
 
 
 def generate_subjects_sample_file(lang='uz'):
-    """Fanlarni import qilish uchun namuna Excel fayl (tanlangan til: uz/ru/en)."""
+    """Fanlarni import qilish uchun namuna Excel (A/B/C – tillar, D – kafedra, kafedra formatiga mos)."""
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -1331,18 +1331,20 @@ def generate_subjects_sample_file(lang='uz'):
     ws = wb.active
     ws.title = "Fanlar import" if lang == 'uz' else ("Предметы" if lang == 'ru' else "Subjects")
 
-    ws.merge_cells('A1:C1')
-    title_cell = ws['A1']
-    title_cell.value = get_translation('sample_subjects_title', lang)
-    title_cell.font = Font(size=14, bold=True, color="FFFFFF")
-    title_cell.alignment = Alignment(horizontal='center', vertical='center')
-    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    title_uz = "Fanlar import (namuna)"
+    title_ru = "Импорт предметов (образец)"
+    title_en = "Subjects import (sample)"
+    title = title_uz if lang == 'uz' else (title_ru if lang == 'ru' else title_en)
+    ws.merge_cells('A1:D1')
+    ws['A1'].value = title
+    ws['A1'].font = Font(size=14, bold=True, color="FFFFFF")
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws['A1'].fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
 
-    headers = [
-        get_translation('subject_name', lang),
-        get_translation('description', lang)
-    ]
-
+    headers_uz = ["Fan nomi (O'zbekcha)", "Fan nomi (Ruscha)", "Fan nomi (Inglizcha)", "Kafedra"]
+    headers_ru = ["Название предмета (узб.)", "Название предмета (рус.)", "Название предмета (англ.)", "Кафедра"]
+    headers_en = ["Subject name (Uzbek)", "Subject name (Russian)", "Subject name (English)", "Department"]
+    headers = headers_uz if lang == 'uz' else (headers_ru if lang == 'ru' else headers_en)
     header_row = 3
     for col_num, header in enumerate(headers, 1):
         cell = ws.cell(row=header_row, column=col_num)
@@ -1357,26 +1359,25 @@ def generate_subjects_sample_file(lang='uz'):
             bottom=Side(style='thin')
         )
 
-    # Namuna ma'lumotlar
-    sample_data = [
-        ["Dasturlash asoslari", "Dasturlashning asosiy tushunchalari va algoritmlar"],
-        ["Ma'lumotlar bazasi", "Ma'lumotlar bazasi dizayni va SQL so'rovlari"],
-        ["Web dasturlash", "Web texnologiyalari va frameworklar"]
-    ]
-
-    for row_num, row_data in enumerate(sample_data, start=header_row + 1):
-        for col_num, value in enumerate(row_data, 1):
-            cell = ws.cell(row=row_num, column=col_num)
-            cell.value = value
+    # Namuna ma'lumotlar: faqat A ustuni to'ldirilgan (bitta til, tarjima qilinadi)
+    sample_uz = ["Dasturlash asoslari", "Ma'lumotlar bazasi", "Web dasturlash"]
+    sample_ru = ["Основы программирования", "База данных", "Веб-программирование"]
+    sample_en = ["Programming basics", "Database", "Web programming"]
+    sample_depts = ["Axborot texnologiyalari", "Axborot texnologiyalari", "Barcha kafedra"]
+    sample = sample_uz if lang == 'uz' else (sample_ru if lang == 'ru' else sample_en)
+    for row_num, (name, dept) in enumerate(zip(sample, sample_depts), start=header_row + 1):
+        ws.cell(row=row_num, column=1, value=name)
+        ws.cell(row=row_num, column=2, value='')
+        ws.cell(row=row_num, column=3, value='')
+        ws.cell(row=row_num, column=4, value=dept)
+        for c in range(1, 5):
+            cell = ws.cell(row=row_num, column=c)
             cell.border = Border(
-                left=Side(style='thin'),
-                right=Side(style='thin'),
-                top=Side(style='thin'),
-                bottom=Side(style='thin')
+                left=Side(style='thin'), right=Side(style='thin'),
+                top=Side(style='thin'), bottom=Side(style='thin')
             )
 
-    # Ustun kengliklarini sozlash
-    column_widths = [40, 50]
+    column_widths = [35, 35, 35, 30]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
 
@@ -1386,8 +1387,16 @@ def generate_subjects_sample_file(lang='uz'):
     return output
 
 
-def import_subjects_from_excel(file):
-    """Excel fayldan fanlarni import qilish"""
+def _translate_subject_name(text, source_lang, target_lang):
+    """Bir tildan boshqasiga tarjima (fan nomi uchun)."""
+    return _translate_department_name(text, source_lang, target_lang)
+
+
+def import_subjects_from_excel(file, source_lang='uz'):
+    """Excel fayldan fanlarni import qilish.
+    - A/B/C ustunlar: fan nomi (O'z, Ru, En). Faqat bitta til bo'lsa – source_lang bo'yicha tarjima.
+    - D ustun: kafedra nomi (vergul bilan bir nechta).
+    """
     try:
         from openpyxl import load_workbook
     except ImportError:
@@ -1400,50 +1409,107 @@ def import_subjects_from_excel(file):
     try:
         wb = load_workbook(file, data_only=True)
         ws = wb.active
-
-        # Sarlavha qatorini topish (3-qator)
         header_row = 3
-        headers = {}
-        for col_num in range(1, 3):  # A, B ustunlari
-            cell_value = ws.cell(row=header_row, column=col_num).value
-            if cell_value:
-                headers[cell_value] = col_num
+        max_row = ws.max_row
+        if max_row < header_row + 1:
+            return {'success': True, 'imported': 0, 'updated': 0, 'errors': []}
 
-        # Ma'lumotlarni o'qish
-        for row_num in range(header_row + 1, ws.max_row + 1):
+        for row_num in range(header_row + 1, max_row + 1):
             try:
-                # Ustunlardan ma'lumotlarni olish
-                name = ws.cell(row=row_num, column=headers.get("Fan nomi", 1)).value
-                description = ws.cell(row=row_num, column=headers.get("Tavsif", 2)).value
+                val_a = ws.cell(row=row_num, column=1).value
+                val_b = ws.cell(row=row_num, column=2).value
+                val_c = ws.cell(row=row_num, column=3).value
+                val_d = ws.cell(row=row_num, column=4).value
+                name_uz = str(val_a).strip() if val_a else ''
+                name_ru = str(val_b).strip() if val_b else ''
+                name_en = str(val_c).strip() if val_c else ''
+                kafedra_str = str(val_d).strip() if val_d else ''
 
-                # Bo'sh qatorlarni o'tkazib yuborish
+                if not name_uz and not name_ru and not name_en:
+                    continue
+
+                use_three = (val_a and val_b and val_c and name_uz and name_ru and name_en)
+                if use_three:
+                    name_uz = str(val_a).strip()
+                    name_ru = str(val_b).strip()
+                    name_en = str(val_c).strip()
+                else:
+                    single = name_uz or name_ru or name_en
+                    if not single:
+                        continue
+                    name_uz = single if source_lang == 'uz' else _translate_subject_name(single, source_lang, 'uz')
+                    name_ru = single if source_lang == 'ru' else _translate_subject_name(single, source_lang, 'ru')
+                    name_en = single if source_lang == 'en' else _translate_subject_name(single, source_lang, 'en')
+
+                name = name_uz or name_ru or name_en
                 if not name:
                     continue
 
-                name = str(name).strip()
-                description = str(description).strip() if description else None
+                department_ids = []
+                if kafedra_str:
+                    for part in kafedra_str.split(","):
+                        part = part.strip()
+                        if not part:
+                            continue
+                        dept = Department.query.filter(Department.name.ilike(part)).first()
+                        if not dept:
+                            dept = Department.query.filter(Department.name_uz.ilike(part)).first()
+                        if not dept:
+                            dept = Department.query.filter(Department.name_ru.ilike(part)).first()
+                        if not dept:
+                            dept = Department.query.filter(Department.name_en.ilike(part)).first()
+                        if dept and dept.id not in department_ids:
+                            department_ids.append(dept.id)
 
-                # Fan nomi bo'yicha tekshirish
-                existing_subject = Subject.query.filter_by(name=name).first()
+                existing = None
+                if name_uz:
+                    existing = Subject.query.filter(
+                        (Subject.name_uz == name_uz) | (Subject.name == name_uz)
+                    ).first()
+                if not existing and name_ru:
+                    existing = Subject.query.filter_by(name_ru=name_ru).first()
+                if not existing and name_en:
+                    existing = Subject.query.filter_by(name_en=name_en).first()
+                if not existing:
+                    existing = Subject.query.filter_by(name=name).first()
 
-                if existing_subject:
-                    # Yangilash
-                    existing_subject.description = description
+                subj_data = {
+                    'name': name,
+                    'name_uz': name_uz or None,
+                    'name_ru': name_ru or None,
+                    'name_en': name_en or None,
+                    'department_id': department_ids[0] if department_ids else None,
+                }
+
+                if existing:
+                    existing.name = subj_data['name']
+                    existing.name_uz = subj_data['name_uz']
+                    existing.name_ru = subj_data['name_ru']
+                    existing.name_en = subj_data['name_en']
+                    existing.department_id = subj_data['department_id']
+                    SubjectDepartment.query.filter_by(subject_id=existing.id).delete(synchronize_session=False)
+                    for did in department_ids:
+                        db.session.add(SubjectDepartment(subject_id=existing.id, department_id=did))
                     updated += 1
                 else:
-                    # Yaratish
                     subject = Subject(
-                        name=name,
-                        code='',  # NOT NULL constraint uchun
-                        description=description,
-                        credits=3,  # Default
-                        semester=1  # Default
+                        name=subj_data['name'],
+                        code='',
+                        department_id=subj_data['department_id'],
+                        credits=3,
+                        semester=1,
+                        name_uz=subj_data['name_uz'],
+                        name_ru=subj_data['name_ru'],
+                        name_en=subj_data['name_en'],
                     )
                     db.session.add(subject)
+                    db.session.flush()
+                    for did in department_ids:
+                        db.session.add(SubjectDepartment(subject_id=subject.id, department_id=did))
                     imported += 1
 
             except Exception as e:
-                errors.append(f"Qator {row_num}: Xatolik - {str(e)}")
+                errors.append(f"Qator {row_num}: {str(e)}")
 
         db.session.commit()
 

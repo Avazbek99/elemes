@@ -180,6 +180,17 @@ def index():
 @login_required
 def dashboard():
     """Dashboard sahifasi"""
+    try:
+        return _dashboard_inner()
+    except Exception as e:
+        import traceback
+        err_msg = traceback.format_exc()
+        current_app.logger.exception("Dashboard error")
+        from flask import Response
+        return Response('<pre style="white-space:pre-wrap;font-size:12px;padding:20px;">' + err_msg.replace('<', '&lt;') + '</pre>', status=500, mimetype='text/html')
+
+def _dashboard_inner():
+    """Dashboard sahifasi - ichki funksiya"""
     user = current_user
     # Foydalanuvchining faol (tanlangan) roli:
     # Agar bir nechta rol bo'lsa, session['current_role'] orqali tanlanadi,
@@ -912,15 +923,49 @@ def dashboard():
         announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
 
     elif active_role == 'department_head':
-        # Kafedra mudiri uchun (dashboard admin blokiga o'xshash)
+        # Kafedra mudiri uchun - o'z kafedrasiga oid statistika
+        from app.models import DepartmentHead, TeacherDepartment, Department, DirectionCurriculum, Direction
+        my_dept_ids = [link.department_id for link in DepartmentHead.query.filter_by(user_id=current_user.id).all()]
+        my_departments = Department.query.filter(Department.id.in_(my_dept_ids)).all() if my_dept_ids else []
+        
+        # O'z kafedrasidagi o'qituvchilar
+        teachers_in_dept = User.query.join(TeacherDepartment, User.id == TeacherDepartment.teacher_id).filter(
+            TeacherDepartment.department_id.in_(my_dept_ids)
+        ).distinct().all() if my_dept_ids else []
+        
+        # O'z kafedrasidagi fanlar
+        subjects_in_dept = Subject.query.filter(Subject.department_id.in_(my_dept_ids)).all() if my_dept_ids else []
+        subject_ids_in_dept = [s.id for s in subjects_in_dept]
+        
+        # Faol guruhlar soni (kafedra fanlari o'qitiladigan)
+        active_groups = Group.query.filter(Group.students.any()).all()
+        groups_with_dept_subjects = set()
+        if subject_ids_in_dept:
+            for group in active_groups:
+                if group.direction_id:
+                    curr_count = DirectionCurriculum.query.filter(
+                        DirectionCurriculum.direction_id == group.direction_id,
+                        DirectionCurriculum.semester == (group.semester or 1),
+                        DirectionCurriculum.subject_id.in_(subject_ids_in_dept)
+                    ).count()
+                    if curr_count > 0:
+                        groups_with_dept_subjects.add(group.id)
+        
         stats = {
-            'total_users': User.query.count(),
-            'total_students': User.query.filter_by(role='student').count(),
-            'total_teachers': User.query.filter_by(role='teacher').count(),
-            'total_faculties': Faculty.query.count(),
-            'total_subjects': Subject.query.count(),
-            'total_staff': total_staff
+            'total_departments': len(my_departments),
+            'total_teachers': len(teachers_in_dept),
+            'total_subjects': len(subjects_in_dept),
+            'total_groups': len(groups_with_dept_subjects),
         }
+        
+        # 0% ro'yxati - o'z kafedrasidagi fanlar uchun
+        dept_head_teachers = []
+        try:
+            all_rows = _build_edu_dept_teachers_list()
+            dept_head_teachers = [r for r in all_rows if r.get('subject_id') in subject_ids_in_dept]
+        except Exception as e:
+            current_app.logger.warning("department_head dashboard: %s", e)
+        
         announcements = Announcement.query.order_by(Announcement.created_at.desc()).limit(5).all()
 
     elif active_role == 'edu_dept':
@@ -1211,6 +1256,7 @@ def dashboard():
                              teacher_assignments_list=teacher_assignments_list if 'teacher_assignments_list' in locals() else [],
                              teacher_pending_assignments_list=teacher_pending_assignments_list if 'teacher_pending_assignments_list' in locals() else [],
                              edu_dept_teachers=edu_dept_teachers if 'edu_dept_teachers' in locals() else [],
+                             dept_head_teachers=dept_head_teachers if 'dept_head_teachers' in locals() else [],
                              edu_dept_sort_by=edu_dept_sort_by, edu_dept_sort_order=edu_dept_sort_order)
     except Exception as e:
         import traceback
@@ -1305,13 +1351,72 @@ def fan_resurslari():
     )
 
 
+@bp.route('/department-head/my-department')
+@login_required
+def department_head_my_department():
+    """Kafedra mudiri: O'z kafedrasi - fanlar va o'qituvchilar."""
+    from flask import session as flask_session
+    from app.models import Department, TeacherDepartment, DepartmentHead
+    
+    active_role = flask_session.get('current_role') or current_user.role
+    if active_role != 'department_head' and not current_user.is_superadmin:
+        flash(t('no_permission_for_action'), 'error')
+        return redirect(url_for('main.dashboard'))
+    
+    # Foydalanuvchiga biriktirilgan kafedralar
+    my_dept_links = DepartmentHead.query.filter_by(user_id=current_user.id).all()
+    my_dept_ids = [link.department_id for link in my_dept_links]
+    
+    if not my_dept_ids:
+        flash(t('no_department_assigned'), 'warning')
+        return redirect(url_for('main.dashboard'))
+    
+    # Barcha kafedralar (filtr uchun)
+    all_my_departments = Department.query.filter(Department.id.in_(my_dept_ids)).order_by(Department.name).all()
+    
+    # Tanlangan kafedra (filtr)
+    selected_dept_id = request.args.get('department_id', type=int)
+    if selected_dept_id and selected_dept_id in my_dept_ids:
+        filter_dept_ids = [selected_dept_id]
+        selected_department = Department.query.get(selected_dept_id)
+    else:
+        filter_dept_ids = my_dept_ids
+        selected_department = None
+    
+    _lang = flask_session.get('language', 'uz')
+    
+    # Fanlar
+    subjects_in_dept = Subject.query.filter(Subject.department_id.in_(filter_dept_ids)).order_by(Subject.name).all()
+    
+    # O'qituvchilar
+    teachers_in_dept = User.query.join(TeacherDepartment, User.id == TeacherDepartment.teacher_id).filter(
+        TeacherDepartment.department_id.in_(filter_dept_ids)
+    ).distinct().order_by(User.full_name).all()
+    
+    # Qidiruv
+    search_q = request.args.get('q', '').strip().lower()
+    if search_q:
+        subjects_in_dept = [s for s in subjects_in_dept if search_q in (s.get_display_name(_lang) or s.name or '').lower()]
+        teachers_in_dept = [t for t in teachers_in_dept if search_q in (t.full_name or t.login or '').lower()]
+    
+    return render_template('department_head/my_department.html',
+        all_departments=all_my_departments,
+        selected_department=selected_department,
+        selected_dept_id=selected_dept_id,
+        subjects=subjects_in_dept,
+        teachers=teachers_in_dept,
+        search_q=search_q,
+        current_lang=_lang,
+        show_department_filter=len(all_my_departments) > 1
+    )
+
+
 @bp.route('/department-head/assign')
 @login_required
 def department_head_assign():
     """Kafedra mudiri: O'qituvchi biriktirish (DirectionCurriculum asosida)."""
     from flask import session as flask_session
     from app.models import Department, TeacherDepartment, DepartmentHead, DirectionCurriculum, Direction
-    from sqlalchemy import func
     try:
         active_role = flask_session.get('current_role') or current_user.role
         if active_role != 'department_head' and not current_user.is_superadmin:

@@ -268,6 +268,11 @@ class Subject(db.Model):
     assignments = db.relationship('Assignment', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
     teacher_assignments = db.relationship('TeacherSubject', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
     schedules = db.relationship('Schedule', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
+    department_links = db.relationship('SubjectDepartment', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def get_departments(self):
+        """Fanga biriktirilgan barcha kafedralar"""
+        return [link.department for link in self.department_links.all() if link.department]
     
     def get_teacher(self, group_id=None):
         """Ushbu fan uchun biriktirilgan o'qituvchini olish (birinchi topilgan)"""
@@ -606,6 +611,20 @@ class TeacherDepartment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     teacher = db.relationship('User', backref='department_memberships')
+
+
+# ==================== FAN-KAFEDRA BOG'LANISHI ====================
+class SubjectDepartment(db.Model):
+    """Fan va kafedra o'rtasidagi ko'p-ko'pga munosabat"""
+    __tablename__ = 'subject_department'
+    id = db.Column(db.Integer, primary_key=True)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('subject_id', 'department_id', name='uq_subject_department'),)
+
+    department = db.relationship('Department', backref=db.backref('subject_links', lazy='dynamic'))
 
 
 # ==================== O'QITUVCHI-FAN BOG'LANISHI ====================
@@ -1351,3 +1370,30 @@ class GradeScale(db.Model):
             grade = GradeScale(**g)
             db.session.add(grade)
         db.session.commit()
+
+
+# ==================== HIKVISION FACE RECOGNITION ====================
+class FaceLog(db.Model):
+    """Hikvision yuz tanilash qurilmalaridan kelgan loglar (faqat superadmin uchun)."""
+    __tablename__ = 'face_logs'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    device_employee_id = db.Column(db.String(50), nullable=True, index=True)  # qurilmadagi xodim ID
+    person_name = db.Column(db.String(150), nullable=True, index=True)
+    event_time = db.Column(db.DateTime, nullable=True, index=True)
+    device_ip = db.Column(db.String(50), nullable=True, index=True)
+    raw_data = db.Column(db.Text, nullable=True)
+    picture_path = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'device_employee_id': self.device_employee_id,
+            'person_name': self.person_name,
+            'event_time': self.event_time.isoformat() if self.event_time else None,
+            'device_ip': self.device_ip,
+            'picture_path': self.picture_path,
+            'has_raw': bool(self.raw_data),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }

@@ -4,14 +4,20 @@
         <table class="w-full min-w-[640px] subjects-table">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('subject_name') }}</th>
-                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('description') }}</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        <a href="{{ url_for('admin.subjects', search=search, sort='name', order='desc' if sort == 'name' and order == 'asc' else 'asc') }}" class="hover:text-primary-600 flex items-center gap-1">{{ t('subject_name') }}{% if sort == 'name' %}<span class="text-primary-600">{% if order == 'asc' %}↑{% else %}↓{% endif %}</span>{% endif %}</a>
+                    </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                        <a href="{{ url_for('admin.subjects', search=search, sort='department', order='desc' if sort == 'department' and order == 'asc' else 'asc') }}" class="hover:text-primary-600 flex items-center gap-1">{{ t('departments') }}{% if sort == 'department' %}<span class="text-primary-600">{% if order == 'asc' %}↑{% else %}↓{% endif %}</span>{% endif %}</a>
+                    </th>
                     <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 {% for subject in subjects.items %}
                 {% set has_issue = subject.has_lessons_without_content() %}
+                {% set dept_list = subject.get_departments() %}
+                {% if not dept_list and subject.department %}{% set dept_list = [subject.department] %}{% endif %}
                 <tr class="hover:bg-gray-50 transition-colors {% if has_issue %}bg-red-50{% endif %}">
                     <td class="px-6 py-4">
                         <div class="space-y-1">
@@ -22,10 +28,14 @@
                         </div>
                     </td>
                     <td class="px-6 py-4">
-                        {% if subject.get_display_description(current_lang) or subject.description %}
-                        <p class="text-sm text-gray-600">{{ subject.get_display_description(current_lang) or subject.description }}</p>
+                        {% if dept_list %}
+                        <div class="flex flex-col gap-0.5">
+                            {% for dept in dept_list %}
+                            <p class="text-sm text-gray-700">{{ dept.get_display_name(current_lang) or dept.name }}</p>
+                            {% endfor %}
+                        </div>
                         {% else %}
-                        <p class="text-sm text-gray-400 italic">{{ t('no_description') }}</p>
+                        <p class="text-sm text-gray-400">—</p>
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 text-right">
@@ -55,8 +65,8 @@
     <div class="mt-6 flex flex-col items-center gap-4">
         <div class="flex flex-wrap gap-2 justify-center">
             {% if subjects.has_prev %}
-            <a href="{{ url_for('admin.subjects', page=1, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">{{ t('first') }}</a>
-            <a href="{{ url_for('admin.subjects', page=subjects.prev_num, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.prev_num }}">«</a>
+            <a href="{{ url_for('admin.subjects', page=1, search=search, sort=sort, order=order) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="1">{{ t('first') }}</a>
+            <a href="{{ url_for('admin.subjects', page=subjects.prev_num, search=search, sort=sort, order=order) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.prev_num }}">«</a>
             {% else %}
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
@@ -66,15 +76,15 @@
                     {% if page_num == subjects.page %}
                     <span class="px-3 py-2 bg-blue-600 text-white rounded-lg font-medium">{{ page_num }}</span>
                     {% else %}
-                    <a href="{{ url_for('admin.subjects', page=page_num, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700" data-page="{{ page_num }}">{{ page_num }}</a>
+                    <a href="{{ url_for('admin.subjects', page=page_num, search=search, sort=sort, order=order) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700" data-page="{{ page_num }}">{{ page_num }}</a>
                     {% endif %}
                 {% else %}
                     <span class="px-2 text-gray-400">...</span>
                 {% endif %}
             {% endfor %}
             {% if subjects.has_next %}
-            <a href="{{ url_for('admin.subjects', page=subjects.next_num, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.next_num }}">»</a>
-            <a href="{{ url_for('admin.subjects', page=subjects.pages, search=search) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.pages }}">Oxirgi</a>
+            <a href="{{ url_for('admin.subjects', page=subjects.next_num, search=search, sort=sort, order=order) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.next_num }}">»</a>
+            <a href="{{ url_for('admin.subjects', page=subjects.pages, search=search, sort=sort, order=order) }}" class="subjects-pagination-link px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium" data-page="{{ subjects.pages }}">Oxirgi</a>
             {% else %}
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
             <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>

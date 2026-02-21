@@ -1024,7 +1024,7 @@ def create_subjects_excel(subjects):
     
     # Sarlavha
     title = "Fanlar ro'yxati"
-    ws.merge_cells('A1:B1')
+    ws.merge_cells('A1:D1')
     title_cell = ws['A1']
     title_cell.value = title
     title_cell.font = Font(size=16, bold=True, color="FFFFFF")
@@ -1033,14 +1033,16 @@ def create_subjects_excel(subjects):
     
     # Sana
     ws['A2'] = f"Yaratilgan: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
-    ws.merge_cells('A2:B2')
+    ws.merge_cells('A2:D2')
     ws['A2'].font = Font(size=10, italic=True)
     ws['A2'].alignment = Alignment(horizontal='center')
     
-    # Jadval sarlavhalari
+    # Jadval sarlavhalari (kafedra export formatiga mos: A/B/C – fan nomi, D – kafedra)
     headers = [
-        "Fan nomi",      # A
-        "Tavsif"         # B
+        "Fan nomi (O'zbekcha)",   # A
+        "Fan nomi (Ruscha)",      # B
+        "Fan nomi (Inglizcha)",   # C
+        "Kafedra"                 # D (bir nechta bo'lsa vergul bilan)
     ]
     header_row = 3
     
@@ -1059,8 +1061,14 @@ def create_subjects_excel(subjects):
     
     # Ma'lumotlar
     for row_num, subject in enumerate(subjects, start=header_row + 1):
-        ws.cell(row=row_num, column=1, value=subject.name)
-        ws.cell(row=row_num, column=2, value=subject.description or '')
+        ws.cell(row=row_num, column=1, value=(subject.name_uz or subject.name or ''))
+        ws.cell(row=row_num, column=2, value=(subject.name_ru or ''))
+        ws.cell(row=row_num, column=3, value=(subject.name_en or ''))
+        dept_list = subject.get_departments() if hasattr(subject, 'get_departments') else []
+        if not dept_list and getattr(subject, 'department', None):
+            dept_list = [subject.department]
+        dept_names = ", ".join((d.name or "") for d in dept_list) if dept_list else ""
+        ws.cell(row=row_num, column=4, value=dept_names)
         
         # Stil
         for col_num in range(1, len(headers) + 1):
@@ -1076,7 +1084,7 @@ def create_subjects_excel(subjects):
                 cell.fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
     
     # Ustun kengliklarini sozlash
-    column_widths = [40, 50]
+    column_widths = [35, 35, 35, 30]
     for col_num, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_num)].width = width
     

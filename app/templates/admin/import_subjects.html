@@ -31,13 +31,23 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_subject_name') }}</td>
-                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_subject_name') }}</td>
-                        <td class="py-2 px-3"><span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">{{ t('required_field') }}</span></td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_subject_uz') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_subject_uz') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                     <tr>
-                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_subject_description') }}</td>
-                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_subject_description') }}</td>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_subject_ru') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_subject_ru') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('import_col_subject_en') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_desc_subject_en') }}</td>
+                        <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 px-3 font-mono text-primary-600">{{ t('department') }}</td>
+                        <td class="py-2 px-3 text-gray-600">{{ t('import_subject_department_hint') }}</td>
                         <td class="py-2 px-3"><span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ t('optional_field') }}</span></td>
                     </tr>
                 </tbody>
@@ -55,10 +65,11 @@
                     <p class="text-sm font-medium text-blue-900 mb-1">{{ t('import_note_title') }}</p>
                     <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
                         <li>{{ t('import_note_file_format') }}</li>
-                        <li><strong>{{ t('import_note_subject_name') }}</strong></li>
+                        <li>{{ t('import_note_subjects_1col') }}</li>
+                        <li>{{ t('import_note_subjects_3col') }}</li>
                         <li>{{ t('import_note_subject_update') }}</li>
                         <li>{{ t('import_note_subject_create') }}</li>
-                        <li>{{ t('import_note_subject_desc') }}</li>
+                        <li>{{ t('import_note_subject_department') }}</li>
                     </ul>
                 </div>
             </div>

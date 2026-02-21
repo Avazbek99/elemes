@@ -15,11 +15,11 @@ venv/
 
 # Local data / logs / uploads (repo root = ELMS1.3)
 uploads/
+logs/
 # uploads/site (logolar) GitHubga yuklansin
 !uploads/site/
 !uploads/site/**
 server.log
 .env
 *.db
-# instance papkasidagi baza GitHubga yuklansin
-!instance/eduspace.db
+# instance/eduspace.db - 100MB+ GitHub limiti, LFS kerak

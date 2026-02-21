@@ -183,14 +183,14 @@
     {% endif %}
 
     {% if dashboard_current_role in ['admin', 'edu_dept', 'department_head'] %}
-    <!-- O'quv bo'limi: o'ziga tegishli statistika va o'qituvchilar jadvali -->
-    {% if dashboard_current_role == 'edu_dept' %}
+    <!-- O'quv bo'limi / Kafedra mudiri: o'ziga tegishli statistika va o'qituvchilar jadvali -->
+    {% if dashboard_current_role == 'edu_dept' or dashboard_current_role == 'department_head' %}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <div class="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div class="absolute lg:w-32 lg:h-32 w-24 h-24 bg-white opacity-10 rounded-full -top-6 -right-6 transform rotate-12 group-hover:scale-110 transition-transform duration-500"></div>
             <div class="relative z-10 flex justify-between items-start">
                 <div>
-                    <p class="text-cyan-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('departments') }}</p>
+                    <p class="text-cyan-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('departments') if dashboard_current_role == 'edu_dept' else t('my_departments') }}</p>
                     <h3 class="text-4xl font-extrabold">{{ stats.total_departments|default(0) }}</h3>
                 </div>
                 <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg></div>
@@ -202,36 +202,36 @@
             <div class="relative z-10 flex justify-between items-start">
                 <div>
                     <p class="text-blue-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('teachers') }}</p>
-                    <h3 class="text-4xl font-extrabold">{{ stats.total_teachers }}</h3>
+                    <h3 class="text-4xl font-extrabold">{{ stats.total_teachers|default(0) }}</h3>
                 </div>
                 <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
             </div>
-            <div class="mt-4 flex items-center text-xs text-blue-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('active') }}</span><span>{{ t('with_assignments') }}</span></div>
+            <div class="mt-4 flex items-center text-xs text-blue-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('active') if dashboard_current_role == 'edu_dept' else t('in_department') }}</span><span>{{ t('with_assignments') if dashboard_current_role == 'edu_dept' else t('teachers') }}</span></div>
         </div>
         <div class="bg-gradient-to-br from-violet-500 to-violet-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div class="absolute lg:w-32 lg:h-32 w-24 h-24 bg-white opacity-10 rounded-full -top-6 -right-6 transform rotate-12 group-hover:scale-110 transition-transform duration-500"></div>
             <div class="relative z-10 flex justify-between items-start">
                 <div>
                     <p class="text-violet-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('subjects') }}</p>
-                    <h3 class="text-4xl font-extrabold">{{ stats.total_subjects }}</h3>
+                    <h3 class="text-4xl font-extrabold">{{ stats.total_subjects|default(0) }}</h3>
                 </div>
                 <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>
             </div>
-            <div class="mt-4 flex items-center text-xs text-violet-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('available') }}</span><span>{{ t('taught_subjects') }}</span></div>
+            <div class="mt-4 flex items-center text-xs text-violet-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('available') if dashboard_current_role == 'edu_dept' else t('in_department') }}</span><span>{{ t('taught_subjects') if dashboard_current_role == 'edu_dept' else t('subjects') }}</span></div>
         </div>
         <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group hover:shadow-xl transition-all duration-300">
             <div class="absolute lg:w-32 lg:h-32 w-24 h-24 bg-white opacity-10 rounded-full -top-6 -right-6 transform rotate-12 group-hover:scale-110 transition-transform duration-500"></div>
             <div class="relative z-10 flex justify-between items-start">
                 <div>
-                    <p class="text-emerald-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('directions') }}</p>
-                    <h3 class="text-4xl font-extrabold">{{ stats.total_directions|default(0) }}</h3>
+                    <p class="text-emerald-100 font-medium text-sm mb-1 uppercase tracking-wider">{{ t('directions') if dashboard_current_role == 'edu_dept' else t('groups') }}</p>
+                    <h3 class="text-4xl font-extrabold">{{ stats.total_directions|default(0) if dashboard_current_role == 'edu_dept' else stats.total_groups|default(0) }}</h3>
                 </div>
                 <div class="p-3 bg-white/20 rounded-2xl backdrop-blur-sm"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg></div>
             </div>
-            <div class="mt-4 flex items-center text-xs text-emerald-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('total') }}</span><span>{{ t('directions') }}</span></div>
+            <div class="mt-4 flex items-center text-xs text-emerald-100 font-medium"><span class="bg-white/20 px-2 py-0.5 rounded-lg mr-2">{{ t('total') }}</span><span>{{ t('directions') if dashboard_current_role == 'edu_dept' else t('active_groups') }}</span></div>
         </div>
     </div>
-    <!-- O'quv bo'limi: tezkor amallar (ro'yxat yuqorisida) -->
+    <!-- Tezkor amallar (rol bo'yicha) -->
     <div class="mt-8">
         <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
             <svg class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,6 +240,15 @@
             {{ t('quick_actions') }}
         </h3>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {% if dashboard_current_role == 'department_head' %}
+            <a href="{{ url_for('main.department_head_assign') }}"
+                class="group bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center flex flex-col items-center justify-center gap-3 hover:-translate-y-1">
+                <div class="w-12 h-12 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors duration-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                </div>
+                <span class="text-sm font-semibold text-gray-700 group-hover:text-orange-600">{{ t('assign_teachers_menu') }}</span>
+            </a>
+            {% else %}
             <a href="{{ url_for('admin.directions') }}"
                 class="group bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center flex flex-col items-center justify-center gap-3 hover:-translate-y-1">
                 <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
@@ -247,6 +256,7 @@
                 </div>
                 <span class="text-sm font-semibold text-gray-700 group-hover:text-blue-600">{{ t('directions') }}</span>
             </a>
+            {% endif %}
             <a href="{{ url_for('courses.index') }}"
                 class="group bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center flex flex-col items-center justify-center gap-3 hover:-translate-y-1">
                 <div class="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-xl flex items-center justify-center group-hover:bg-cyan-600 group-hover:text-white transition-colors duration-300">
@@ -261,6 +271,7 @@
                 </div>
                 <span class="text-sm font-semibold text-gray-700 group-hover:text-emerald-600">{{ t('subject_resources') }}</span>
             </a>
+            {% if dashboard_current_role != 'department_head' %}
             <a href="{{ url_for('admin.subjects') }}"
                 class="group bg-white p-4 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all text-center flex flex-col items-center justify-center gap-3 hover:-translate-y-1">
                 <div class="w-12 h-12 bg-violet-50 text-violet-600 rounded-xl flex items-center justify-center group-hover:bg-violet-600 group-hover:text-white transition-colors duration-300">
@@ -268,6 +279,7 @@
                 </div>
                 <span class="text-sm font-semibold text-gray-700 group-hover:text-violet-600">{{ t('subjects') }}</span>
             </a>
+            {% endif %}
         </div>
     </div>
     <!-- O'qituvchilar ish yuki: yo'nalishlar bo'limi uslubida, ustun nomi bosilganda tartiblanadi -->
@@ -366,10 +378,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in edu_dept_teachers %}
+                    {% set teachers_list = (dept_head_teachers if dept_head_teachers is defined else []) if dashboard_current_role == 'department_head' else (edu_dept_teachers if edu_dept_teachers is defined else []) %}
+                    {% for row in teachers_list %}
+                    {% if row.progress_percent == 0 %}
                     <tr class="border-b border-gray-200 hover:bg-primary-100 transition-colors {% if loop.index is even %}bg-gray-50/50{% endif %}">
                         <td class="px-6 py-4 text-sm text-gray-500">{{ row.department_names or '—' }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-900">{{ row.teacher_name }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">{{ row.teacher_name|upper }}</td>
                         <td class="px-6 py-4 text-sm text-gray-900">{{ row.subject_name }}</td>
                         <td class="px-6 py-4 text-sm text-gray-900">{{ row.direction_name or '—' }}</td>
                         <td class="px-6 py-4 text-sm text-gray-900">{{ row.group_name }}</td>
@@ -377,8 +391,9 @@
                         <td class="px-6 py-4 text-sm text-gray-900 text-center">{{ row.total_hours }}</td>
                         <td class="px-6 py-4 text-sm text-gray-900 text-center">{{ row.loaded_hours }}</td>
                         <td class="px-6 py-4 text-sm text-center {% if row.remaining_hours > 0 %}text-amber-600 font-medium{% else %}text-gray-500{% endif %}">{{ row.remaining_hours }}</td>
-                        <td class="px-6 py-4 text-sm text-center"><span class="{% if row.progress_percent >= 100 %}text-green-600{% elif row.progress_percent > 0 %}text-blue-600{% else %}text-red-600{% endif %} font-bold">{{ row.progress_percent }}%</span></td>
+                        <td class="px-6 py-4 text-sm text-center"><span class="text-red-600 font-bold">{{ row.progress_percent }}%</span></td>
                     </tr>
+                    {% endif %}
                     {% else %}
                     <tr><td colspan="10" class="px-6 py-12 text-center text-gray-500">{{ t('no_data') if t('no_data') != 'no_data' else "Ma'lumot yo'q" }}</td></tr>
                     {% endfor %}

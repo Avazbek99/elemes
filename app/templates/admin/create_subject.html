@@ -2,6 +2,11 @@
 
 {% block title %}{{ t('new_subject') }}{% endblock %}
 
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>.ts-wrapper{width:100%!important}.ts-control{border-radius:0.75rem!important;padding:0.5rem 0.75rem!important;border:1px solid #d1d5db!important;font-size:0.875rem!important}.ts-control:focus-within{border-color:#0ea5e9!important;box-shadow:0 0 0 2px rgba(14,165,233,0.2)!important}.ts-dropdown{border-radius:0.75rem!important;margin-top:4px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)!important}.ts-dropdown .active{background-color:#f0f9ff!important;color:#0369a1!important}.ts-dropdown .option{padding:8px 12px!important;font-size:0.875rem!important}.ts-wrapper .item{display:inline-flex!important;align-items:center!important;gap:4px!important;padding:4px 8px!important;border:none!important;border-radius:0.5rem!important;background:transparent!important}.ts-wrapper .remove{border:none!important;background:transparent!important;color:#6b7280!important;cursor:pointer!important;padding:0 2px!important;font-size:1.1em!important;line-height:1!important}.ts-wrapper .remove:hover{color:#dc2626!important}</style>
+{% endblock %}
+
 {% block content %}
 <div class="w-full mx-auto">
     <div class="mb-6">
@@ -19,79 +24,82 @@
         <form method="POST" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
-            <!-- O'zbek tili: nom keyin tavsif -->
-            <div class="space-y-6 border-b border-gray-200 pb-6" id="subjectLangUz">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_name_uz') }} *</label>
-                    <div class="flex gap-2">
-                        <input type="text" name="name_uz" id="name_uz" required
-                            placeholder="Masalan: Dasturlash asoslari"
-                            value="{{ name_uz or '' }}"
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <button type="button" class="subject-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="uz" title="{{ t('subject_sync_translate') }}">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_description_uz') }}</label>
-                    <div class="flex gap-2">
-                        <textarea name="description_uz" id="description_uz" rows="3"
-                            placeholder="Fan haqida qisqacha ma'lumot..."
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ description_uz or '' }}</textarea>
-                        <button type="button" class="subject-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="uz" title="{{ t('subject_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
-                    </div>
+            <!-- O'zbek tili -->
+            <div class="border-b border-gray-200 pb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_name_uz') }} *</label>
+                <div class="flex gap-2">
+                    <input type="text" name="name_uz" id="name_uz" required
+                        placeholder="Masalan: Dasturlash asoslari"
+                        value="{{ name_uz or '' }}"
+                        class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <button type="button" class="subject-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="uz" title="{{ t('subject_sync_translate') }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                    </button>
                 </div>
             </div>
 
-            <!-- Rus tili: nom keyin tavsif -->
-            <div class="space-y-6 border-b border-gray-200 pb-6" id="subjectLangRu">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_name_ru') }} *</label>
-                    <div class="flex gap-2">
-                        <input type="text" name="name_ru" id="name_ru" required
-                            placeholder="Например: Основы программирования"
-                            value="{{ name_ru or '' }}"
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <button type="button" class="subject-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="ru" title="{{ t('subject_sync_translate') }}">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_description_ru') }}</label>
-                    <div class="flex gap-2">
-                        <textarea name="description_ru" id="description_ru" rows="3"
-                            placeholder="Краткая информация о предмете..."
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ description_ru or '' }}</textarea>
-                        <button type="button" class="subject-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="ru" title="{{ t('subject_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
-                    </div>
+            <!-- Rus tili -->
+            <div class="border-b border-gray-200 pb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_name_ru') }} *</label>
+                <div class="flex gap-2">
+                    <input type="text" name="name_ru" id="name_ru" required
+                        placeholder="Например: Основы программирования"
+                        value="{{ name_ru or '' }}"
+                        class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <button type="button" class="subject-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="ru" title="{{ t('subject_sync_translate') }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                    </button>
                 </div>
             </div>
 
-            <!-- Ingliz tili: nom keyin tavsif -->
-            <div class="space-y-6" id="subjectLangEn">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_name_en') }} *</label>
-                    <div class="flex gap-2">
-                        <input type="text" name="name_en" id="name_en" required
-                            placeholder="e.g. Programming fundamentals"
-                            value="{{ name_en or '' }}"
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                        <button type="button" class="subject-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="en" title="{{ t('subject_sync_translate') }}">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
-                        </button>
-                    </div>
+            <!-- Ingliz tili -->
+            <div class="border-b border-gray-200 pb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_name_en') }} *</label>
+                <div class="flex gap-2">
+                    <input type="text" name="name_en" id="name_en" required
+                        placeholder="e.g. Programming fundamentals"
+                        value="{{ name_en or '' }}"
+                        class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <button type="button" class="subject-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="en" title="{{ t('subject_sync_translate') }}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('subject_description_en') }}</label>
-                    <div class="flex gap-2">
-                        <textarea name="description_en" id="description_en" rows="3"
-                            placeholder="Brief information about the subject..."
-                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{{ description_en or '' }}</textarea>
-                        <button type="button" class="subject-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="en" title="{{ t('subject_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
-                    </div>
+            </div>
+
+            <!-- Kafedralar – kafedra mudiri tanlash uslubi (har qatorda select + ×, Tom Select qidiruv) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('departments') }}</label>
+                <div id="department-repeater" class="space-y-2">
+                    {% set init_dept_ids = selected_dept_ids if selected_dept_ids else [] %}
+                    {% if init_dept_ids %}
+                        {% for dept_id in init_dept_ids %}
+                        <div class="dept-row flex gap-2 items-center">
+                            <select name="department_ids" class="dept-select w-full px-4 py-2 border border-gray-300 rounded-xl text-sm">
+                                <option value="">{{ t('select_department') }}</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if dept.id == dept_id %}selected{% endif %}>{{ dept.get_display_name(current_lang) or dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="dept-remove shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors" title="{{ t('remove') }}">×</button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="dept-row flex gap-2 items-center">
+                            <select name="department_ids" class="dept-select w-full px-4 py-2 border border-gray-300 rounded-xl text-sm">
+                                <option value="">{{ t('select_department') }}</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.get_display_name(current_lang) or dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="dept-remove shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors" title="{{ t('remove') }}">×</button>
+                        </div>
+                    {% endif %}
                 </div>
+                <button type="button" id="add-dept-btn" class="mt-2 px-4 py-2 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors text-sm font-medium flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    {{ t('add_department') }}
+                </button>
+                <p class="text-xs text-gray-500 mt-1">{{ t('select_multiple_departments_hint') }}</p>
             </div>
 
             <div class="pt-4 border-t border-gray-100 flex gap-3">
@@ -110,8 +118,55 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    var container = document.getElementById('department-repeater');
+    var addBtn = document.getElementById('add-dept-btn');
+    var firstRow = container ? container.querySelector('.dept-row') : null;
+    var rowTemplate = firstRow ? firstRow.cloneNode(true) : null;  // clone before init
+
+    function initDeptSelect(selectEl) {
+        if (!selectEl || selectEl.tomselect) return;
+        new TomSelect(selectEl, {
+            create: false,
+            allowEmptyOption: true,
+            maxOptions: 10000,
+            plugins: ['dropdown_input'],
+            placeholder: "{{ t('select_department') | e }}",
+            persist: false,
+            selectOnTab: false
+        });
+    }
+
+    if (container && rowTemplate && typeof TomSelect !== 'undefined') {
+        container.querySelectorAll('.dept-select').forEach(function(el) { initDeptSelect(el); });
+
+        container.addEventListener('click', function(e) {
+            if (e.target && e.target.closest('.dept-remove')) {
+                var row = e.target.closest('.dept-row');
+                if (row) row.remove();
+                if (container.querySelectorAll('.dept-row').length === 0) {
+                    var emptyRow = rowTemplate.cloneNode(true);
+                    var sel = emptyRow.querySelector('.dept-select');
+                    if (sel) { sel.selectedIndex = 0; sel.value = ''; container.appendChild(emptyRow); initDeptSelect(sel); }
+                }
+            }
+        });
+
+        addBtn.addEventListener('click', function() {
+            var newRow = rowTemplate.cloneNode(true);
+            var newSelect = newRow.querySelector('.dept-select');
+            if (newSelect) {
+                newSelect.selectedIndex = 0;
+                newSelect.value = '';
+                container.appendChild(newRow);
+                initDeptSelect(newSelect);
+            }
+        });
+    }
+
+    // Tarjima funksiyasi
     var form = document.querySelector('form');
     var csrfToken = form ? form.querySelector('input[name="csrf_token"]') : null;
     var token = csrfToken ? csrfToken.value : '';
@@ -131,24 +186,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (tr.uz !== undefined) { var u = document.getElementById('name_uz'); if (u) u.value = tr.uz; }
                         if (tr.ru !== undefined) { var r = document.getElementById('name_ru'); if (r) r.value = tr.ru; }
                         if (tr.en !== undefined) { var e = document.getElementById('name_en'); if (e) e.value = tr.en; }
-                    } else { alert(data.error || 'Tarjima amalga oshmadi.'); }
-                }).catch(function() { alert('Xatolik yuz berdi.'); }).finally(function() { btn.disabled = false; });
-            });
-        });
-        form.querySelectorAll('.subject-desc-sync-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var lang = this.getAttribute('data-lang');
-                var input = document.getElementById('description_' + lang);
-                var text = (input && input.value || '').trim();
-                if (!text) { alert(syncEmptyMsg); if (input) input.focus(); return; }
-                btn.disabled = true;
-                fetch('{{ url_for("admin.api_translate_department_name") }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify({ text: text, source_lang: lang }) })
-                .then(function(r) { return r.json(); }).then(function(data) {
-                    if (data.ok && data.translations) {
-                        var tr = data.translations;
-                        if (tr.uz !== undefined) { var u = document.getElementById('description_uz'); if (u) u.value = tr.uz; }
-                        if (tr.ru !== undefined) { var r = document.getElementById('description_ru'); if (r) r.value = tr.ru; }
-                        if (tr.en !== undefined) { var e = document.getElementById('description_en'); if (e) e.value = tr.en; }
                     } else { alert(data.error || 'Tarjima amalga oshmadi.'); }
                 }).catch(function() { alert('Xatolik yuz berdi.'); }).finally(function() { btn.disabled = false; });
             });

@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session, current_app
 from flask_login import login_required, current_user
-from app.models import User, Faculty, Group, Subject, TeacherSubject, TeacherDepartment, Assignment, Direction, GradeScale, Schedule, UserRole, RolePermission, StudentPayment, DirectionCurriculum, Message, Submission, Lesson, LessonView, Announcement, PasswordResetToken, SiteSetting, FlashMessage, Department, DepartmentHead, UserFaculty
+from app.models import User, Faculty, Group, Subject, TeacherSubject, TeacherDepartment, Assignment, Direction, GradeScale, Schedule, UserRole, RolePermission, StudentPayment, DirectionCurriculum, Message, Submission, Lesson, LessonView, Announcement, PasswordResetToken, SiteSetting, FlashMessage, Department, DepartmentHead, UserFaculty, SubjectDepartment, FaceLog
 from app import db
 from functools import wraps
 from datetime import datetime, date
+from pathlib import Path
 from sqlalchemy import func, or_, exists, asc, desc
 
 from app.utils.excel_export import create_all_users_excel, create_subjects_excel, create_departments_excel
@@ -712,6 +713,35 @@ def delete_superadmin(id):
     db.session.commit()
     flash(t('superadmin_deleted'), 'success')
     return redirect(url_for('admin.superadmins'))
+
+
+# ==================== HIKVISION YUZ TANILASH (faqat superadmin) ====================
+@bp.route('/face-logs')
+@login_required
+@superadmin_required
+def face_logs():
+    """Hikvision yuz tanilash loglari – faqat superadmin ko'radi."""
+    limit = min(request.args.get('limit', 100, type=int), 500)
+    last_request_info = None
+    try:
+        logs_list = FaceLog.query.order_by(FaceLog.created_at.desc()).limit(limit).all()
+    except Exception as e:
+        try:
+            db.create_all()
+            logs_list = FaceLog.query.order_by(FaceLog.created_at.desc()).limit(limit).all()
+            flash(t('face_logs_table_created'), "success")
+        except Exception:
+            logs_list = []
+            flash(t('face_logs_query_error') % str(e), "error")
+    try:
+        path = Path(current_app.instance_path) / 'face_last_request.txt'
+        if path.exists():
+            lines = path.read_text(encoding='utf-8', errors='replace').strip().split('\n')
+            if len(lines) >= 2:
+                last_request_info = {'time': lines[0], 'ip': lines[1]}
+    except Exception:
+        pass
+    return render_template('admin/face_logs.html', logs_list=logs_list, limit=limit, last_request_info=last_request_info)
 
 
 # ==================== FOYDALANUVCHILAR ====================
@@ -1870,8 +1900,12 @@ def departments():
     for d in departments_list:
         dept_head_links = DepartmentHead.query.filter_by(department_id=d.id).join(User).order_by(User.full_name).all()
         head_names = [(link.user.full_name or link.user.login or '-') for link in dept_head_links]
+        # Fanlar soni: SubjectDepartment + eski department_id
+        subject_ids_from_links = {link.subject_id for link in SubjectDepartment.query.filter_by(department_id=d.id).all()}
+        subject_ids_from_old = {s.id for s in Subject.query.filter_by(department_id=d.id).all()}
+        subjects_count = len(subject_ids_from_links | subject_ids_from_old)
         dept_stats[d.id] = {
-            'subjects': d.subjects.count(),
+            'subjects': subjects_count,
             'teachers': TeacherDepartment.query.filter_by(department_id=d.id).count(),
             'head_name': ', '.join(head_names) if head_names else '-',
             'head_names': head_names if head_names else ['-']
@@ -1893,7 +1927,10 @@ def departments():
     all_teachers = User.query.filter(User.id.in_(teacher_ids)).order_by(User.full_name).all() if teacher_ids else []
     department_links = {}
     for d in departments_list:
-        sub_ids = [s.id for s in d.subjects.all()]
+        # SubjectDepartment + eski department_id dan fanlarni olish
+        sub_ids_from_links = {link.subject_id for link in SubjectDepartment.query.filter_by(department_id=d.id).all()}
+        sub_ids_from_old = {s.id for s in d.subjects.all()}
+        sub_ids = list(sub_ids_from_links | sub_ids_from_old)
         teach_ids = [r.teacher_id for r in TeacherDepartment.query.filter_by(department_id=d.id).all()]
         department_links[d.id] = {'subject_ids': sub_ids, 'teacher_ids': teach_ids}
     return render_template('admin/departments.html',
@@ -2015,14 +2052,26 @@ def assign_department(id):
             checked_teacher_ids.add(int(raw))
         except (ValueError, TypeError):
             pass
-    # Fanlar: Subject.department_id ni yangilash
-    for sub in Subject.query.filter(Subject.department_id == dept.id).all():
-        if sub.id not in checked_subject_ids:
+    # Fanlar: SubjectDepartment orqali qo'shish/olib tashlash
+    existing_subject_ids = {link.subject_id for link in SubjectDepartment.query.filter_by(department_id=dept.id).all()}
+    # Eski department_id dan ham olish
+    existing_subject_ids |= {s.id for s in Subject.query.filter_by(department_id=dept.id).all()}
+    to_remove_subjects = existing_subject_ids - checked_subject_ids
+    to_add_subjects = checked_subject_ids - existing_subject_ids
+    # Olib tashlash
+    for sub_id in to_remove_subjects:
+        SubjectDepartment.query.filter_by(department_id=dept.id, subject_id=sub_id).delete(synchronize_session=False)
+        # Eski department_id ni ham tozalash
+        sub = Subject.query.get(sub_id)
+        if sub and sub.department_id == dept.id:
             sub.department_id = None
-    for sub_id in checked_subject_ids:
+    # Qo'shish
+    for sub_id in to_add_subjects:
         sub = Subject.query.get(sub_id)
         if sub:
-            sub.department_id = dept.id
+            # SubjectDepartment ga qo'shish
+            if not SubjectDepartment.query.filter_by(department_id=dept.id, subject_id=sub_id).first():
+                db.session.add(SubjectDepartment(department_id=dept.id, subject_id=sub_id))
     # O'qituvchilar: TeacherDepartment orqali qo'shish/olib tashlash
     existing = {r.teacher_id for r in TeacherDepartment.query.filter_by(department_id=dept.id).all()}
     to_remove = existing - checked_teacher_ids
@@ -2134,7 +2183,12 @@ def department_detail(id):
         if not heads_this and current_user.managed_department_id != dept.id:
             flash(t('no_access_permission'), 'error')
             return redirect(url_for('admin.departments'))
-    subjects = dept.subjects.order_by(Subject.name).all()
+    # SubjectDepartment orqali fanlarni olish (yangi ko'p-ko'pga munosabat)
+    subject_ids_from_links = [link.subject_id for link in SubjectDepartment.query.filter_by(department_id=id).all()]
+    # Eski department_id orqali ham qo'shish (orqaga moslik uchun)
+    subject_ids_from_old = [s.id for s in Subject.query.filter_by(department_id=id).all()]
+    all_subject_ids = list(set(subject_ids_from_links + subject_ids_from_old))
+    subjects = Subject.query.filter(Subject.id.in_(all_subject_ids)).order_by(Subject.name).all() if all_subject_ids else []
     teacher_memberships = TeacherDepartment.query.filter_by(department_id=id).all()
     teachers = [m.teacher for m in teacher_memberships]
     # Fanlar va o'qituvchilar ro'yxati - qo'shish uchun
@@ -3548,24 +3602,43 @@ def change_faculty_dean(id):
 def subjects():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '').strip()
-    
+    sort = request.args.get('sort', 'name').strip().lower()
+    order = request.args.get('order', 'asc').strip().lower()
+    if sort not in ('name', 'department'):
+        sort = 'name'
+    if order not in ('asc', 'desc'):
+        order = 'asc'
+
     query = Subject.query
     if search:
-        from sqlalchemy import or_
+        search_term = f'%{search}%'
         query = query.filter(
             or_(
-                Subject.name.ilike(f'%{search}%'),
-                Subject.description.ilike(f'%{search}%')
+                Subject.name.ilike(search_term),
+                Subject.name_uz.ilike(search_term),
+                Subject.name_ru.ilike(search_term),
+                Subject.name_en.ilike(search_term),
             )
         )
-    
-    subjects = query.order_by(Subject.name).paginate(page=page, per_page=50, error_out=False)
-    
+
+    if sort == 'name':
+        query = query.order_by(Subject.name.asc() if order == 'asc' else Subject.name.desc())
+    else:
+        # sort=department: order by first department name (from SubjectDepartment)
+        subq = db.session.query(SubjectDepartment.subject_id, func.min(Department.name).label('min_dept')).join(Department, SubjectDepartment.department_id == Department.id).group_by(SubjectDepartment.subject_id).subquery()
+        query = query.outerjoin(subq, Subject.id == subq.c.subject_id)
+        if order == 'asc':
+            query = query.order_by(subq.c.min_dept.asc(), Subject.name.asc())
+        else:
+            query = query.order_by(subq.c.min_dept.desc(), Subject.name.asc())
+
+    subjects = query.paginate(page=page, per_page=50, error_out=False)
+
     if request.args.get('partial'):
-        return render_template('admin/subjects_partial.html', subjects=subjects, search=search)
-    return render_template('admin/subjects.html', 
-                         subjects=subjects, 
-                         search=search)
+        return render_template('admin/subjects_partial.html', subjects=subjects, search=search, sort=sort, order=order)
+    return render_template('admin/subjects.html',
+                         subjects=subjects,
+                         search=search, sort=sort, order=order)
 
 
 @bp.route('/subjects/migrate-translations', methods=['POST'])
@@ -3687,38 +3760,37 @@ def download_sample_import():
 @admin_required
 @permission_required('create_subject')
 def create_subject():
+    departments = Department.query.order_by(Department.name).all()
     if request.method == 'POST':
         name_uz = (request.form.get('name_uz') or '').strip()
         name_ru = (request.form.get('name_ru') or '').strip()
         name_en = (request.form.get('name_en') or '').strip()
         name = name_uz or name_ru or name_en
-        description_uz = (request.form.get('description_uz') or '').strip()
-        description_ru = (request.form.get('description_ru') or '').strip()
-        description_en = (request.form.get('description_en') or '').strip()
-        description = description_uz or description_ru or description_en or None
+        department_ids = request.form.getlist('department_ids', type=int)
         if not name_uz or not name_ru or not name_en:
             flash(t('subject_name_all_languages_required'), 'error')
             return render_template('admin/create_subject.html',
-                name_uz=name_uz, name_ru=name_ru, name_en=name_en,
-                description_uz=description_uz, description_ru=description_ru, description_en=description_en)
+                departments=departments, selected_dept_ids=department_ids,
+                name_uz=name_uz, name_ru=name_ru, name_en=name_en)
         subject = Subject(
             name=name,
             name_uz=name_uz or None,
             name_ru=name_ru or None,
             name_en=name_en or None,
             code='',
-            description=description,
-            description_uz=description_uz or None,
-            description_ru=description_ru or None,
-            description_en=description_en or None,
+            department_id=department_ids[0] if department_ids else None,
             credits=3,
             semester=1
         )
         db.session.add(subject)
+        db.session.flush()
+        for dept_id in department_ids:
+            link = SubjectDepartment(subject_id=subject.id, department_id=dept_id)
+            db.session.add(link)
         db.session.commit()
         flash(t('subject_created'), 'success')
         return redirect(url_for('admin.subjects'))
-    return render_template('admin/create_subject.html')
+    return render_template('admin/create_subject.html', departments=departments, selected_dept_ids=[])
 
 
 @bp.route('/subjects/<int:id>/edit', methods=['GET', 'POST'])
@@ -3727,30 +3799,33 @@ def create_subject():
 @permission_required('edit_subject')
 def edit_subject(id):
     subject = Subject.query.get_or_404(id)
+    departments = Department.query.order_by(Department.name).all()
+    # SubjectDepartment dan olish, bo'sh bo'lsa eski department_id dan
+    current_dept_ids = [link.department_id for link in subject.department_links.all()]
+    if not current_dept_ids and subject.department_id:
+        current_dept_ids = [subject.department_id]
     if request.method == 'POST':
         name_uz = (request.form.get('name_uz') or '').strip()
         name_ru = (request.form.get('name_ru') or '').strip()
         name_en = (request.form.get('name_en') or '').strip()
-        description_uz = (request.form.get('description_uz') or '').strip()
-        description_ru = (request.form.get('description_ru') or '').strip()
-        description_en = (request.form.get('description_en') or '').strip()
+        department_ids = request.form.getlist('department_ids', type=int)
         if not name_uz or not name_ru or not name_en:
             flash(t('subject_name_all_languages_required'), 'error')
-            return render_template('admin/edit_subject.html', subject=subject,
-                name_uz=name_uz, name_ru=name_ru, name_en=name_en,
-                description_uz=description_uz, description_ru=description_ru, description_en=description_en)
+            return render_template('admin/edit_subject.html', subject=subject, departments=departments,
+                name_uz=name_uz, name_ru=name_ru, name_en=name_en, selected_dept_ids=department_ids)
         subject.name = name_uz or name_ru or name_en
         subject.name_uz = name_uz or None
         subject.name_ru = name_ru or None
         subject.name_en = name_en or None
-        subject.description = description_uz or description_ru or description_en or None
-        subject.description_uz = description_uz or None
-        subject.description_ru = description_ru or None
-        subject.description_en = description_en or None
+        subject.department_id = department_ids[0] if department_ids else None
+        SubjectDepartment.query.filter_by(subject_id=subject.id).delete()
+        for dept_id in department_ids:
+            link = SubjectDepartment(subject_id=subject.id, department_id=dept_id)
+            db.session.add(link)
         db.session.commit()
         flash(t('subject_updated'), 'success')
         return redirect(url_for('admin.subjects'))
-    return render_template('admin/edit_subject.html', subject=subject)
+    return render_template('admin/edit_subject.html', subject=subject, departments=departments, selected_dept_ids=current_dept_ids)
 
 
 @bp.route('/subjects/<int:id>/delete-blocked')
@@ -3858,8 +3933,11 @@ def import_subjects():
             return redirect(url_for('admin.subjects'))
         
         try:
-            result = import_subjects_from_excel(file)
-            
+            source_lang = session.get('language', 'uz') or 'uz'
+            if source_lang not in ('uz', 'ru', 'en'):
+                source_lang = 'uz'
+            result = import_subjects_from_excel(file, source_lang=source_lang)
+
             if result['success']:
                 if result['imported'] > 0:
                     flash(t('subjects_imported', imported_count=result['imported']), 'success')
@@ -3891,9 +3969,12 @@ def import_subjects():
 @admin_required
 @permission_required('import_subjects')
 def download_subjects_sample():
-    """Fanlarni import qilish uchun namuna Excel faylni yuklab berish"""
+    """Fanlarni import qilish uchun namuna Excel faylni yuklab berish (platforma tilida)."""
     try:
-        sample_file = generate_subjects_sample_file()
+        lang = session.get('language', 'uz') or 'uz'
+        if lang not in ('uz', 'ru', 'en'):
+            lang = 'uz'
+        sample_file = generate_subjects_sample_file(lang=lang)
         filename = "fanlar_import_namuna.xlsx"
         return send_file(
             sample_file,
