@@ -9,11 +9,15 @@ from waitress import serve
 from app import create_app
 import logging
 
+# logs papkasini yaratish (Render va boshqa muhitlarda mavjud bo'lmasa)
+logs_dir = Path(__file__).resolve().parent / 'logs'
+logs_dir.mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/app.log', encoding='utf-8'),
+        logging.FileHandler(logs_dir / 'app.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
