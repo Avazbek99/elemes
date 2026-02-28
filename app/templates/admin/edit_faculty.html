@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('edit_faculty_title') }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>.ts-wrapper{width:100%!important}.ts-control{border-radius:0.75rem!important;padding:0.5rem 0.75rem!important;border:1px solid #d1d5db!important;font-size:0.875rem!important}.ts-control:focus-within{border-color:#0ea5e9!important;box-shadow:0 0 0 2px rgba(14,165,233,0.2)!important}.ts-dropdown{border-radius:0.75rem!important;margin-top:4px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1)!important}.ts-dropdown .active{background-color:#f0f9ff!important;color:#0369a1!important}.ts-dropdown .option{padding:8px 12px!important;font-size:0.875rem!important}</style>
+{% endblock %}
+
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.faculties') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('edit_faculty_title') }}</h1>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <!-- O'zbek tili: nom keyin tavsif -->
+            <div class="space-y-6 border-b border-gray-200 pb-6" id="facultyLangUz">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_name_uz') }} *</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="name_uz" id="name_uz" placeholder="Masalan: Axborot texnologiyalari fakulteti" required
+                            value="{{ name_uz if name_uz is defined else (faculty.name_uz or faculty.name or '') }}"
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" class="faculty-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="uz" title="{{ t('faculty_sync_translate') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_description_uz') }}</label>
+                    <div class="flex gap-2">
+                        <textarea name="description_uz" id="description_uz" rows="3" placeholder="Fakultet haqida qisqacha ma'lumot..."
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">{{ description_uz if description_uz is defined else (faculty.description_uz or faculty.description or '') }}</textarea>
+                        <button type="button" class="faculty-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="uz" title="{{ t('faculty_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rus tili: nom keyin tavsif -->
+            <div class="space-y-6 border-b border-gray-200 pb-6" id="facultyLangRu">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_name_ru') }} *</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="name_ru" id="name_ru" placeholder="Например: Факультет информационных технологий" required
+                            value="{{ name_ru if name_ru is defined else (faculty.name_ru or '') }}"
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" class="faculty-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="ru" title="{{ t('faculty_sync_translate') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_description_ru') }}</label>
+                    <div class="flex gap-2">
+                        <textarea name="description_ru" id="description_ru" rows="3" placeholder="Краткое описание факультета..."
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">{{ description_ru if description_ru is defined else (faculty.description_ru or '') }}</textarea>
+                        <button type="button" class="faculty-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="ru" title="{{ t('faculty_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ingliz tili: nom keyin tavsif -->
+            <div class="space-y-6" id="facultyLangEn">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_name_en') }} *</label>
+                    <div class="flex gap-2">
+                        <input type="text" name="name_en" id="name_en" placeholder="e.g. Faculty of Information Technology" required
+                            value="{{ name_en if name_en is defined else (faculty.name_en or '') }}"
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="button" class="faculty-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0" data-lang="en" title="{{ t('faculty_sync_translate') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('faculty_description_en') }}</label>
+                    <div class="flex gap-2">
+                        <textarea name="description_en" id="description_en" rows="3" placeholder="Brief description of the faculty..."
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">{{ description_en if description_en is defined else (faculty.description_en or '') }}</textarea>
+                        <button type="button" class="faculty-desc-sync-btn px-4 py-3 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors shrink-0 self-start" data-lang="en" title="{{ t('faculty_sync_translate') }}"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('responsible_deans') }}</label>
+                <div id="faculty-deans-container" class="space-y-2">
+                    {% if all_deans and all_deans|length > 0 %}
+                    {% for dean_id in current_dean_ids %}
+                    <div class="faculty-dean-row flex gap-2 items-center">
+                        <select name="dean_ids" class="faculty-dean-select w-full px-4 py-2 border border-gray-300 rounded-xl text-sm">
+                            <option value="">{{ t('faculty_dean_select_placeholder') }}</option>
+                            {% for u in all_deans %}
+                            <option value="{{ u.id }}" {% if u.id == dean_id %}selected{% endif %}>{{ (u.full_name or '-')|upper }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="faculty-dean-remove shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors" title="{{ t('remove') }}">×</button>
+                    </div>
+                    {% endfor %}
+                    {% if not current_dean_ids %}
+                    <div class="faculty-dean-row flex gap-2 items-center">
+                        <select name="dean_ids" class="faculty-dean-select w-full px-4 py-2 border border-gray-300 rounded-xl text-sm">
+                            <option value="">{{ t('faculty_dean_select_placeholder') }}</option>
+                            {% for u in all_deans %}
+                            <option value="{{ u.id }}">{{ (u.full_name or '-')|upper }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="faculty-dean-remove shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-gray-300 text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors" title="{{ t('remove') }}">×</button>
+                    </div>
+                    {% endif %}
+                    <button type="button" id="faculty_dean_add" class="mt-2 px-4 py-2 rounded-xl border border-primary-500 text-primary-600 hover:bg-primary-50 transition-colors text-sm font-medium flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                        {{ t('faculty_dean_add_btn') }}
+                    </button>
+                    <p class="text-xs text-gray-500 mt-1">{{ t('responsible_deans_multiple_hint') }}</p>
+                    {% else %}
+                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                        <p class="text-gray-500">{{ t('no_deans') }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <a href="{{ url_for('admin.faculties') }}" class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form');
+    var csrfToken = form ? form.querySelector('input[name="csrf_token"]') : null;
+    var token = csrfToken ? csrfToken.value : '';
+    var syncEmptyMsg = "{{ t('faculty_sync_empty') | e }}";
+    if (form && token) {
+        form.querySelectorAll('.faculty-sync-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var lang = this.getAttribute('data-lang');
+                var input = document.getElementById('name_' + lang);
+                var text = (input && input.value || '').trim();
+                if (!text) { alert(syncEmptyMsg); if (input) input.focus(); return; }
+                btn.disabled = true;
+                fetch('{{ url_for("admin.api_translate_department_name") }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify({ text: text, source_lang: lang }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.ok && data.translations) {
+                        var tr = data.translations;
+                        if (tr.uz !== undefined) { var u = document.getElementById('name_uz'); if (u) u.value = tr.uz; }
+                        if (tr.ru !== undefined) { var r = document.getElementById('name_ru'); if (r) r.value = tr.ru; }
+                        if (tr.en !== undefined) { var e = document.getElementById('name_en'); if (e) e.value = tr.en; }
+                    } else { alert(data.error || 'Tarjima amalga oshmadi.'); }
+                }).catch(function() { alert('Xatolik yuz berdi.'); }).finally(function() { btn.disabled = false; });
+            });
+        });
+        form.querySelectorAll('.faculty-desc-sync-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var lang = this.getAttribute('data-lang');
+                var input = document.getElementById('description_' + lang);
+                var text = (input && input.value || '').trim();
+                if (!text) { alert(syncEmptyMsg); if (input) input.focus(); return; }
+                btn.disabled = true;
+                fetch('{{ url_for("admin.api_translate_department_name") }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token }, body: JSON.stringify({ text: text, source_lang: lang }) })
+                .then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.ok && data.translations) {
+                        var tr = data.translations;
+                        if (tr.uz !== undefined) { var u = document.getElementById('description_uz'); if (u) u.value = tr.uz; }
+                        if (tr.ru !== undefined) { var r = document.getElementById('description_ru'); if (r) r.value = tr.ru; }
+                        if (tr.en !== undefined) { var e = document.getElementById('description_en'); if (e) e.value = tr.en; }
+                    } else { alert(data.error || 'Tarjima amalga oshmadi.'); }
+                }).catch(function() { alert('Xatolik yuz berdi.'); }).finally(function() { btn.disabled = false; });
+            });
+        });
+    }
+    var container = document.getElementById('faculty-deans-container');
+    if (container && typeof TomSelect !== 'undefined') {
+        var rows = container.querySelectorAll('.faculty-dean-row');
+        var rowTemplate = rows.length ? rows[rows.length - 1].cloneNode(true) : null;
+        if (rowTemplate) {
+            var placeholder = "{{ t('faculty_dean_select_placeholder') | e }}";
+            function initFacultyDeanSelect(selectEl) {
+                if (!selectEl || selectEl.tomselect) return;
+                var ts = new TomSelect(selectEl, { create: false, allowEmptyOption: true, maxOptions: 10000, plugins: ['dropdown_input'], placeholder: placeholder, persist: false, selectOnTab: false });
+                return ts;
+            }
+            container.querySelectorAll('.faculty-dean-select').forEach(function(el) { initFacultyDeanSelect(el); });
+            var addBtn = document.getElementById('faculty_dean_add');
+            container.addEventListener('click', function(e) {
+                if (e.target && e.target.closest('.faculty-dean-remove')) {
+                    var row = e.target.closest('.faculty-dean-row');
+                    if (row) row.remove();
+                    if (container.querySelectorAll('.faculty-dean-row').length === 0 && rowTemplate && addBtn) {
+                        var emptyRow = rowTemplate.cloneNode(true);
+                        var sel = emptyRow.querySelector('.faculty-dean-select');
+                        if (sel) { sel.selectedIndex = 0; sel.value = ''; container.insertBefore(emptyRow, addBtn); initFacultyDeanSelect(sel); }
+                    }
+                }
+            });
+            if (addBtn) addBtn.addEventListener('click', function() {
+                var newRow = rowTemplate.cloneNode(true);
+                var newSelect = newRow.querySelector('.faculty-dean-select');
+                if (newSelect) { newSelect.selectedIndex = 0; newSelect.value = ''; container.insertBefore(newRow, addBtn); initFacultyDeanSelect(newSelect); }
+            });
+        }
+    }
+});
+</script>
+{% endblock %}

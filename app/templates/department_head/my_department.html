@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('my_department') }}{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet" />
+<style>
+    .ts-control { border-radius: 0.75rem !important; padding: 0.5rem 0.75rem !important; border: 1px solid #d1d5db !important; font-size: 0.875rem !important; box-shadow: none !important; min-width: 320px; }
+    .ts-control:focus-within { border-color: var(--color-primary-500, #0ea5e9) !important; box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important; }
+    .ts-dropdown { border-radius: 0.75rem !important; border: 1px solid #e5e7eb !important; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important; }
+    .ts-dropdown .option { padding: 0.5rem 0.75rem !important; }
+    .ts-dropdown .option.active { background-color: var(--color-primary-50, #f0f9ff) !important; color: var(--color-primary-700, #0369a1) !important; }
+    
+    /* Card shadow */
+    .dept-card {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* List item hover */
+    .list-item {
+        transition: all 0.15s ease;
+        position: relative;
+    }
+    .list-item:hover {
+        background-color: #f0f9ff;
+    }
+    .list-item:hover span {
+        color: #0369a1;
+    }
+    .list-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background-color: #0ea5e9;
+        transform: scaleY(0);
+        transition: transform 0.15s ease;
+    }
+    .list-item:hover::before {
+        transform: scaleY(1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Sarlavha va filtr -->
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">
+                {% if selected_department %}
+                    {{ selected_department.get_display_name(current_lang) or selected_department.name }}
+                {% elif all_departments|length == 1 %}
+                    {{ all_departments[0].get_display_name(current_lang) or all_departments[0].name }}
+                {% else %}
+                    {{ t('my_department') }}
+                {% endif %}
+            </h1>
+            <p class="text-gray-500 mt-1">{{ t('department_subjects_teachers') }}</p>
+        </div>
+        
+        {% if show_department_filter %}
+        <form method="GET" action="{{ url_for('main.department_head_my_department') }}" id="deptFilterForm">
+            <select name="department_id" id="deptFilterSelect" class="dept-filter-select">
+                <option value="">{{ t('all_departments') }}</option>
+                {% for dept in all_departments %}
+                <option value="{{ dept.id }}" {% if selected_dept_id == dept.id %}selected{% endif %}>
+                    {{ dept.get_display_name(current_lang) or dept.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Ikki ustunli layout: O'qituvchilar va Fanlar -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" style="min-height: calc(100vh - 220px);">
+        <!-- O'qituvchilar (chap) -->
+        <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col dept-card">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-semibold text-gray-900">{{ t('teachers') }}</h2>
+                <span class="text-sm text-gray-500">{{ teachers|length }} {{ t('ta') }}</span>
+            </div>
+            
+            <!-- O'qituvchilarni qidirish -->
+            <div class="px-4 py-3 border-b border-gray-100 shrink-0">
+                <input type="text" id="teacherSearch" placeholder="{{ t('search_teacher') }}..." 
+                    class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <div class="flex-1 overflow-y-auto">
+                {% if teachers %}
+                <ul class="divide-y divide-gray-100" id="teachersList">
+                    {% for teacher in teachers %}
+                    <li class="px-6 py-3 teacher-item list-item cursor-default">
+                        <span class="text-sm font-medium text-gray-900 uppercase">{{ teacher.full_name or teacher.login }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="p-8 text-center">
+                    <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <p class="text-gray-500">{{ t('no_teachers_found') }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Fanlar (o'ng) -->
+        <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col dept-card">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-semibold text-gray-900">{{ t('subjects') }}</h2>
+                <span class="text-sm text-gray-500">{{ subjects|length }} {{ t('ta') }}</span>
+            </div>
+            
+            <!-- Fanlarni qidirish -->
+            <div class="px-4 py-3 border-b border-gray-100 shrink-0">
+                <input type="text" id="subjectSearch" placeholder="{{ t('search_subject') }}..." 
+                    class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            
+            <div class="flex-1 overflow-y-auto">
+                {% if subjects %}
+                <ul class="divide-y divide-gray-100" id="subjectsList">
+                    {% for subject in subjects %}
+                    <li class="px-6 py-3 subject-item list-item cursor-default">
+                        <span class="text-sm font-medium text-gray-900">{{ subject.get_display_name(current_lang) or subject.name }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="p-8 text-center">
+                    <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    <p class="text-gray-500">{{ t('no_subjects_found') }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Kafedra filtri - Tom Select
+    var deptSelect = document.getElementById('deptFilterSelect');
+    if (deptSelect) {
+        var ts = new TomSelect(deptSelect, {
+            create: false,
+            allowEmptyOption: true,
+            plugins: ['dropdown_input']
+        });
+        ts.on('change', function() {
+            document.getElementById('deptFilterForm').submit();
+        });
+    }
+    
+    // Fanlar qidirish
+    var subjectSearch = document.getElementById('subjectSearch');
+    if (subjectSearch) {
+        subjectSearch.addEventListener('input', function() {
+            var query = this.value.toLowerCase();
+            document.querySelectorAll('.subject-item').forEach(function(item) {
+                var text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    }
+    
+    // O'qituvchilar qidirish
+    var teacherSearch = document.getElementById('teacherSearch');
+    if (teacherSearch) {
+        teacherSearch.addEventListener('input', function() {
+            var query = this.value.toLowerCase();
+            document.querySelectorAll('.teacher-item').forEach(function(item) {
+                var text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

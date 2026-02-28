@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('create_assignment_title') }}{% endblock %}
+
+{% block content %}
+<span id="js-select_lesson_type" class="hidden">{{ t('select_lesson_type_please') }}</span>
+<span id="js-enter_description" class="hidden">{{ t('enter_description_please') }}</span>
+<span id="js-select_topic" class="hidden">{{ t('select_at_least_one_topic') }}</span>
+<span id="js-enter_deadline" class="hidden">{{ t('enter_deadline_please') }}</span>
+<span id="js-no_topics_in_type" class="hidden">{{ t('no_topics_in_lesson_type') }}</span>
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id) if (direction_id and group_id) else (url_for('courses.detail', id=subject.id, dir_id=direction_id) if direction_id else url_for('courses.detail', id=subject.id)) }}"
+            class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('create_assignment_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('add_assignment_to_subject', subject=subject.name) }}</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 1. Dars turi -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('lesson_type') }} *</label>
+                {% if allowed_lesson_types and allowed_lesson_types|length > 0 %}
+                <select name="lesson_type" id="lesson_type_select" required
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('lesson_type_select') }}</option>
+                    {% for lesson_type in allowed_lesson_types %}
+                    <option value="{{ lesson_type.value }}">{{ lesson_type.value|lesson_type_label }}</option>
+                    {% endfor %}
+                </select>
+                {% elif current_user.role == 'admin' %}
+                <select name="lesson_type" id="lesson_type_select_admin" required
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('lesson_type_select') }}</option>
+                    <option value="maruza">{{ t('lesson_type_maruza') }}</option>
+                    <option value="amaliyot">{{ t('lesson_type_amaliyot') }}</option>
+                    <option value="laboratoriya">{{ t('lesson_type_laboratoriya') }}</option>
+                    <option value="seminar">{{ t('lesson_type_seminar') }}</option>
+                    <option value="kurs_ishi">{{ t('lesson_type_kurs_ishi') }}</option>
+                </select>
+                {% else %}
+                <select name="lesson_type" id="lesson_type_select_disabled" required disabled
+                    class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed">
+                    <option value="">{{ t('lesson_type_not_available') }}</option>
+                </select>
+                <p class="text-xs text-red-500 mt-1">{{ t('no_lesson_type_assigned') }}</p>
+                {% endif %}
+                <p class="text-xs text-gray-500 mt-2">{{ t('assignment_only_with_topics') }}</p>
+            </div>
+
+            <!-- 2. Topshiriq nomi -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('assignment_name_label') }} *</label>
+                <input type="text" name="title" required placeholder="{{ t('assignment_title_placeholder') }}"
+                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-[1fr_1fr_2fr] gap-x-6 gap-y-6 items-stretch">
+            <!-- 3. Tegishli mavzular (chap yarim, ustunlar tekis) -->
+            {% if lessons %}
+            <div id="lessons_section" class="lg:col-span-2 flex flex-col min-h-[380px]">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('which_topics_related') }} *</label>
+                <div id="lessons_placeholder" class="p-4 bg-gray-100 border border-gray-200 rounded-xl flex-1 min-h-0 flex items-center justify-center">
+                    <p class="text-sm text-gray-500 text-center">{{ t('select_lesson_type_first') }}</p>
+                </div>
+                <div id="lessons_list"
+                    class="p-4 bg-gray-50 border border-gray-200 rounded-xl flex-1 min-h-[300px] overflow-y-auto hidden">
+                    {% for lesson in lessons %}
+                    <div class="lesson-item flex items-center gap-3 mb-3 last:mb-0"
+                        data-lesson-type="{{ lesson.lesson_type or '' }}" style="display: none;">
+                        <input type="checkbox" name="lesson_ids" id="lesson_{{ lesson.id }}" value="{{ lesson.id }}"
+                            class="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                        <label for="lesson_{{ lesson.id }}"
+                            class="text-sm font-medium text-gray-700 cursor-pointer flex-1">
+                            {{ lesson.display_order_in_type|default(lesson.order) }}. {{ lesson.title }}
+                            {% if lesson.lesson_type %}
+                            <span class="text-xs text-gray-500">({{ lesson.lesson_type|lesson_type_label }})</span>
+                            {% endif %}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="mt-2 text-xs text-gray-500">{{ t('select_related_topics_hint') }}</p>
+            </div>
+            {% else %}
+            <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-xl lg:col-span-2">
+                <p class="text-sm text-yellow-800">Ushbu yo'nalishda bu fan uchun hali mavzular yaratilmagan</p>
+            </div>
+            {% endif %}
+
+            <!-- 4. Tavsif (o'ng yarim, ustunlar tekis) -->
+            <div class="lg:col-span-1 flex flex-col min-h-[380px]">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('description') }} *</label>
+                <textarea name="description" rows="14" required placeholder="{{ t('assignment_description_placeholder') }}"
+                    class="flex-1 min-h-[340px] w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
+            </div>
+            <!-- 5. Muddat, maksimal ball va fayl majburiy (pastda, yuqoridagi ustunlar bilan tekis) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('deadline') }} *</label>
+                    <input type="text" name="due_date" required placeholder="{{ t('date_placeholder') }}"
+                        class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('max_score') }}</label>
+                    <input type="number" name="max_score" value="{{ scale_max }}" step="0.01" readonly
+                        class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">&nbsp;</label>
+                    <div class="flex items-center gap-3 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                        <input type="checkbox" name="file_required" id="file_required" value="1"
+                            class="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500 shrink-0">
+                        <label for="file_required" class="text-sm font-medium text-gray-700 cursor-pointer">
+                            {{ t('file_upload_required') }}
+                        </label>
+                        <span class="text-xs text-gray-500 hidden lg:inline">{{ t('file_required_hint') }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-100 flex gap-3">
+                <button type="submit" class="flex-1 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <a href="{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id) if (direction_id and group_id) else (url_for('courses.detail', id=subject.id, dir_id=direction_id) if direction_id else url_for('courses.detail', id=subject.id)) }}"
+                    class="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Dars turi tanlanganda mavzularni filtrlash
+    function filterLessonsByType() {
+        const lessonTypeSelect = document.getElementById('lesson_type_select') ||
+            document.getElementById('lesson_type_select_admin') ||
+            document.getElementById('lesson_type_select_disabled');
+
+        const selectedType = lessonTypeSelect ? lessonTypeSelect.value : '';
+        const lessonsPlaceholder = document.getElementById('lessons_placeholder');
+        const lessonsList = document.getElementById('lessons_list');
+        const lessonItems = document.querySelectorAll('.lesson-item');
+
+        if (!selectedType) {
+            // Dars turi tanlanmagan
+            if (lessonsPlaceholder) lessonsPlaceholder.classList.remove('hidden');
+            if (lessonsList) lessonsList.classList.add('hidden');
+
+            // Barcha checkbox'larni yashirish va tanlovlarni tozalash
+            lessonItems.forEach(item => {
+                item.style.display = 'none';
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                if (checkbox) checkbox.checked = false;
+            });
+            return;
+        }
+
+        // Placeholder'ni yashirish, ro'yxatni ko'rsatish
+        if (lessonsPlaceholder) lessonsPlaceholder.classList.add('hidden');
+        if (lessonsList) lessonsList.classList.remove('hidden');
+
+        // Mavzularni filtrlash
+        let visibleCount = 0;
+        lessonItems.forEach(item => {
+            const lessonType = item.getAttribute('data-lesson-type') || '';
+
+            // Faqat tanlangan dars turidagi mavzularni ko'rsatish
+            if (lessonType === selectedType) {
+                item.style.display = 'flex';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+                // Yashirilgan mavzulardagi tanlovlarni tozalash
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                if (checkbox) checkbox.checked = false;
+            }
+        });
+
+        // Agar ko'rsatiladigan mavzular yo'q bo'lsa
+        if (visibleCount === 0 && lessonsList) {
+            const noLessonsMsg = document.createElement('p');
+            noLessonsMsg.className = 'text-sm text-gray-500 text-center';
+            noLessonsMsg.textContent = 'Ushbu dars turida hali mavzular mavjud emas';
+
+            // Eski xabar mavjud bo'lsa olib tashlash
+            const existingMsg = lessonsList.querySelector('.no-lessons-message');
+            if (existingMsg) existingMsg.remove();
+
+            noLessonsMsg.classList.add('no-lessons-message');
+            lessonsList.appendChild(noLessonsMsg);
+        } else {
+            // Xabarni olib tashlash
+            const existingMsg = lessonsList.querySelector('.no-lessons-message');
+            if (existingMsg) existingMsg.remove();
+        }
+    }
+
+    // Dars turi o'zgarganda filtrlash
+    document.addEventListener('DOMContentLoaded', function () {
+        const lessonTypeSelect = document.getElementById('lesson_type_select') ||
+            document.getElementById('lesson_type_select_admin');
+
+        if (lessonTypeSelect) {
+            lessonTypeSelect.addEventListener('change', filterLessonsByType);
+
+            // Agar dastlab tanlangan bo'lsa
+            if (lessonTypeSelect.value) {
+                filterLessonsByType();
+            }
+        }
+    });
+
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function (e) {
+        const lessonTypeSelect = document.getElementById('lesson_type_select') ||
+            document.getElementById('lesson_type_select_admin') ||
+            document.getElementById('lesson_type_select_disabled');
+
+        if (!lessonTypeSelect || lessonTypeSelect.disabled || !lessonTypeSelect.value) {
+            e.preventDefault();
+            alert((document.getElementById('js-select_lesson_type') || {}).textContent || 'Iltimos, dars turini tanlang!');
+            if (lessonTypeSelect && !lessonTypeSelect.disabled) lessonTypeSelect.focus();
+            return false;
+        }
+
+        // Tavsifni tekshirish
+        const descriptionInput = document.querySelector('textarea[name="description"]');
+        if (descriptionInput && !descriptionInput.value.trim()) {
+            e.preventDefault();
+            alert((document.getElementById('js-enter_description') || {}).textContent || 'Iltimos, tavsifni kiriting!');
+            descriptionInput.focus();
+            return false;
+        }
+
+        // Kamida bitta mavzu tanlash kerak (faqat ko'rsatilgan mavzulardan)
+        const visibleLessons = document.querySelectorAll('.lesson-item[style*="display: flex"] input[name="lesson_ids"]:checked');
+        if (visibleLessons.length === 0) {
+            e.preventDefault();
+            alert((document.getElementById('js-select_topic') || {}).textContent || 'Iltimos, kamida bitta mavzuni tanlang!');
+            return false;
+        }
+
+        // Muddatni tekshirish
+        const dateInput = document.querySelector('input[name="due_date"]');
+        if (!dateInput || !dateInput.value) {
+            e.preventDefault();
+            alert((document.getElementById('js-enter_deadline') || {}).textContent || 'Iltimos, muddatni kiriting!');
+            return false;
+        }
+    });
+</script>
+{% endblock %}

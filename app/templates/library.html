@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('electronic_library') }}{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-4 border-b border-gray-100">
+            <h1 class="text-xl font-bold text-gray-900">{{ t('electronic_library') }}</h1>
+            <p class="text-sm text-gray-500 mt-1">{{ t('electronic_library_lang_hint') }}</p>
+        </div>
+        <div class="relative w-full" style="height: calc(100vh - 220px); min-height: 500px;">
+            <iframe
+                src="https://unilibrary.uz/"
+                title="{{ t('electronic_library') }}"
+                class="absolute inset-0 w-full h-full border-0"
+                allowfullscreen
+                loading="lazy">
+            </iframe>
+        </div>
+    </div>
+</div>
+{% endblock %}

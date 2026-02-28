@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('update_page_title') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('update_page_title') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('update_page_description') }}</p>
+        </div>
+        {% if enabled %}
+        <div class="flex flex-wrap gap-3 shrink-0">
+            <button type="button" id="btn-check" class="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                {{ t('update_check_btn') }}
+            </button>
+            <form method="POST" action="{{ url_for('admin.update_run') }}" class="inline" id="form-run-update">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" id="btn-run" class="px-5 py-2.5 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium" disabled>
+                    {{ t('update_run_btn') }}
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+        {% if not enabled %}
+        <p class="text-amber-600">{{ t('update_disabled_note') }}</p>
+        {% else %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm text-gray-500">{{ t('update_current_version') }}</p>
+                <p class="text-lg font-mono font-semibold text-gray-900">{{ current_version or '—' }}</p>
+            </div>
+            <div id="latest-version-block">
+                <p class="text-sm text-gray-500">{{ t('update_latest_version') }}</p>
+                <p id="latest-version-value" class="text-lg font-mono text-gray-600">—</p>
+                <p id="update-status" class="text-sm mt-1 hidden"></p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if is_central %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+                <span class="text-sm text-gray-500">{{ t('center_block_status') }}: </span>
+                {% if center_blocked %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-amber-100 text-amber-800">{{ t('center_blocked') }}</span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-green-100 text-green-800">{{ t('center_not_blocked') }}</span>
+                {% endif %}
+            </div>
+            <form method="POST" action="{{ url_for('admin.update_center_block_set') }}" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="blocked" value="{{ '0' if center_blocked else '1' }}"/>
+                <button type="submit" class="px-4 py-2 rounded-xl text-sm font-medium {{ 'bg-green-600 text-white hover:bg-green-700' if center_blocked else 'bg-amber-100 text-amber-800 hover:bg-amber-200' }} transition-colors">
+                    {{ t('center_unblock_btn') if center_blocked else t('center_block_btn') }}
+                </button>
+            </form>
+        </div>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t('update_institutions_section_title') }}</h2>
+        <div class="flex flex-wrap gap-3 mb-4">
+            <form method="POST" action="{{ url_for('admin.update_trigger') }}" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors text-sm font-medium">
+                    {{ t('update_trigger_btn') }}
+                </button>
+            </form>
+            <button type="button" id="btn-add-institution" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors text-sm font-medium">
+                {{ t('add_institution') }}
+            </button>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+            <table class="w-full min-w-[700px]">
+                <thead class="bg-gray-50">
+                    <tr class="border-b-2 border-gray-400">
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('institution_id_label') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('institution_name_label') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('institutions_connected') }}</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('institutions_blocked') }}</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="institutions-tbody">
+                    {% for inst in institutions %}
+                    <tr class="border-b border-gray-200 hover:bg-primary-100 transition-colors {% if loop.index is even %}bg-gray-50/50{% endif %}" data-id="{{ inst.id }}" data-name="{{ inst.name|e }}" data-description="{{ (inst.description or '')|e }}" data-blocked="{{ '1' if inst.blocked else '0' }}" data-block-reason="{{ (inst.block_reason or '')|e }}">
+                        <td class="px-6 py-4 text-sm text-gray-900">{{ inst.id }}</td>
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ inst.name or '—' }}</td>
+                        <td class="px-6 py-4 text-sm">
+                            {% if inst.connected %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{{ t('institutions_connected') }}</span>
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm">
+                            {% if inst.blocked %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">{{ t('institutions_blocked') }}</span>
+                            {% if inst.block_reason %}<span class="text-gray-500 text-xs">({{ inst.block_reason }})</span>{% endif %}
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="inline-flex items-center gap-1">
+                                <button type="button" class="institution-edit-btn p-2 rounded-lg hover:bg-primary-600 hover:text-white text-blue-600 transition-colors" title="{{ t('edit_info') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                                <form action="{{ url_for('admin.update_institution_delete', inst_id=inst.id) }}" method="POST" class="inline institution-delete-form" data-confirm="{{ t('confirm_delete_institution') | e }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="p-2 rounded-lg hover:bg-red-600 hover:text-white text-red-600 transition-colors" title="{{ t('delete') }}">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('admin.update_institution_toggle', inst_id=inst.id) }}" method="POST" class="inline" id="toggle-form-inst-{{ inst.id }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <label class="relative inline-flex items-center cursor-pointer" title="{{ t('faollik') }}">
+                                        <input type="checkbox" class="sr-only peer" {% if not inst.blocked %}checked{% endif %} onchange="document.getElementById('toggle-form-inst-{{ inst.id }}').submit();">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                                    </label>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not institutions %}
+                    <tr id="institutions-empty"><td colspan="5" class="px-6 py-12 text-center text-gray-500">{{ t('no_data') }}</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal: Institut qo'shish / tahrirlash -->
+    <div id="institution-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-hidden="true">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/50" aria-hidden="true" id="institution-modal-backdrop"></div>
+            <div class="relative bg-white rounded-xl shadow-xl w-[720px] max-w-[90vw] shrink-0 p-5 mx-auto">
+                <h3 id="institution-modal-title" class="text-base font-semibold text-gray-900 mb-3"></h3>
+                <form id="institution-form" method="post" action="{{ url_for('admin.update_institutions_save') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="mode" id="institution-form-mode" value="add">
+                    <input type="hidden" id="institution-form-id" name="id" value="">
+                    <input type="hidden" name="blocked" id="institution-form-blocked" value="0">
+                    <div class="space-y-3">
+                        <div id="institution-form-id-row" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700">{{ t('institution_id_label') }}</label>
+                            <input type="text" id="institution-form-id-input" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" required placeholder="">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('institution_name_label') }}</label>
+                            <input type="text" id="institution-form-name" name="name" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">{{ t('description_label') }}</label>
+                            <textarea id="institution-form-description" name="description" rows="2" class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm resize-none" placeholder=""></textarea>
+                        </div>
+                        <div class="flex justify-end items-center gap-2 pt-1">
+                            <span class="text-sm font-medium text-gray-700">{{ t('faollik') }}</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="institution-form-active-toggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex gap-2 justify-end">
+                        <button type="button" id="institution-modal-cancel" class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">{{ t('cancel') or 'Bekor' }}</button>
+                        <button type="submit" class="px-3 py-1.5 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">{{ t('save') or 'Saqlash' }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+    (function() {
+        var modal = document.getElementById('institution-modal');
+        var backdrop = document.getElementById('institution-modal-backdrop');
+        var form = document.getElementById('institution-form');
+        var formId = document.getElementById('institution-form-id');
+        var formIdInput = document.getElementById('institution-form-id-input');
+        var formIdRow = document.getElementById('institution-form-id-row');
+        var formName = document.getElementById('institution-form-name');
+        var formDescription = document.getElementById('institution-form-description');
+        var formBlocked = document.getElementById('institution-form-blocked');
+        var formActiveToggle = document.getElementById('institution-form-active-toggle');
+        var modalTitle = document.getElementById('institution-modal-title');
+        var btnAdd = document.getElementById('btn-add-institution');
+        var cancelBtn = document.getElementById('institution-modal-cancel');
+        var tAdd = {{ t('add_institution') | tojson }};
+        var tEdit = {{ t('institution_edit') | tojson }};
+
+        function openModal(isNew) {
+            if (isNew) {
+                modalTitle.textContent = tAdd;
+                document.getElementById('institution-form-mode').value = 'add';
+                formIdRow.classList.remove('hidden');
+                formIdInput.disabled = false;
+                formId.value = '';
+                formIdInput.value = '';
+                formName.value = '';
+                formBlocked.value = '0';
+                if (formActiveToggle) formActiveToggle.checked = true;
+            }
+            modal.classList.remove('hidden');
+        }
+        function openModalEdit(id, name, description, blocked) {
+            modalTitle.textContent = tEdit;
+            document.getElementById('institution-form-mode').value = 'edit';
+            formIdRow.classList.add('hidden');
+            formId.value = id;
+            formIdInput.value = id;
+            formName.value = name || '';
+            if (formDescription) formDescription.value = description || '';
+            var isBlocked = !!blocked;
+            formBlocked.value = isBlocked ? '1' : '0';
+            if (formActiveToggle) formActiveToggle.checked = !isBlocked;
+            modal.classList.remove('hidden');
+        }
+        if (formActiveToggle) {
+            formActiveToggle.addEventListener('change', function() {
+                formBlocked.value = formActiveToggle.checked ? '0' : '1';
+            });
+        }
+        function closeModal() {
+            modal.classList.add('hidden');
+        }
+        backdrop && backdrop.addEventListener('click', closeModal);
+        cancelBtn && cancelBtn.addEventListener('click', closeModal);
+
+        btnAdd && btnAdd.addEventListener('click', function() { openModal(true); });
+
+        document.querySelectorAll('.institution-edit-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var tr = btn.closest('tr');
+                if (!tr || tr.id === 'institutions-empty') return;
+                openModalEdit(tr.dataset.id, tr.dataset.name, tr.dataset.description || '', tr.dataset.blocked === '1');
+            });
+        });
+
+        form && form.addEventListener('submit', function(e) {
+            if (formIdRow && !formIdRow.classList.contains('hidden') && formIdInput) {
+                formId.value = (formIdInput.value || '').trim();
+            }
+            if (!formId.value) {
+                e.preventDefault();
+                alert('ID kiriting');
+                return false;
+            }
+        });
+
+        document.addEventListener('submit', function(e) {
+            var f = e.target && e.target.closest && e.target.closest('form.institution-delete-form');
+            if (f && !confirm(f.getAttribute('data-confirm') || "O'chirishni tasdiqlaysizmi?")) {
+                e.preventDefault();
+            }
+        });
+    })();
+    </script>
+    {% endif %}
+</div>
+
+{% if enabled %}
+<script>
+(function() {
+    var btnCheck = document.getElementById('btn-check');
+    var btnRun = document.getElementById('btn-run');
+    var latestValue = document.getElementById('latest-version-value');
+    var statusEl = document.getElementById('update-status');
+    if (!btnCheck || !latestValue) return;
+    btnCheck.addEventListener('click', function() {
+        btnCheck.disabled = true;
+        latestValue.textContent = '…';
+        if (statusEl) { statusEl.classList.add('hidden'); statusEl.textContent = ''; }
+        fetch('{{ url_for("admin.update_check") }}')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.ok) {
+                    latestValue.textContent = data.latest_version || '—';
+                    if (statusEl) {
+                        statusEl.classList.remove('hidden');
+                        statusEl.textContent = data.update_available ? '{{ t("update_available") }}' : '{{ t("update_not_available") }}';
+                        statusEl.className = 'text-sm mt-1 ' + (data.update_available ? 'text-green-600' : 'text-gray-500');
+                    }
+                    if (btnRun) btnRun.disabled = !data.update_available;
+                } else {
+                    latestValue.textContent = '—';
+                    if (statusEl) { statusEl.classList.remove('hidden'); statusEl.textContent = data.error || '{{ t("error") }}'; statusEl.className = 'text-sm mt-1 text-red-600'; }
+                }
+            })
+            .catch(function() {
+                latestValue.textContent = '—';
+                if (statusEl) { statusEl.classList.remove('hidden'); statusEl.textContent = '{{ t("error") }}'; statusEl.className = 'text-sm mt-1 text-red-600'; }
+            })
+            .finally(function() { btnCheck.disabled = false; });
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('student_attendance_title') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('student_attendance_title') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('student_attendance_description') }}</p>
+        </div>
+        <form method="get" action="{{ url_for('attendance.student_attendance') }}" class="flex items-center gap-2">
+            <input type="date" name="date" value="{{ target_date.isoformat() }}" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">{{ t('filter') }}</button>
+        </form>
+    </div>
+
+    <form method="post" action="{{ url_for('attendance.compute_daily') }}" class="flex flex-wrap items-center gap-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="date" name="date" value="{{ target_date.isoformat() }}" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        <button type="submit" class="px-4 py-2 bg-amber-100 text-amber-800 rounded-xl text-sm font-medium hover:bg-amber-200 border border-amber-200">{{ t('attendance_compute') }}</button>
+    </form>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-gray-900 font-semibold border-b border-gray-100">
+                    <tr>
+                        <th class="px-6 py-3">{{ t('student_name') }}</th>
+                        <th class="px-6 py-3">{{ t('first_entry') }}</th>
+                        <th class="px-6 py-3">{{ t('last_exit') }}</th>
+                        <th class="px-6 py-3">{{ t('status') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for row in rows %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-3 font-medium text-gray-900">{{ row.student.full_name if row.student else '—' }}</td>
+                        <td class="px-6 py-3">{{ row.first_entry.strftime('%H:%M') if row.first_entry else '—' }}</td>
+                        <td class="px-6 py-3">{{ row.last_exit.strftime('%H:%M') if row.last_exit else '—' }}</td>
+                        <td class="px-6 py-3">
+                            {% if row.status == 'Present' %}<span class="px-2 py-0.5 rounded bg-green-100 text-green-800">{{ t('status_present') }}</span>
+                            {% else %}<span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700">{{ t('status_absent') }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-8 text-center text-gray-500">{{ t('no_data') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

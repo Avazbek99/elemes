@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ t('edit_superadmin_title') }}{% endblock %}
+{% block content %}
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('admin.superadmins') }}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('edit_superadmin_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ (user.full_name or '-')|upper }}</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">{{ t('basic_info') }}</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('full_name') }} *</label>
+                        <input type="text" name="full_name" required value="{{ (user.full_name or '')|upper }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('login') }} *</label>
+                        <input type="text" name="login" required value="{{ user.login or '' }}" placeholder="a_tursunqulov"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('phone') }}</label>
+                        <input type="text" name="phone" value="{{ user.phone or '' }}" placeholder="+998 90 123 45 67"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('email') }}</label>
+                        <input type="email" name="email" value="{{ user.email or '' }}" placeholder="email@example.uz"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('description') }}</label>
+                        <textarea name="description" rows="1" placeholder="{{ t('staff_description_placeholder') }}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none">{% if user.description %}{{ user.description }}{% endif %}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">{{ t('passport_info') }}</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_series_number') }} *</label>
+                        <input type="text" name="passport_number" required value="{{ user.passport_number or '' }}" placeholder="AD1234567" style="text-transform: uppercase;"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('passport_pinfl') }}</label>
+                        <input type="text" name="pinfl" value="{{ user.pinfl or '' }}" maxlength="14" placeholder="30202020200021"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('birth_date') }}</label>
+                        <input type="text" name="birth_date"
+                            value="{% if user.birth_date %}{{ user.birth_date.strftime('%Y-%m-%d') }}{% endif %}"
+                            placeholder="1999-02-06"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent flatpickr-date-iso">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-4">
+                <button type="submit" class="px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <a href="{{ url_for('admin.superadmins') }}" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+# IDE / editor
+.idea/
+.vscode/
+.cursor/
+.tmp_zip_ref/
+
+# Python
+__pycache__/
+*.pyc
+.DS_Store
+
+# Virtual env
+.venv/
+venv/
+
+# Keraksiz / ortiqcha (tozalangan)
+check_table.py
+upgrade.py
+render.yaml
+Procfile
+MARKAZIY_BOSHQARUV.md
+KERAKSIZ_FAYLLAR.md
+smart-attendance-dashboard/
+central_server/
+face_log_server/
+
+# Local data / logs / uploads (repo root = ELMS1.3)
+uploads/
+logs/
+# uploads/site (logolar) GitHubga yuklansin
+!uploads/site/
+!uploads/site/**
+server.log
+.env
+*.db
+# instance/eduspace.db 100MB+ GitHub limiti

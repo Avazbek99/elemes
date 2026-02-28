@@ -1,0 +1,346 @@
+{% if tv_mode %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Davomat monitoringi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fb;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .main-content {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            max-width: 100%;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+        .header {
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .header-left { display: flex; flex-direction: column; }
+        .header h1 { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; }
+        .header p { margin: 2px 0 0 0; font-size: 0.75rem; color: #6b7280; font-weight: 400; }
+        .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .header-date-wrap {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px;
+        }
+        .header-date-wrap span:first-child { font-size: 0.875rem; color: #6b7280; }
+        .header-date-wrap #header-date { font-size: 0.875rem; font-weight: 600; color: #111827; }
+        .header-schedule { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #6b7280; }
+        .header-schedule .badge { padding: 4px 8px; border-radius: 6px; font-weight: 500; }
+        .header-schedule .badge-green { background: #dcfce7; color: #166534; }
+        .header-schedule .badge-blue { background: #dbeafe; color: #1e40af; }
+        .header-status {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px;
+        }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+        .status-dot.connected { background: #10b981; }
+        .status-dot.disconnected { background: #ef4444; }
+        .header-status #status-text { font-size: 0.875rem; font-weight: 500; color: #111827; }
+        .header-status #clock { font-size: 1rem; font-weight: 700; font-family: ui-monospace, monospace; color: #111827; margin-left: 4px; }
+        .status-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            padding: 20px 24px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+        .status-card {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            max-height: 420px;
+            overflow: hidden;
+        }
+        .bar-chart-container { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; min-height: 0; }
+        .bar-chart-container::-webkit-scrollbar { width: 6px; }
+        .bar-chart-container::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        .bar-chart-item { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .bar-chart-label { width: 100px; font-size: 0.8rem; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+        .bar-chart-bar-container { flex: 1; height: 12px; background: #f3f4f6; border-radius: 4px; overflow: hidden; min-width: 0; }
+        .bar-chart-bar { height: 100%; background: #f59e0b; border-radius: 4px; transition: width 0.3s; }
+        .bar-chart-value { width: 40px; text-align: right; font-size: 0.8rem; font-weight: 600; color: #111827; flex-shrink: 0; }
+        .active-employee-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; min-height: 0; }
+        .active-employee-list::-webkit-scrollbar { width: 6px; }
+        .active-employee-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        .active-employee-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; border: 1px solid #e5e7eb; flex-shrink: 0; }
+        .active-employee-item:hover { background: #f9fafb; }
+        .active-employee-avatar { width: 32px; height: 32px; border-radius: 50%; background: #e5e7eb; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; color: #6b7280; }
+        .active-employee-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .active-employee-info { flex: 1; min-width: 0; }
+        .active-employee-name { font-size: 0.85rem; font-weight: 700; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .active-employee-details { font-size: 0.75rem; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .active-employee-status { flex-shrink: 0; text-align: right; }
+        .active-employee-kpi { font-size: 0.85rem; font-weight: 700; color: #111827; }
+        .badge-ontime { background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 10px; font-size: 0.65rem; font-weight: 500; }
+        .badge-late { background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 10px; font-size: 0.65rem; font-weight: 500; }
+        .badge-absent { background: #f3f4f6; color: #374151; padding: 2px 6px; border-radius: 10px; font-size: 0.65rem; font-weight: 500; }
+        .status-card-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        .status-card-label {
+            font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.5px;
+            color: #111827; margin-bottom: 20px;
+        }
+        .arc-wrap {
+            position: relative; width: 100%; height: 220px;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+        }
+        .arc-wrap svg { overflow: visible; }
+        .arc-center {
+            position: absolute; text-align: center; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+        .arc-center .label { font-size: 0.75rem; color: #9ca3af; margin-bottom: 4px; }
+        .arc-center .value { font-size: 1.5rem; font-weight: 700; color: #111827; }
+        .stat-rows {
+            display: flex; flex-direction: column; gap: 0; width: 100%;
+            border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden;
+        }
+        .stat-row {
+            display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 10px 12px;
+        }
+        .stat-row-left { display: flex; align-items: center; gap: 8px; }
+        .stat-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .stat-row-left span { font-size: 0.9rem; color: #111827; font-weight: 500; }
+        .stat-row-right { font-size: 0.9rem; font-weight: 600; color: #111827; }
+    </style>
+</head>
+<body>
+<div class="main-content">
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>Davomat monitoringi</h1>
+                <p>Asosiy Dashboard</p>
+            </div>
+            <div class="header-right">
+                <div class="header-date-wrap">
+                    <span>Bugun:</span>
+                    <span id="header-date">--</span>
+                </div>
+                <div class="header-schedule">
+                    <span class="badge badge-green">Kirish 09:00</span>
+                    <span class="badge badge-blue">Chiqish 17:00–18:00</span>
+                </div>
+                <div class="header-status">
+                    <span id="status-dot" class="status-dot connected"></span>
+                    <span id="status-text">Jonli</span>
+                    <span id="clock">--:--:--</span>
+                </div>
+            </div>
+        </div>
+        <div class="status-cards">
+            <div class="status-card">
+                <div class="status-card-content">
+                    <div class="status-card-label">UMUMIY STATISTIKA</div>
+                    <div class="arc-wrap">
+                        <svg width="200" height="200" viewBox="0 0 200 200">
+                            <path id="arc-ontime" d="" fill="none" stroke="#10b981" stroke-width="20" stroke-linecap="round"/>
+                            <path id="arc-late" d="" fill="none" stroke="#f59e0b" stroke-width="20" stroke-linecap="round"/>
+                            <path id="arc-absent" d="" fill="none" stroke="#6b7280" stroke-width="20" stroke-linecap="round"/>
+                        </svg>
+                        <div class="arc-center">
+                            <div class="label">Jami xodimlar</div>
+                            <div class="value"><span id="statTotalCame">0</span>/<span id="statTotalAll">0</span></div>
+                        </div>
+                    </div>
+                    <div class="stat-rows">
+                        <div class="stat-row">
+                            <div class="stat-row-left"><div class="stat-dot" style="background:#10b981;"></div><span>Vaqtida keldi</span></div>
+                            <div class="stat-row-right"><span id="statOntimePercent">0</span>%</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-row-left"><div class="stat-dot" style="background:#f59e0b;"></div><span>Kechikdi</span></div>
+                            <div class="stat-row-right"><span id="statLatePercent">0</span>%</div>
+                        </div>
+                        <div class="stat-row">
+                            <div class="stat-row-left"><div class="stat-dot" style="background:#6b7280;"></div><span>Kelmagan</span></div>
+                            <div class="stat-row-right"><span id="statAbsentPercent">0</span>%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="status-card">
+                <div class="status-card-content">
+                    <div class="status-card-label">Markaziy bo'linmalar</div>
+                    <div class="bar-chart-container" id="departmentChartContainer">
+                        <div style="text-align:center;color:#6b7280;font-size:0.85rem;padding:12px;">Ma'lumotlar yo'q</div>
+                    </div>
+                </div>
+            </div>
+            <div class="status-card">
+                <div class="status-card-content">
+                    <div class="status-card-label">Faol xodimlar</div>
+                    <div class="active-employee-list" id="activeEmployeesList">
+                        <div style="text-align:center;color:#6b7280;font-size:0.85rem;padding:12px;">Ma'lumotlar yo'q</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    const tv = true;
+    const apiUrl = "{{ url_for('face_api.dashboard_cards') }}" + (tv ? "?tv=1&" : "?") + "limit=300";
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const clockEl = document.getElementById('clock');
+    var fetchInFlight = false;
+    var pollIntervalMs = 10000;
+
+    function tick() {
+        var d = new Date();
+        if (clockEl) clockEl.textContent = d.toTimeString().slice(0, 8);
+    }
+    setInterval(tick, 1000);
+    tick();
+
+    function createArcPath(centerX, centerY, radius, startAngleDeg, endAngleDeg) {
+        var startRad = (startAngleDeg * Math.PI) / 180;
+        var endRad = (endAngleDeg * Math.PI) / 180;
+        var x1 = centerX + radius * Math.cos(startRad);
+        var y1 = centerY + radius * Math.sin(startRad);
+        var x2 = centerX + radius * Math.cos(endRad);
+        var y2 = centerY + radius * Math.sin(endRad);
+        var angleDiff = endAngleDeg - startAngleDeg;
+        var largeArcFlag = Math.abs(angleDiff) > 180 ? 1 : 0;
+        return 'M ' + x1 + ' ' + y1 + ' A ' + radius + ' ' + radius + ' 0 ' + largeArcFlag + ' 1 ' + x2 + ' ' + y2;
+    }
+    function updateArcChart(ontimePercent, latePercent, absentPercent) {
+        var total = ontimePercent + latePercent + absentPercent;
+        var norm = total > 0 ? total : 100;
+        var on = total > 0 ? ontimePercent : 0;
+        var la = total > 0 ? latePercent : 0;
+        var ab = total > 0 ? absentPercent : 0;
+        var r = 80, cx = 100, cy = 100;
+        var a1 = (on / norm) * 360, a2 = (la / norm) * 360, a3 = (ab / norm) * 360;
+        var cur = -90;
+        var arcOn = document.getElementById('arc-ontime');
+        var arcLa = document.getElementById('arc-late');
+        var arcAb = document.getElementById('arc-absent');
+        if (arcOn) { if (on > 0) { arcOn.setAttribute('d', createArcPath(cx, cy, r, cur, cur + a1)); arcOn.style.display = 'block'; cur += a1; } else arcOn.style.display = 'none'; }
+        if (arcLa) { if (la > 0) { arcLa.setAttribute('d', createArcPath(cx, cy, r, cur, cur + a2)); arcLa.style.display = 'block'; cur += a2; } else arcLa.style.display = 'none'; }
+        if (arcAb) { if (ab > 0) arcAb.setAttribute('d', createArcPath(cx, cy, r, cur, cur + a3)); arcAb.style.display = ab > 0 ? 'block' : 'none'; }
+    }
+    function updateStatsFromData(stats) {
+        var el = function(id) { return document.getElementById(id); };
+        if (el('statTotalCame')) el('statTotalCame').textContent = stats.total_came || 0;
+        if (el('statTotalAll')) el('statTotalAll').textContent = stats.total_all || 0;
+        if (el('statOntimePercent')) el('statOntimePercent').textContent = stats.ontime_percent || 0;
+        if (el('statLatePercent')) el('statLatePercent').textContent = stats.late_percent || 0;
+        if (el('statAbsentPercent')) el('statAbsentPercent').textContent = stats.absent_percent || 0;
+        updateArcChart(stats.ontime_percent || 0, stats.late_percent || 0, stats.absent_percent || 0);
+    }
+    function renderDepartmentChart(departments) {
+        var container = document.getElementById('departmentChartContainer');
+        if (!container) return;
+        if (!departments || departments.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#6b7280;font-size:0.85rem;padding:12px;">Ma\'lumotlar yo\'q</div>';
+            return;
+        }
+        var maxCount = Math.max.apply(null, departments.map(function(d) { return d.employee_count || 0; })) || 1;
+        var html = '';
+        departments.forEach(function(d) {
+            var pct = maxCount > 0 ? Math.round(((d.employee_count || 0) / maxCount) * 100) : 0;
+            var name = (d.name || '—').replace(/</g, '&lt;');
+            html += '<div class="bar-chart-item"><div class="bar-chart-label">' + name + '</div><div class="bar-chart-bar-container"><div class="bar-chart-bar" style="width:' + pct + '%;"></div></div><div class="bar-chart-value">' + (d.avg_kpi || 0) + '%</div></div>';
+        });
+        container.innerHTML = html;
+    }
+    function renderActiveEmployeesList(active) {
+        var container = document.getElementById('activeEmployeesList');
+        if (!container) return;
+        if (!active || active.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#6b7280;font-size:0.85rem;padding:12px;">Ma\'lumotlar yo\'q</div>';
+            return;
+        }
+        var html = '';
+        active.forEach(function(emp) {
+            var name = (emp.personName || '—').replace(/</g, '&lt;');
+            var initial = name && name !== '—' ? name.charAt(0).toUpperCase() : '?';
+            var dept = (emp.department || '—').replace(/</g, '&lt;');
+            var status = (emp.attendanceStatus || '').toLowerCase();
+            var badgeCls = status === 'late' ? 'badge-late' : (status === 'access_denied' ? 'badge-absent' : 'badge-ontime');
+            var badgeText = status === 'late' ? 'Kechikdi' : (status === 'access_denied' ? 'Rad etildi' : 'Vaqtida');
+            var avatar = emp.photoUrl ? '<img src="' + (emp.photoUrl.replace(/"/g, '&quot;')) + '" alt="">' : '<span>' + initial + '</span>';
+            html += '<div class="active-employee-item"><div class="active-employee-avatar">' + avatar + '</div><div class="active-employee-info"><div class="active-employee-name">' + name + '</div><div class="active-employee-details">' + dept + '</div></div><div class="active-employee-status"><div class="active-employee-kpi">' + (emp.kpiScore || 0) + '%</div><span class="' + badgeCls + '">' + badgeText + '</span></div></div>';
+        });
+        container.innerHTML = html;
+    }
+    function fetchCards() {
+        if (fetchInFlight) return;
+        fetchInFlight = true;
+        var url = apiUrl + (apiUrl.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
+        fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status !== 'success') return;
+                if (statusDot) { statusDot.classList.add('connected'); statusDot.classList.remove('disconnected'); }
+                if (statusText) { statusText.textContent = 'Jonli'; statusText.style.color = '#111827'; }
+                if (data.date) {
+                    var hd = document.getElementById('header-date');
+                    if (hd) { var d = new Date(data.date + 'T12:00:00'); hd.textContent = d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' }); }
+                }
+                if (data.stats) updateStatsFromData(data.stats);
+                if (data.departments) renderDepartmentChart(data.departments);
+                if (data.active_employees) renderActiveEmployeesList(data.active_employees);
+            })
+            .catch(function() {
+                if (statusDot) { statusDot.classList.remove('connected'); statusDot.classList.add('disconnected'); }
+                if (statusText) { statusText.textContent = 'Uzildi'; statusText.style.color = '#dc2626'; }
+            })
+            .finally(function() { fetchInFlight = false; });
+    }
+
+    setInterval(fetchCards, pollIntervalMs);
+    fetchCards();
+})();
+</script>
+</body>
+</html>
+{% else %}
+{% extends "base.html" %}
+{% block title %}Davomat monitoringi{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Davomat monitoringi</h1>
+        <p class="text-gray-500 mt-1">TV rejimida ko'rish: <a href="{{ url_for('main.smart_dashboard', tv=1) }}" target="_blank" class="text-primary-500 hover:underline">/smart-dashboard?tv=1</a> (login shart emas)</p>
+    </div>
+</div>
+<div id="smart-dashboard-root" class="rounded-xl border overflow-hidden" style="min-height: 70vh; background: #f5f7fb;">
+    <iframe src="{{ url_for('main.smart_dashboard', tv=1) }}" class="w-full border-0" style="height: 78vh;"></iframe>
+</div>
+{% endblock %}
+{% endif %}

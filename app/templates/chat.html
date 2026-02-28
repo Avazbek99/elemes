@@ -1,0 +1,526 @@
+{% extends "base.html" %}
+
+{% block title %}{{ (other_user.full_name or '-')|upper }} {{ t('chat_title_with') }}{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-10rem)]">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
+        <!-- Chat header -->
+        <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="{{ url_for('main.messages') }}" class="p-2 hover:bg-gray-100 rounded-lg">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                </a>
+                <div class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold">
+                    {{ other_user.full_name[0] }}
+                </div>
+                <div>
+                    <p class="font-medium text-gray-900">{{ other_user.full_name.upper() if other_user.full_name else '-' }}</p>
+                    <p class="text-xs text-gray-500">{% for r in other_user.get_sorted_roles() %}{{ t(r) }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Messages -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="messages-container" data-chat-user-id="{{ other_user.id }}" data-last-message-id="{{ messages[-1].id if messages else 0 }}">
+            {% if messages %}
+                {% for message in messages %}
+                <div class="flex {% if message.sender_id == current_user.id %}justify-end{% else %}justify-start{% endif %} group/message relative" data-message-id="{{ message.id }}" data-is-mine="{{ '1' if message.sender_id == current_user.id else '0' }}">
+                    <div class="flex flex-col max-w-[70%] {% if message.sender_id == current_user.id %}items-end{% else %}items-start{% endif %}">
+                        <div class="max-w-full px-4 py-2 rounded-2xl {% if message.sender_id == current_user.id %}bg-primary-600 text-white rounded-br-none{% else %}bg-gray-100 text-gray-900 rounded-bl-none{% endif %}">
+                            {% if message.reply_to_id and message.reply_to %}
+                            <p class="text-xs opacity-80 border-l-2 pl-2 mb-1 truncate max-w-full" title="{{ message.reply_to.content }}">{{ message.reply_to.content[:60] }}{% if message.reply_to.content|length > 60 %}...{% endif %}</p>
+                            {% endif %}
+                            <p class="text-sm message-content">{{ message.content }}</p>
+                            <div class="flex items-center justify-between gap-2 mt-1">
+                                <p class="text-xs {% if message.sender_id == current_user.id %}text-primary-100{% else %}text-gray-400{% endif %}">
+                                    {{ (message.created_at | to_tashkent_time).strftime('%H:%M') }}
+                                </p>
+                                <div class="relative">
+                                    <button type="button" class="chat-msg-menu-trigger p-1 rounded hover:bg-black/10 opacity-70 hover:opacity-100 focus:opacity-100 focus:outline-none" aria-label="Boshqa" data-message-id="{{ message.id }}" data-is-mine="{{ '1' if message.sender_id == current_user.id else '0' }}" data-content="{{ message.content | e }}">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                                    </button>
+                                    <div class="chat-msg-dropdown hidden absolute right-0 top-full mt-1 z-50 min-w-[180px] py-1 rounded-lg shadow-lg border border-gray-200 bg-white text-gray-800 text-sm" role="menu">
+                                        <button type="button" class="chat-msg-reply w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="{{ message.id }}" data-content="{{ message.content | e }}"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>{{ t('reply') }}</button>
+                                        {% if message.sender_id == current_user.id %}
+                                        <button type="button" class="chat-msg-edit w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="{{ message.id }}" data-content="{{ message.content | e }}"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>{{ t('edit') }}</button>
+                                        {% endif %}
+                                        <button type="button" class="chat-msg-copy w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-content="{{ message.content | e }}"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>{{ t('copy_text') }}</button>
+                                        <button type="button" class="chat-msg-translate w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-content="{{ message.content | e }}"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>{{ t('translate') }}</button>
+                                        <button type="button" class="chat-msg-forward w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="{{ message.id }}"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>{{ t('forward') }}</button>
+                                        {% if message.sender_id == current_user.id %}
+                                        <button type="button" class="chat-msg-delete w-full px-4 py-2 text-left hover:bg-red-50 text-red-600 flex items-center gap-2" data-message-id="{{ message.id }}"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>{{ t('delete') }}</button>
+                                        {% endif %}
+                                        <button type="button" class="chat-msg-select w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="{{ message.id }}"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ t('select') }}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="text-center py-12" id="chat-empty-placeholder">
+                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                <p class="text-gray-500">{{ t('chat_start_conversation') }}</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Reply preview (yashirin, Reply bosilganda ko'rinadi) -->
+        <div id="reply-preview" class="hidden px-4 pt-2 pb-0 border-t border-gray-100 bg-gray-50 rounded-t-lg">
+            <div class="flex items-center justify-between text-sm text-gray-600">
+                <span class="font-medium">{{ t('reply') or "Javob" }}:</span>
+                <button type="button" id="reply-cancel" class="p-1 hover:bg-gray-200 rounded">{{ t('cancel') or "Bekor" }}</button>
+            </div>
+            <p id="reply-preview-text" class="text-xs text-gray-500 truncate mt-0.5"></p>
+        </div>
+        <!-- Message input -->
+        <form id="chat-form" method="POST" class="p-4 border-t border-gray-100">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="reply_to_id" id="reply_to_id" value="">
+            <div class="flex flex-row flex-nowrap items-center gap-2">
+                <input type="text" name="content" placeholder="{{ t('message_placeholder') }}" autocomplete="off" class="flex-1 min-w-0 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <button type="submit" class="flex-shrink-0 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors" title="{{ t('send') or 'Yuborish' }}">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                </button>
+            </div>
+        </form>
+        <!-- Tanlangan xabarlar toolbar -->
+        <div id="select-toolbar" class="hidden px-4 py-2 border-t border-gray-200 bg-gray-100 flex items-center justify-between text-sm">
+            <span id="select-count">0 {{ t('selected') or "tanlangan" }}</span>
+            <div class="flex gap-2">
+                <button type="button" id="select-forward-btn" class="px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-700">{{ t('forward') or "Forward" }}</button>
+                <button type="button" id="select-delete-btn" class="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700">{{ t('delete') }}</button>
+                <button type="button" id="select-cancel-btn" class="px-3 py-1 bg-gray-500 text-white rounded-lg hover:bg-gray-600">{{ t('cancel') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Tarjima modal -->
+<div id="translate-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center" style="display: none;">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 max-h-[85vh] flex flex-col">
+        <div class="p-4 border-b flex items-center justify-between">
+            <h3 class="font-semibold text-gray-900">{{ t('translate') }}</h3>
+            <button type="button" id="translate-modal-close" class="p-2 hover:bg-gray-100 rounded-lg">&times;</button>
+        </div>
+        <div class="p-4 flex flex-col gap-3 flex-1 min-h-0 overflow-auto">
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Matn</label>
+                <p id="translate-original-text" class="text-sm text-gray-800 bg-gray-50 rounded-lg p-3 max-h-24 overflow-y-auto"></p>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Tarjima qilish tilini tanlang</label>
+                <select id="translate-target-lang" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-gray-800">
+                    <option value="uz">O'zbekcha</option>
+                    <option value="ru">Русский</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <button type="button" id="translate-do-btn" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium">{{ t('translate') }}</button>
+            <div id="translate-result-wrap" class="hidden">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Tarjima</label>
+                <p id="translate-result-text" class="text-sm text-gray-800 bg-green-50 rounded-lg p-3 border border-green-100"></p>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Forward modal -->
+{% if available_users is defined and available_users %}
+<div id="forward-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center" style="display: none;">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 max-h-[80vh] flex flex-col">
+        <div class="p-4 border-b flex items-center justify-between">
+            <h3 class="font-semibold text-gray-900">{{ t('forward') or "Forward" }}</h3>
+            <button type="button" id="forward-modal-close" class="p-2 hover:bg-gray-100 rounded-lg">&times;</button>
+        </div>
+        <div class="p-2 overflow-y-auto flex-1" id="forward-user-list">
+            {% for u in available_users %}
+            <button type="button" class="forward-user-item w-full flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl text-left" data-user-id="{{ u.id }}" data-user-name="{{ u.full_name or '-' }}">
+                <div class="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold">{{ (u.full_name or '-')[0] }}</div>
+                <span class="text-gray-900">{{ (u.full_name or '-')|upper }}</span>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+(function() {
+    var container = document.getElementById('messages-container');
+    if (!container) return;
+    var chatUserId = container.getAttribute('data-chat-user-id');
+    var lastId = parseInt(container.getAttribute('data-last-message-id') || '0', 10);
+
+    function scrollToBottom() {
+        container.scrollTop = container.scrollHeight;
+    }
+    scrollToBottom();
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        var div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function getCsrfToken() {
+        var input = document.querySelector('input[name="csrf_token"]');
+        return input ? input.value : '';
+    }
+
+    // (...) menyu: ochish/yopish
+    document.addEventListener('click', function(e) {
+        var trigger = e.target.closest('.chat-msg-menu-trigger');
+        var dropdown = e.target.closest('.chat-msg-dropdown');
+        var allDropdowns = document.querySelectorAll('.chat-msg-dropdown');
+        if (trigger) {
+            e.preventDefault();
+            e.stopPropagation();
+            allDropdowns.forEach(function(d) { d.classList.add('hidden'); });
+            var menu = trigger.closest('.relative').querySelector('.chat-msg-dropdown');
+            if (menu) menu.classList.toggle('hidden');
+            return;
+        }
+        if (!dropdown) allDropdowns.forEach(function(d) { d.classList.add('hidden'); });
+    });
+
+    // Nusxa olish (Copy)
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-copy');
+        if (!btn) return;
+        var block = btn.closest('[data-message-id]');
+        var contentEl = block ? block.querySelector('.message-content') : null;
+        var content = contentEl ? contentEl.textContent : (btn.getAttribute('data-content') || '');
+        try {
+            if (!contentEl && content) content = decodeURIComponent(content.replace(/\+/g, ' '));
+        } catch (err) {}
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(content).then(function() {
+                var menu = btn.closest('.chat-msg-dropdown');
+                if (menu) menu.classList.add('hidden');
+            });
+        } else {
+            var ta = document.createElement('textarea');
+            ta.value = content;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            var menu = btn.closest('.chat-msg-dropdown');
+            if (menu) menu.classList.add('hidden');
+        }
+    });
+
+    // Tahrirlash (Edit)
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-edit');
+        if (!btn) return;
+        var msgId = btn.getAttribute('data-message-id');
+        var block = btn.closest('[data-message-id]');
+        var contentEl = block ? block.querySelector('.message-content') : null;
+        var content = contentEl ? contentEl.textContent : (btn.getAttribute('data-content') || '');
+        try {
+            if (!contentEl && content) content = decodeURIComponent(content.replace(/\+/g, ' '));
+        } catch (err) {}
+        var newContent = prompt('Xabarni tahrirlash:', content);
+        if (newContent === null || newContent === content) {
+            btn.closest('.chat-msg-dropdown').classList.add('hidden');
+            return;
+        }
+        newContent = (newContent || '').trim();
+        if (!newContent) return;
+        var xhr = new XMLHttpRequest();
+        xhr.open('PATCH', '/api/chat/' + chatUserId + '/messages/' + msgId, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            var menu = btn.closest('.chat-msg-dropdown');
+            if (menu) menu.classList.add('hidden');
+            if (xhr.status === 200) {
+                var block = container.querySelector('[data-message-id="' + msgId + '"]');
+                var contentEl = block ? block.querySelector('.message-content') : null;
+                if (contentEl) contentEl.textContent = newContent;
+                btn.setAttribute('data-content', encodeURIComponent(newContent));
+            }
+        };
+        xhr.send(JSON.stringify({ content: newContent }));
+    });
+
+    // O'chirish (Delete)
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-delete');
+        if (!btn) return;
+        var msgId = btn.getAttribute('data-message-id');
+        if (!confirm('Ushbu xabarni o\'chirmoqchimisiz?')) return;
+        var xhr = new XMLHttpRequest();
+        xhr.open('DELETE', '/api/chat/' + chatUserId + '/messages/' + msgId, true);
+        xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status === 200) {
+                var block = container.querySelector('[data-message-id="' + msgId + '"]');
+                if (block) block.remove();
+            }
+        };
+        xhr.send();
+    });
+
+    // Javob (Reply)
+    var replyPreview = document.getElementById('reply-preview');
+    var replyPreviewText = document.getElementById('reply-preview-text');
+    var replyToIdInput = document.getElementById('reply_to_id');
+    var replyCancelBtn = document.getElementById('reply-cancel');
+    if (replyCancelBtn) replyCancelBtn.addEventListener('click', function() { replyToIdInput.value = ''; if (replyPreview) replyPreview.classList.add('hidden'); });
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-reply');
+        if (!btn) return;
+        var msgId = btn.getAttribute('data-message-id');
+        var content = btn.getAttribute('data-content') || '';
+        try { content = decodeURIComponent(content.replace(/\+/g, ' ')); } catch (err) {}
+        replyToIdInput.value = msgId;
+        if (replyPreviewText) replyPreviewText.textContent = content.slice(0, 80) + (content.length > 80 ? '...' : '');
+        if (replyPreview) replyPreview.classList.remove('hidden');
+        var form = document.getElementById('chat-form');
+        if (form && form.querySelector('input[name="content"]')) form.querySelector('input[name="content"]').focus();
+        btn.closest('.chat-msg-dropdown').classList.add('hidden');
+    });
+
+    // Qilish / Qilishni bekor (Pin)
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-pin');
+        if (!btn) return;
+        var msgId = btn.getAttribute('data-message-id');
+        var isPinned = btn.getAttribute('data-is-pinned') === '1';
+        var xhr = new XMLHttpRequest();
+        xhr.open('PATCH', '/api/chat/' + chatUserId + '/messages/' + msgId, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            btn.closest('.chat-msg-dropdown').classList.add('hidden');
+            if (xhr.status === 200) {
+                var block = container.querySelector('[data-message-id="' + msgId + '"]');
+                if (block) {
+                    var bubble = block.querySelector('[data-is-pinned]');
+                    if (bubble) { bubble.setAttribute('data-is-pinned', isPinned ? '0' : '1'); bubble.classList.toggle('ring-1', !isPinned); bubble.classList.toggle('ring-amber-400/50', !isPinned); }
+                    var timeEl = block.querySelector('.text-xs');
+                    if (timeEl) timeEl.textContent = (isPinned ? '' : '📌 ') + timeEl.textContent.replace(/^📌\s*/, '');
+                }
+                btn.setAttribute('data-is-pinned', isPinned ? '0' : '1');
+                var label = btn.querySelector('.chat-msg-pin-label');
+                if (label) label.textContent = isPinned ? (typeof t !== 'undefined' && t('pin') ? t('pin') : 'Qilish') : (typeof t !== 'undefined' && t('unpin') ? t('unpin') : 'Qilishni bekor');
+            }
+        };
+        xhr.send(JSON.stringify({ is_pinned: !isPinned }));
+    });
+
+    // Tarjima (Translate)
+    var translateModal = document.getElementById('translate-modal');
+    var translateOriginalText = document.getElementById('translate-original-text');
+    var translateTargetLang = document.getElementById('translate-target-lang');
+    var translateResultWrap = document.getElementById('translate-result-wrap');
+    var translateResultText = document.getElementById('translate-result-text');
+    var translateDoBtn = document.getElementById('translate-do-btn');
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-translate');
+        if (!btn) return;
+        var content = btn.getAttribute('data-content') || '';
+        try { content = decodeURIComponent((content || '').replace(/\+/g, ' ')); } catch (err) {}
+        if (translateOriginalText) translateOriginalText.textContent = content;
+        if (translateResultWrap) { translateResultWrap.classList.add('hidden'); translateResultText.textContent = ''; }
+        if (translateModal) { translateModal.style.display = 'flex'; translateModal.classList.remove('hidden'); }
+        btn.closest('.chat-msg-dropdown').classList.add('hidden');
+    });
+    if (document.getElementById('translate-modal-close')) document.getElementById('translate-modal-close').addEventListener('click', function() {
+        if (translateModal) { translateModal.classList.add('hidden'); translateModal.style.display = 'none'; }
+    });
+    if (translateDoBtn && translateOriginalText && translateTargetLang && translateResultWrap && translateResultText) {
+        translateDoBtn.addEventListener('click', function() {
+            var text = (translateOriginalText.textContent || '').trim();
+            if (!text) return;
+            var targetLang = (translateTargetLang && translateTargetLang.value) || 'uz';
+            translateDoBtn.disabled = true;
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/chat/translate', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState !== 4) return;
+                translateDoBtn.disabled = false;
+                if (xhr.status === 200) {
+                    try {
+                        var res = JSON.parse(xhr.responseText);
+                        if (res.translated) {
+                            translateResultText.textContent = res.translated;
+                            translateResultWrap.classList.remove('hidden');
+                        }
+                    } catch (err) {
+                        translateResultText.textContent = 'Xatolik';
+                        translateResultWrap.classList.remove('hidden');
+                    }
+                } else {
+                    translateResultText.textContent = 'Tarjima muvaffaqiyatsiz';
+                    translateResultWrap.classList.remove('hidden');
+                }
+            };
+            xhr.send(JSON.stringify({ text: text, target_lang: targetLang }));
+        });
+    }
+
+    // Forward (bitta xabar)
+    var forwardModal = document.getElementById('forward-modal');
+    var forwardMsgId = null;
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-forward');
+        if (!btn) return;
+        forwardMsgId = btn.getAttribute('data-message-id');
+        if (forwardModal) { forwardModal.style.display = 'flex'; forwardModal.classList.remove('hidden'); }
+        btn.closest('.chat-msg-dropdown').classList.add('hidden');
+    });
+    if (document.getElementById('forward-modal-close')) document.getElementById('forward-modal-close').addEventListener('click', function() { if (forwardModal) { forwardModal.classList.add('hidden'); forwardModal.style.display = 'none'; } forwardMsgId = null; });
+    document.querySelectorAll('.forward-user-item').forEach(function(el) {
+        el.addEventListener('click', function() {
+            var toUserId = parseInt(this.getAttribute('data-user-id'), 10);
+            var idsToForward = selectedIds.size > 0 ? Array.from(selectedIds) : (forwardMsgId ? [forwardMsgId] : []);
+            if (idsToForward.length === 0) return;
+            var idx = 0;
+            function sendNext() {
+                if (idx >= idsToForward.length) {
+                    if (forwardModal) { forwardModal.classList.add('hidden'); forwardModal.style.display = 'none'; }
+                    forwardMsgId = null;
+                    selectedIds.clear();
+                    updateSelectToolbar();
+                    return;
+                }
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/api/chat/forward', true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    idx++;
+                    sendNext();
+                };
+                xhr.send(JSON.stringify({ message_id: parseInt(idsToForward[idx], 10), to_user_id: toUserId }));
+            }
+            sendNext();
+        });
+    });
+
+    // Tanlash (Select) va tanlanganlar toolbar
+    var selectedIds = new Set();
+    var selectToolbar = document.getElementById('select-toolbar');
+    var selectCountEl = document.getElementById('select-count');
+    function updateSelectToolbar() {
+        if (!selectToolbar) return;
+        if (selectedIds.size === 0) { selectToolbar.classList.add('hidden'); return; }
+        selectToolbar.classList.remove('hidden');
+        if (selectCountEl) selectCountEl.textContent = selectedIds.size + ' ' + (typeof t !== 'undefined' && t('selected') ? t('selected') : 'tanlangan');
+        container.querySelectorAll('[data-message-id]').forEach(function(row) {
+            var id = row.getAttribute('data-message-id');
+            row.classList.toggle('ring-2', selectedIds.has(id));
+            row.classList.toggle('ring-primary-400', selectedIds.has(id));
+        });
+    }
+    container.addEventListener('click', function(e) {
+        var btn = e.target.closest('.chat-msg-select');
+        if (!btn) return;
+        var msgId = btn.getAttribute('data-message-id');
+        if (selectedIds.has(msgId)) selectedIds.delete(msgId); else selectedIds.add(msgId);
+        updateSelectToolbar();
+        btn.closest('.chat-msg-dropdown').classList.add('hidden');
+    });
+    if (document.getElementById('select-cancel-btn')) document.getElementById('select-cancel-btn').addEventListener('click', function() { selectedIds.clear(); updateSelectToolbar(); });
+    if (document.getElementById('select-delete-btn')) document.getElementById('select-delete-btn').addEventListener('click', function() {
+        if (selectedIds.size === 0) return;
+        var mineCount = 0;
+        selectedIds.forEach(function(msgId) {
+            var block = container.querySelector('[data-message-id="' + msgId + '"]');
+            if (block && block.getAttribute('data-is-mine') === '1') mineCount++;
+        });
+        if (mineCount === 0) { alert('Tanlangan xabarlardan faqat o\'zingiz yuborganlarini o\'chirish mumkin.'); return; }
+        if (!confirm(mineCount + ' ta xabarni o\'chirmoqchimisiz?')) return;
+        var remaining = mineCount;
+        selectedIds.forEach(function(msgId) {
+            var block = container.querySelector('[data-message-id="' + msgId + '"]');
+            if (!block || block.getAttribute('data-is-mine') !== '1') return;
+            var xhr = new XMLHttpRequest();
+            xhr.open('DELETE', '/api/chat/' + chatUserId + '/messages/' + msgId, true);
+            xhr.setRequestHeader('X-CSRFToken', getCsrfToken());
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState !== 4) return;
+                if (xhr.status === 200) {
+                    if (block && block.parentNode) block.remove();
+                    selectedIds.delete(msgId);
+                    if (--remaining <= 0) updateSelectToolbar();
+                }
+            };
+            xhr.send();
+        });
+    });
+    if (document.getElementById('select-forward-btn')) document.getElementById('select-forward-btn').addEventListener('click', function() {
+        if (selectedIds.size === 0) return;
+        if (forwardModal) { forwardModal.style.display = 'flex'; forwardModal.classList.remove('hidden'); }
+    });
+
+    function appendMessage(msg) {
+        var placeholder = document.getElementById('chat-empty-placeholder');
+        if (placeholder) placeholder.remove();
+        var isMine = msg.is_mine;
+        var div = document.createElement('div');
+        div.className = 'flex ' + (isMine ? 'justify-end' : 'justify-start') + ' group/message relative';
+        div.setAttribute('data-message-id', msg.id);
+        div.setAttribute('data-is-mine', isMine ? '1' : '0');
+        var safeContent = escapeHtml(msg.content);
+        var encContent = encodeURIComponent(msg.content || '');
+        var replyLabel = (typeof t !== 'undefined' && t('reply')) ? t('reply') : 'Javob';
+        var copyLabel = (typeof t !== 'undefined' && t('copy_text')) ? t('copy_text') : 'Nusxa olish';
+        var translateLabel = (typeof t !== 'undefined' && t('translate')) ? t('translate') : 'Tarjima';
+        var forwardLabel = (typeof t !== 'undefined' && t('forward')) ? t('forward') : 'Forward';
+        var selectLabel = (typeof t !== 'undefined' && t('select')) ? t('select') : 'Tanlash';
+        var editLabel = (typeof t !== 'undefined' && t('edit')) ? t('edit') : 'Tahrirlash';
+        var deleteLabel = (typeof t !== 'undefined' && t('delete')) ? t('delete') : 'O\'chirish';
+        var editDelete = isMine ? '<button type="button" class="chat-msg-edit w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="' + msg.id + '" data-content="' + encContent + '">' + editLabel + '</button><button type="button" class="chat-msg-delete w-full px-4 py-2 text-left hover:bg-red-50 text-red-600 flex items-center gap-2" data-message-id="' + msg.id + '">' + deleteLabel + '</button>' : '';
+        var menu = '<button type="button" class="chat-msg-reply w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="' + msg.id + '" data-content="' + encContent + '">' + replyLabel + '</button>' + editDelete +
+            '<button type="button" class="chat-msg-copy w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-content="' + encContent + '">' + copyLabel + '</button>' +
+            '<button type="button" class="chat-msg-translate w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-content="' + encContent + '">' + translateLabel + '</button>' +
+            '<button type="button" class="chat-msg-forward w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="' + msg.id + '">' + forwardLabel + '</button>' +
+            '<button type="button" class="chat-msg-select w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2" data-message-id="' + msg.id + '">' + selectLabel + '</button>';
+        div.innerHTML = '<div class="flex flex-col max-w-[70%] ' + (isMine ? 'items-end' : 'items-start') + '">' +
+            '<div class="max-w-full px-4 py-2 rounded-2xl ' + (isMine ? 'bg-primary-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-900 rounded-bl-none') + '">' +
+            '<p class="text-sm message-content">' + safeContent + '</p>' +
+            '<div class="flex items-center justify-between gap-2 mt-1">' +
+            '<p class="text-xs ' + (isMine ? 'text-primary-100' : 'text-gray-400') + '">' + escapeHtml(msg.created_at) + '</p>' +
+            '<div class="relative"><button type="button" class="chat-msg-menu-trigger p-1 rounded hover:bg-black/10 opacity-70 hover:opacity-100 focus:outline-none" data-message-id="' + msg.id + '" data-is-mine="' + (isMine ? '1' : '0') + '" data-content="' + encContent + '">' +
+            '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></button>' +
+            '<div class="chat-msg-dropdown hidden absolute right-0 top-full mt-1 z-50 min-w-[180px] py-1 rounded-lg shadow-lg border border-gray-200 bg-white text-gray-800 text-sm">' + menu + '</div></div></div></div></div>';
+        container.appendChild(div);
+        scrollToBottom();
+    }
+
+    function poll() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/chat/' + chatUserId + '/messages?after_id=' + lastId, true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            if (xhr.status !== 200) { setTimeout(poll, 1000); return; }
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.messages && data.messages.length) {
+                    data.messages.forEach(function(m) {
+                        appendMessage(m);
+                        if (m.id > lastId) lastId = m.id;
+                    });
+                }
+            } catch (e) {}
+            setTimeout(poll, 1000);
+        };
+        xhr.send();
+    }
+    setTimeout(poll, 1000);
+})();
+</script>
+{% endblock %}
+

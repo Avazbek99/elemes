@@ -1,0 +1,8 @@
+Single-database configuration for Flask.
+
+Institut: agar "Can't locate revision identified by '...'" xatosi chiqsa
+(bazadagi migratsiya versiyasi joriy migrations/versions da yo'q), bajarish:
+  flask db-stamp-head
+yoki avtomatik (avval upgrade, xato bo'lsa stamp head):
+  flask db-fix-version
+Keyin odatdagidek: flask db upgrade

@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('face_logs_title') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('face_logs_title') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('face_logs_description') }}</p>
+        </div>
+        <div class="flex flex-wrap items-end gap-2 ml-auto shrink-0">
+            <button type="button" id="btn-clear-logs" class="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                {{ t('face_logs_clear_btn') }}
+            </button>
+            <form method="GET" action="{{ url_for('admin.face_logs') }}" id="face-logs-filter-form" class="flex flex-wrap items-end gap-2">
+                <div class="min-w-[200px]">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('search') }}</label>
+                    <input type="text" name="q" id="face-logs-search" value="{{ search_query or '' }}"
+                        placeholder="{{ t('face_logs_search_placeholder') }}"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('start_date') }}</label>
+                    <input type="text" name="date_from" id="face-logs-date-from" value="{{ date_from.isoformat() if date_from else '' }}"
+                        placeholder="{{ t('date_placeholder') }}"
+                        class="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flatpickr-date">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">{{ t('end_date') }}</label>
+                    <input type="text" name="date_to" id="face-logs-date-to" value="{{ date_to.isoformat() if date_to else '' }}"
+                        placeholder="{{ t('date_placeholder') }}"
+                        class="w-full min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 flatpickr-date">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors text-sm font-medium">{{ t('search') }}</button>
+                <a href="{{ url_for('admin.face_logs') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors text-sm font-medium">{{ t('clear') }}</a>
+            </form>
+        </div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+        <table class="w-full min-w-[720px]">
+            <thead class="bg-gray-50">
+                <tr class="border-b-2 border-gray-400">
+                    <th class="px-6 py-4 text-left">
+                        <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort='person_name', order=(sort_order == 'asc' and sort_by == 'person_name') and 'desc' or 'asc', q=search_query or '', page=pagination.page) }}"
+                            class="block text-xs font-semibold text-gray-500 uppercase hover:text-primary-600 transition-colors">{{ t('face_logs_full_name') }}{% if sort_by == 'person_name' %} <span>{{ (sort_order == 'asc') and '↑' or '↓' }}</span>{% endif %}</a>
+                        <span class="block text-xs font-normal text-gray-400 normal-case mt-0.5">{{ t('face_logs_fid') }}</span>
+                    </th>
+                    <th class="px-6 py-4 text-left">
+                        <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort='event_time', order=(sort_order == 'asc' and sort_by == 'event_time') and 'desc' or 'asc', q=search_query or '', page=pagination.page) }}"
+                            class="block text-xs font-semibold text-gray-500 uppercase hover:text-primary-600 transition-colors">{{ t('face_logs_event_day') }}{% if sort_by == 'event_time' %} <span>{{ (sort_order == 'asc') and '↑' or '↓' }}</span>{% endif %}</a>
+                        <span class="block text-xs font-normal text-gray-400 normal-case mt-0.5">{{ t('face_logs_time') }}</span>
+                    </th>
+                    <th class="px-6 py-4 text-left">
+                        <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort='created_at', order=(sort_order == 'asc' and sort_by == 'created_at') and 'desc' or 'asc', q=search_query or '', page=pagination.page) }}"
+                            class="block text-xs font-semibold text-gray-500 uppercase hover:text-primary-600 transition-colors">{{ t('face_logs_created') }}{% if sort_by == 'created_at' %} <span>{{ (sort_order == 'asc') and '↑' or '↓' }}</span>{% endif %}</a>
+                        <span class="block text-xs font-normal text-gray-400 normal-case mt-0.5">{{ t('face_logs_time') }}</span>
+                    </th>
+                    <th class="px-6 py-4 text-left">
+                        <span class="block text-xs font-semibold text-gray-500 uppercase">{{ t('face_logs_device_name') }}</span>
+                        <span class="block text-xs font-normal text-gray-400 normal-case mt-0.5">{{ t('face_logs_device_ip') }}</span>
+                    </th>
+                    <th class="px-6 py-4 text-left">
+                        <span class="block text-xs font-semibold text-gray-500 uppercase">{{ t('face_logs_raw_button') }}</span>
+                        <span class="block text-xs font-normal text-gray-400 normal-case mt-0.5">{{ t('face_logs_external_ip') }}</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody id="face-logs-tbody" data-raw-label="{{ t('face_logs_raw')|e }}" data-empty-label="{{ t('face_logs_empty')|e }}" data-raw-btn="{{ t('face_logs_raw_button')|e }}" data-sort-by="{{ sort_by }}" data-sort-order="{{ sort_order }}">
+                {% for log in logs_list %}
+                <tr class="border-b border-gray-200 hover:bg-primary-100 transition-colors {% if loop.index is even %}bg-gray-50/50{% endif %}">
+                    <td class="px-6 py-4">
+                        <span class="block font-medium text-gray-900">{{ (log.staff_full_name or log.person_name or '—')|upper }}</span>
+                        <span class="block text-sm text-gray-500 mt-0.5">{{ log.device_employee_id or '—' }}</span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">
+                        {% set evt = log.display_event_time() %}
+                        <span class="block">{{ evt.strftime('%Y-%m-%d') if evt else '—' }}</span>
+                        <span class="block text-sm text-gray-500 mt-0.5">{{ evt.strftime('%H:%M:%S') if evt else '—' }}</span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">
+                        {% if log.created_at %}
+                        {% set rec = log.created_at | to_tashkent_time %}
+                        <span class="block">{{ rec.strftime('%Y-%m-%d') }}</span>
+                        <span class="block text-sm text-gray-500 mt-0.5">{{ rec.strftime('%H:%M:%S') }}</span>
+                        {% else %}
+                        <span class="block">—</span>
+                        <span class="block text-sm text-gray-500 mt-0.5">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">
+                        <span class="block">{{ log.get_device_name() or '—' }}</span>
+                        <span class="block text-sm text-gray-500 mt-0.5">{{ log.get_device_local_ip() or '—' }}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if log.raw_data %}
+                        <button type="button" class="raw-btn text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700" data-log-id="{{ log.id }}">{{ t('face_logs_raw_button') }}</button>
+                        {% else %}
+                        —
+                        {% endif %}
+                        <span class="block text-sm text-gray-500 mt-0.5">{{ log.device_ip or '—' }}</span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                        {{ t('face_logs_empty') }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination (xodimlar bazasidagi kabi) -->
+    {% if pagination and pagination.total > 0 %}
+    <div class="mt-6 flex flex-col items-center gap-4">
+        <div class="flex flex-wrap gap-2 justify-center">
+            {% if pagination.has_prev %}
+            <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort=sort_by, order=sort_order, q=search_query or '', page=1) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">{{ t('first') }}</a>
+            <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort=sort_by, order=sort_order, q=search_query or '', page=pagination.prev_num) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">«</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('first') }}</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">«</span>
+            {% endif %}
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <span class="px-3 py-2 bg-primary-600 text-white rounded-lg font-medium">{{ page_num }}</span>
+                    {% else %}
+                    <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort=sort_by, order=sort_order, q=search_query or '', page=page_num) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">{{ page_num }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="px-2 text-gray-400">...</span>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort=sort_by, order=sort_order, q=search_query or '', page=pagination.next_num) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">»</a>
+            <a href="{{ url_for('admin.face_logs', date_from=date_from.isoformat(), date_to=date_to.isoformat(), sort=sort_by, order=sort_order, q=search_query or '', page=pagination.pages) }}" class="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium">{{ t('last') }}</a>
+            {% else %}
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">»</span>
+            <span class="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">{{ t('last') }}</span>
+            {% endif %}
+        </div>
+        <div class="text-sm text-gray-600">
+            {% set start = (pagination.page - 1) * pagination.per_page + 1 %}
+            {% set end = pagination.page * pagination.per_page if pagination.page * pagination.per_page <= pagination.total else pagination.total %}
+            {{ t('pagination_range', start=start, end=end, total=pagination.total) }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div id="raw-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50" style="display: none;">
+    <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+            <span class="font-semibold">{{ t('face_logs_raw') }}</span>
+            <button type="button" onclick="closeRawModal()" class="text-gray-500 hover:text-gray-700">×</button>
+        </div>
+        <pre id="raw-modal-content" class="p-6 overflow-auto text-xs font-mono text-gray-700 flex-1 whitespace-pre-wrap break-all"></pre>
+    </div>
+</div>
+
+<script>
+window.showRawModal = function(logId) {
+    fetch('{{ url_for("face_api.log_raw", log_id=999) }}'.replace('999', logId), { credentials: 'same-origin' })
+        .then(r => r.text())
+        .then(text => {
+            document.getElementById('raw-modal-content').textContent = text || '(bo\'sh)';
+            document.getElementById('raw-modal').style.display = 'flex';
+        })
+        .catch(() => { document.getElementById('raw-modal-content').textContent = 'Xato'; document.getElementById('raw-modal').style.display = 'flex'; });
+};
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeRawModal(); }
+});
+window.closeRawModal = function() {
+    document.getElementById('raw-modal').style.display = 'none';
+};
+document.getElementById('raw-modal') && document.getElementById('raw-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeRawModal();
+});
+
+(function() {
+    const tbody = document.getElementById('face-logs-tbody');
+    if (!tbody) return;
+    const rawBtnLabel = tbody.dataset.rawBtn || 'Raw';
+
+    function getLogsUrl() {
+        const base = '{{ url_for("face_api.logs") }}';
+        const params = new URLSearchParams({ limit: 100 });
+        const dateFrom = document.getElementById('face-logs-date-from');
+        const dateTo = document.getElementById('face-logs-date-to');
+        const searchEl = document.getElementById('face-logs-search');
+        if (dateFrom && dateFrom.value) params.set('date_from', dateFrom.value);
+        if (dateTo && dateTo.value) params.set('date_to', dateTo.value);
+        if (searchEl && searchEl.value && searchEl.value.trim()) params.set('q', searchEl.value.trim());
+        if (tbody.dataset.sortBy) params.set('sort', tbody.dataset.sortBy);
+        if (tbody.dataset.sortOrder) params.set('order', tbody.dataset.sortOrder);
+        return base + '?' + params.toString();
+    }
+
+    function fmtDate(iso) {
+        if (!iso) return { day: '—', time: '—' };
+        const s = String(iso).replace('T', ' ').slice(0, 19);
+        const parts = s.split(' ');
+        return { day: parts[0] || '—', time: parts[1] || '—' };
+    }
+    function fmtCreated(iso) {
+        if (!iso) return { day: '—', time: '—' };
+        const s = String(iso).replace('T', ' ').slice(0, 19);
+        const parts = s.split(' ');
+        return { day: parts[0] || '—', time: parts[1] || '—' };
+    }
+
+    function renderRow(log) {
+        const name = (log.staff_full_name || log.person_name || '—').toUpperCase();
+        const devEmpId = log.device_employee_id || '—';
+        const evt = fmtDate(log.event_time);
+        const created = fmtCreated(log.created_at);
+        const deviceName = log.device_name || '—';
+        const localIp = log.device_local_ip || '—';
+        const rawBtn = (log.has_raw || log.raw_data) ? `<button type="button" class="raw-btn text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700" data-log-id="${log.id}">${rawBtnLabel}</button>` : '—';
+        const externalIp = log.device_ip || '—';
+        return `<tr class="border-b border-gray-200 hover:bg-primary-100 transition-colors"><td class="px-6 py-4"><span class="block font-medium text-gray-900">${name}</span><span class="block text-sm text-gray-500 mt-0.5">${devEmpId}</span></td><td class="px-6 py-4 text-gray-600"><span class="block">${evt.day}</span><span class="block text-sm text-gray-500 mt-0.5">${evt.time}</span></td><td class="px-6 py-4 text-gray-600"><span class="block">${created.day}</span><span class="block text-sm text-gray-500 mt-0.5">${created.time}</span></td><td class="px-6 py-4 text-gray-600"><span class="block">${deviceName}</span><span class="block text-sm text-gray-500 mt-0.5">${localIp}</span></td><td class="px-6 py-4">${rawBtn}<span class="block text-sm text-gray-500 mt-0.5">${externalIp}</span></td></tr>`;
+    }
+
+    tbody.addEventListener('click', function(e) {
+        const rawBtn = e.target.closest('.raw-btn');
+        if (rawBtn && rawBtn.dataset.logId) { showRawModal(rawBtn.dataset.logId); return; }
+    });
+
+    // Jadval server tomonida 50 ta qator va pagination bilan yuklanadi; avtoyangilanish o‘chirilgan
+})();
+(function() {
+    const btn = document.getElementById('btn-clear-logs');
+    if (!btn) return;
+    const confirmMsg = {{ t('face_logs_clear_confirm') | tojson }};
+    const successMsg = {{ t('face_logs_cleared') | tojson }};
+    btn.addEventListener('click', function() {
+        if (!confirm(confirmMsg)) return;
+        btn.disabled = true;
+        btn.textContent = '...';
+        fetch('{{ url_for("face_api.face_logs_clear") }}', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': (document.querySelector('meta[name=csrf-token]') || {}).content || '', 'Content-Type': 'application/json' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message || successMsg);
+                location.reload();
+            } else {
+                alert(data.message || 'Xato');
+            }
+        })
+        .catch(() => { alert('Xato'); })
+        .finally(() => { btn.disabled = false; btn.textContent = {{ t('face_logs_clear_btn') | tojson }}; });
+    });
+})();
+</script>
+{% endblock %}

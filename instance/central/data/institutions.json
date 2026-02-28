@@ -1,0 +1,11 @@
+{
+  "institutions": [],
+  "default_permissions": [
+    "main",
+    "courses",
+    "attendance",
+    "face_log",
+    "accounting",
+    "admin"
+  ]
+}

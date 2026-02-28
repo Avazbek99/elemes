@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('kpi_report_title') }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">{{ t('kpi_report_title') }}</h1>
+            <p class="text-gray-500 mt-1">{{ t('kpi_report_description') }}</p>
+        </div>
+        <form method="get" action="{{ url_for('attendance.kpi_report') }}" class="flex items-center gap-2">
+            <input type="date" name="start" value="{{ start_date.isoformat() }}" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <input type="date" name="end" value="{{ end_date.isoformat() }}" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">{{ t('filter') }}</button>
+        </form>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-gray-600">
+                <thead class="bg-gray-50 text-gray-900 font-semibold border-b border-gray-100">
+                    <tr>
+                        <th class="px-6 py-3">#</th>
+                        <th class="px-6 py-3">{{ t('staff_name') }}</th>
+                        <th class="px-6 py-3">{{ t('days_count') }}</th>
+                        <th class="px-6 py-3">{{ t('total_kpi') }}</th>
+                        <th class="px-6 py-3">{{ t('avg_kpi') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in summary %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-3 text-gray-500">{{ loop.index }}</td>
+                        <td class="px-6 py-3 font-medium text-gray-900">{{ item.full_name }}</td>
+                        <td class="px-6 py-3">{{ item.days_count }}</td>
+                        <td class="px-6 py-3 font-mono {% if item.total_kpi >= 0 %}text-green-600{% else %}text-red-600{% endif %}">{{ item.total_kpi }}</td>
+                        <td class="px-6 py-3 font-mono">{{ item.avg_kpi }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">{{ t('no_data') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

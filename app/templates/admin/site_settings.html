@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('site_settings') }}{% endblock %}
+
+{% block content %}
+<style>
+    #lang-uz, #lang-ru, #lang-en { scroll-margin-top: 5rem; }
+</style>
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('site_settings') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('site_settings_description') }}</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('admin.site_settings') }}" enctype="multipart/form-data" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-8" id="site-settings-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        {% for lang in site_langs %}
+        <input type="hidden" name="remove_logo_{{ lang }}" id="remove_logo_{{ lang }}" value="">
+        {% endfor %}
+
+        {% set lang_labels = {'uz': "O'zbek", 'ru': 'Русский', 'en': 'English'} %}
+        {% for lang in site_langs %}
+        <div class="space-y-4 border border-gray-100 rounded-xl p-6 bg-gray-50/50" id="lang-{{ lang }}">
+            <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">{{ lang|upper }}</span>
+                {{ lang_labels.get(lang, lang) }}
+            </h2>
+            {% set lang_data = data.get(lang, {}) %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t_lang('site_settings_institution_name', lang) }}</label>
+                    <input type="text" name="institution_name_{{ lang }}" value="{{ lang_data.institution_name or '' }}"
+                        placeholder="{{ t_lang('institution_name', lang) }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t_lang('site_settings_short_name', lang) }}</label>
+                    <input type="text" name="site_name_short_{{ lang }}" value="{{ lang_data.site_name_short or '' }}"
+                        placeholder="{{ t_lang('site_name_short', lang) }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <p class="text-xs text-gray-500 mt-1">{{ t_lang('site_settings_short_name_hint', lang) }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t_lang('site_settings_tagline', lang) }}</label>
+                    <input type="text" name="tagline_{{ lang }}" value="{{ lang_data.tagline or '' }}"
+                        placeholder="{{ t_lang('remote_education_platform', lang) }}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                </div>
+            </div>
+            <div class="pt-4 border-t border-gray-100">
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t_lang('site_settings_logo', lang) }} ({{ lang_labels.get(lang, lang) }})</label>
+                {% if lang_data.logo_path and lang_data.logo_filename %}
+                {% set logo_fn = lang_data.logo_filename %}
+                <div class="flex items-center gap-4 mb-3 flex-wrap">
+                    <div class="relative inline-flex">
+                        <img src="{{ url_for('admin.serve_site_upload', filename=logo_fn) }}" alt="Logo {{ lang }}" class="h-16 w-auto object-contain border border-gray-200 rounded-lg p-2 bg-gray-50 cursor-pointer hover:ring-2 hover:ring-primary-400 hover:ring-offset-1 transition-all" title="{{ t_lang('site_settings_current_logo', lang) }} – {{ t_lang('site_settings_click_to_enlarge', lang) }}" onclick="document.getElementById('logo-preview-img').src=this.src; document.getElementById('logo-preview-modal').classList.remove('hidden');">
+                        <button type="button" class="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center cursor-pointer shadow-md border-0 text-lg leading-none font-bold" title="{{ t_lang('site_settings_remove_logo', lang) }}" data-lang="{{ lang }}" onclick="event.stopPropagation(); var f=document.getElementById('site-settings-form'); if(f){ f['remove_logo_{{ lang }}'].value='1'; f.submit(); }">×</button>
+                    </div>
+                    <p class="text-sm text-gray-600">{{ t_lang('site_settings_current_logo', lang) }}</p>
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500 mb-3">{{ t_lang('site_settings_no_logo', lang) }}</p>
+                {% endif %}
+                <input type="file" name="logo_{{ lang }}" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,.png,.jpg,.jpeg,.gif,.webp,.svg"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">{{ t_lang('site_settings_logo_hint', lang) }}</p>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="flex gap-3 pt-4">
+            <button type="submit" class="px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                {{ t('save') }}
+            </button>
+        </div>
+    </form>
+</div>
+
+<div id="logo-preview-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onclick="if(!event.target.closest('#logo-preview-img') && !event.target.closest('#logo-preview-close')) document.getElementById('logo-preview-modal').classList.add('hidden');" role="dialog" aria-label="{{ t('site_settings_logo') }}">
+    <button type="button" id="logo-preview-close" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-gray-700 hover:text-gray-900 flex items-center justify-center shadow-lg hover:shadow-xl hover:ring-2 hover:ring-gray-300 hover:scale-110 transition-all duration-200 z-[60] text-xl font-bold" onclick="document.getElementById('logo-preview-modal').classList.add('hidden');" aria-label="{{ t('close') }}">×</button>
+    <div class="max-w-4xl max-h-[90vh] flex items-center justify-center">
+        <img id="logo-preview-img" src="" alt="" class="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-lg shadow-2xl bg-white p-4">
+    </div>
+</div>
+
+<script>
+(function() {
+    var hash = window.location.hash;
+    if (hash && /^#lang-(uz|ru|en)$/.test(hash)) {
+        var id = hash.slice(1);
+        var el = document.getElementById(id);
+        if (el) {
+            function scrollToBlock() {
+                el.scrollIntoView({ behavior: 'instant', block: 'start' });
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', scrollToBlock);
+            } else {
+                setTimeout(scrollToBlock, 0);
+            }
+        }
+    }
+})();
+</script>
+{% endblock %}

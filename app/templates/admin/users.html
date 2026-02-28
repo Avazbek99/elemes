@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('users') }}{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('users') }}</h1>
+        <p class="text-gray-600">{{ t('all_users_list') }}</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+        {% if current_role == 'student' or not current_role %}
+        <a href="{{ url_for('admin.import_students') }}" class="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            {{ t('import_from_excel') }}
+        </a>
+        <a href="{{ url_for('admin.export_students', faculty_id=request.args.get('faculty_id')) }}" class="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            {{ t('export_to_excel') }}
+        </a>
+        {% endif %}
+        <a href="{{ url_for('admin.create_user') }}" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+            {{ t('new_user') }}
+        </a>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="grid grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+        <p class="text-sm text-gray-500">{{ t('total') }}</p>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <p class="text-2xl font-bold text-red-600">{{ stats.admins }}</p>
+        <p class="text-sm text-gray-500">{{ t('admins') }}</p>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <p class="text-2xl font-bold text-amber-600">{{ stats.deans }}</p>
+        <p class="text-sm text-gray-500">{{ t('deans') }}</p>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <p class="text-2xl font-bold text-purple-600">{{ stats.teachers }}</p>
+        <p class="text-sm text-gray-500">{{ t('teachers') }}</p>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+        <p class="text-2xl font-bold text-blue-600">{{ stats.students }}</p>
+        <p class="text-sm text-gray-500">{{ t('students') }}</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+    <form method="GET" class="flex flex-wrap gap-4">
+        <div class="flex-1 min-w-[200px] relative search-input-wrap">
+            <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="{{ t('search_name_email') }}"
+                class="w-full px-4 py-2 pr-clear border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <button type="button" class="search-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+        </div>
+        <div class="w-48 relative filter-select-wrap">
+            <select name="role" id="role" class="w-full px-4 py-2 pr-8 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                <option value="">{{ t('all_roles') }}</option>
+                <option value="admin" {% if current_role == 'admin' %}selected{% endif %}>{{ t('administrator') }}</option>
+                <option value="dean" {% if current_role == 'dean' %}selected{% endif %}>{{ t('dean') }}</option>
+                <option value="teacher" {% if current_role == 'teacher' %}selected{% endif %}>{{ t('teacher') }}</option>
+                <option value="student" {% if current_role == 'student' %}selected{% endif %}>{{ t('student') }}</option>
+            </select>
+            <button type="button" class="filter-clear-btn" title="{{ t('clear') }}" aria-label="{{ t('clear') }}">×</button>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors">
+            {{ t('search') }}
+        </button>
+        {% if search or current_role %}
+        <a href="{{ url_for('admin.users') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors">
+            {{ t('clear') }}
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Users table -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+    {% if users.items %}
+    <table class="w-full min-w-[640px]">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('user') }}</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('role') }}</th>
+                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">{{ t('additional') }}</th>
+                <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase">{{ t('status') }}</th>
+                <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">{{ t('actions') }}</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for user in users.items %}
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br 
+                            {% if user.role == 'admin' %}from-red-400 to-red-600
+                            {% elif user.role == 'dean' %}from-amber-400 to-amber-600
+                            {% elif user.role == 'teacher' %}from-purple-400 to-purple-600
+                            {% else %}from-blue-400 to-blue-600{% endif %} 
+                            flex items-center justify-center text-white font-semibold">
+                            {{ user.full_name[0] }}
+                        </div>
+                        <div>
+                            <p class="font-medium text-gray-900">{{ user.full_name.upper() if user.full_name else '-' }}</p>
+                            <p class="text-sm text-gray-500">{{ user.email }}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                        {% if user.role == 'admin' %}bg-red-100 text-red-700
+                        {% elif user.role == 'dean' %}bg-amber-100 text-amber-700
+                        {% elif user.role == 'teacher' %}bg-purple-100 text-purple-700
+                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {{ user.get_role_display() }}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-600">
+                    {% if user.role == 'student' %}
+                        {% if user.group %}{{ user.group.name }}{% else %}-{% endif %}
+                    {% elif user.role == 'teacher' %}
+                        {{ user.department or '-' }}
+                    {% elif user.role == 'dean' and user.managed_faculty %}
+                        {{ user.managed_faculty.get_display_name(current_lang) or user.managed_faculty.name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-center">
+                    {% if user.is_active %}
+                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">{{ t('active') }}</span>
+                    {% else %}
+                    <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">{{ t('blocked') }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <div class="flex justify-end gap-2">
+                        {% if not user.is_superadmin or current_user.is_superadmin %}
+                        <a href="{{ url_for('admin.edit_user', id=user.id) }}" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="{{ t('edit') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </a>
+                        {% endif %}
+                        {% if user.id != current_user.id and (not user.is_superadmin or current_user.is_superadmin) %}
+                        <form action="{{ url_for('admin.toggle_user', id=user.id) }}" method="POST" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="p-2 {% if user.is_active %}text-amber-600 hover:bg-amber-50{% else %}text-green-600 hover:bg-green-50{% endif %} rounded-lg transition-colors" title="{% if user.is_active %}{{ t('block') }}{% else %}{{ t('activate') }}{% endif %}">
+                                {% if user.is_active %}
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                {% else %}
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                {% endif %}
+                            </button>
+                        </form>
+                        {% if not user.is_superadmin %}
+                        <form action="{{ url_for('admin.delete_user', id=user.id) }}" method="POST" class="inline" onsubmit="return confirm('Bu foydalanuvchini o\'chirmoqchimisiz?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="{{ t('delete') }}">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </form>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {% if users.pages > 1 %}
+    <div class="px-6 py-4 border-t border-gray-100 flex justify-center gap-2">
+        {% for page_num in users.iter_pages() %}
+            {% if page_num %}
+                <a href="{{ url_for('admin.users', page=page_num, role=current_role, search=search) }}" 
+                   class="px-3 py-1 rounded-lg {% if page_num == users.page %}bg-primary-600 text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">
+                    {{ page_num }}
+                </a>
+            {% else %}
+                <span class="px-2">...</span>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="p-12 text-center">
+        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ t('users_not_found') }}</h3>
+        <p class="text-gray-500">{{ t('search_result_empty') }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.focus();
+        searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+    }
+});
+</script>
+{% endblock %}

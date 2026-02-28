@@ -1,0 +1,803 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('add_lesson') }}{% endblock %}
+
+{% block content %}
+<span id="js-select-video-or-drop" class="hidden">{{ t('select_video_or_drop') }}</span>
+<span id="js-select-files-or-drop" class="hidden">{{ t('select_files_or_drop') }}</span>
+<span id="js-check" class="hidden">{{ t('check') }}</span>
+<span id="js-checking" class="hidden">{{ t('checking') }}</span>
+<span id="js-file_too_large" class="hidden">{{ t('file_too_large_200') }}</span>
+<span id="js-select_lesson_type" class="hidden">{{ t('select_lesson_type_please') }}</span>
+<span id="js-video_required" class="hidden">{{ t('video_required_for_lecture') }}</span>
+<span id="js-upload_topic_file" class="hidden">{{ t('upload_topic_file_please') }}</span>
+<span id="js-check_file_url" class="hidden">{{ t('check_file_url_please') }}</span>
+<span id="js-check_video_url" class="hidden">{{ t('check_video_url_please') }}</span>
+<span id="js-file_not_found" class="hidden">{{ t('file_not_found_upload') }}</span>
+<span id="js-error_try_again" class="hidden">{{ t('error_try_again') }}</span>
+<span id="js-please_enter_url" class="hidden">{{ t('please_enter_url') }}</span>
+<span id="js-video_url_playable" class="hidden">{{ t('video_url_playable') }}</span>
+<span id="js-video_url_not_playable" class="hidden">{{ t('video_url_not_playable') }}</span>
+<span id="js-video_url_check_error" class="hidden">{{ t('video_url_check_error') }}</span>
+<span id="js-selected_files_count" class="hidden">{{ t('selected_files_count', count='__COUNT__') }}</span>
+<div class="w-full mx-auto">
+    <div class="mb-6">
+        <a href="{% if direction_id and group_id %}{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id) }}{% elif direction_id %}{{ url_for('courses.detail', id=subject.id, dir_id=direction_id) }}{% else %}{{ url_for('courses.detail', id=subject.id) }}{% endif %}" class="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {{ t('back') }}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('create_lesson_title') }}</h1>
+        <p class="text-gray-500 mt-1">{{ t('add_lesson_to_subject', subject=subject.name) }}</p>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 1. Dars turi -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('lesson_type') }} *</label>
+                {% if allowed_lesson_types and allowed_lesson_types|length > 0 %}
+                <select name="lesson_type" id="lesson_type_select" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('lesson_type_select') }}</option>
+                    {% for lesson_type in allowed_lesson_types %}
+                    <option value="{{ lesson_type.value }}">{{ lesson_type.value|lesson_type_label }}</option>
+                    {% endfor %}
+                </select>
+                {% elif session.get('current_role', current_user.role) in ['admin', 'dean', 'edu_dept'] or current_user.is_superadmin %}
+                <select name="lesson_type" id="lesson_type_select_admin" required class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">{{ t('lesson_type_select') }}</option>
+                    <option value="maruza">{{ t('lesson_type_maruza') }}</option>
+                    <option value="amaliyot">{{ t('lesson_type_amaliyot') }}</option>
+                    <option value="laboratoriya">{{ t('lesson_type_laboratoriya') }}</option>
+                    <option value="seminar">{{ t('lesson_type_seminar') }}</option>
+                    <option value="kurs_ishi">{{ t('lesson_type_kurs_ishi') }}</option>
+                </select>
+                {% else %}
+                <select name="lesson_type" id="lesson_type_select_disabled" required disabled class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed">
+                    <option value="">{{ t('lesson_type_not_available') }}</option>
+                </select>
+                <p class="text-xs text-red-500 mt-1">{{ t('no_lesson_type_assigned') }}</p>
+                {% endif %}
+            </div>
+            
+            <!-- 2. Mavzu nomi -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('topic_name_label') }} *</label>
+                <input type="text" name="title" required placeholder="{{ t('topic_name_placeholder') }}" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('description') }}</label>
+                <textarea name="content" rows="6" placeholder="{{ t('lesson_content_placeholder') }}" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Video: checkbox orqali URL/fayl tanlash -->
+            <div class="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-100">
+                <div class="mb-4 flex items-center justify-between gap-4">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    {{ t('video_lesson') }}
+                    <span id="video_required_marker" class="text-red-600 text-sm hidden">*</span>
+                </h3>
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+                        <input type="checkbox" id="video_use_url_checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                        <span>{{ t('upload_via_url') }}</span>
+                    </label>
+                </div>
+
+                <div id="video_file_mode">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('video_upload_label') }}</label>
+                    <div class="border border-purple-300 rounded-xl bg-white px-3 py-1.5 hover:border-purple-400 transition-colors">
+                        <input type="file" name="video_file" id="video_file" accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                               class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-purple-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-purple-700 hover:file:bg-purple-200">
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">{{ t('video_formats') }}</p>
+                    </div>
+                    
+                <div id="video_url_mode" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('video_url_youtube') }}</label>
+                    <div id="video_url_preview_wrap" class="hidden mb-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                        <p class="text-xs text-gray-600">{{ t('video_url_preview') }}:</p>
+                        <a id="video_url_preview_link" href="#" target="_blank" rel="noopener noreferrer" class="text-sm text-blue-600 hover:underline break-all">{{ t('video_url_placeholder') }}</a>
+                                </div>
+                    <div class="flex gap-2">
+                        <input type="url" name="video_url" id="video_url" placeholder="{{ t('video_url_placeholder') }}"
+                               class="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" autocomplete="off">
+                        <button type="button" id="check_video_url_btn" onclick="checkVideoUrl()" class="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-xl transition-colors whitespace-nowrap">
+                            {{ t('check') }}
+                        </button>
+                    </div>
+                    <div id="video_url_status" class="mt-2"></div>
+                    <p class="mt-2 text-xs text-gray-500">{{ t('only_youtube_supported') }}</p>
+                </div>
+            </div>
+            
+            <!-- Mavzu fayli: checkbox orqali URL/fayl tanlash -->
+            <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+                <div class="mb-4 flex items-center justify-between gap-4">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    {{ t('topic_file') }}
+                    <span id="file_required_marker" class="text-red-600">*</span>
+                </h3>
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+                        <input type="checkbox" id="file_use_url_checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                        <span>{{ t('upload_via_url') }}</span>
+                    </label>
+                </div>
+
+                <div id="file_file_mode">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('file_upload_multiple') }}</label>
+                    <div class="border border-blue-300 rounded-xl bg-white px-3 py-1.5 hover:border-blue-400 transition-colors">
+                        <input type="file" name="lesson_files" id="lesson_files" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" multiple
+                               class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-200">
+                    </div>
+                    <div class="mt-2">
+                        <span id="lesson_files_count" class="hidden text-xs text-gray-500"></span>
+                        </div>
+                    <div id="selected_new_files_wrap" class="hidden mt-3 space-y-2">
+                        <div id="selected_new_files_list" class="space-y-2"></div>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">{{ t('file_formats_list') }}</p>
+                    </div>
+                    
+                <div id="file_url_mode" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">{{ t('file_url_cloud') }}</label>
+                    <div id="file_url_rows" class="space-y-3">
+                        <div data-file-url-row class="space-y-2">
+                            <div class="hidden p-2 bg-green-50 border border-green-200 rounded-lg" data-file-url-preview-wrap>
+                                <p class="text-xs text-gray-600">{{ t('file_url_preview') }}:</p>
+                                <a href="#" target="_blank" rel="noopener noreferrer" class="text-sm text-blue-600 hover:underline break-all" data-file-url-preview-link>{{ t('file_url_preview') }}</a>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="url" name="file_urls" value="" placeholder="{{ t('url_or_file_hint') }}"
+                                    class="file-url-input flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" autocomplete="off">
+                                <button type="button" onclick="checkFileUrl(this)"
+                                    class="file-url-check-btn px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors whitespace-nowrap">
+                                    {{ t('check') }}
+                                </button>
+                                <button type="button" onclick="removeFileUrlRow(this)" class="file-url-remove-btn hidden px-3 py-3 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-xl transition-colors whitespace-nowrap">✕</button>
+                                </div>
+                            <div class="mt-2" data-file-url-status></div>
+                        </div>
+                    </div>
+                    <button type="button" id="add_file_url_btn" onclick="addFileUrlRow()" class="mt-2 inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors">
+                        + {{ t('add_url') }}
+                    </button>
+                    <p class="mt-2 text-xs text-gray-500">{{ t('file_url_optional_hint') }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-span-full pt-4 border-t border-gray-100 flex w-full gap-3">
+                <button type="submit" class="flex-1 min-w-0 px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors font-medium">
+                    {{ t('save') }}
+                </button>
+                <a href="{% if direction_id and group_id %}{{ url_for('courses.detail', id=subject.id, dir_id=direction_id, group_id=group_id) }}{% elif direction_id %}{{ url_for('courses.detail', id=subject.id, dir_id=direction_id) }}{% else %}{{ url_for('courses.detail', id=subject.id) }}{% endif %}"
+                    class="flex-shrink-0 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+                    {{ t('cancel') }}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let videoUrlValidated = false;
+let lastCheckedVideoUrl = '';
+let fileUrlChecks = {};
+let fileUrlRowCounter = 0;
+
+// Dars turi o'zgarganda maruza uchun video majburiy qilish
+const lessonTypeSelect = document.getElementById('lesson_type_select') || 
+                         document.getElementById('lesson_type_select_admin') || 
+                         document.getElementById('lesson_type_select_disabled');
+if (lessonTypeSelect && !lessonTypeSelect.disabled) {
+    lessonTypeSelect.addEventListener('change', function() {
+        const lessonType = this.value;
+        const videoRequiredMarker = document.getElementById('video_required_marker');
+        const videoFileInput = document.getElementById('video_file');
+        const videoUrlInput = document.getElementById('video_url');
+        
+        if (lessonType === 'maruza') {
+            if (videoRequiredMarker) videoRequiredMarker.classList.remove('hidden');
+            if (videoFileInput) videoFileInput.setAttribute('data-required', 'true');
+            if (videoUrlInput) videoUrlInput.setAttribute('data-required', 'true');
+        } else {
+            if (videoRequiredMarker) videoRequiredMarker.classList.add('hidden');
+            if (videoFileInput) videoFileInput.removeAttribute('data-required');
+            if (videoUrlInput) videoUrlInput.removeAttribute('data-required');
+        }
+    });
+    
+    // Dastlabki holatni tekshirish
+    if (lessonTypeSelect.value === 'maruza') {
+        const videoRequiredMarker = document.getElementById('video_required_marker');
+        const videoFileInput = document.getElementById('video_file');
+        const videoUrlInput = document.getElementById('video_url');
+        if (videoRequiredMarker) videoRequiredMarker.classList.remove('hidden');
+        if (videoFileInput) videoFileInput.setAttribute('data-required', 'true');
+        if (videoUrlInput) videoUrlInput.setAttribute('data-required', 'true');
+    }
+}
+
+// Video manbasi: checkbox orqali fayl/url almashtirish
+function setupVideoSourceToggle() {
+    const checkbox = document.getElementById('video_use_url_checkbox');
+    const fileMode = document.getElementById('video_file_mode');
+    const urlMode = document.getElementById('video_url_mode');
+    const videoFile = document.getElementById('video_file');
+    const videoUrl = document.getElementById('video_url');
+    const statusDiv = document.getElementById('video_url_status');
+    const previewWrap = document.getElementById('video_url_preview_wrap');
+    const previewLink = document.getElementById('video_url_preview_link');
+    const msgTooLarge = (document.getElementById('js-file_too_large') || {}).textContent || 'Fayl hajmi 200 MB dan oshmasligi kerak!';
+
+    if (!checkbox || !fileMode || !urlMode || !videoFile || !videoUrl) return;
+
+    const resetVideoUrlCheck = () => {
+        videoUrlValidated = false;
+        lastCheckedVideoUrl = '';
+        if (statusDiv) statusDiv.innerHTML = '';
+        if (previewWrap) previewWrap.classList.add('hidden');
+        if (previewLink) {
+            previewLink.textContent = '';
+            previewLink.href = '#';
+        }
+    };
+
+    const applyVideoMode = () => {
+        if (checkbox.checked) {
+            fileMode.classList.add('hidden');
+            urlMode.classList.remove('hidden');
+            videoFile.value = '';
+        } else {
+            urlMode.classList.add('hidden');
+            fileMode.classList.remove('hidden');
+            videoUrl.value = '';
+            resetVideoUrlCheck();
+        }
+    };
+
+    checkbox.addEventListener('change', applyVideoMode);
+    videoUrl.addEventListener('input', function() {
+        if (this.value.trim() !== lastCheckedVideoUrl) {
+            videoUrlValidated = false;
+            if (statusDiv) statusDiv.innerHTML = '';
+            if (previewWrap) previewWrap.classList.add('hidden');
+            if (previewLink) {
+                previewLink.textContent = '';
+                previewLink.href = '#';
+            }
+        }
+    });
+    videoFile.addEventListener('change', function() {
+        var maxBytes = 209715200;  // 200 MB (200*1024*1024) - video fayl uchun
+        var fileSize = this.files && this.files[0] ? this.files[0].size : 0;
+        if (fileSize > maxBytes) {
+            alert(msgTooLarge);
+            this.value = '';
+        }
+    });
+
+    applyVideoMode();
+}
+
+// Video URL tekshirish funksiyasi
+async function checkVideoUrl() {
+    const videoUrlInput = document.getElementById('video_url');
+    const checkBtn = document.getElementById('check_video_url_btn');
+    const statusDiv = document.getElementById('video_url_status');
+    const previewWrap = document.getElementById('video_url_preview_wrap');
+    const previewLink = document.getElementById('video_url_preview_link');
+    const videoUrl = (videoUrlInput && videoUrlInput.value || '').trim();
+
+    const msgPleaseUrl = (document.getElementById('js-please_enter_url') || {}).textContent || 'Iltimos, URL kiriting!';
+    const msgChecking = (document.getElementById('js-checking') || {}).textContent || 'Tekshirilmoqda...';
+    const msgPlayable = (document.getElementById('js-video_url_playable') || {}).textContent || "Video ko'rishga yaroqli.";
+    const msgNotPlayable = (document.getElementById('js-video_url_not_playable') || {}).textContent || "Video ko'rishga yaroqsiz yoki topilmadi.";
+    const msgCheckError = (document.getElementById('js-video_url_check_error') || {}).textContent || "Video URL tekshirishda xatolik. Qayta urinib ko'ring.";
+    const csrfToken = (document.querySelector('meta[name=\"csrf-token\"]') || {}).content || '{{ csrf_token() }}';
+
+    if (!videoUrl) {
+        videoUrlValidated = false;
+        if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-red-500">' + msgPleaseUrl + '</p>';
+        if (previewWrap) previewWrap.classList.add('hidden');
+        return;
+    }
+
+    if (checkBtn) {
+        checkBtn.disabled = true;
+        checkBtn.textContent = msgChecking;
+    }
+    if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-blue-500">' + msgChecking + '</p>';
+
+    try {
+        const response = await fetch('{{ url_for("courses.check_video_url") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                url: videoUrl
+            })
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error('non-json-response');
+        }
+        const data = await response.json();
+
+        if (data.success && data.is_playable) {
+            videoUrlValidated = true;
+            lastCheckedVideoUrl = videoUrl;
+            if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-green-500">✓ ' + msgPlayable + '</p>';
+            if (previewWrap && previewLink) {
+                previewLink.href = data.watch_url || videoUrl;
+                previewLink.textContent = data.title || data.watch_url || videoUrl;
+                previewWrap.classList.remove('hidden');
+            }
+        } else if (data.success === false) {
+            videoUrlValidated = false;
+            const backendError = data.error ? String(data.error) : msgCheckError;
+            if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-red-500">⚠ ' + backendError + '</p>';
+            if (previewWrap) previewWrap.classList.add('hidden');
+        } else {
+            videoUrlValidated = false;
+            const reason = data && data.error ? String(data.error) : msgNotPlayable;
+            if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-amber-500">⚠ ' + reason + '</p>';
+            if (previewWrap) previewWrap.classList.add('hidden');
+        }
+    } catch (error) {
+        videoUrlValidated = false;
+        if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-red-500">⚠ ' + msgCheckError + '</p>';
+        if (previewWrap) previewWrap.classList.add('hidden');
+    } finally {
+        if (checkBtn) {
+            checkBtn.disabled = false;
+            checkBtn.textContent = (document.getElementById('js-check') || {}).textContent || 'Tekshirish';
+        }
+    }
+}
+
+// Mavzu fayli manbasi: checkbox orqali fayl/url almashtirish
+function getFileUrlRows() {
+    const wrap = document.getElementById('file_url_rows');
+    if (!wrap) return [];
+    return Array.from(wrap.querySelectorAll('[data-file-url-row]'));
+}
+
+function resetFileUrlRowUi(row) {
+    const statusDiv = row.querySelector('[data-file-url-status]');
+    const previewWrap = row.querySelector('[data-file-url-preview-wrap]');
+    const previewLink = row.querySelector('[data-file-url-preview-link]');
+    if (statusDiv) statusDiv.innerHTML = '';
+    if (previewWrap) previewWrap.classList.add('hidden');
+    if (previewLink) {
+        previewLink.href = '#';
+        previewLink.textContent = '{{ t("file_url_preview") }}';
+    }
+}
+
+function refreshFileUrlRemoveButtons() {
+    const rows = getFileUrlRows();
+    rows.forEach((row) => {
+        const removeBtn = row.querySelector('.file-url-remove-btn');
+        if (!removeBtn) return;
+        if (rows.length > 1) {
+            removeBtn.classList.remove('hidden');
+        } else {
+            removeBtn.classList.add('hidden');
+        }
+    });
+}
+
+function updateFileRequiredMarkerFromUrls() {
+    const fileRequiredMarker = document.getElementById('file_required_marker');
+    const checkbox = document.getElementById('file_use_url_checkbox');
+    if (!fileRequiredMarker || !checkbox || !checkbox.checked) {
+        if (fileRequiredMarker) fileRequiredMarker.classList.remove('hidden');
+        return;
+    }
+
+    const hasValidUrl = getFileUrlRows().some((row) => {
+        const input = row.querySelector('.file-url-input');
+        const rowId = row.dataset.rowId || '';
+        const state = fileUrlChecks[rowId];
+        const value = (input && input.value || '').trim();
+        return !!(value && state && state.validated && state.hasFile && state.checkedUrl === value);
+    });
+
+    if (hasValidUrl) {
+        fileRequiredMarker.classList.add('hidden');
+    } else {
+        fileRequiredMarker.classList.remove('hidden');
+    }
+}
+
+function initFileUrlRow(row) {
+    if (!row) return;
+    if (!row.dataset.rowId) {
+        fileUrlRowCounter += 1;
+        row.dataset.rowId = 'file-url-row-' + String(fileUrlRowCounter);
+    }
+
+    const input = row.querySelector('.file-url-input');
+    if (input && !input.dataset.boundInputListener) {
+        input.dataset.boundInputListener = '1';
+        input.addEventListener('input', function () {
+            const rowId = row.dataset.rowId || '';
+            fileUrlChecks[rowId] = { validated: false, hasFile: false, checkedUrl: '' };
+            resetFileUrlRowUi(row);
+            updateFileRequiredMarkerFromUrls();
+        });
+    }
+
+    const rowId = row.dataset.rowId || '';
+    if (!fileUrlChecks[rowId]) {
+        fileUrlChecks[rowId] = { validated: false, hasFile: false, checkedUrl: '' };
+    }
+    resetFileUrlRowUi(row);
+}
+
+function addFileUrlRow() {
+    const wrap = document.getElementById('file_url_rows');
+    const firstRow = wrap ? wrap.querySelector('[data-file-url-row]') : null;
+    if (!wrap || !firstRow) return;
+
+    const newRow = firstRow.cloneNode(true);
+    const input = newRow.querySelector('.file-url-input');
+    if (input) {
+        input.value = '';
+        input.removeAttribute('data-bound-input-listener');
+    }
+    newRow.removeAttribute('data-row-id');
+    wrap.appendChild(newRow);
+    initFileUrlRow(newRow);
+    refreshFileUrlRemoveButtons();
+}
+
+function removeFileUrlRow(button) {
+    const row = button ? button.closest('[data-file-url-row]') : null;
+    const rows = getFileUrlRows();
+    if (!row || rows.length <= 1) return;
+
+    const rowId = row.dataset.rowId || '';
+    if (rowId && fileUrlChecks[rowId]) delete fileUrlChecks[rowId];
+    row.remove();
+    refreshFileUrlRemoveButtons();
+    updateFileRequiredMarkerFromUrls();
+}
+
+function setupTopicFileSourceToggle() {
+    const checkbox = document.getElementById('file_use_url_checkbox');
+    const fileMode = document.getElementById('file_file_mode');
+    const urlMode = document.getElementById('file_url_mode');
+    const lessonFiles = document.getElementById('lesson_files');
+    if (!checkbox || !fileMode || !urlMode || !lessonFiles) return;
+
+    const applyTopicFileMode = () => {
+        if (checkbox.checked) {
+            fileMode.classList.add('hidden');
+            urlMode.classList.remove('hidden');
+            if (typeof lessonFiles._clearSelection === 'function') {
+                lessonFiles._clearSelection();
+            } else {
+                lessonFiles.value = '';
+            }
+    } else {
+            urlMode.classList.add('hidden');
+            fileMode.classList.remove('hidden');
+            getFileUrlRows().forEach((row, index) => {
+                const input = row.querySelector('.file-url-input');
+                if (index > 0) {
+                    row.remove();
+                    return;
+                }
+                if (input) input.value = '';
+                const rowId = row.dataset.rowId || '';
+                fileUrlChecks[rowId] = { validated: false, hasFile: false, checkedUrl: '' };
+                resetFileUrlRowUi(row);
+            });
+            refreshFileUrlRemoveButtons();
+        }
+        updateFileRequiredMarkerFromUrls();
+    };
+
+    getFileUrlRows().forEach(initFileUrlRow);
+    refreshFileUrlRemoveButtons();
+
+    checkbox.addEventListener('change', applyTopicFileMode);
+    applyTopicFileMode();
+}
+
+function setupLessonFilesPicker() {
+    const fileInput = document.getElementById('lesson_files');
+    const countEl = document.getElementById('lesson_files_count');
+    const listWrap = document.getElementById('selected_new_files_wrap');
+    const listEl = document.getElementById('selected_new_files_list');
+    if (!fileInput) return;
+    
+    let selectedFiles = [];
+
+    const renderCount = () => {
+        if (!countEl) return;
+        if (selectedFiles.length > 0) {
+            const template = (document.getElementById('js-selected_files_count') || {}).textContent || 'Selected files: __COUNT__';
+            countEl.textContent = template.replace('__COUNT__', String(selectedFiles.length));
+            countEl.classList.remove('hidden');
+        } else {
+            countEl.textContent = '';
+            countEl.classList.add('hidden');
+        }
+    };
+
+    const renderList = () => {
+        if (!listWrap || !listEl) return;
+        listEl.innerHTML = '';
+
+        if (selectedFiles.length === 0) {
+            listWrap.classList.add('hidden');
+            return;
+        }
+
+        selectedFiles.forEach((file, index) => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100';
+
+            const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            icon.setAttribute('class', 'w-4 h-4 text-blue-500 shrink-0');
+            icon.setAttribute('fill', 'none');
+            icon.setAttribute('stroke', 'currentColor');
+            icon.setAttribute('viewBox', '0 0 24 24');
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('d', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z');
+            icon.appendChild(path);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'text-xs text-blue-700 truncate font-medium flex-1';
+            nameSpan.textContent = file.name;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded';
+            removeBtn.textContent = '✕';
+            removeBtn.addEventListener('click', function () {
+                selectedFiles.splice(index, 1);
+                syncInput();
+            });
+
+            row.appendChild(icon);
+            row.appendChild(nameSpan);
+            row.appendChild(removeBtn);
+            listEl.appendChild(row);
+        });
+
+        listWrap.classList.remove('hidden');
+    };
+
+    const syncInput = () => {
+        try {
+            const dt = new DataTransfer();
+            selectedFiles.forEach(file => dt.items.add(file));
+            fileInput.files = dt.files;
+        } catch (e) {}
+        renderCount();
+        renderList();
+    };
+
+    const addIncomingFiles = (files) => {
+        const incoming = Array.from(files || []);
+        incoming.forEach(file => {
+            const key = `${file.name}_${file.size}_${file.lastModified}`;
+            const exists = selectedFiles.some(f => `${f.name}_${f.size}_${f.lastModified}` === key);
+            if (!exists) selectedFiles.push(file);
+        });
+        syncInput();
+    };
+
+    fileInput.addEventListener('change', function () {
+        addIncomingFiles(this.files);
+    });
+
+    fileInput._clearSelection = function () {
+        selectedFiles = [];
+        fileInput.value = '';
+        syncInput();
+    };
+
+    // Dastlabki holat
+    syncInput();
+}
+
+// Video va mavzu fayli checkbox toggle dastlabki sozlash
+document.addEventListener('DOMContentLoaded', function() {
+    setupVideoSourceToggle();
+    setupLessonFilesPicker();
+    setupTopicFileSourceToggle();
+});
+
+// Fayl URL tekshirish funksiyasi (har bir qator uchun)
+async function checkFileUrl(button) {
+    const row = button ? button.closest('[data-file-url-row]') : null;
+    if (!row) return;
+
+    const fileUrlInput = row.querySelector('.file-url-input');
+    const checkBtn = row.querySelector('.file-url-check-btn');
+    const statusDiv = row.querySelector('[data-file-url-status]');
+    const previewWrap = row.querySelector('[data-file-url-preview-wrap]');
+    const previewLink = row.querySelector('[data-file-url-preview-link]');
+    const rowId = row.dataset.rowId || '';
+    const fileUrl = (fileUrlInput && fileUrlInput.value || '').trim();
+    
+    const msgPleaseUrl = (document.getElementById('js-please_enter_url') || {}).textContent || "Iltimos, URL kiriting!";
+    const msgChecking = (document.getElementById('js-checking') || {}).textContent || "Tekshirilmoqda...";
+    const csrfToken = (document.querySelector('meta[name=\"csrf-token\"]') || {}).content || '{{ csrf_token() }}';
+
+    if (!fileUrl) {
+        if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-red-500">' + msgPleaseUrl + '</p>';
+        if (previewWrap) previewWrap.classList.add('hidden');
+        fileUrlChecks[rowId] = { validated: false, hasFile: false, checkedUrl: '' };
+        updateFileRequiredMarkerFromUrls();
+        return;
+    }
+    
+    if (checkBtn) {
+    checkBtn.disabled = true;
+    checkBtn.textContent = msgChecking;
+    }
+    if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-blue-500">' + msgChecking + '</p>';
+    
+    try {
+        const response = await fetch('{{ url_for("courses.check_file_url") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ url: fileUrl })
+        });
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw new Error('non-json-response');
+        }
+        const data = await response.json();
+        
+        if (data.success && data.has_file) {
+            fileUrlChecks[rowId] = { validated: true, hasFile: true, checkedUrl: fileUrl };
+            
+            if (data.is_google_drive) {
+                if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-green-500">✓ Google Drive/Sheets/Docs linki aniqlandi. Link mavjud deb hisoblanadi. Endi fayl yuklash ixtiyoriy bo\'ldi.</p>';
+            } else {
+                if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-green-500">✓ Fayl topildi! Endi fayl yuklash ixtiyoriy bo\'ldi.</p>';
+            }
+            
+            const lessonFilesInput = document.getElementById('lesson_files');
+            if (lessonFilesInput) {
+                lessonFilesInput.removeAttribute('required');
+            }
+            if (previewWrap && previewLink) {
+                previewLink.href = data.resolved_url || fileUrl;
+                previewLink.textContent = data.display_name || data.resolved_url || fileUrl;
+                previewWrap.classList.remove('hidden');
+            }
+        } else {
+            fileUrlChecks[rowId] = { validated: true, hasFile: false, checkedUrl: fileUrl };
+            
+            let errorMessage = '<p class="text-sm text-amber-500">⚠ Fayl topilmadi. Fayl yuklash majburiy bo\'ladi.</p>';
+            if (data.error) {
+                errorMessage = `<p class="text-sm text-red-500">⚠ Xatolik: ${data.error}</p>`;
+            }
+            if (statusDiv) statusDiv.innerHTML = errorMessage;
+            if (previewWrap) previewWrap.classList.add('hidden');
+        }
+    } catch (error) {
+        const errMsg = (document.getElementById('js-error_try_again') || {}).textContent || "Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.";
+        if (statusDiv) statusDiv.innerHTML = '<p class="text-sm text-red-500">' + errMsg + '</p>';
+        fileUrlChecks[rowId] = { validated: false, hasFile: false, checkedUrl: '' };
+        if (previewWrap) previewWrap.classList.add('hidden');
+    } finally {
+        if (checkBtn) {
+        checkBtn.disabled = false;
+        checkBtn.textContent = (document.getElementById('js-check') || {}).textContent || 'Tekshirish';
+        }
+        updateFileRequiredMarkerFromUrls();
+    }
+}
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const lessonTypeSelect = document.getElementById('lesson_type_select') || 
+                             document.getElementById('lesson_type_select_admin') || 
+                             document.getElementById('lesson_type_select_disabled');
+    if (!lessonTypeSelect || lessonTypeSelect.disabled || !lessonTypeSelect.value) {
+        e.preventDefault();
+        alert((document.getElementById('js-select_lesson_type') || {}).textContent || 'Iltimos, dars turini tanlang!');
+        if (lessonTypeSelect && !lessonTypeSelect.disabled) lessonTypeSelect.focus();
+        return false;
+    }
+    
+    const lessonType = lessonTypeSelect.value;
+    const videoFileInput = document.getElementById('video_file');
+    const videoUrlInput = document.getElementById('video_url');
+    const lessonFilesInput = document.getElementById('lesson_files');
+    
+    // Maruza uchun video majburiy
+    if (lessonType === 'maruza') {
+        const hasVideoFile = videoFileInput && videoFileInput.files && videoFileInput.files.length > 0;
+        const hasVideoUrl = videoUrlInput && videoUrlInput.value.trim() !== '';
+        
+        if (!hasVideoFile && !hasVideoUrl) {
+            e.preventDefault();
+            alert((document.getElementById('js-video_required') || {}).textContent || 'Maruza dars turi uchun video majburiy! Video fayl yuklang yoki video URL kiriting.');
+            if (videoFileInput) videoFileInput.focus();
+            return false;
+        }
+    }
+
+    const hasVideoUrl = videoUrlInput && videoUrlInput.value.trim() !== '';
+    if (hasVideoUrl && !videoUrlValidated) {
+        e.preventDefault();
+        alert((document.getElementById('js-check_video_url') || {}).textContent || 'Iltimos, video URL ni tekshirish tugmasini bosing!');
+        return false;
+    }
+    
+    // Fayl tekshiruvi
+    {% if current_user.role == 'teacher' or current_user.role == 'admin' %}
+    const hasLessonFiles = lessonFilesInput && lessonFilesInput.files && lessonFilesInput.files.length > 0;
+    const enteredUrlRows = getFileUrlRows().filter((row) => {
+        const input = row.querySelector('.file-url-input');
+        return !!((input && input.value || '').trim());
+    });
+    const hasFileUrl = enteredUrlRows.length > 0;
+    
+    if (!hasLessonFiles && !hasFileUrl) {
+        e.preventDefault();
+        alert((document.getElementById('js-upload_topic_file') || {}).textContent || 'Iltimos, mavzu faylini yuklang yoki fayl URL kiriting!');
+        return false;
+    }
+    
+    // Har bir URL tekshirilgan bo'lishi shart
+    const hasUncheckedUrl = enteredUrlRows.some((row) => {
+        const rowId = row.dataset.rowId || '';
+        const input = row.querySelector('.file-url-input');
+        const value = (input && input.value || '').trim();
+        const state = fileUrlChecks[rowId];
+        return !(state && state.validated && state.checkedUrl === value);
+    });
+    if (hasUncheckedUrl) {
+        e.preventDefault();
+        alert((document.getElementById('js-check_file_url') || {}).textContent || 'Iltimos, fayl URL ni tekshirish tugmasini bosing!');
+        return false;
+    }
+    
+    // URL'lar ichida kamida bittasi topilishi kerak (aks holda fayl yuklash majburiy)
+    const anyUrlHasFile = enteredUrlRows.some((row) => {
+        const rowId = row.dataset.rowId || '';
+        const state = fileUrlChecks[rowId];
+        const input = row.querySelector('.file-url-input');
+        const value = (input && input.value || '').trim();
+        return !!(state && state.validated && state.hasFile && state.checkedUrl === value);
+    });
+    if (hasFileUrl && !anyUrlHasFile && !hasLessonFiles) {
+        e.preventDefault();
+        alert((document.getElementById('js-file_not_found') || {}).textContent || 'Fayl URL da fayl topilmadi. Iltimos, fayl yuklang!');
+        return false;
+    }
+    {% endif %}
+    
+});
+</script>
+{% endblock %}
